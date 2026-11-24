@@ -2,7 +2,7 @@
 // Server zum PDF). Wer die Druckeinstellungen des Büros ändern darf, klickt in der Vorschau an, was er ändern will.
 // Die Vorschau entsteht auf dem Gerät aus den Daten, die schon da sind – sofort und auch ohne Netz.
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
-import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, platzhalter, schriftgroesse, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
+import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, schriftgroesse, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
 import type { Feld, ObjektModell, Wert } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { ausfuehren, sicht } from './abgleich';
@@ -39,6 +39,11 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   if (b.art === 'text') { const f = m.felder.find((x) => x.name === b.feld)!; return { titel: f.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: f.titel }, zeigen(b.id),
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] }; }
+  if (b.art === 'liste' && rest) { const f = modell(b.objekt).felder.find((x) => x.name === rest)!; return { titel: `${b.titel} – Spalte ${f.titel}`, felder: [
+    { name: 'titel', titel: 'Beschriftung der Spalte', art: 'text', stelle: `${stelle}.titel`, vorgabe: f.titel }, zeigen(stelle)] }; }
+  if (b.art === 'liste') return { titel: b.titel, felder: [
+    { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel }, zeigen(b.id),
+    { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] };
   return { titel: b.art === 'briefkopf' ? 'Briefkopf' : 'Angaben', felder: [zeigen(b.id)] };
 }
 
@@ -54,7 +59,9 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
     const z = sicht[a.objekt]?.[p.objekt];
     if (!z || z.geloescht) return null;
     const pid = m.projektFeld && m.projektFeld !== 'id' ? String(z.werte[m.projektFeld] ?? '') : '';
-    return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, projekt: pid ? verweisname('projekt', pid) : '', verweis: verweisname };
+    return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, projekt: pid ? verweisname('projekt', pid) : '', verweis: verweisname, modell,
+      kinder: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); if (b?.art !== 'liste') return [];
+        return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && Object.entries(b.filter ?? {}).every(([n, w]) => k.werte[n] === w)).sort(listenfolge).map((k) => ({ ...k.werte })); } };
   });
 
   // Die Vorschau lebt in einem abgeschirmten Kasten: Die Schrift des Ausdrucks und die der Oberfläche stören sich nicht.

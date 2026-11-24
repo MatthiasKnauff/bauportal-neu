@@ -3,10 +3,10 @@
 // nicht sehen darf, bekommt auch keinen Ausdruck davon.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Modulregister } from '../kern/modul';
-import { dateiname, druckSeite, type Druckdaten, type Einstellungen } from '../kern/druck';
+import { dateiname, druckSeite, listenfolge, type Druckdaten, type Einstellungen } from '../kern/druck';
 import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
-import { alsBenutzer, tabelle, type Db } from './db';
+import { alsBenutzer, spalte, tabelle, type Db } from './db';
 import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
@@ -29,12 +29,26 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
       const z = (await c.query(`select * from ${tabelle(ziel.name)} where id = $1`, [werte[f.name]])).rows[0];
       namen.set(`${ziel.name}:${werte[f.name]}`, String(z?.[ziel.anzeigeFeld] ?? ''));
     }
+    // Listen: die Einträge, die am Objekt hängen – gelesen als der Benutzer, in der Reihenfolge des Berichts
+    const kinder = new Map<string, Werte[]>();
+    for (const b of a.bloecke) if (b.art === 'liste') {
+      const k = register.modell(b.objekt)!;
+      const filter = Object.entries(b.filter ?? {});
+      const zeilen = (await c.query(`select * from ${tabelle(k.name)} where ${spalte(b.ueber)} = $1 and not geloescht${filter.map(([n], i) => ` and ${spalte(n)} = $${i + 2}`).join('')}`, [objektId, ...filter.map(([, w]) => w)])).rows
+        .map((z) => ({ id: z.id as string, werte: werteAus(k, z) })).sort(listenfolge);
+      kinder.set(b.id, zeilen.map((z) => z.werte));
+      for (const f of k.felder.filter((x) => x.art === 'verweis' && b.spalten.includes(x.name))) {
+        const ziel = register.modell(f.ziel!)!;
+        const ids = [...new Set(zeilen.map((z) => z.werte[f.name]).filter(Boolean))];
+        if (ids.length) for (const z of (await c.query(`select id, ${spalte(ziel.anzeigeFeld)} as name from ${tabelle(ziel.name)} where id = any($1)`, [ids])).rows) namen.set(`${ziel.name}:${z.id}`, String(z.name ?? ''));
+      }
+    }
     const projekt = m.projektFeld && m.projektFeld !== 'id' ? namen.get(`projekt:${werte[m.projektFeld]}`) ?? '' : '';
     const buero = werteAus(register.modell('buero')!, (await c.query('select * from o_buero where id = $1', [BUERO_ID])).rows[0]);
     const e: Einstellungen = {};
     // bei doppelten Einträgen (zwei Geräte ohne Netz) gilt überall derselbe: der mit der kleinsten Kennung
     for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
-    const d: Druckdaten = { werte, buero, projekt, verweis: (ziel, id) => namen.get(`${ziel}:${id}`) ?? '' };
+    const d: Druckdaten = { werte, buero, projekt, verweis: (ziel, id) => namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => kinder.get(id) ?? [], modell: (o) => register.modell(o)! };
     return { html: druckSeite(a, m, d, e), name: dateiname(a, m, d) };
   });
 }

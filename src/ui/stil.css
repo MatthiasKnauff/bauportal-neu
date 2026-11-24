@@ -114,6 +114,18 @@ main { flex: 1; min-height: 0; display: flex; }
 .update-kasten h3 { margin: 0 0 4px; font-size: 15px; }
 .update-kasten .reihe { margin-top: 10px; }
 .update-text { white-space: pre-wrap; font-size: 13px; max-height: 220px; overflow: auto; margin: 8px 0 0; }
+/* Unterliste: Einträge eines Objekts in dessen Karte */
+.unterliste ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.unterliste li { border: 1px solid var(--rand); border-radius: 9px; padding: 5px 6px; background: #fff; }
+.unterliste li.erledigt .unterliste-zeile input { text-decoration: line-through; color: var(--text-still); }
+.unterliste-zeile { display: flex; align-items: center; gap: 6px; }
+.unterliste-zeile input { flex: 1; min-width: 0; min-height: 30px; border: 0; background: transparent; padding: 0 4px; font: inherit; }
+.unterliste-zeile input:focus { outline: 2px solid var(--akzent); border-radius: 5px; }
+.unterliste-name { flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 4px; }
+.unterliste-neben { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; padding: 4px 2px 2px; }
+.unterliste-neben .feld label { font-size: 11px; }
+.unterliste-neu { width: 100%; min-height: 34px; padding: 0 10px; border: 1px dashed var(--rand-stark); border-radius: 9px; background: transparent; font: inherit; }
+.unterliste .anzahl { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--akzent-hell); color: var(--akzent); font-size: 11px; }
 /* KI: Knopf am Feld, Text und Vorschlag nebeneinander */
 .ki-knopf { margin-left: 8px; padding: 0 7px; border: 1px solid var(--rand-stark); border-radius: 999px; background: #fff; color: var(--akzent); font-size: 11px; font-weight: 600; cursor: pointer; }
 .ki-knopf:hover { background: var(--akzent-hell); }

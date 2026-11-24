@@ -411,20 +411,28 @@ test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man seh
     const [p, b] = [randomUUID(), randomUUID()];
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus <A> & Söhne' } });
     await tun(db, leitung, { objekt: 'buero', art: 'aendern', objektId: '00000000-0000-4000-8000-0000000b0e01', werte: { name: 'GK3', ort: 'Essen', plz: '45127' } });
-    await tun(db, leitung, { objekt: 'tagesbericht', art: 'anlegen', objektId: b, werte: { projekt: p, nummer: 7, datum: '2026-11-24', titel: 'Bodenplatte', wetter: 'regen', temperatur: 4.5, leistungen: 'Bewehrung verlegt\n<b>fett?</b>' } });
+    await tun(db, leitung, { objekt: 'tagesbericht', art: 'anlegen', objektId: b, werte: { projekt: p, nummer: 7, datum: '2026-11-24', uhrzeit: '09:30', titel: 'Bodenplatte', wetter: 'regen', temperatur: 4.5, bauleitung: leitung.id, aufgeraeumt: true } });
+    const firma = randomUUID();
+    await tun(db, leitung, { objekt: 'kontakt', art: 'anlegen', objektId: firma, werte: { name: 'Rohbau Schmitz GmbH' } });
+    const eintrag = (art: string, reihe: number, werte: Record<string, unknown>) => tun(db, leitung, { objekt: 'bericht_eintrag', art: 'anlegen', werte: { projekt: p, bericht: b, art, reihe, ...werte } as never });
+    await eintrag('mangel', 2, { text: 'Riss in der Sohle\n<b>fett?</b>', firma, frist: '2026-12-01' });
+    await eintrag('mangel', 1, { text: 'Abstandhalter fehlen', erledigt: true });
+    await eintrag('anwesend', 1, { firma, text: 'Bewehrung', personen: 4 });
     const A = 'bautagebuch.tagesbericht';
     let s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
     assert.equal(s.name, 'Tagesbericht 7 24.11.2026 Haus -A- & Söhne.pdf');
-    for (const t of ['<h1 data-stelle="titel.text">Tagesbericht Nr. 7</h1>', '24.11.2026 · Bodenplatte', '<dt>Wetter</dt><dd>Regen</dd>', '<dd>4,5</dd>', 'Haus &lt;A&gt; &amp; Söhne', '45127 Essen', '&lt;b&gt;fett?&lt;/b&gt;', 'GK3 · Tagesbericht Nr. 7 vom 24.11.2026', 'counter(pages)']) assert.ok(s.html.includes(t), t);
-    assert.ok(!s.html.includes('Mängel und Behinderungen'), 'leere Abschnitte fallen weg');
+    for (const t of ['<h1 data-stelle="titel.text">Tagesbericht Nr. 7</h1>', '24.11.2026 · Bodenplatte', '<dt>Wetter</dt><dd>Regen</dd>', '<dd>4,5</dd>', '<dt>Bauleitung</dt><dd>leitung</dd>', '<dt>Baustelle aufgeräumt</dt><dd>Ja</dd>', '<dt>Maßkontrolle</dt><dd>Nein</dd>',
+      'Haus &lt;A&gt; &amp; Söhne', '45127 Essen', '&lt;b&gt;fett?&lt;/b&gt;', 'GK3 · Tagesbericht Nr. 7 vom 24.11.2026', 'counter(pages)', '<h2>Mängel</h2>', '<h2>Anwesende</h2>', 'Rohbau Schmitz GmbH</td>', '01.12.2026', '>✓</td>']) assert.ok(s.html.includes(t), t);
+    assert.ok(s.html.indexOf('Abstandhalter fehlen') < s.html.indexOf('Riss in der Sohle'), 'Einträge stehen in der Reihenfolge des Berichts');
+    assert.ok(!s.html.includes('<h2>Weisungen</h2>'), 'leere Abschnitte fallen weg');
     // Das Büro stellt ein: andere Überschrift, Temperatur aus, Mängel auch leer zeigen, kleine Schrift
-    for (const [stelle, wert] of [['titel.text', 'Bautagesbericht {nummer}'], ['angaben.temperatur.aus', 'ja'], ['maengel.leer', 'ja'], ['angaben.wetter.titel', 'Witterung'], ['seite.schrift', 'klein']] as [string, string][]) {
+    for (const [stelle, wert] of [['titel.text', 'Bautagesbericht {nummer}'], ['angaben.temperatur.aus', 'ja'], ['weisung.leer', 'ja'], ['angaben.wetter.titel', 'Witterung'], ['mangel.frist.aus', 'ja'], ['mangel.text.titel', 'Mangel'], ['seite.schrift', 'klein']] as [string, string][]) {
       await tun(db, leitung, { objekt: 'druckeinstellung', art: 'anlegen', werte: { ausdruck: A, stelle, wert } });
     }
     await tun(db, leitung, { objekt: 'projekt_mitglied', art: 'anlegen', werte: { projekt: p, benutzer: mit.id } });
     s = await seiteBauen(db, register, als(mit, 'mitarbeiter'), A, b);
-    for (const t of ['>Bautagesbericht 7</h1>', '<dt>Witterung</dt>', 'Mängel und Behinderungen', 'font: 9pt']) assert.ok(s.html.includes(t), t);
-    assert.ok(!s.html.includes('Temperatur'));
+    for (const t of ['>Bautagesbericht 7</h1>', '<dt>Witterung</dt>', '<h2>Weisungen</h2>', '>Mangel</th>', 'font: 9pt']) assert.ok(s.html.includes(t), t);
+    assert.ok(!s.html.includes('Temperatur') && !s.html.includes('01.12.2026'), 'ausgeblendetes Feld und ausgeblendete Spalte fehlen');
     await assert.rejects(tun(db, mit, { objekt: 'druckeinstellung', art: 'anlegen', werte: { ausdruck: A, stelle: 'kopf.aus', wert: 'ja' } }), Ablehnung, 'das Layout des Büros ändert nur, wer es darf');
     await assert.rejects(seiteBauen(db, register, als(gast, 'gast'), A, b), Ablehnung, 'kein Mitglied des Projekts: kein Ausdruck');
   } finally { await weg(); }

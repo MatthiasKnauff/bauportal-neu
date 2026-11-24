@@ -9,7 +9,9 @@ export type Druckblock =
   | { id: string; art: 'briefkopf' }                                   // Büro links, Projekt rechts
   | { id: string; art: 'titel'; text: string; unter?: string }         // Überschrift; {feld} wird ersetzt
   | { id: string; art: 'felder'; felder: string[] }                    // Beschriftung + Wert, nebeneinander
-  | { id: string; art: 'text'; feld: string };                         // langer Text mit Überschrift, über mehrere Seiten
+  | { id: string; art: 'text'; feld: string }                          // langer Text mit Überschrift, über mehrere Seiten
+  // Tabelle der Einträge, die am Objekt hängen (z. B. die Mängel eines Berichts): objekt.ueber verweist auf das gedruckte Objekt
+  | { id: string; art: 'liste'; objekt: string; ueber: string; filter?: Werte; titel: string; spalten: string[] };
 
 export interface Ausdruck {
   id: string;              // eindeutig, z. B. "bautagebuch.tagesbericht"
@@ -20,6 +22,10 @@ export interface Ausdruck {
   bloecke: Druckblock[];
 }
 
+/** Reihenfolge der Einträge einer Liste: wie eingetragen (Feld „reihe“, wenn das Objekt eins hat) – im Browser und auf dem Server gleich. */
+export const listenfolge = (a: { id: string; werte: Werte }, b: { id: string; werte: Werte }): number =>
+  (Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0)) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
 /** Die Einstellungen eines Ausdrucks: Stelle -> Wert. Stellen: „seite.schrift“, „titel.text“, „<block>.aus“, „<block>.<feld>.titel“ … */
 export type Einstellungen = Record<string, string>;
 export interface Druckdaten {
@@ -27,6 +33,8 @@ export interface Druckdaten {
   buero: Werte;
   projekt: string;                                 // Name des Projekts, '' wenn es keins gibt
   verweis: (ziel: string, id: string) => string;   // Anzeigename eines verwiesenen Objekts
+  kinder: (blockId: string) => Werte[];            // die Einträge eines Listen-Blocks, in der Reihenfolge des Ausdrucks
+  modell: (objekt: string) => ObjektModell;        // Modell der Einträge
 }
 export const SCHRIFT: Record<string, { titel: string; pt: number }> = { klein: { titel: 'klein', pt: 9 }, normal: { titel: 'normal', pt: 10.5 }, gross: { titel: 'groß', pt: 12 } };
 /** Seitenränder in mm – in der Vorschau der Rand des Blatts, im PDF der Rand der Seite. */
@@ -75,6 +83,13 @@ export const CSS = (schrift: number) => `
   .textblock { margin-bottom: 5mm; }
   .textblock h2 { font-size: 1.05em; margin: 0 0 1mm; break-after: avoid; }
   .textblock p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .liste { margin-bottom: 5mm; }
+  .liste h2 { font-size: 1.05em; margin: 0 0 1mm; break-after: avoid; }
+  .liste table { width: 100%; border-collapse: collapse; }
+  .liste th { text-align: left; font-weight: 400; color: #444; font-size: .9em; border-bottom: .3mm solid #111; padding: .8mm 2mm .8mm 0; }
+  .liste td { vertical-align: top; border-bottom: .2mm solid #ccc; padding: 1.2mm 2mm 1.2mm 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .liste tr { break-inside: avoid; }
+  .liste .schmal { width: 1%; white-space: nowrap; }
   .fuss { color: #444; font-size: .85em; }
 `;
 
@@ -98,7 +113,20 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       return huelle(b.id, 'titelblock', `<h1 data-stelle="${b.id}.text">${sicher(einsetzen(e[`${b.id}.text`] || b.text, m, d))}</h1>${unter || bearbeiten ? `<div class="unter" data-stelle="${b.id}.unter">${sicher(unter) || '&nbsp;'}</div>` : ''}`);
     }
     if (b.art === 'felder') {
-      return huelle(b.id, 'felder', b.felder.map((n) => huelle(`${b.id}.${n}`, 'zeile', `<dt>${sicher(e[`${b.id}.${n}.titel`] || feld(n).titel)}</dt><dd>${sicher(feldtext(feld(n), d.werte[n], d.verweis)) || '–'}</dd>`)).join(''), 'dl');
+      // Angaben ohne Wert stehen nicht im Ausdruck (in der Vorschau zum Einstellen bleiben sie sichtbar)
+      const mitWert = (n: string) => bearbeiten || feld(n).art === 'ja_nein' || feldtext(feld(n), d.werte[n], d.verweis) !== '';
+      return huelle(b.id, 'felder', b.felder.filter(mitWert).map((n) => huelle(`${b.id}.${n}`, 'zeile', `<dt>${sicher(e[`${b.id}.${n}.titel`] || feld(n).titel)}</dt><dd>${sicher(feld(n).art === 'ja_nein' ? (d.werte[n] ? 'Ja' : 'Nein') : feldtext(feld(n), d.werte[n], d.verweis)) || '–'}</dd>`)).join(''), 'dl');
+    }
+    if (b.art === 'liste') {
+      const k = d.modell(b.objekt);
+      const zeilen = d.kinder(b.id);
+      if (!zeilen.length && !bearbeiten && e[`${b.id}.leer`] !== 'ja') return '';
+      const spalten = b.spalten.map((n) => k.felder.find((f) => f.name === n)!).filter((f) => bearbeiten || !aus(`${b.id}.${f.name}`));
+      // schmale Spalten: alles außer langen Texten und Verweisen
+      const schmal = (f: Feld) => (f.art === 'langtext' || f.art === 'text' || f.art === 'verweis' ? '' : ' schmal');
+      const kopf = spalten.map((f) => `<th class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}" data-stelle="${b.id}.${f.name}">${sicher(e[`${b.id}.${f.name}.titel`] || f.titel)}</th>`).join('');
+      const rumpf = zeilen.map((z) => `<tr>${spalten.map((f) => `<td class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}">${sicher(f.art === 'ja_nein' ? (z[f.name] ? '✓' : '') : feldtext(f, z[f.name], d.verweis))}</td>`).join('')}</tr>`).join('');
+      return huelle(b.id, `liste${zeilen.length ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2><table><thead><tr>${kopf}</tr></thead><tbody>${rumpf || `<tr><td colspan="${spalten.length}">–</td></tr>`}</tbody></table>`);
     }
     const text = String(d.werte[b.feld] ?? '');
     if (!text && !bearbeiten && e[`${b.id}.leer`] !== 'ja') return '';   // leere Abschnitte fallen weg, wenn nicht anders eingestellt

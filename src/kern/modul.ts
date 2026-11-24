@@ -1,7 +1,7 @@
 // Modulgerüst: Jedes Modul bringt einen Beipackzettel mit.
 // Der Kern liest daraus, welche Objekte es gibt und was das Modul braucht.
 
-import { pruefeModell, type ObjektModell } from './modell';
+import { pruefeModell, type ObjektModell, type Werte } from './modell';
 import type { Ausdruck } from './druck';
 
 export interface Beipackzettel {
@@ -30,6 +30,7 @@ export interface Ansicht {
   objekt?: string;            // Liste dieses Objekts; ohne Angabe bringt die Oberfläche eine eigene Ansicht mit
   baum?: string[];            // Felder, nach denen der Baum links gliedert
   brauchtProjekt?: boolean;   // zeigt nur die Einträge des oben gewählten Projekts
+  filter?: Werte;             // zeigt nur Einträge mit diesen Werten (z. B. nur die Mängel); neue Einträge bekommen sie
   nurAdmin?: boolean;
 }
 
@@ -56,6 +57,10 @@ export class Modulregister {
       if (!m) throw new Error(`Ausdruck „${a.id}“: Objekt „${a.objekt}“ fehlt`);
       for (const n of a.bloecke.flatMap((b) => (b.art === 'felder' ? b.felder : b.art === 'text' ? [b.feld] : []))) {
         if (!m.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Feld „${n}“ fehlt`);
+      }
+      for (const b of a.bloecke) if (b.art === 'liste') {
+        const k = this.modelle.get(b.objekt);
+        for (const n of [b.ueber, ...b.spalten, ...Object.keys(b.filter ?? {})]) if (!k?.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Liste „${b.id}“ – Feld „${b.objekt}.${n}“ fehlt`);
       }
     }
   }

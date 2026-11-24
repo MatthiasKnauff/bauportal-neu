@@ -5,7 +5,7 @@ import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
 import { ausfuehren, sicht } from './abgleich';
-import { ausdrucke, darf, istAdmin, modell, neueKennung, ruf, zustand } from './api';
+import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { Versionsleiste } from './baukasten/versionsleiste';
 import type { Versionsweg } from '../kern/modul';
@@ -22,6 +22,7 @@ import { assistentStarten, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
 import { Updates } from './updates';
 import { KiEinrichten } from './baukasten/ki';
+import { Unterliste } from './baukasten/unterliste';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -101,6 +102,26 @@ function Beteiligte(p: { projekt: Zeile }) {
           <Auswahlliste titel="Kontakt hinzufügen" platzhalter="+ Kontakt hinzufügen …" optionen={frei()} wert={null} onWert={dazu} />
         </Show>
       </fieldset>
+    </Show>
+  );
+}
+
+// ---------- Bautagebuch: was im Bericht steht – Anwesende, Notizen, Mängel, Aufgaben, Weisungen ----------
+function Berichtslisten(p: { bericht: Zeile }) {
+  const fest = (art: string) => ({ projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id, art });
+  // Firmen zur Auswahl: zuerst die Beteiligten des Projekts, dann alle übrigen Kontakte
+  const firmen = () => {
+    const beteiligt = new Set(lebende('projekt_kontakt').filter((e) => e.werte.projekt === p.bericht.werte.projekt).map((e) => e.werte.kontakt));
+    return lebende('kontakt').map((k) => ({ wert: k.id, titel: [k.werte.name, k.werte.gewerk].filter(Boolean).join(' – '), vorn: beteiligt.has(k.id) }))
+      .sort((a, b) => Number(b.vorn) - Number(a.vorn) || a.titel.localeCompare(b.titel, 'de'));
+  };
+  return (
+    <Show when={darf('bericht_eintrag', 'lesen')}>
+      <Unterliste titel="Anwesende" objekt="bericht_eintrag" fest={fest('anwesend')} haupt="text" neben={['personen']} neuUeber="firma" angebot={firmen} platzhalter="+ Firma hinzufügen …" />
+      <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" />
+      <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" />
+      <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben und Enter" />
+      <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" />
     </Show>
   );
 }
@@ -247,8 +268,9 @@ const ANPASSUNG: Record<string, Anpassung> = {
     knoepfe: (z) => (darf('bauteil', 'schreiben') ? [{ titel: 'Assistent', symbol: '✦', tun: () => assistentStarten(String(z.projekt), String(z.version)) }, { titel: 'IFC einlesen', symbol: '⇪', tun: () => ifcEinlesen(String(z.projekt), String(z.version)) }] : []),
   } satisfies Anpassung])),
   tagesbericht: {
-    // nächste Nummer im Projekt, heutiges Datum
-    neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv') }),
+    // nächste Nummer im Projekt, heutiges Datum und Uhrzeit, Bauleitung: wer den Bericht anlegt
+    neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv'), uhrzeit: new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' }), bauleitung: ich().id }),
+    kartenZusatz: (z) => <Berichtslisten bericht={z} />,
   },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
   benutzer: {
@@ -303,7 +325,7 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
       <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={leiste()}
         inhalt={leer(`„${bereich!.titel}“ gibt es für dieses Projekt noch nicht.${darf('version', 'schreiben') ? ' Mit „+ Neue Version“ legst du die erste Version an.' : ''}`)} />}>
         <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} anpassung={anpassung(m.name)} unterMenue={bereich ? leiste() : undefined}
-          fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}) })} />
+          fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}), ...p.ansicht.filter })} />
       </Show>
     </Show>
   );
@@ -313,5 +335,5 @@ export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   const eigene = EIGENE[`${p.modul.id}.${p.ansicht.id}`];
   if (eigene) return eigene();
   if (p.ansicht.brauchtProjekt) return <ProjektAnsicht modul={p.modul} ansicht={p.ansicht} />;
-  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} anpassung={anpassung(p.ansicht.objekt!)} />;
+  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} anpassung={anpassung(p.ansicht.objekt!)} fest={p.ansicht.filter ? () => p.ansicht.filter! : undefined} />;
 }

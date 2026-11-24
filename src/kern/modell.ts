@@ -19,6 +19,7 @@ export interface Feld {
   ziel?: string;           // nur bei art = verweis: Name des Objekts, auf das verwiesen wird
   eindeutig?: boolean;     // Wert darf nur einmal vorkommen
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)
+  verborgen?: boolean;     // führt das Programm selbst (z. B. die Reihenfolge) – steht in keiner Karte
 }
 
 export type Rechtart = 'lesen' | 'schreiben' | 'loeschen';
