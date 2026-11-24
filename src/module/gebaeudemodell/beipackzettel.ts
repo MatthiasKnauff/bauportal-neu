@@ -70,6 +70,7 @@ export const bauteil: ObjektModell = {
       { wert: 'treppe', titel: 'Treppe' }, { wert: 'sonstiges', titel: 'Sonstiges' },
     ] },
     { name: 'geschoss', titel: 'Geschoss', art: 'verweis', ziel: 'geschoss', inListe: true, breite: 130, gruppe: 'Bauteil' },
+    { name: 'gewerk', titel: 'Gewerk', art: 'text', gruppe: 'Bauteil' },
     { name: 'lage', titel: 'Lage', art: 'auswahl', inListe: true, breite: 100, gruppe: 'Bauteil', optionen: [{ wert: '', titel: 'offen' }, { wert: 'aussen', titel: 'außen' }, { wert: 'innen', titel: 'innen' }] },
     { name: 'menge', titel: 'Menge', art: 'zahl', inListe: true, breite: 100, gruppe: 'Menge' },
     { name: 'einheit', titel: 'Einheit', art: 'auswahl', inListe: true, breite: 90, gruppe: 'Menge', optionen: [{ wert: 'm2', titel: 'm²' }, { wert: 'm', titel: 'm' }, { wert: 'stk', titel: 'Stück' }, { wert: 'm3', titel: 'm³' }] },

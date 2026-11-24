@@ -15,12 +15,14 @@ interface Gelesen {
   gebaeude: { kennung: string; name: string }[];
   geschosse: { kennung: string; name: string; ebene: number; hoehe: number | null; gebaeude: string | null }[];
   raeume: { kennung: string; nummer: string; name: string; nutzung: string; flaeche: number | null; hoehe: number | null; geschoss: string | null }[];
-  bauteile: { kennung: string; art: string; name: string; geschoss: string | null; lage: string; menge: number | null; einheit: string; abmessung: string; aufbau: string }[];
+  bauteile: { kennung: string; art: string; name: string; geschoss: string | null; lage: string; menge: number | null; einheit: string; abmessung: string; aufbau: string; gewerk?: string }[];
   uebersprungen: Record<string, number>;
   flaechen_aus_geometrie: number;
+  lage_aus_geometrie?: number;
+  teile_in_oeffnungen?: number;
 }
 type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
-export interface Vorschau { token: string; schema: string; je: Record<string, Zahl>; uebersprungen: Record<string, number>; flaechenAusGeometrie: number; ohneGeschoss: number; befehle: number }
+export interface Vorschau { token: string; schema: string; je: Record<string, Zahl>; uebersprungen: Record<string, number>; flaechenAusGeometrie: number; lageAusGeometrie: number; teileInOeffnungen: number; ohneGeschoss: number; befehle: number }
 
 const plaene = new Map<string, { wer: string; befehle: Befehl[]; bis: number }>();
 
@@ -91,8 +93,8 @@ export async function planen(db: Db, register: Modulregister, wer: Benutzer, pro
     const mitGeschoss = d.raeume.filter((r) => r.geschoss && ort.geschoss!.has(r.geschoss));
     await abgleichen('raum', mitGeschoss.map((r) => ({ kennung: r.kennung, werte: { nummer: r.nummer, name: r.name, nutzung: r.nutzung, flaeche: r.flaeche, hoehe: r.hoehe, geschoss: ort.geschoss!.get(r.geschoss!)! } })));
     await abgleichen('bauteil', d.bauteile.map((b) => ({ kennung: b.kennung, werte: {
-      name: b.name, art: b.art, lage: b.lage, menge: b.menge, einheit: b.einheit, abmessung: b.abmessung, aufbau: b.aufbau, geschoss: (b.geschoss && ort.geschoss!.get(b.geschoss)) || null } })));
-    return { schema: d.schema, je, uebersprungen: d.uebersprungen, flaechenAusGeometrie: d.flaechen_aus_geometrie, ohneGeschoss: d.raeume.length - mitGeschoss.length, befehle: liste.length, liste };
+      name: b.name, art: b.art, lage: b.lage, menge: b.menge, einheit: b.einheit, abmessung: b.abmessung, aufbau: b.aufbau, gewerk: b.gewerk ?? '', geschoss: (b.geschoss && ort.geschoss!.get(b.geschoss)) || null } })));
+    return { schema: d.schema, je, uebersprungen: d.uebersprungen, flaechenAusGeometrie: d.flaechen_aus_geometrie, lageAusGeometrie: d.lage_aus_geometrie ?? 0, teileInOeffnungen: d.teile_in_oeffnungen ?? 0, ohneGeschoss: d.raeume.length - mitGeschoss.length, befehle: liste.length, liste };
   });
 }
 

@@ -6,7 +6,7 @@ import { Dialog } from './baukasten/dialog';
 import { hinweis } from './baukasten/hinweise';
 
 type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
-interface Vorschau { token: string; schema: string; je: Record<string, Zahl>; uebersprungen: Record<string, number>; flaechenAusGeometrie: number; ohneGeschoss: number; befehle: number }
+interface Vorschau { token: string; schema: string; je: Record<string, Zahl>; uebersprungen: Record<string, number>; flaechenAusGeometrie: number; lageAusGeometrie: number; teileInOeffnungen: number; ohneGeschoss: number; befehle: number }
 const TITEL: Record<string, string> = { gebaeude: 'Gebäude', geschoss: 'Geschosse', raum: 'Räume', bauteil: 'Bauteile' };
 
 const [lage, setLage] = createSignal<{ art: 'liest'; name: string } | { art: 'vorschau'; name: string; v: Vorschau } | { art: 'uebernimmt'; name: string } | { art: 'fehler'; name: string; text: string } | null>(null);
@@ -53,6 +53,8 @@ export function IfcFenster() {
               <Show when={!v.befehle}><li>Der Plan stimmt mit dem Gebäudemodell überein – es gibt nichts zu übernehmen.</li></Show>
               <Show when={behalten}><li>{behalten} {behalten === 1 ? 'Eintrag hat' : 'Einträge haben'} von Hand geänderte Werte, die vom Plan abweichen. Sie bleiben, wie du sie eingetragen hast.</li></Show>
               <Show when={v.flaechenAusGeometrie}><li>Bei {v.flaechenAusGeometrie} Bauteilen stand keine Menge in der Datei – die Fläche ist aus der Geometrie gerechnet.</li></Show>
+              <Show when={v.lageAusGeometrie}><li>Bei {v.lageAusGeometrie} Wänden stand nicht in der Datei, ob sie außen oder innen liegen – das ist aus dem Grundriss ermittelt.</li></Show>
+              <Show when={v.teileInOeffnungen}><li>Fenster und Türen sind aus den Wandöffnungen gelesen; ihre {v.teileInOeffnungen} Einzelteile (Rahmen, Flügel, Glas) zählen nicht als eigene Bauteile.</li></Show>
               <Show when={v.ohneGeschoss}><li>{v.ohneGeschoss} Räume ohne Geschoss im Plan wurden ausgelassen.</li></Show>
               <Show when={Object.keys(v.uebersprungen).length}><li>Nicht ins Modell übernommen: {Object.entries(v.uebersprungen).map(([k, n]) => `${n} × ${k.replace(/^Ifc/, '')}`).join(', ')}.</li></Show>
               <li>Alles, was übernommen wird, trägt die Marke „aus IFC“. Format der Datei: {v.schema}.</li>
