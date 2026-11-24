@@ -126,6 +126,14 @@ main { flex: 1; min-height: 0; display: flex; }
 .unterliste-neben .feld label { font-size: 11px; }
 .unterliste-neu { width: 100%; min-height: 34px; padding: 0 10px; border: 1px dashed var(--rand-stark); border-radius: 9px; background: transparent; font: inherit; }
 .unterliste .anzahl { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--akzent-hell); color: var(--akzent); font-size: 11px; }
+/* Bilder eines Objekts in dessen Karte */
+.bilder-raster { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.bilder-raster:empty { display: none; }
+.bilder-raster figure { margin: 0; border: 1px solid var(--rand); border-radius: 9px; overflow: hidden; background: #fff; }
+.bilder-raster img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #f1f1ed; }
+.bilder-raster figcaption { display: flex; align-items: center; gap: 4px; padding: 2px 4px; }
+.bilder-raster figcaption input { flex: 1; min-width: 0; min-height: 28px; border: 0; background: transparent; padding: 0 4px; font: inherit; font-size: 13px; }
+.bilder .anzahl { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--akzent-hell); color: var(--akzent); font-size: 11px; }
 /* KI: Knopf am Feld, Text und Vorschlag nebeneinander */
 .ki-knopf { margin-left: 8px; padding: 0 7px; border: 1px solid var(--rand-stark); border-radius: 999px; background: #fff; color: var(--akzent); font-size: 11px; font-weight: 600; cursor: pointer; }
 .ki-knopf:hover { background: var(--akzent-hell); }

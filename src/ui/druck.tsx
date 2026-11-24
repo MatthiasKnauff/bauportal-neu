@@ -41,6 +41,9 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] }; }
   if (b.art === 'liste' && rest) { const f = modell(b.objekt).felder.find((x) => x.name === rest)!; return { titel: `${b.titel} – Spalte ${f.titel}`, felder: [
     { name: 'titel', titel: 'Beschriftung der Spalte', art: 'text', stelle: `${stelle}.titel`, vorgabe: f.titel }, zeigen(stelle)] }; }
+  if (b.art === 'bilder') return { titel: b.titel, felder: [
+    { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel },
+    { name: 'spalten', titel: 'Bilder je Zeile', art: 'auswahl', optionen: [{ wert: '2', titel: 'zwei nebeneinander' }, { wert: '1', titel: 'eins, groß' }], stelle: `${b.id}.spalten`, vorgabe: '2' }, zeigen(b.id)] };
   if (b.art === 'liste') return { titel: b.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel }, zeigen(b.id),
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] };
@@ -60,8 +63,9 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
     if (!z || z.geloescht) return null;
     const pid = m.projektFeld && m.projektFeld !== 'id' ? String(z.werte[m.projektFeld] ?? '') : '';
     return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, projekt: pid ? verweisname('projekt', pid) : '', verweis: verweisname, modell,
-      kinder: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); if (b?.art !== 'liste') return [];
-        return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && Object.entries(b.filter ?? {}).every(([n, w]) => k.werte[n] === w)).sort(listenfolge).map((k) => ({ ...k.werte })); } };
+      kinder: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder') return [];
+        return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && Object.entries(b.art === 'liste' ? b.filter ?? {} : {}).every(([n, w]) => k.werte[n] === w)).sort(listenfolge).map((k) => ({ id: k.id, werte: { ...k.werte } })); },
+      bild: (id) => `/api/foto/vorschau/${id}` };
   });
 
   // Die Vorschau lebt in einem abgeschirmten Kasten: Die Schrift des Ausdrucks und die der Oberfläche stören sich nicht.

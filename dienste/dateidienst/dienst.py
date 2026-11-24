@@ -1,9 +1,11 @@
 """Dateidienst des Bauportals.
 
-Liest die Ablage auf dem Dateiserver über SMB. Der Dienst merkt sich nichts: Das Bauportal schickt bei jedem
+Liest die Ablage auf dem Dateiserver über SMB und legt neue Dateien dort ab (nie über eine vorhandene). Der Dienst merkt sich nichts: Das Bauportal schickt bei jedem
 Aufruf die Zugangsdaten mit (dort liegen sie verschlüsselt) und einen Pfad innerhalb der Freigabe.
 Erreichbar ist der Dienst nur im Docker-Netz und nur mit dem gemeinsamen Schlüssel.
 """
+import base64
+import binascii
 import datetime
 import os
 import re
@@ -29,6 +31,12 @@ class Zugang(BaseModel):
 class Anfrage(BaseModel):
     zugang: Zugang
     pfad: str = ""
+
+
+class Ablegen(Anfrage):
+    """pfad = Ordner innerhalb der Freigabe, name = Dateiname, inhalt = Datei als Base64."""
+    name: str
+    inhalt: str
 
 
 class Fehler(Exception):
@@ -150,3 +158,46 @@ def datei(a: Anfrage, x_schluessel: str | None = Header(default=None)):
 
     return StreamingResponse(stuecke(), media_type="application/octet-stream",
                              headers={"Content-Length": str(s.st_size), "X-Geaendert": _zeit(s.st_mtime)})
+
+
+@app.post("/schreiben")
+def schreiben(a: Ablegen, x_schluessel: str | None = Header(default=None)):
+    """Legt eine neue Datei ab. Fehlende Ordner entstehen; eine vorhandene Datei wird nie überschrieben –
+    gibt es den Namen schon, bekommt die neue Datei „ (2)“, „ (3)“ … angehängt."""
+    _pruefe(x_schluessel)
+    try:
+        daten = base64.b64decode(a.inhalt, validate=True)
+    except (binascii.Error, ValueError):
+        raise Fehler("Der Inhalt der Datei ist nicht lesbar") from None
+    if "/" in a.name or "\\" in a.name:
+        raise Fehler("Ungültiger Dateiname")
+    try:
+        _, port, wurzel = _ziel(a.zugang)
+        ordner = _pfad(wurzel, a.pfad)
+        _pfad(ordner, a.name)   # prüft den Namen
+        # Ordner Stufe für Stufe anlegen; was es schon gibt, bleibt
+        stufe = wurzel
+        for teil in [t for t in re.split(r"[\\/]+", a.pfad) if t]:
+            stufe = f"{stufe}\\{teil}"
+            try:
+                smbclient.mkdir(stufe, port=port)
+            except SMBOSError as e:
+                if e.errno != 17 and "NAME_COLLISION" not in str(e):
+                    raise
+        stamm, punkt, endung = a.name.rpartition(".")
+        if not punkt:
+            stamm, endung = a.name, ""
+        for n in range(1, 1000):
+            name = a.name if n == 1 else f"{stamm} ({n}){punkt}{endung}"
+            try:
+                with smbclient.open_file(_pfad(ordner, name), mode="xb", port=port) as f:   # x = nur anlegen, nie überschreiben
+                    f.write(daten)
+                return {"name": name, "groesse": len(daten)}
+            except SMBOSError as e:
+                if e.errno != 17 and "NAME_COLLISION" not in str(e):
+                    raise
+        raise Fehler("Für diese Datei ließ sich kein freier Name finden", 409)
+    except Fehler:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise _deute(e) from e

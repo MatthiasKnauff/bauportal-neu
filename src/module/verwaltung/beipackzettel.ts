@@ -70,6 +70,7 @@ export const ablage: ObjektModell = {
     { name: 'freigabe', titel: 'Freigabe, z. B. \\\\server\\projekte', art: 'text', gruppe: 'Dateiserver' },
     { name: 'benutzer', titel: 'Benutzer auf dem Dateiserver', art: 'text', gruppe: 'Dateiserver' },
     { name: 'domaene', titel: 'Domäne (meist leer)', art: 'text', gruppe: 'Dateiserver' },
+    { name: 'fotos_ordner', titel: 'Unterordner im Projektordner für Fotos des Bautagebuchs (leer: Bautagebuch/Fotos)', art: 'text', gruppe: 'Ordner' },
   ],
 };
 

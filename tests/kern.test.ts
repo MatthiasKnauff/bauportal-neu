@@ -18,6 +18,9 @@ import { planeSchaetzung } from '../src/server/assistent';
 import { seiteBauen } from '../src/server/druck';
 import { kiText } from '../src/server/ki';
 import { katalogPlanen } from '../src/server/updates';
+import { wetterFuer, wetterlage } from '../src/server/wetter';
+import { fotoAblegen } from '../src/server/foto';
+import { existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { anonymisieren, klartext } from '../src/kern/anonym';
 import { createServer } from 'node:http';
@@ -524,6 +527,67 @@ test('Kataloge: aus dem Kanal mit Prüfsumme, Vorschau, eigene Einträge und Än
     await vorgangAusfuehren(db, register, wer, p.liste);
     assert.deepEqual((await lies()).map((x) => x.werte.name).sort(), ['Beton- und Stahlbetonarbeiten', 'Lehmbau (eigenes Gewerk)', 'Maurer', 'Trockenbauarbeiten']);
   } finally { await weg(); kanal.close(); }
+});
+
+test('Wetter: Anschrift der Baustelle → Koordinaten → Werte für Tag und Stunde', async () => {
+  assert.deepEqual([wetterlage(0, 5, 20), wetterlage(3, 5, 20), wetterlage(61, 10, 8), wetterlage(73, 10, -1), wetterlage(2, 5, -3), wetterlage(2, 70, 10), wetterlage(95, 20, 22)], ['sonnig', 'bewoelkt', 'regen', 'schnee', 'frost', 'sturm', 'sturm']);
+  const gesehen: string[] = [];
+  const netz = createServer((req, res) => {
+    gesehen.push(req.url!);
+    res.setHeader('content-type', 'application/json');
+    if (req.url!.startsWith('/search')) return res.end(JSON.stringify(req.url!.includes('Nirgendwo') ? [] : [{ lat: '51.455643', lon: '7.011555' }]));
+    const std = <T>(w: (i: number) => T) => Array.from({ length: 24 }, (_, i) => w(i));
+    res.end(JSON.stringify({ hourly: { time: std((i) => `2026-11-24T${String(i).padStart(2, '0')}:00`), temperature_2m: std((i) => 2 + i / 4), relative_humidity_2m: std(() => 81.4), precipitation: std((i) => (i === 9 ? 1.25 : 0.1)), weather_code: std((i) => (i === 9 ? 61 : 3)), wind_speed_10m: std(() => 14.6) } }));
+  });
+  await new Promise<void>((r) => netz.listen(0, '127.0.0.1', r));
+  const basis = `http://127.0.0.1:${(netz.address() as { port: number }).port}`;
+  process.env.WETTER_GEO_URL = basis; process.env.WETTER_URL = `${basis}/wetter`;
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung, gast } = await leute(db);
+    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle });
+    const [p, leer, fern] = [randomUUID(), randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A', strasse: 'Musterweg 1', plz: '45127', ort: 'Essen' } });
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: leer, werte: { name: 'ohne Anschrift' } });
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: fern, werte: { name: 'Haus B', ort: 'Nirgendwo' } });
+    const w = await wetterFuer(db, als(leitung, 'bueroleitung'), p, '2026-11-24', '09:30');
+    assert.deepEqual(w, { wetter: 'regen', temperatur: 4.3, luftfeuchte: 81, wind: 15, niederschlag: 3.6, ort: 'Musterweg 1, 45127 Essen' });
+    assert.ok(gesehen[0]!.includes(encodeURIComponent('Musterweg 1, 45127 Essen')) && !gesehen.join(' ').includes('Haus'), 'hinaus geht die Anschrift, nicht der Projektname');
+    assert.ok(gesehen[1]!.includes('latitude=51.456&longitude=7.012') && gesehen[1]!.includes('start_date=2026-11-24'), 'Koordinaten gerundet');
+    await wetterFuer(db, als(leitung, 'bueroleitung'), p, '2026-11-24', '15:00');
+    assert.equal(gesehen.filter((u) => u.startsWith('/search')).length, 1, 'die Anschrift wird nur einmal nachgeschlagen');
+    await assert.rejects(wetterFuer(db, als(leitung, 'bueroleitung'), leer, '2026-11-24', ''), /Anschrift der Baustelle/);
+    await assert.rejects(wetterFuer(db, als(leitung, 'bueroleitung'), fern, '2026-11-24', ''), /nicht gefunden/);
+    await assert.rejects(wetterFuer(db, als(gast, 'gast'), p, '2026-11-24', ''), /gibt es nicht/, 'nur für Projekte, die man sehen darf');
+  } finally { await weg(); netz.close(); }
+});
+
+test('Fotos: Vorschaubild im Bauportal, Original abgelegt, im Ausdruck eingebettet – nur wer darf', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung, mit, gast } = await leute(db);
+    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle });
+    const [p, b] = [randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
+    await tun(db, leitung, { objekt: 'tagesbericht', art: 'anlegen', objektId: b, werte: { projekt: p, nummer: 3, datum: '2026-11-24', titel: 'Sohle' } });
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(2000, 7)]);
+    const hoch = { projekt: p, bericht: b, name: '../IMG:0001.jpg', original: jpeg, vorschau: jpeg };
+    // Ohne eingerichtete Ablage (und auf dem Testserver immer) bleibt das Original im Speicher des Bauportals
+    const f = await fotoAblegen(db, register, 'test', als(leitung, 'bueroleitung'), hoch);
+    assert.equal(f.ort, 'bauportal');
+    const z = (await schnappschuss(db, register, leitung)).objekte.foto!.find((x) => x.id === f.id)!;
+    assert.deepEqual([z.werte.name, z.werte.ort, z.werte.reihe, z.werte.bericht], ['..-IMG-0001.jpg'.replace(/^\.+/, ''), 'bauportal', 1, b]);
+    const ordner = path.join(process.env.DATEN_PFAD!, 'originale', p);
+    assert.ok(existsSync(path.join(ordner, String(z.werte.pfad))) && readdirSync(ordner).length === 1, 'Original liegt im Daten-Volume');
+    assert.equal((await db.query('select length(bild) as n from kern_vorschau where id = $1', [f.id])).rows[0].n, 2004);
+    assert.equal(((await fotoAblegen(db, register, 'test', als(leitung, 'bueroleitung'), { ...hoch, name: 'zwei.jpg' })) && (await schnappschuss(db, register, leitung)).objekte.foto!.length), 2);
+    await assert.rejects(fotoAblegen(db, register, 'test', als(leitung, 'bueroleitung'), { ...hoch, original: Buffer.from('kein Bild') }), /kein Foto/);
+    await assert.rejects(fotoAblegen(db, register, 'test', als(leitung, 'bueroleitung'), { ...hoch, bericht: randomUUID() }), /Bericht gibt es nicht/);
+    await assert.rejects(fotoAblegen(db, register, 'test', als(mit, 'mitarbeiter'), hoch), Ablehnung, 'kein Mitglied des Projekts');
+    await assert.rejects(fotoAblegen(db, register, 'test', als(gast, 'gast'), hoch), Ablehnung);
+    const s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), 'bautagebuch.tagesbericht', b);
+    assert.ok(s.html.includes('<h2>Fotos</h2>') && s.html.includes(`<img src="data:image/jpeg;base64,${jpeg.toString('base64').slice(0, 40)}`), 'im PDF steckt das Vorschaubild selbst');
+  } finally { await weg(); }
 });
 
 test('Geheimnisse: verschlüsselt in der Datenbank, lesbar nur mit dem Schlüssel aus dem Daten-Volume', async () => {

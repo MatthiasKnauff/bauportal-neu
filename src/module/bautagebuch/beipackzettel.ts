@@ -67,6 +67,26 @@ export const berichtEintrag: ObjektModell = {
   ],
 };
 
+// Fotos zum Bericht. Das Original liegt im Projektordner auf dem Dateiserver (oder, wo das nicht geht, im Speicher des
+// Bauportals); im Bauportal selbst liegt nur ein Vorschaubild. Angelegt werden Fotos über das Hochladen (server/foto.ts).
+export const foto: ObjektModell = {
+  name: 'foto',
+  titel: 'Foto',
+  titelMehrzahl: 'Fotos',
+  anzeigeFeld: 'name',
+  projektFeld: 'projekt',
+  rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'bericht', titel: 'Tagesbericht', art: 'verweis', ziel: 'tagesbericht', pflicht: true, inListe: true, breite: 220, gruppe: 'Foto' },
+    { name: 'name', titel: 'Dateiname', art: 'text', pflicht: true, inListe: true, breite: 260, gruppe: 'Foto' },
+    { name: 'beschriftung', titel: 'Beschriftung', art: 'text', inListe: true, breite: 300, gruppe: 'Foto' },
+    { name: 'ort', titel: 'Original liegt', art: 'auswahl', inListe: true, breite: 170, gruppe: 'Ablage', optionen: [{ wert: 'ablage', titel: 'im Projektordner' }, { wert: 'bauportal', titel: 'im Bauportal' }] },
+    { name: 'pfad', titel: 'Pfad des Originals', art: 'text', gruppe: 'Ablage' },
+    { name: 'reihe', titel: 'Reihenfolge im Bericht', art: 'zahl', verborgen: true },
+  ],
+};
+
 const liste = (art: string, spalten: string[]) => ({ id: art, art: 'liste' as const, objekt: 'bericht_eintrag', ueber: 'bericht', filter: { art }, titel: EINTRAGSARTEN.find((e) => e.wert === art)!.mehrzahl, spalten });
 
 export const bautagebuch: Beipackzettel = {
@@ -75,12 +95,13 @@ export const bautagebuch: Beipackzettel = {
   version: '0.2.0',
   beschreibung: 'Nummerierte Tagesberichte je Projekt: Wetter, Anwesende, Notizen, Mängel, Aufgaben, Weisungen – mit Ausdruck.',
   braucht: ['projekte', 'adressen'],
-  objekte: [tagesbericht, berichtEintrag],
+  objekte: [tagesbericht, berichtEintrag, foto],
   ansichten: [
     { id: 'berichte', titel: 'Berichte', objekt: 'tagesbericht', brauchtProjekt: true },
     { id: 'maengel', titel: 'Mängel', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'mangel' }, baum: ['erledigt', 'firma'] },
     { id: 'aufgaben', titel: 'Zu erledigen', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'aufgabe' }, baum: ['erledigt'] },
     { id: 'weisungen', titel: 'Weisungen', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'weisung' }, baum: ['firma'] },
+    { id: 'fotos', titel: 'Fotos', objekt: 'foto', brauchtProjekt: true, baum: ['bericht'] },
   ],
   ausdrucke: [{
     id: 'bautagebuch.tagesbericht', titel: 'Tagesbericht', objekt: 'tagesbericht',
@@ -95,6 +116,7 @@ export const bautagebuch: Beipackzettel = {
       liste('mangel', ['text', 'firma', 'frist', 'erledigt']),
       liste('aufgabe', ['text', 'frist', 'erledigt']),
       liste('weisung', ['text', 'firma', 'frist']),
+      { id: 'fotos', art: 'bilder', objekt: 'foto', ueber: 'bericht', titel: 'Fotos', beschriftung: 'beschriftung' },
     ],
   }],
 };

@@ -2,7 +2,7 @@
 // Die Originale bleiben auf dem Dateiserver; das Bauportal reicht nur durch, was der Benutzer am Projekt sehen darf.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { Eingabefehler } from '../kern/modell';
@@ -48,11 +48,11 @@ async function zugang(db: Db): Promise<Zugang> {
   if (!z?.freigabe) throw new Dienstfehler('Die Ablage ist noch nicht eingerichtet (Verwaltung → Ablage)', 409);
   return { freigabe: z.freigabe, benutzer: z.benutzer, domaene: z.domaene, kennwort: (await geheimnisLesen(db, 'ablage.kennwort')) ?? '' };
 }
-async function dienst(pfad: string, body: unknown): Promise<Response> {
+async function dienst(pfad: string, body: unknown, zeit = 60000): Promise<Response> {
   let r: Response;
   try {
     r = await fetch(`${process.env.DATEIDIENST_URL ?? 'http://dateidienst:8000'}${pfad}`, {
-      method: 'POST', headers: { 'content-type': 'application/json', 'x-schluessel': process.env.DIENST_SCHLUESSEL ?? '' }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000),
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-schluessel': process.env.DIENST_SCHLUESSEL ?? '' }, body: JSON.stringify(body), signal: AbortSignal.timeout(zeit),
     });
   } catch { throw new Dienstfehler('Der Dateidienst des Bauportals antwortet nicht', 424); }
   if (r.ok) return r;
@@ -60,6 +60,36 @@ async function dienst(pfad: string, body: unknown): Promise<Response> {
   // 5xx vom Dienst heißt: Dateiserver gestört – für die Oberfläche eine Auskunft, kein Ausfall des Bauportals
   throw new Dienstfehler(text, r.status >= 500 ? 424 : r.status === 401 || r.status === 403 ? 424 : r.status);
 }
+/**
+ * Legt eine neue Datei im Projektordner ab – wenn das geht: Ablage eingerichtet, Projekt hat einen Ordner und
+ * dieser Server darf dort schreiben (der Testserver nie). Sonst bleibt die Datei im Speicher des Bauportals.
+ * Liefert, wo das Original jetzt liegt.
+ */
+export async function ablegen(db: Db, e: { umgebung: string; projekt: string; projektordner: string | null; unterordner: string; name: string; daten: Buffer }): Promise<{ ort: 'ablage' | 'bauportal'; pfad: string }> {
+  const z = (await db.query('select freigabe from o_ablage where id = $1', [ABLAGE_ID])).rows[0];
+  if (e.umgebung !== 'test' && z?.freigabe && e.projektordner) {
+    const r = (await (await dienst('/schreiben', { zugang: await zugang(db), pfad: sauber(e.projektordner, e.unterordner), name: e.name, inhalt: e.daten.toString('base64') }, 300000)).json()) as { name: string };
+    return { ort: 'ablage', pfad: sauber(e.unterordner, r.name) };
+  }
+  const ordner = path.join(process.env.DATEN_PFAD ?? '/data', 'originale', e.projekt);
+  mkdirSync(ordner, { recursive: true });
+  const datei = `${randomBytes(8).toString('hex')}-${e.name}`;
+  writeFileSync(path.join(ordner, datei), e.daten, { flag: 'wx' });
+  return { ort: 'bauportal', pfad: datei };
+}
+
+/** Das Original wieder holen – als Strom, von dort, wo es abgelegt wurde. */
+export async function originalLesen(db: Db, e: { projekt: string; projektordner: string | null; ort: string; pfad: string }): Promise<Readable> {
+  if (e.ort === 'ablage') {
+    if (!e.projektordner) throw new Dienstfehler('Diesem Projekt ist kein Ordner auf dem Dateiserver mehr zugeordnet', 409);
+    return Readable.fromWeb((await dienst('/datei', { zugang: await zugang(db), pfad: sauber(e.projektordner, e.pfad) })).body as never);
+  }
+  const datei = path.join(process.env.DATEN_PFAD ?? '/data', 'originale', e.projekt, path.basename(e.pfad));
+  if (!existsSync(datei)) throw new Dienstfehler('Das Original liegt nicht mehr im Speicher des Bauportals', 404);
+  return createReadStream(datei);
+}
+export { Dienstfehler };
+
 const sauber = (...teile: string[]) => teile.flatMap((t) => t.split(/[\\/]+/)).filter(Boolean).join('/');
 
 const ARTEN: Record<string, string> = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', txt: 'text/plain; charset=utf-8' };

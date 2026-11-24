@@ -4,7 +4,7 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
-import { ausfuehren, sicht } from './abgleich';
+import { ausfuehren, rueckgaengig, sicht } from './abgleich';
 import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { Versionsleiste } from './baukasten/versionsleiste';
@@ -23,6 +23,7 @@ import { druckOeffnen } from './druck';
 import { Updates } from './updates';
 import { KiEinrichten } from './baukasten/ki';
 import { Unterliste } from './baukasten/unterliste';
+import { Bilder } from './baukasten/bilder';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -107,6 +108,20 @@ function Beteiligte(p: { projekt: Zeile }) {
 }
 
 // ---------- Bautagebuch: was im Bericht steht – Anwesende, Notizen, Mängel, Aufgaben, Weisungen ----------
+function WetterHolen(p: { bericht: Zeile }) {
+  const [laeuft, setLaeuft] = createSignal(false);
+  const holen = async () => {
+    setLaeuft(true);
+    try {
+      const { ort, ...w } = await ruf<{ ort: string; wetter: string; temperatur: number; luftfeuchte: number; wind: number; niederschlag: number }>('/api/wetter', { projekt: p.bericht.werte.projekt, datum: p.bericht.werte.datum, uhrzeit: p.bericht.werte.uhrzeit });
+      ausfuehren({ objekt: 'tagesbericht', art: 'aendern', objektId: p.bericht.id, werte: w, herkunft: 'wetterdienst' }, 'Wetter eintragen');
+      hinweis(`Wetter für ${ort} eingetragen.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
+    } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
+    finally { setLaeuft(false); }
+  };
+  return <Show when={darf('tagesbericht', 'schreiben')}><div><button class="knopf" disabled={laeuft()} onClick={holen}>{laeuft() ? 'Wetter wird geholt …' : '☁ Wetter vom Standort holen'}</button></div></Show>;
+}
+
 function Berichtslisten(p: { bericht: Zeile }) {
   const fest = (art: string) => ({ projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id, art });
   // Firmen zur Auswahl: zuerst die Beteiligten des Projekts, dann alle übrigen Kontakte
@@ -117,11 +132,13 @@ function Berichtslisten(p: { bericht: Zeile }) {
   };
   return (
     <Show when={darf('bericht_eintrag', 'lesen')}>
+      <WetterHolen bericht={p.bericht} />
       <Unterliste titel="Anwesende" objekt="bericht_eintrag" fest={fest('anwesend')} haupt="text" neben={['personen']} neuUeber="firma" angebot={firmen} platzhalter="+ Firma hinzufügen …" />
       <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" />
       <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" />
       <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben und Enter" />
       <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" />
+      <Show when={darf('foto', 'lesen')}><Bilder titel="Fotos" objekt="foto" fest={{ projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id }} beschriftung="beschriftung" hochladen="/api/foto" /></Show>
     </Show>
   );
 }

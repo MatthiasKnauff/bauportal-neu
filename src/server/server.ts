@@ -19,6 +19,8 @@ import { uebernahmeRouten } from './uebernahme';
 import { druckRouten } from './druck';
 import { kiRouten } from './ki';
 import { updateRouten } from './updates';
+import { wetterRouten } from './wetter';
+import { fotoRouten } from './foto';
 
 export interface Einstellungen {
   db: Db;
@@ -187,6 +189,8 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   assistentRouten(app, { db, register, nurAngemeldet });
   druckRouten(app, { db, register, nurAngemeldet });
   kiRouten(app, { db, nurAngemeldet });
+  wetterRouten(app, { db, nurAngemeldet });
+  fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   updateRouten(app, { db, register, version: e.version, umgebung: e.umgebung, nurAngemeldet });
   uebernahmeRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
 

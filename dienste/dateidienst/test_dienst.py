@@ -52,6 +52,20 @@ def main() -> None:
         assert c.post("/liste", json={"zugang": z}, headers=k).status_code == 200, "danach geht es mit richtigem Kennwort wieder"
         r = c.post("/liste", json={"zugang": {**z, "freigabe": "//127.0.0.1:1/projekte"}}, headers=k)
         assert r.status_code == 502, (r.status_code, r.text)
+        # Ablegen: Ordner entstehen, nichts wird überschrieben
+        import base64
+        bild = base64.b64encode(b"\xff\xd8\xff" + b"y" * 200_000).decode()
+        ziel = {"zugang": z, "pfad": "2026-01 Haus A/Bautagebuch/Fotos/2026-11-24 Bericht 7", "name": "Sohle.jpg", "inhalt": bild}
+        assert c.post("/schreiben", json=ziel).status_code == 403
+        r = c.post("/schreiben", json=ziel, headers=k)
+        assert r.status_code == 200 and r.json() == {"name": "Sohle.jpg", "groesse": 200_003}, r.text
+        assert c.post("/schreiben", json=ziel, headers=k).json()["name"] == "Sohle (2).jpg", "gleicher Name: die neue Datei bekommt eine Nummer"
+        assert c.post("/schreiben", json={**ziel, "name": "ohne Endung"}, headers=k).json()["name"] == "ohne Endung"
+        assert sorted(os.listdir(f"{ordner}/2026-01 Haus A/Bautagebuch/Fotos/2026-11-24 Bericht 7")) == ["Sohle (2).jpg", "Sohle.jpg", "ohne Endung"]
+        assert os.path.getsize(f"{ordner}/2026-01 Haus A/Bautagebuch/Fotos/2026-11-24 Bericht 7/Sohle.jpg") == 200_003
+        assert c.post("/schreiben", json={**ziel, "name": "../x.jpg"}, headers=k).status_code == 400
+        assert c.post("/schreiben", json={**ziel, "pfad": "../raus"}, headers=k).status_code == 400
+        assert c.post("/schreiben", json={**ziel, "inhalt": "kein base64 !"}, headers=k).status_code == 400
         print("Dateidienst: alle Prüfungen bestanden")
 
 

@@ -18,7 +18,7 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
   const a = register.ausdrucke.find((x) => x.id === ausdruckId);
   if (!a) throw new Ablehnung('Diesen Ausdruck gibt es nicht');
   const m = register.modell(a.objekt)!;
-  return alsBenutzer(db, wer, async (c) => {
+  const t = await alsBenutzer(db, wer, async (c) => {
     const zeile = (await c.query(`select * from ${tabelle(m.name)} where id = $1 and not geloescht`, [objektId])).rows[0];
     if (!zeile) throw new Ablehnung(`${m.titel} nicht gefunden`);
     const werte = werteAus(m, zeile);
@@ -30,13 +30,18 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
       namen.set(`${ziel.name}:${werte[f.name]}`, String(z?.[ziel.anzeigeFeld] ?? ''));
     }
     // Listen: die Einträge, die am Objekt hängen – gelesen als der Benutzer, in der Reihenfolge des Berichts
-    const kinder = new Map<string, Werte[]>();
-    for (const b of a.bloecke) if (b.art === 'liste') {
+    const kinder = new Map<string, { id: string; werte: Werte }[]>();
+    const bildIds: string[] = [];
+    for (const b of a.bloecke) if (b.art === 'liste' || b.art === 'bilder') {
       const k = register.modell(b.objekt)!;
-      const filter = Object.entries(b.filter ?? {});
+      const filter = Object.entries(b.art === 'liste' ? b.filter ?? {} : {});
       const zeilen = (await c.query(`select * from ${tabelle(k.name)} where ${spalte(b.ueber)} = $1 and not geloescht${filter.map(([n], i) => ` and ${spalte(n)} = $${i + 2}`).join('')}`, [objektId, ...filter.map(([, w]) => w)])).rows
         .map((z) => ({ id: z.id as string, werte: werteAus(k, z) })).sort(listenfolge);
-      kinder.set(b.id, zeilen.map((z) => z.werte));
+      kinder.set(b.id, zeilen);
+      if (b.art === 'bilder') {
+        bildIds.push(...zeilen.map((z) => z.id));   // welche Fotos der Benutzer sehen darf, steht damit fest
+        continue;
+      }
       for (const f of k.felder.filter((x) => x.art === 'verweis' && b.spalten.includes(x.name))) {
         const ziel = register.modell(f.ziel!)!;
         const ids = [...new Set(zeilen.map((z) => z.werte[f.name]).filter(Boolean))];
@@ -48,9 +53,13 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
     const e: Einstellungen = {};
     // bei doppelten Einträgen (zwei Geräte ohne Netz) gilt überall derselbe: der mit der kleinsten Kennung
     for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
-    const d: Druckdaten = { werte, buero, projekt, verweis: (ziel, id) => namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => kinder.get(id) ?? [], modell: (o) => register.modell(o)! };
-    return { html: druckSeite(a, m, d, e), name: dateiname(a, m, d) };
+    return { werte, buero, projekt, namen, kinder, e, bildIds };
   });
+  // Im PDF steckt das Vorschaubild selbst – der Druckdienst lädt nichts nach
+  const bilder = new Map<string, string>();
+  if (t.bildIds.length) for (const v of (await db.query('select id, bild from kern_vorschau where id = any($1)', [t.bildIds])).rows) bilder.set(v.id, `data:image/jpeg;base64,${(v.bild as Buffer).toString('base64')}`);
+  const d: Druckdaten = { werte: t.werte, buero: t.buero, projekt: t.projekt, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '' };
+  return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d) };
 }
 
 export async function pdfAus(html: string): Promise<Buffer> {
