@@ -3,7 +3,7 @@
 # Die Datenbank ist nur für die App erreichbar (kein Port nach außen).
 services:
   app:
-    image: ghcr.io/matthiasknauff/bauportal-neu:test-7204434
+    image: ghcr.io/matthiasknauff/bauportal-neu:test-0296e3b
     container_name: bauportal-neu-test
     restart: unless-stopped
     depends_on:
@@ -15,8 +15,19 @@ services:
       APP_ENV: test
       TZ: Europe/Berlin
       DATABASE_URL: postgres://bauportal:${DB_PASSWORT:-bauportal}@db:5432/bauportal
+      DATEIDIENST_URL: http://dateidienst:8000
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
     volumes:
       - daten:/data
+
+  # Dateidienst: spricht mit dem Dateiserver. Nur für die App erreichbar (kein Port nach außen), merkt sich nichts.
+  dateidienst:
+    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:test-0296e3b
+    container_name: bauportal-neu-test-dateidienst
+    restart: unless-stopped
+    environment:
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
+      TZ: Europe/Berlin
 
   db:
     image: postgres:18-alpine
