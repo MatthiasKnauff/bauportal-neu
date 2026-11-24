@@ -1,18 +1,42 @@
 # Vorlage für Test- und Produktivserver.
 # Image und Umgebung trägt die Pipeline ein; HOST_PORT und die übrigen Variablen kommen aus dem Portainer-Stack.
+# Die Datenbank ist nur für die App erreichbar (kein Port nach außen).
 services:
   app:
-    image: ghcr.io/matthiasknauff/bauportal-neu:test-ec71ef2
+    image: ghcr.io/matthiasknauff/bauportal-neu:test-0bd3d37
     container_name: bauportal-neu-test
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "${HOST_PORT}:8000"
     environment:
       APP_ENV: test
       TZ: Europe/Berlin
+      DATABASE_URL: postgres://bauportal:${DB_PASSWORT:-bauportal}@db:5432/bauportal
     volumes:
       - daten:/data
+
+  db:
+    image: postgres:18-alpine
+    container_name: bauportal-neu-test-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bauportal
+      POSTGRES_PASSWORD: ${DB_PASSWORT:-bauportal}
+      POSTGRES_DB: bauportal
+      TZ: Europe/Berlin
+    volumes:
+      - datenbank:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bauportal -d bauportal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   daten:
     name: ${VOLUME_NAME}
+  datenbank:
+    name: ${VOLUME_NAME}-db
