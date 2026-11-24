@@ -3,7 +3,7 @@
 # Die Datenbank ist nur für die App erreichbar (kein Port nach außen).
 services:
   app:
-    image: ghcr.io/matthiasknauff/bauportal-neu:v0.1.2
+    image: ghcr.io/matthiasknauff/bauportal-neu:v0.1.3
     container_name: bauportal-neu-prod
     restart: unless-stopped
     depends_on:
@@ -17,13 +17,15 @@ services:
       DATABASE_URL: postgres://bauportal:${DB_PASSWORT:-bauportal}@db:5432/bauportal
       DATEIDIENST_URL: http://dateidienst:8000
       IFCDIENST_URL: http://ifcdienst:8000
+      DRUCKDIENST_URL: http://druckdienst:8000
+      KIDIENST_URL: http://kidienst:8000
       DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
     volumes:
       - daten:/data
 
   # Dateidienst: spricht mit dem Dateiserver. Nur für die App erreichbar (kein Port nach außen), merkt sich nichts.
   dateidienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:v0.1.2
+    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:v0.1.3
     container_name: bauportal-neu-prod-dateidienst
     restart: unless-stopped
     environment:
@@ -49,8 +51,27 @@ services:
 
   # IFC-Dienst: liest IFC-Dateien für das Gebäudemodell. Nur für die App erreichbar, merkt sich nichts.
   ifcdienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-ifcdienst:v0.1.2
+    image: ghcr.io/matthiasknauff/bauportal-neu-ifcdienst:v0.1.3
     container_name: bauportal-neu-prod-ifcdienst
+    restart: unless-stopped
+    environment:
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
+      TZ: Europe/Berlin
+
+  # Druckdienst: macht aus der fertigen Seite das PDF (Chromium ohne Fenster). Nur für die App erreichbar, merkt sich nichts.
+  druckdienst:
+    image: ghcr.io/matthiasknauff/bauportal-neu-druckdienst:v0.1.3
+    container_name: bauportal-neu-prod-druckdienst
+    restart: unless-stopped
+    environment:
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
+      TZ: Europe/Berlin
+
+  # KI-Ausgang: die eine Stelle, die mit einer KI spricht (Ollama im Büro oder Anbieter außerhalb). Nur für die App
+  # erreichbar, merkt sich nichts. Ohne eingerichtete KI-Anbindung (Verwaltung → KI) geht hier nichts hinaus.
+  kidienst:
+    image: ghcr.io/matthiasknauff/bauportal-neu-kidienst:v0.1.3
+    container_name: bauportal-neu-prod-kidienst
     restart: unless-stopped
     environment:
       DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
