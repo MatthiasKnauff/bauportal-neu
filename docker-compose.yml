@@ -3,7 +3,7 @@
 # Die Datenbank ist nur für die App erreichbar (kein Port nach außen).
 services:
   app:
-    image: ghcr.io/matthiasknauff/bauportal-neu:test-605790f
+    image: ghcr.io/matthiasknauff/bauportal-neu:test-6a2a20d
     container_name: bauportal-neu-test
     restart: unless-stopped
     depends_on:
