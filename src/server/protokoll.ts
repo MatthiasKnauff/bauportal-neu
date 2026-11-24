@@ -1,14 +1,24 @@
 // Befehlsprotokoll: der einzige Weg, auf dem sich Daten ändern.
 import type { Modulregister } from '../kern/modul';
 import { BEFEHL_ARTEN, type Befehl, type Protokolliert, type Ueberschrieben, type Zeile } from '../kern/befehl';
-import { pruefeWerte, type ObjektModell, type Werte } from '../kern/modell';
-import { SPERRE_PROTOKOLL, spalte, tabelle, type Db } from './db';
+import { Eingabefehler, KENNUNG as UUID, pruefeWerte, type ObjektModell, type Werte } from '../kern/modell';
+import { SPERRE_PROTOKOLL, alsBenutzer, spalte, tabelle, type Absender, type Db } from './db';
 
 export class Ablehnung extends Error {}
+export type { Absender };
 
-export interface Absender { id: string; name: string }
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Übersetzt Meldungen der Datenbank (Rechte, Eindeutigkeit) in verständliche Fehler. */
+function deute(e: unknown, m: ObjektModell): never {
+  const f = e as { code?: string; constraint?: string };
+  if (f.code === 'BP001' || f.code === '42501') throw new Ablehnung('Dazu fehlt dir das Recht');
+  if (f.code === '23505' && f.constraint === `o_${m.name}_pkey`) throw new Ablehnung(`${m.titel} gibt es schon`);
+  if (f.code === 'BP002') throw new Ablehnung('Es muss mindestens eine Administratorin oder ein Administrator übrig bleiben');
+  if (f.code === '23505') {
+    const feld = m.felder.find((x) => f.constraint === `o_${m.name}_${x.name}_eindeutig`);
+    if (feld) throw new Eingabefehler({ [feld.name]: `„${feld.titel}“ gibt es schon` });
+  }
+  throw e;
+}
 
 export function pruefeBefehl(roh: unknown): Befehl {
   const b = roh as Partial<Befehl> | null;
@@ -43,14 +53,9 @@ export async function befehlAusfuehren(db: Db, register: Modulregister, wer: Abs
   const m: ObjektModell | undefined = register.modell(b.objekt);
   if (!m) throw new Ablehnung(`Unbekannte Objektart „${b.objekt}“`);
   const t = tabelle(m.name);
-  const c = await db.connect();
-  try {
-    await c.query('begin');
-    // Ein Befehl nach dem anderen: so ist die Reihenfolge im Protokoll auch die Reihenfolge der Wirkung.
-    await c.query('select pg_advisory_xact_lock($1)', [SPERRE_PROTOKOLL]);
-    const schon = await c.query('select * from kern_befehl where id = $1', [b.id]);
-    if (schon.rows[0]) { await c.query('commit'); return ausZeile(schon.rows[0]); }
-
+  if (m.einzeln && b.objektId !== m.einzeln) throw new Ablehnung(`${m.titel} gibt es nur einmal`);
+  if (m.einzeln && b.art === 'loeschen') throw new Ablehnung(`${m.titel} lässt sich nicht löschen`);
+  return alsBenutzer(db, wer, async (c) => {
     const vorher = (await c.query(`select * from ${t} where id = $1`, [b.objektId])).rows[0] as Record<string, unknown> | undefined;
     let werte: Werte | undefined;
     let ueberschrieben: Record<string, Ueberschrieben> | undefined;
@@ -59,6 +64,7 @@ export async function befehlAusfuehren(db: Db, register: Modulregister, wer: Abs
       if (vorher) throw new Ablehnung(`${m.titel} gibt es schon`);
       werte = pruefeWerte(m, b.werte, true);
     } else {
+      // Was der Benutzer nicht sehen darf, gibt es für ihn nicht.
       if (!vorher) throw new Ablehnung(`${m.titel} gibt es nicht (mehr)`);
       if (b.art === 'aendern') {
         werte = pruefeWerte(m, b.werte, false);
@@ -71,55 +77,57 @@ export async function befehlAusfuehren(db: Db, register: Modulregister, wer: Abs
         }
       }
     }
+    const projektId = !m.projektFeld ? null : m.projektFeld === 'id' ? b.objektId : (werte?.[m.projektFeld] ?? vorher?.[m.projektFeld] ?? null);
 
-    const p = await c.query(
-      `insert into kern_befehl (id, benutzer_id, benutzer_name, objekt, art, objekt_id, werte, ueberschrieben)
-       values ($1,$2,$3,$4,$5,$6,$7,$8) returning *`,
-      [b.id, wer.id, wer.name, m.name, b.art, b.objektId, werte ? JSON.stringify(werte) : null, ueberschrieben ? JSON.stringify(ueberschrieben) : null],
-    );
-    const eintrag = ausZeile(p.rows[0]);
+    try {
+      const p = await c.query(
+        `insert into kern_befehl (id, benutzer_id, benutzer_name, objekt, art, objekt_id, werte, ueberschrieben, projekt_id)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning seq, zeit`,
+        [b.id, wer.id, wer.name, m.name, b.art, b.objektId, werte ? JSON.stringify(werte) : null, ueberschrieben ? JSON.stringify(ueberschrieben) : null, projektId],
+      );
+      const eintrag: Protokolliert = { ...b, werte, ueberschrieben, seq: p.rows[0].seq, zeit: (p.rows[0].zeit as Date).toISOString(), benutzerId: wer.id, benutzerName: wer.name, gesehen: 0 };
 
-    if (b.art === 'anlegen' || b.art === 'aendern') {
-      const namen = Object.keys(werte!);
-      const marke: Record<string, Stand> = {};
-      for (const k of namen) marke[k] = { seq: eintrag.seq, von: wer.id, name: wer.name };
-      if (b.art === 'anlegen') {
-        const sp = ['id', '_stand', ...namen.map(spalte)];
-        const pl = sp.map((_, i) => `$${i + 1}`);
-        await c.query(`insert into ${t} (${sp.join(',')}) values (${pl.join(',')})`, [b.objektId, JSON.stringify(marke), ...namen.map((k) => werte![k])]);
-      } else if (namen.length) {
-        const set = namen.map((k, i) => `${spalte(k)} = $${i + 3}`);
-        await c.query(`update ${t} set _stand = _stand || $2::jsonb, ${set.join(',')} where id = $1`, [b.objektId, JSON.stringify(marke), ...namen.map((k) => werte![k])]);
+      if (b.art === 'anlegen' || b.art === 'aendern') {
+        const namen = Object.keys(werte!);
+        const marke: Record<string, Stand> = {};
+        for (const k of namen) marke[k] = { seq: eintrag.seq, von: wer.id, name: wer.name };
+        if (b.art === 'anlegen') {
+          const sp = ['id', '_stand', ...namen.map(spalte)];
+          const pl = sp.map((_, i) => `$${i + 1}`);
+          await c.query(`insert into ${t} (${sp.join(',')}) values (${pl.join(',')})`, [b.objektId, JSON.stringify(marke), ...namen.map((k) => werte![k])]);
+        } else if (namen.length) {
+          const set = namen.map((k, i) => `${spalte(k)} = $${i + 3}`);
+          await c.query(`update ${t} set _stand = _stand || $2::jsonb, ${set.join(',')} where id = $1`, [b.objektId, JSON.stringify(marke), ...namen.map((k) => werte![k])]);
+        }
+      } else {
+        await c.query(`update ${t} set geloescht = $2 where id = $1`, [b.objektId, b.art === 'loeschen']);
       }
-    } else {
-      await c.query(`update ${t} set geloescht = $2 where id = $1`, [b.objektId, b.art === 'loeschen']);
+      return eintrag;
+    } catch (e) {
+      deute(e, m);
     }
-    await c.query('commit');
-    return eintrag;
-  } catch (e) {
-    await c.query('rollback');
-    throw e;
-  } finally {
-    c.release();
-  }
+  }, async (c) => {
+    // Ein Befehl nach dem anderen: so ist die Reihenfolge im Protokoll auch die Reihenfolge der Wirkung.
+    await c.query('select pg_advisory_xact_lock($1)', [SPERRE_PROTOKOLL]);
+    const schon = await c.query('select * from kern_befehl where id = $1', [b.id]);
+    return schon.rows[0] ? ausZeile(schon.rows[0]) : undefined;
+  });
 }
 
 export async function stand(db: Db): Promise<number> {
   return (await db.query('select coalesce(max(seq), 0) as s from kern_befehl')).rows[0].s as number;
 }
 
-/** Alle Befehle nach einem Protokollstand, in Reihenfolge. */
-export async function befehleSeit(db: Db, seit: number, grenze = 5000): Promise<Protokolliert[]> {
-  const r = await db.query('select * from kern_befehl where seq > $1 order by seq limit $2', [seit, grenze]);
-  return r.rows.map(ausZeile);
+/** Alle Befehle nach einem Protokollstand, in Reihenfolge – nur die, die der Benutzer sehen darf. */
+export async function befehleSeit(db: Db, wer: Absender, seit: number, grenze = 5000): Promise<Protokolliert[]> {
+  return alsBenutzer(db, wer, async (c) =>
+    (await c.query('select * from kern_befehl where seq > $1 order by seq limit $2', [seit, grenze])).rows.map(ausZeile));
 }
 
-/** Der ganze Datenbestand auf einmal – für ein Gerät, das noch nichts hat. */
-export async function schnappschuss(db: Db, register: Modulregister): Promise<{ stand: number; objekte: Record<string, Zeile[]> }> {
-  const c = await db.connect();
-  try {
-    await c.query('begin isolation level repeatable read read only');
-    const s = (await c.query('select coalesce(max(seq), 0) as s from kern_befehl')).rows[0].s as number;
+/** Der ganze Datenbestand auf einmal, soweit der Benutzer ihn sehen darf – für ein Gerät, das noch nichts hat. */
+export async function schnappschuss(db: Db, register: Modulregister, wer: Absender): Promise<{ stand: number; objekte: Record<string, Zeile[]> }> {
+  let s = 0;
+  return alsBenutzer(db, wer, async (c) => {
     const objekte: Record<string, Zeile[]> = {};
     for (const m of register.alleModelle) {
       const r = await c.query(`select * from ${tabelle(m.name)}`);
@@ -129,9 +137,11 @@ export async function schnappschuss(db: Db, register: Modulregister): Promise<{ 
         return { id: z.id as string, geloescht: z.geloescht as boolean, werte };
       });
     }
-    await c.query('commit');
     return { stand: s, objekte };
-  } finally {
-    c.release();
-  }
+  }, async (c) => {
+    // Sperre: während des Lesens kommt kein Befehl dazu – Stand und Daten passen sicher zusammen.
+    await c.query('select pg_advisory_xact_lock($1)', [SPERRE_PROTOKOLL]);
+    s = (await c.query('select coalesce(max(seq), 0) as s from kern_befehl')).rows[0].s as number;
+    return undefined;
+  });
 }

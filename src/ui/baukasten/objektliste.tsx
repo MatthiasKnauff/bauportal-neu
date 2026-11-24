@@ -1,11 +1,11 @@
 // Baustein „Liste mit Detailkarte“: Tabelle links, Karte rechts – beides erzeugt aus dem Datenmodell.
 // Jedes Modul, das Objekte verwaltet, benutzt diesen einen Baustein.
-import { For, Show, createMemo, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Eingabefehler, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
 import { ausfuehren, rueckgaengig, sicht } from '../abgleich';
-import { neueKennung } from '../api';
+import { darf, neueKennung } from '../api';
 import { Dialog } from './dialog';
 import { FeldEingabe, anzeige } from './feld';
 import { hinweis } from './hinweise';
@@ -23,7 +23,7 @@ function gruppen(m: ObjektModell): { titel: string; felder: Feld[] }[] {
   return aus;
 }
 
-export function ObjektListe(p: { modell: ObjektModell }) {
+export function ObjektListe(p: { modell: ObjektModell; kartenZusatz?: (z: Zeile) => JSX.Element }) {
   const m = () => p.modell;
   const spalten = createMemo(() => m().felder.filter((f) => f.inListe));
   const [suche, setSuche] = createSignal('');
@@ -57,8 +57,8 @@ export function ObjektListe(p: { modell: ObjektModell }) {
       <section class="liste">
         <div class="leiste">
           <input class="suche" type="search" placeholder={`${m().titelMehrzahl} durchsuchen`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)} />
-          <span class="zaehler">{zeilen().length === anzahl() ? `${anzahl()} ${m().titelMehrzahl}` : `${zeilen().length} von ${anzahl()}`}</span>
-          <button class="knopf haupt" onClick={() => setNeu(true)}>+ {m().titel}</button>
+          <span class="zaehler">{zeilen().length === anzahl() ? `${anzahl()} ${anzahl() === 1 ? m().titel : m().titelMehrzahl}` : `${zeilen().length} von ${anzahl()}`}</span>
+          <Show when={darf(m().name, 'schreiben')}><button class="knopf haupt" onClick={() => setNeu(true)}>+ {m().titel}</button></Show>
         </div>
         <div class="tabelle-rollen" tabindex="0" onKeyDown={tasten}>
           <table class="tabelle">
@@ -80,17 +80,18 @@ export function ObjektListe(p: { modell: ObjektModell }) {
             </tbody>
           </table>
           <Show when={!zeilen().length}>
-            <div class="leer">{anzahl() ? 'Kein Treffer für diese Suche.' : `Noch keine ${m().titelMehrzahl}. Mit „+ ${m().titel}“ legst du den ersten an.`}</div>
+            <div class="leer">{anzahl() ? 'Kein Treffer für diese Suche.' : `Noch keine ${m().titelMehrzahl}.${darf(m().name, 'schreiben') ? ` Mit „+ ${m().titel}“ legst du den ersten Eintrag an.` : ''}`}</div>
           </Show>
         </div>
       </section>
-      <Show when={karte()}>{(z) => <Detailkarte modell={m()} zeile={z()} onZu={() => setGewaehlt(null)} />}</Show>
+      <Show when={karte()}>{(z) => <Detailkarte modell={m()} zeile={z()} onZu={() => setGewaehlt(null)} zusatz={p.kartenZusatz} />}</Show>
       <Show when={neu()}><NeuFenster modell={m()} onZu={(id) => { setNeu(false); if (id) setGewaehlt(id); }} /></Show>
     </div>
   );
 }
 
-function Detailkarte(p: { modell: ObjektModell; zeile: Zeile; onZu: () => void }) {
+export function Detailkarte(p: { modell: ObjektModell; zeile: Zeile; onZu?: () => void; zusatz?: (z: Zeile) => JSX.Element }) {
+  const schreiben = () => darf(p.modell.name, 'schreiben');
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
   const titel = () => String(p.zeile.werte[p.modell.anzeigeFeld] ?? '');
   const aendern = (f: Feld, w: Wert) => {
@@ -111,18 +112,20 @@ function Detailkarte(p: { modell: ObjektModell; zeile: Zeile; onZu: () => void }
   return (
     <aside class="karte" aria-label={`${p.modell.titel} ${titel()}`}>
       <div class="karte-kopf">
-        <button class="knopf still nur-schmal" onClick={p.onZu}>‹ Liste</button>
-        <h2>{titel()}</h2>
-        <button class="knopf still nur-breit" aria-label="Karte schließen" onClick={p.onZu}>×</button>
+        <Show when={p.onZu}><button class="knopf still nur-schmal" onClick={p.onZu}>‹ Liste</button></Show>
+        <h2>{titel() || p.modell.titel}</h2>
+        <Show when={p.onZu}><button class="knopf still nur-breit" aria-label="Karte schließen" onClick={p.onZu}>×</button></Show>
       </div>
       <div class="karte-inhalt">
         <For each={gruppen(p.modell)}>{(g) => (
           <fieldset>
             <Show when={g.titel}><legend>{g.titel}</legend></Show>
-            <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} onWert={(w) => aendern(f, w)} />}</For>
+            <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} onWert={(w) => aendern(f, w)} />}</For>
           </fieldset>
         )}</For>
-        <div class="karte-fuss"><button class="knopf gefahr" onClick={loeschen}>{p.modell.titel} löschen</button></div>
+        {p.zusatz?.(p.zeile)}
+        <Show when={!schreiben()}><p class="still-text klein-text">Du kannst diese Angaben ansehen, aber nicht ändern.</p></Show>
+        <Show when={!p.modell.einzeln && darf(p.modell.name, 'loeschen')}><div class="karte-fuss"><button class="knopf gefahr" onClick={loeschen}>{p.modell.titel} löschen</button></div></Show>
       </div>
     </aside>
   );
@@ -148,7 +151,7 @@ function NeuFenster(p: { modell: ObjektModell; onZu: (id?: string) => void }) {
     <Dialog titel={`${p.modell.titel} anlegen`} breit onAbbrechen={() => p.onZu()}
       knoepfe={<><button class="knopf" onClick={() => p.onZu()}>Abbrechen</button><button class="knopf haupt" onClick={ok}>Anlegen</button></>}>
       <form class="raster" onSubmit={(e) => { e.preventDefault(); ok(); }}>
-        <For each={p.modell.felder.filter((f) => f.art !== 'langtext')}>{(f) => (
+        <For each={p.modell.felder.filter((f) => f.art !== 'langtext' && f.art !== 'verweis')}>{(f) => (
           <FeldEingabe feld={f} wert={werte[f.name] ?? null} fehler={fehler[f.name]} sofort onWert={(w) => setWerte(f.name, w)} />
         )}</For>
         <button type="submit" hidden />

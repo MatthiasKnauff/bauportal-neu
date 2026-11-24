@@ -4,10 +4,11 @@
 import { createSignal } from 'solid-js';
 import { createStore, produce, reconcile } from 'solid-js/store';
 import { anwenden, gegenbefehl, type Befehl, type Protokolliert, type Vorlage, type Zeile } from '../kern/befehl';
-import type { ObjektModell } from '../kern/modell';
-import { Netzfehler, Serverfehler, neueKennung, ruf, type Benutzer, type Zustand } from './api';
+import type { Feld, ObjektModell, Wert } from '../kern/modell';
+import { Netzfehler, Serverfehler, merkeZustand, neueKennung, ruf, type Benutzer, type Zustand } from './api';
 import { hinweis } from './baukasten/hinweise';
-import { anzeige } from './baukasten/feld';
+
+const anzeige = (f: Feld, w: Wert | undefined) => f.optionen?.find((o) => o.wert === w)?.titel ?? String(w ?? '');
 
 export type Lage = 'laden' | 'verbunden' | 'getrennt';
 
@@ -22,6 +23,7 @@ interface Schritt { gegen: Vorlage; wieder: Vorlage; titel: string }
 
 let idb: IDBDatabase | null = null;
 let ich: Benutzer;
+let sichtKennung = '';
 let modelle = new Map<string, ObjektModell>();
 const bestaetigt = new Map<string, Map<string, Zeile>>();   // Stand des Servers
 let wartend: Befehl[] = [];                                  // eigene Befehle, die der Server noch nicht bestätigt hat
@@ -59,17 +61,19 @@ const karte = (objekt: string) => {
 };
 
 // ---------- Sicht = Stand des Servers + eigene wartende Befehle ----------
+// Die Sicht bekommt eigene Kopien: Was die Oberfläche vorläufig zeigt, darf den bestätigten Stand nie verändern.
+const kopie = (z: Zeile): Zeile => ({ id: z.id, geloescht: z.geloescht, werte: { ...z.werte } });
 function neuRechnen(objekt: string, id: string): void {
   let z = karte(objekt).get(id);
   for (const w of wartend) if (w.objekt === objekt && w.objektId === id) z = anwenden(z, w);
   if (z && sicht[objekt]?.[id]) setSicht(objekt, id, reconcile(z));
-  else setSicht(objekt, produce((o) => { if (z) o[id] = z; else delete o[id]; }));
+  else setSicht(objekt, produce((o) => { if (z) o[id] = kopie(z); else delete o[id]; }));
 }
 function allesRechnen(): void {
   const neu: Record<string, Record<string, Zeile>> = {};
   for (const name of modelle.keys()) {
     const o: Record<string, Zeile> = {};
-    for (const z of karte(name).values()) o[z.id] = z;
+    for (const z of karte(name).values()) o[z.id] = kopie(z);
     neu[name] = o;
   }
   setSicht(reconcile(neu));
@@ -83,13 +87,14 @@ export async function starte(z: Zustand): Promise<void> {
   idb = await oeffneIdb();
   if (idb) {
     const t = idb.transaction(['zeilen', 'meta', 'wartend'], 'readonly');
-    const [kennung, benutzer, st, zeilen, schlange] = await Promise.all([
-      wart(t.objectStore('meta').get('kennung')), wart(t.objectStore('meta').get('benutzer')), wart(t.objectStore('meta').get('stand')),
+    const [kennung, benutzer, st, sk, zeilen, schlange] = await Promise.all([
+      wart(t.objectStore('meta').get('kennung')), wart(t.objectStore('meta').get('benutzer')), wart(t.objectStore('meta').get('stand')), wart(t.objectStore('meta').get('sicht')),
       wart(t.objectStore('zeilen').getAll()), wart(t.objectStore('wartend').getAll()),
     ]);
     if (kennung === z.kennung && benutzer === ich.id) {
-      stand = st ?? 0;
-      for (const e of zeilen as (Zeile & { objekt: string })[]) karte(e.objekt).set(e.id, { id: e.id, geloescht: e.geloescht, werte: e.werte });
+      // Sieht der Benutzer inzwischen anderes (Rolle, Rechte, Projekte), wird der Bestand neu geholt.
+      stand = sk === z.sichtKennung ? (st ?? 0) : 0;
+      if (stand) for (const e of zeilen as (Zeile & { objekt: string })[]) karte(e.objekt).set(e.id, { id: e.id, geloescht: e.geloescht, werte: e.werte });
       wartend = (schlange as { befehl: Befehl }[]).map((e) => e.befehl);
     } else {
       // anderes Bauportal oder anderer Benutzer: nichts Altes zeigen
@@ -97,11 +102,24 @@ export async function starte(z: Zustand): Promise<void> {
         t2.objectStore('meta').put(z.kennung, 'kennung'); t2.objectStore('meta').put(ich.id, 'benutzer'); });
     }
   }
+  sichtKennung = z.sichtKennung ?? '';
   allesRechnen();
   setWartendAnzahl(wartend.length);
   if (stand === 0) await ladeSchnappschuss();
   verbinde();
   window.addEventListener('online', () => verbinde());
+}
+
+/** Rechte, Rollen oder Mitgliedschaften haben sich geändert: nachsehen, ob dieser Benutzer jetzt anderes sieht. */
+async function sichtPruefen(): Promise<void> {
+  try {
+    const z = await ruf<Zustand>('/api/zustand');
+    if (!z.benutzer) { setAbgelaufen(true); return; }
+    merkeZustand(z);
+    if (z.sichtKennung === sichtKennung) return;
+    sichtKennung = z.sichtKennung ?? '';
+    await ladeSchnappschuss();
+  } catch (e) { if (!(e instanceof Netzfehler)) console.error(e); }
 }
 
 async function ladeSchnappschuss(): Promise<void> {
@@ -115,6 +133,7 @@ async function ladeSchnappschuss(): Promise<void> {
         t.objectStore('zeilen').put({ objekt, ...z });
       }
       t.objectStore('meta').put(s.stand, 'stand');
+      t.objectStore('meta').put(sichtKennung, 'sicht');
     });
     if (!idb) for (const [objekt, zeilen] of Object.entries(s.objekte)) for (const z of zeilen) karte(objekt).set(z.id, z);
     stand = s.stand;
@@ -132,6 +151,7 @@ function verbinde(): void {
   const s = (strom = new EventSource(`/api/strom?seit=${stand}`));
   s.onmessage = (e) => vomServer(JSON.parse(e.data) as Protokolliert);
   s.addEventListener('aktuell', () => { setLage('verbunden'); void senden(); });
+  s.addEventListener('rechte', () => void sichtPruefen());
   s.onerror = () => {
     setLage('getrennt');
     if (s.readyState === EventSource.CLOSED) {
@@ -139,7 +159,7 @@ function verbinde(): void {
       setTimeout(async () => {
         try {
           const z = await ruf<Zustand>('/api/zustand');
-          if (!z.benutzer) setAbgelaufen(true); else verbinde();
+          if (!z.benutzer) setAbgelaufen(true); else { merkeZustand(z); verbinde(); }
         } catch { verbinde(); }
       }, 3000);
     }

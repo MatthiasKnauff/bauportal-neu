@@ -3,11 +3,13 @@ import path from 'node:path';
 import { register } from '../module';
 import { schemaAnlegen, verbinden, warteAufDb } from './db';
 import { baueServer } from './server';
+import { grundausstattung } from './grundausstattung';
 
 const hier = path.dirname(fileURLToPath(import.meta.url));
 const db = verbinden(process.env.DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5433/bp_dev');
 await warteAufDb(db);
 await schemaAnlegen(db, register);
+await grundausstattung(db, register);
 const app = await baueServer({
   db,
   register,

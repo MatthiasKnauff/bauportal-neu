@@ -6,6 +6,11 @@ export const kontakt: ObjektModell = {
   titel: 'Kontakt',
   titelMehrzahl: 'Kontakte',
   anzeigeFeld: 'name',
+  rechte: {
+    lesen: ['bueroleitung', 'bauleitung', 'mitarbeiter'],
+    schreiben: ['bueroleitung', 'bauleitung', 'mitarbeiter'],
+    loeschen: ['bueroleitung', 'bauleitung'],
+  },
   felder: [
     { name: 'name', titel: 'Name', art: 'text', pflicht: true, inListe: true, breite: 260, gruppe: 'Kontakt' },
     { name: 'art', titel: 'Art', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Kontakt', optionen: [
@@ -34,4 +39,5 @@ export const adressen: Beipackzettel = {
   beschreibung: 'Firmen, Personen und Behörden – eine Liste für alle Module.',
   braucht: [],
   objekte: [kontakt],
+  ansichten: [{ id: 'kontakte', titel: 'Kontakte', objekt: 'kontakt' }],
 };

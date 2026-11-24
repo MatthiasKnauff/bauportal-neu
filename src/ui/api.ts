@@ -1,9 +1,26 @@
+import { createSignal } from 'solid-js';
 import type { Beipackzettel } from '../kern/modul';
+import type { Rechtart } from '../kern/modell';
+import type { Rechte, Rolle } from '../kern/rechte';
 
-export interface Benutzer { id: string; name: string; anmeldename: string; rolle: 'admin' | 'mitarbeiter' }
+export interface Benutzer { id: string; name: string; anmeldename: string; rolle: string }
 export interface Zustand {
   version: string; umgebung: string; kennung: string; eingerichtet: boolean;
-  benutzer: Benutzer | null; module: Beipackzettel[];
+  benutzer: Benutzer | null; module: Beipackzettel[]; rollen: Rolle[];
+  rechte?: Rechte; projekte?: string[]; sichtKennung?: string;
+}
+
+/** Der Zustand des Programms für diesen Benutzer – eine Stelle für die ganze Oberfläche. */
+export const [zustand, setZustand] = createSignal<Zustand | null>(null);
+export const ich = () => zustand()!.benutzer!;
+export const istAdmin = () => zustand()?.benutzer?.rolle === 'admin';
+/** Für die Oberfläche: Knopf zeigen oder nicht. Entschieden wird in der Datenbank. */
+export const darf = (objekt: string, art: Rechtart) => zustand()?.rechte?.[objekt]?.[art] === true;
+export const modell = (name: string) => zustand()!.module.flatMap((m) => m.objekte).find((m) => m.name === name)!;
+export const MERKER = 'bp_zustand';
+export function merkeZustand(z: Zustand): void {
+  setZustand(z);
+  if (z.benutzer) localStorage.setItem(MERKER, JSON.stringify(z)); else localStorage.removeItem(MERKER);
 }
 
 export class Serverfehler extends Error {

@@ -1,8 +1,10 @@
 // Datenbank: Verbindung und Schema. Die Tabellen der Objekte entstehen aus dem Datenmodell.
+// Auch die Rechte sitzen hier: Die Datenbank selbst lässt nur durch, was die Rolle darf.
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import type { Feld } from '../kern/modell';
+import { ROLLEN } from '../kern/rechte';
 
 pg.types.setTypeParser(20, Number);     // bigint  -> Zahl (Protokollnummern)
 pg.types.setTypeParser(1700, Number);   // numeric -> Zahl
@@ -30,6 +32,7 @@ export const spalte = (feld: string) => `"${feld}"`;
 
 function spaltentyp(f: Feld): string {
   if (f.art === 'zahl') return 'numeric';
+  if (f.art === 'verweis') return 'uuid';
   if (f.art === 'ja_nein') return 'boolean not null default false';
   return "text not null default ''";
 }
@@ -37,27 +40,115 @@ function spaltentyp(f: Feld): string {
 export const SPERRE_SCHEMA = 727001;
 export const SPERRE_PROTOKOLL = 727002;
 
+/** Wer gerade handelt. system = das Programm selbst (Einrichtung, Grundausstattung) – ohne Rechteprüfung. */
+export interface Absender { id: string; name: string; system?: boolean }
+export const SYSTEM: Absender = { id: '00000000-0000-4000-8000-000000000000', name: 'System', system: true };
+
+/**
+ * Führt etwas im Namen eines Benutzers aus. Die Verbindung wechselt dafür in die Datenbankrolle
+ * „bp_nutzer“, für die die Rechte-Regeln der Tabellen gelten.
+ */
+export async function alsBenutzer<T>(db: Db, wer: Absender, tun: (c: Verbindung) => Promise<T>, vorher?: (c: Verbindung) => Promise<T | undefined>): Promise<T> {
+  const c = await db.connect();
+  try {
+    await c.query('begin');
+    const frueh = vorher && await vorher(c);
+    if (frueh !== undefined) { await c.query('commit'); return frueh; }
+    if (wer.system) await c.query("select set_config('bp.system', 'an', true)");
+    else {
+      await c.query('set local role bp_nutzer');
+      await c.query("select set_config('bp.benutzer', $1, true)", [wer.id]);
+    }
+    const r = await tun(c);
+    await c.query('commit');
+    return r;
+  } catch (e) {
+    await c.query('rollback');
+    throw e;
+  } finally {
+    c.release();
+  }
+}
+
+const RECHTE_SQL = `
+create or replace function bp_ich() returns uuid language sql stable as $f$
+  select nullif(current_setting('bp.benutzer', true), '')::uuid $f$;
+
+-- Rolle des handelnden Benutzers; gesperrte und gelöschte Benutzer haben keine.
+create or replace function bp_rolle() returns text language sql stable security definer set search_path = public as $f$
+  select rolle from o_benutzer where id = bp_ich() and not gesperrt and not geloescht $f$;
+
+create or replace function bp_alle_projekte() returns boolean language sql stable as $f$
+  select coalesce(bp_rolle() in (${ROLLEN.filter((r) => r.alleProjekte).map((r) => `'${r.name}'`).join(',')}), false) $f$;
+
+-- Die eine Stelle, die entscheidet: Darf der Benutzer das? p = Projekt, zu dem das Objekt gehört (oder null).
+create or replace function bp_darf(obj text, art text, p uuid) returns boolean language sql stable security definer set search_path = public as $f$
+  select case
+    when bp_rolle() is null then false
+    when bp_rolle() = 'admin' then true
+    else exists (select 1 from o_recht r where r.rolle = bp_rolle() and r.objekt = obj and not r.geloescht
+           and case art when 'lesen' then r.lesen when 'schreiben' then r.schreiben else r.loeschen end)
+      and (p is null or bp_alle_projekte()
+           or exists (select 1 from o_projekt_mitglied m where m.projekt = p and m.benutzer = bp_ich() and not m.geloescht))
+  end $f$;
+
+-- Prüft jede Änderung an einem Objekt. Argumente: Objektname, Projektfeld.
+create or replace function bp_pruefe() returns trigger language plpgsql as $f$
+declare
+  obj text := tg_argv[0];
+  pf text := tg_argv[1];
+  p uuid;
+  neu jsonb := to_jsonb(new);
+begin
+  if current_setting('bp.system', true) = 'an' then return new; end if;
+  if pf <> '' then p := (neu->>pf)::uuid; end if;
+  if obj in ('benutzer', 'recht') and coalesce(bp_rolle(), '') <> 'admin' then
+    raise exception 'kein Recht' using errcode = 'BP001';
+  end if;
+  if tg_op = 'INSERT' then
+    if obj = 'projekt' then
+      if not bp_alle_projekte() then raise exception 'kein Recht' using errcode = 'BP001'; end if;
+      p := null;
+    end if;
+    if not bp_darf(obj, 'schreiben', p) then raise exception 'kein Recht' using errcode = 'BP001'; end if;
+  else
+    if new.geloescht is distinct from old.geloescht and not bp_darf(obj, 'loeschen', p) then
+      raise exception 'kein Recht' using errcode = 'BP001';
+    end if;
+    if (neu - 'geloescht' - '_stand') is distinct from (to_jsonb(old) - 'geloescht' - '_stand') and not bp_darf(obj, 'schreiben', p) then
+      raise exception 'kein Recht' using errcode = 'BP001';
+    end if;
+  end if;
+  return new;
+end $f$;
+
+-- Es muss immer jemand übrig bleiben, der alles darf.
+create or replace function bp_admin_bleibt() returns trigger language plpgsql security definer set search_path = public as $f$
+begin
+  if exists (select 1 from o_benutzer where not geloescht)
+     and not exists (select 1 from o_benutzer where rolle = 'admin' and not gesperrt and not geloescht) then
+    raise exception 'kein Admin mehr' using errcode = 'BP002';
+  end if;
+  return null;
+end $f$;
+`;
+
 export async function schemaAnlegen(db: Db, register: Modulregister): Promise<void> {
   const c = await db.connect();
   try {
     await c.query('begin');
     await c.query('select pg_advisory_xact_lock($1)', [SPERRE_SCHEMA]);
+    await c.query(`do $$ begin create role bp_nutzer nologin; exception when duplicate_object then null; end $$`);
     await c.query(`
       create table if not exists kern_meta (schluessel text primary key, wert text not null);
-      create table if not exists kern_benutzer (
-        id uuid primary key,
-        name text not null,
-        anmeldename text not null unique,
-        kennwort text not null,
-        rolle text not null default 'mitarbeiter',
-        erstellt timestamptz not null default now()
-      );
+      create table if not exists kern_kennwort (benutzer_id uuid primary key, kennwort text not null, geaendert timestamptz not null default now());
       create table if not exists kern_sitzung (
         token_hash text primary key,
-        benutzer_id uuid not null references kern_benutzer(id) on delete cascade,
+        benutzer_id uuid not null,
         erstellt timestamptz not null default now(),
         zuletzt timestamptz not null default now()
       );
+      alter table kern_sitzung drop constraint if exists kern_sitzung_benutzer_id_fkey;
       create table if not exists kern_befehl (
         seq bigserial primary key,
         id uuid not null unique,
@@ -70,19 +161,51 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
         werte jsonb,
         ueberschrieben jsonb
       );
+      alter table kern_befehl add column if not exists projekt_id uuid;
       create index if not exists kern_befehl_objekt on kern_befehl (objekt, objekt_id);
     `);
     await c.query('insert into kern_meta values ($1, $2) on conflict do nothing', ['kennung', randomUUID()]);
     for (const m of register.alleModelle) {
-      await c.query(`create table if not exists ${tabelle(m.name)} (
+      const t = tabelle(m.name);
+      await c.query(`create table if not exists ${t} (
         id uuid primary key,
         geloescht boolean not null default false,
         _stand jsonb not null default '{}'
       )`);
       for (const f of m.felder) {
-        await c.query(`alter table ${tabelle(m.name)} add column if not exists ${spalte(f.name)} ${spaltentyp(f)}`);
+        await c.query(`alter table ${t} add column if not exists ${spalte(f.name)} ${spaltentyp(f)}`);
+        if (f.eindeutig) await c.query(`create unique index if not exists "o_${m.name}_${f.name}_eindeutig" on ${t} (${spalte(f.name)}) where not geloescht`);
       }
     }
+    // Rechte: Funktionen, Leseregeln und Prüfung je Tabelle
+    await c.query(RECHTE_SQL);
+    for (const m of register.alleModelle) {
+      const t = tabelle(m.name);
+      const p = m.projektFeld ? spalte(m.projektFeld) : 'null';
+      await c.query(`
+        alter table ${t} enable row level security;
+        drop policy if exists lesen on ${t};
+        create policy lesen on ${t} for select using (bp_darf('${m.name}', 'lesen', ${p}));
+        drop policy if exists anlegen on ${t};
+        create policy anlegen on ${t} for insert with check (true);
+        drop policy if exists aendern on ${t};
+        create policy aendern on ${t} for update using (bp_darf('${m.name}', 'lesen', ${p}));
+        drop trigger if exists pruefe on ${t};
+        create trigger pruefe before insert or update on ${t} for each row execute function bp_pruefe('${m.name}', '${m.projektFeld ?? ''}');
+        grant select, insert, update on ${t} to bp_nutzer;
+      `);
+    }
+    await c.query(`
+      drop trigger if exists admin_bleibt on o_benutzer;
+      create trigger admin_bleibt after insert or update on o_benutzer for each statement execute function bp_admin_bleibt();
+      alter table kern_befehl enable row level security;
+      drop policy if exists lesen on kern_befehl;
+      create policy lesen on kern_befehl for select using (bp_darf(objekt, 'lesen', projekt_id));
+      drop policy if exists anlegen on kern_befehl;
+      create policy anlegen on kern_befehl for insert with check (true);
+      grant select, insert on kern_befehl to bp_nutzer;
+      grant usage on sequence kern_befehl_seq_seq to bp_nutzer;
+    `);
     await c.query('commit');
   } catch (e) {
     await c.query('rollback');

@@ -26,7 +26,11 @@ Das Modul **Adressen** läuft einmal durch alle Schichten des neuen Fundaments:
 - **Befehlsprotokoll** – jede Änderung ist ein Befehl (`kern_befehl`). Rückgängig ist ein Gegenbefehl.
 - **Daten im Gerät** – die Oberfläche arbeitet auf ihrem eigenen Bestand (IndexedDB), auch ohne Netz; Änderungen warten in einer Schlange.
 - **Abgleich** – andere Geräte bekommen Änderungen live. Verschiedene Felder fließen zusammen; beim selben Feld gewinnt die letzte Eingabe, beide Seiten bekommen einen Hinweis.
-- **Anmeldung** – beim ersten Aufruf wird das Administrator-Konto angelegt, weitere Benutzer im Menü oben rechts.
+- **Einrichtungsassistent** – beim ersten Aufruf: Büro, Administrator-Konto, auf Wunsch ein Musterprojekt.
+- **Rollen und Rechte in der Datenbank** – Administrator:in, Büroleitung, Bauleitung, Mitarbeiter:in, Gast. PostgreSQL selbst lässt nur durch, was die Rolle darf
+  (Leseregeln je Tabelle, Prüfung jeder Änderung – `src/server/db.ts`). Die Rechte sind Daten (Objekt `recht`) und in der Verwaltung einstellbar.
+- **Projekte** – sichtbar für Mitglieder und für Rollen, die alle Projekte sehen. Jedes Gerät bekommt nur, was sein Benutzer sehen darf.
+- **Benutzer, Rechte, Bürodaten** sind Objekte wie alle anderen: Änderungen laufen über Befehle, mit Protokoll und Rückgängig. Kennwörter stehen nie im Protokoll.
 
 ## Technik
 

@@ -10,6 +10,14 @@ export interface Beipackzettel {
   beschreibung: string;
   braucht: string[];          // Module, ohne die dieses nicht läuft
   objekte: ObjektModell[];    // Objekte, die das Modul mitbringt
+  ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
+}
+
+export interface Ansicht {
+  id: string;
+  titel: string;
+  objekt?: string;            // Liste dieses Objekts; ohne Angabe bringt die Oberfläche eine eigene Ansicht mit
+  nurAdmin?: boolean;
 }
 
 export class Modulregister {

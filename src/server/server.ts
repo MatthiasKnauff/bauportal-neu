@@ -8,6 +8,7 @@ import type { Modulregister } from '../kern/modul';
 import { Eingabefehler } from '../kern/modell';
 import type { Protokolliert } from '../kern/befehl';
 import { kennung, type Db } from './db';
+import { ROLLEN } from '../kern/rechte';
 import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss, stand } from './protokoll';
 import * as anm from './anmeldung';
 
@@ -32,8 +33,8 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   const dbKennung = await kennung(db);
 
   // ---------- Live-Strom: neue Befehle gehen an alle verbundenen Geräte ----------
-  const geraete = new Set<ServerResponse>();
-  let gesendet = await stand(db);
+  interface Geraet { r: ServerResponse; wer: anm.Benutzer; pos: number }
+  const geraete = new Set<Geraet>();
   let kette: Promise<unknown> = Promise.resolve();
   const nacheinander = <T>(f: () => Promise<T>): Promise<T> => {
     const p = kette.then(f, f);
@@ -41,15 +42,20 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
     return p;
   };
   const schreibe = (r: ServerResponse, b: Protokolliert) => r.write(`id: ${b.seq}\ndata: ${JSON.stringify(b)}\n\n`);
-  const verteilen = () => nacheinander(async () => {
-    const neu = await befehleSeit(db, gesendet);
-    for (const b of neu) {
-      for (const g of geraete) schreibe(g, b);
-      gesendet = b.seq;
+  // Jedes Gerät bekommt nur, was sein Benutzer sehen darf – gefiltert von der Datenbank.
+  const verteilen = (rechteGeaendert = false) => nacheinander(async () => {
+    const ziel = await stand(db);
+    for (const g of [...geraete]) {
+      if (rechteGeaendert && !(await anm.istAktiv(db, g.wer.id))) { g.r.end(); geraete.delete(g); continue; }
+      if (g.pos < ziel) {
+        for (const b of await befehleSeit(db, g.wer, g.pos)) schreibe(g.r, b);
+        g.pos = ziel;
+      }
+      if (rechteGeaendert) g.r.write('event: rechte\ndata: {}\n\n');
     }
   });
-  const puls = setInterval(() => { for (const g of geraete) g.write(': puls\n\n'); }, 25000);
-  app.addHook('onClose', async () => { clearInterval(puls); for (const g of geraete) g.end(); });
+  const puls = setInterval(() => { for (const g of geraete) g.r.write(': puls\n\n'); }, 25000);
+  app.addHook('onClose', async () => { clearInterval(puls); for (const g of geraete) g.r.end(); });
 
   // ---------- Fehler in verständlicher Form ----------
   app.setErrorHandler((err: Error & { statusCode?: number }, _req, reply) => {
@@ -75,10 +81,6 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   const nurAngemeldet = async (req: FastifyRequest, reply: FastifyReply) => {
     if (!req.benutzer) return reply.code(401).send({ fehler: 'Bitte anmelden' });
   };
-  const nurAdmin = async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!req.benutzer) return reply.code(401).send({ fehler: 'Bitte anmelden' });
-    if (req.benutzer.rolle !== 'admin') return reply.code(403).send({ fehler: 'Das dürfen nur Administrator:innen' });
-  };
   const setzeCookie = (req: FastifyRequest, reply: FastifyReply, token: string) =>
     reply.setCookie(COOKIE, token, { path: '/', httpOnly: true, sameSite: 'lax', secure: req.protocol === 'https', maxAge: anm.SITZUNG_TAGE * 86400 });
 
@@ -94,10 +96,12 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
     eingerichtet: await anm.eingerichtet(db),
     benutzer: req.benutzer,
     module: register.module,
+    rollen: ROLLEN,
+    ...(req.benutzer ? await anm.meineRechte(db, register, req.benutzer) : {}),
   }));
 
   app.post('/api/einrichtung', async (req, reply) => {
-    const b = await anm.ersteinrichtung(db, (req.body ?? {}) as Record<string, unknown>);
+    const b = await anm.ersteinrichtung(db, register, (req.body ?? {}) as anm.Einrichtung);
     setzeCookie(req, reply, await anm.sitzungAnlegen(db, b.id));
     return { benutzer: b };
   });
@@ -123,31 +127,43 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
     return { ok: true };
   });
 
-  app.get('/api/benutzer', { preHandler: nurAdmin }, async () => ({ benutzer: await anm.alleBenutzer(db) }));
-  app.post('/api/benutzer', { preHandler: nurAdmin }, async (req) => {
-    const k = (req.body ?? {}) as Record<string, unknown>;
-    return { benutzer: await anm.benutzerAnlegen(db, { ...k, rolle: k.rolle === 'admin' ? 'admin' : 'mitarbeiter' }) };
+  // Kennwort: das eigene ändern (mit dem alten Kennwort) oder – als Administrator:in – das eines anderen setzen.
+  app.post('/api/kennwort', { preHandler: nurAngemeldet }, async (req, reply) => {
+    const k = (req.body ?? {}) as { benutzerId?: string; kennwort?: unknown; altesKennwort?: unknown };
+    const ich = req.benutzer!;
+    const ziel = k.benutzerId ?? ich.id;
+    if (ziel !== ich.id) {
+      if (ich.rolle !== 'admin') return reply.code(403).send({ fehler: 'Das dürfen nur Administrator:innen' });
+      if (!(await db.query('select 1 from o_benutzer where id = $1 and not geloescht', [ziel])).rowCount) throw new Ablehnung('Benutzer gibt es nicht');
+    } else if (!(await anm.kennwortStimmt(db, ich.id, k.altesKennwort))) {
+      throw new Eingabefehler({ altesKennwort: 'Das bisherige Kennwort stimmt nicht' });
+    }
+    await anm.kennwortSetzen(db, ziel, k.kennwort);
+    await anm.andereSitzungenBeenden(db, ziel, ziel === ich.id ? req.cookies[COOKIE] : undefined);
+    return { ok: true };
   });
 
   // ---------- Abgleich ----------
-  app.get('/api/schnappschuss', { preHandler: nurAngemeldet }, async () => ({ kennung: dbKennung, ...(await schnappschuss(db, register)) }));
+  app.get('/api/schnappschuss', { preHandler: nurAngemeldet }, async (req) => ({ kennung: dbKennung, ...(await schnappschuss(db, register, req.benutzer!)) }));
 
   app.post('/api/befehle', { preHandler: nurAngemeldet }, async (req) => {
     const liste = ((req.body ?? {}) as { befehle?: unknown[] }).befehle;
     if (!Array.isArray(liste) || liste.length > 500) throw new Ablehnung('Befehle fehlen');
     const ergebnis: { id: string; seq?: number; fehler?: string; felder?: Record<string, string> }[] = [];
+    let rechteGeaendert = false;
     for (const roh of liste) {
       const id = String((roh as { id?: unknown })?.id ?? '');
       try {
         const p = await befehlAusfuehren(db, register, req.benutzer!, roh);
         ergebnis.push({ id, seq: p.seq });
+        if (p.objekt === 'benutzer' || p.objekt === 'recht' || p.objekt === 'projekt_mitglied') rechteGeaendert = true;
       } catch (err) {
         if (err instanceof Eingabefehler) ergebnis.push({ id, fehler: err.message, felder: err.felder });
         else if (err instanceof Ablehnung) ergebnis.push({ id, fehler: err.message });
         else throw err;
       }
     }
-    void verteilen();
+    void verteilen(rechteGeaendert);
     return { ergebnis };
   });
 
@@ -164,19 +180,22 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
       'X-Accel-Buffering': 'no',
     });
     r.write('retry: 2000\n\n');
+    const wer = req.benutzer!;
+    const g: Geraet = { r, wer, pos: 0 };
     await nacheinander(async () => {
       // Erst alles nachliefern, was dem Gerät fehlt, dann hängt es am Live-Strom.
+      g.pos = await stand(db);
       let ab = seit;
       for (;;) {
-        const teil = await befehleSeit(db, ab, 2000);
+        const teil = await befehleSeit(db, wer, ab, 2000);
         for (const b of teil) schreibe(r, b);
         if (teil.length < 2000) break;
         ab = teil[teil.length - 1]!.seq;
       }
       r.write(`event: aktuell\ndata: {}\n\n`);
-      geraete.add(r);
+      geraete.add(g);
     });
-    req.raw.on('close', () => geraete.delete(r));
+    req.raw.on('close', () => geraete.delete(g));
   });
 
   // ---------- Oberfläche ----------

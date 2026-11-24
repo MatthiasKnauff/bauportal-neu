@@ -111,3 +111,49 @@ main { flex: 1; min-height: 0; display: flex; }
   .raster { grid-template-columns: 1fr; }
   .knopf, .feld input, .auswahl button { min-height: 44px; }
 }
+
+/* ---- F2: Rechte, Projekte, Einrichtung ---- */
+.klein-text { font-size: 13px; }
+.feld.quer { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
+.feld input[readonly], .feld textarea[readonly] { background: #f6f6f3; color: var(--text-still); }
+.schalter:disabled, .auswahl button:disabled { opacity: .5; cursor: default; }
+.reihe { display: flex; justify-content: space-between; gap: 8px; } .reihe > :only-child { margin-left: auto; }
+.schritte { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-still); }
+.schritte i { width: 28px; height: 4px; border-radius: 2px; background: var(--rand-stark); } .schritte i.an { background: var(--akzent); }
+.schritte span { margin-left: 6px; }
+
+.unterleiste { flex: none; display: flex; gap: 2px; padding: 6px 14px 0; border-bottom: 1px solid var(--rand); background: var(--flaeche); overflow-x: auto; }
+.unterleiste button { min-height: 36px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; white-space: nowrap; }
+.unterleiste button.aktiv { border-bottom-color: var(--akzent); color: var(--akzent); font-weight: 600; }
+
+.auswahlliste { position: relative; }
+.auswahlliste-knopf { width: 100%; min-height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--rand-stark); border-radius: 8px; background: #fff; cursor: pointer; text-align: left; }
+.auswahlliste-knopf:disabled { background: #f6f6f3; color: var(--text-still); cursor: default; }
+.auswahlliste-knopf i { font-style: normal; color: var(--text-still); }
+.auswahlliste-fenster { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 6px; }
+.auswahlliste-fenster input { width: 100%; min-height: 34px; padding: 0 10px; border: 1px solid var(--rand-stark); border-radius: 6px; margin-bottom: 6px; }
+.auswahlliste-fenster [role=listbox] { max-height: 240px; overflow: auto; outline: none; }
+.auswahlliste-fenster [role=option] { padding: 7px 10px; border-radius: 6px; cursor: pointer; }
+.auswahlliste-fenster [role=option].zeiger { background: #f1f1ed; }
+.auswahlliste-fenster [role=option].gewaehlt { color: var(--akzent); font-weight: 600; }
+.auswahlliste-leer { padding: 8px 10px; color: var(--text-still); }
+
+.schaltliste { list-style: none; margin: 0; padding: 0; }
+.schaltliste li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #efefea; min-height: 44px; }
+.schaltliste li span { display: flex; flex-direction: column; min-width: 0; } .schaltliste small { color: var(--text-still); }
+
+.blatt { flex: 1; min-width: 0; overflow: auto; margin: 12px; padding: 20px; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 12px; display: flex; flex-direction: column; gap: 12px; }
+.blatt.schmal { flex: none; width: min(560px, calc(100% - 24px)); padding: 0; border: 0; background: transparent; }
+.blatt.schmal .karte { width: auto; }
+.blatt > .tabelle-rollen { flex: none; }
+.matrix { border-collapse: collapse; }
+.matrix th, .matrix td { border-bottom: 1px solid #efefea; padding: 6px 8px; text-align: center; }
+.matrix thead th { font-size: 13px; background: #fafaf8; white-space: nowrap; }
+.matrix thead tr:first-child th + th { border-left: 1px solid var(--rand); }
+.matrix th.klein { font-weight: 400; color: var(--text-still); font-size: 12px; }
+.matrix tbody th { text-align: left; font-weight: 600; white-space: nowrap; padding-right: 20px; }
+.matrix tbody th small { display: block; font-weight: 400; color: var(--text-still); }
+.matrix td:nth-child(3n+2) { border-left: 1px solid var(--rand); }
+.haken { width: 28px; height: 28px; border: 1px solid var(--rand-stark); border-radius: 6px; background: #fff; cursor: pointer; color: #fff; font-weight: 700; line-height: 1; }
+.haken.an { background: var(--akzent); border-color: var(--akzent); }
+.strich { color: var(--text-still); }
