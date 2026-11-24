@@ -3,7 +3,7 @@
 # Die Datenbank ist nur für die App erreichbar (kein Port nach außen).
 services:
   app:
-    image: ghcr.io/matthiasknauff/bauportal-neu:test-0296e3b
+    image: ghcr.io/matthiasknauff/bauportal-neu:test-0d924d6
     container_name: bauportal-neu-test
     restart: unless-stopped
     depends_on:
@@ -22,7 +22,7 @@ services:
 
   # Dateidienst: spricht mit dem Dateiserver. Nur für die App erreichbar (kein Port nach außen), merkt sich nichts.
   dateidienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:test-0296e3b
+    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:test-0d924d6
     container_name: bauportal-neu-test-dateidienst
     restart: unless-stopped
     environment:
