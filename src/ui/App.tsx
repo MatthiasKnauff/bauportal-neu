@@ -191,12 +191,12 @@ function Portal() {
       <Kopfleiste marke="Bauportal" apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name }))} aktiv={modul()?.modul.id}
         onApp={(id) => { setModulId(id); setAnsichtId(''); }}
         status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
-        rueckgaengig={{ zurueck: verlauf().zurueck > 0, vor: verlauf().vor > 0, onZurueck: rueckgaengig, onVor: wiederholen }}
         benutzer={ich().name} menueFuss={`${z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version ${z().version}`}
         benutzerMenue={[{ titel: 'Kennwort ändern …', tun: () => setKennwortFenster(true) }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
-        <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.map((a) => ({ id: a.id, titel: a.titel })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId }}>
+        <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.map((a) => ({ id: a.id, titel: a.titel })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId,
+          rueckgaengig: { zurueck: () => verlauf().zurueck > 0, vor: () => verlauf().vor > 0, onZurueck: rueckgaengig, onVor: wiederholen } }}>
           <Show when={schluessel()} keyed fallback={<div class="mitte"><p class="still-text">Für dich ist noch nichts freigegeben. Bitte wende dich an eine Administratorin oder einen Administrator.</p></div>}>
             {(_s: string) => <AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}
           </Show>

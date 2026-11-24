@@ -4,10 +4,10 @@
 // gibt seinen Platz an die Mitte ab. Am Handy stehen die Plätze nacheinander statt nebeneinander.
 import { Show, createContext, createSignal, useContext, type JSX } from 'solid-js';
 import { Abfolgeleiste, type Schritt } from './abfolgeleiste';
-import { Menueleiste, type Knopf, type Reiter } from './menueleiste';
+import { Menueleiste, type Knopf, type Reiter, type Rueckgaengig } from './menueleiste';
 
-/** Was das Portal jeder Ansicht mitgibt: die Reiter der App. */
-export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => string; onReiter: (id: string) => void }>();
+/** Was das Portal jeder Ansicht mitgibt: die Reiter der App und Rückgängig/Wiederholen. */
+export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => string; onReiter: (id: string) => void; rueckgaengig: Rueckgaengig }>();
 
 export interface RahmenSteuer { detailsZeigen: () => void; detailsZuklappen: () => void }
 
@@ -39,7 +39,7 @@ export function Rahmen(p: {
   return (
     <div class="rahmen">
       <Show when={p.abfolge}>{(a) => <Abfolgeleiste schritte={a().schritte} aktiv={a().aktiv} onWahl={a().onWahl} />}</Show>
-      <Menueleiste reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}>{p.menueMitte}</Menueleiste>
+      <Menueleiste rueckgaengig={app?.rueckgaengig} reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}>{p.menueMitte}</Menueleiste>
       <div class="plaetze" classList={{ 'mit-details': !!p.details && !rechtsWeg(), 'baum-offen': baumAmHandy() }}>
         <Show when={p.baum}>
           <Show when={!linksZu() || baumAmHandy()} fallback={<button class="reiter links" title={`${p.baumTitel ?? 'Gliederung'} aufklappen`} onClick={() => setLinksZu(false)}><span>{p.baumTitel ?? 'Gliederung'}</span></button>}>

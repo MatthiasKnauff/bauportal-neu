@@ -220,3 +220,4 @@ main { flex: 1; min-height: 0; display: flex; }
   .plaetze.mit-details .platz-mitte, .plaetze.mit-details .platz-links { display: none; } .platz-rechts { flex: 1; }
   .menueleiste { flex-wrap: wrap; } .menue-reiter { margin: 0; align-self: auto; min-height: 36px; }
 }
+.menue-verlauf { display: flex; gap: 2px; padding-right: 8px; margin-right: 4px; border-right: 1px solid var(--rand); }

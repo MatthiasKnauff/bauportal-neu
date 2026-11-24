@@ -1,4 +1,5 @@
-// Baustein „Kopfleiste“: ganz oben – Name, Apps, Speicherstand, Rückgängig, Benutzermenü.
+// Baustein „Kopfleiste“: ganz oben – Name, Apps, Speicherstand, Benutzermenü.
+// Rückgängig und Wiederholen stehen nicht hier (zu eng), sondern am Anfang der Menüleiste.
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import type { Menuepunkt } from './kontextmenue';
 
@@ -6,7 +7,6 @@ export function Kopfleiste(p: {
   marke: string;
   apps: { id: string; titel: string }[]; aktiv?: string; onApp: (id: string) => void;
   status: { text: string; art: 'gut' | 'wartet' | 'getrennt' };
-  rueckgaengig: { zurueck: boolean; vor: boolean; onZurueck: () => void; onVor: () => void };
   benutzer: string; benutzerMenue: Menuepunkt[]; menueFuss?: string;
   /** Platz für weitere Elemente einer App rechts neben den Apps. */
   zusatz?: JSX.Element;
@@ -20,8 +20,6 @@ export function Kopfleiste(p: {
       </nav>
       {p.zusatz}
       <span class="status" classList={{ getrennt: p.status.art === 'getrennt', wartet: p.status.art === 'wartet' }}><i />{p.status.text}</span>
-      <button class="knopf still" aria-label="Rückgängig" title="Rückgängig (Strg+Z)" disabled={!p.rueckgaengig.zurueck} onClick={p.rueckgaengig.onZurueck}>↶</button>
-      <button class="knopf still" aria-label="Wiederholen" title="Wiederholen (Strg+Y)" disabled={!p.rueckgaengig.vor} onClick={p.rueckgaengig.onVor}>↷</button>
       <div class="menue">
         <button class="knopf still" aria-haspopup="menu" aria-expanded={menue()} onClick={() => setMenue(!menue())}>{p.benutzer} ▾</button>
         <Show when={menue()}>
