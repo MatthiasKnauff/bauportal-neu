@@ -67,7 +67,7 @@ export function Detailkarte(p: {
         <For each={gruppen(p.modell, p.verborgen)}>{(g) => (
           <fieldset>
             <Show when={g.titel}><legend>{g.titel}</legend></Show>
-            <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} onWert={(w) => aendern(f, w)} />}</For>
+            <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} zusammenhang={p.zeile.werte} onWert={(w) => aendern(f, w)} />}</For>
           </fieldset>
         )}</For>
         {p.zusatz?.(p.zeile)}
@@ -81,7 +81,7 @@ export function Detailkarte(p: {
 }
 
 /** Fenster zum Anlegen eines Objekts – Felder aus dem Datenmodell, auf Wunsch vorbelegt (Duplizieren). */
-export function NeuFenster(p: { modell: ObjektModell; start: Werte; onZu: (id?: string) => void }) {
+export function NeuFenster(p: { modell: ObjektModell; start: Werte; verborgen?: string[]; onZu: (id?: string) => void }) {
   // Verweise (Projekt, Version) kommen aus dem Zusammenhang über „start“ und stehen nicht im Fenster.
   const start: Werte = {};
   for (const f of p.modell.felder) start[f.name] = p.start[f.name] ?? leerwert(f);
@@ -102,8 +102,8 @@ export function NeuFenster(p: { modell: ObjektModell; start: Werte; onZu: (id?: 
     <Dialog titel={`${p.modell.titel} anlegen`} breit onAbbrechen={() => p.onZu()}
       knoepfe={<><button class="knopf" onClick={() => p.onZu()}>Abbrechen</button><button class="knopf haupt" onClick={ok}>Anlegen</button></>}>
       <form class="raster" onSubmit={(e) => { e.preventDefault(); ok(); }}>
-        <For each={p.modell.felder.filter((f) => f.art !== 'langtext' && f.art !== 'verweis')}>{(f) => (
-          <FeldEingabe feld={f} wert={werte[f.name] ?? null} fehler={fehler[f.name]} sofort onWert={(w) => setWerte(f.name, w)} />
+        <For each={p.modell.felder.filter((f) => f.art !== 'langtext' && !p.verborgen?.includes(f.name))}>{(f) => (
+          <FeldEingabe feld={f} wert={werte[f.name] ?? null} fehler={fehler[f.name]} sofort zusammenhang={werte} onWert={(w) => setWerte(f.name, w)} />
         )}</For>
         <button type="submit" hidden />
       </form>

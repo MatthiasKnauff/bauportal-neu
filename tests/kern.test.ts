@@ -225,6 +225,56 @@ test('Versionen: erste ist gültig, genau eine gültig, Kopie im Projekt und in 
   } finally { await weg(); }
 });
 
+test('Gebäudemodell: Herkunft je Wert, Verweise wandern beim Kopieren einer Version mit', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung } = await leute(db);
+    const [p, v, g, eg, og] = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
+    await tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: v, werte: { projekt: p, bereich: 'gebaeudemodell', name: 'Vorentwurf' } });
+    const z = { projekt: p, version: v };
+    // Werte aus einer IFC-Datei tragen ihre Herkunft – aber nur die gefüllten
+    await tun(db, leitung, { objekt: 'gebaeude', art: 'anlegen', objektId: g, herkunft: 'ifc', werte: { ...z, name: 'Wohnhaus', bgf: 420 } });
+    await tun(db, leitung, { objekt: 'geschoss', art: 'anlegen', objektId: eg, werte: { ...z, gebaeude: g, name: 'EG', ebene: 0 } });
+    await tun(db, leitung, { objekt: 'geschoss', art: 'anlegen', objektId: og, werte: { ...z, gebaeude: g, name: 'OG', ebene: 1 } });
+    const w = randomUUID();
+    await tun(db, leitung, { objekt: 'bauteil', art: 'anlegen', objektId: w, werte: { ...z, name: 'Außenwand Nord', art: 'aussenwand', geschoss: eg } });
+    await tun(db, leitung, { objekt: 'bauteil', objektId: w, herkunft: 'geschaetzt', werte: { menge: 38.5 } });
+    await assert.rejects(tun(db, leitung, { objekt: 'bauteil', objektId: w, herkunft: 'Böse!', werte: { menge: 1 } }), Ablehnung);
+    const lies = async () => (await schnappschuss(db, register, leitung)).objekte;
+    let o = await lies();
+    assert.deepEqual(o.gebaeude![0]!.herkunft, { projekt: 'ifc', version: 'ifc', name: 'ifc', bgf: 'ifc' });
+    assert.deepEqual(o.bauteil![0]!.herkunft, { menge: 'geschaetzt' });
+    assert.equal(o.geschoss![0]!.herkunft, undefined, 'von Hand: keine Kennzeichnung');
+    // von Hand überschrieben: die Kennzeichnung fällt weg
+    await tun(db, leitung, { objekt: 'bauteil', objektId: w, werte: { menge: 40 } });
+    o = await lies();
+    assert.equal(o.bauteil![0]!.herkunft, undefined);
+    // Das Protokoll von vorn abgespielt ergibt denselben Stand – samt Herkunft
+    const zeilen = new Map<string, Zeile>();
+    for (const b of await befehleSeit(db, leitung, 0)) { const x = anwenden(zeilen.get(b.objektId), b); if (x) zeilen.set(x.id, x); }
+    const alle = Object.values(o).flat().sort((x, y) => x.id.localeCompare(y.id));
+    assert.deepEqual([...zeilen.values()].sort((x, y) => x.id.localeCompare(y.id)), alle);
+
+    // Kopie der Version: Bauteil zeigt auf das kopierte Geschoss, das Geschoss auf das kopierte Gebäude
+    const v2 = randomUUID();
+    await versionKopieren(db, register, leitung, { vorgang: randomUUID(), quelle: v, projekt: p, name: 'Entwurf', versionId: v2 });
+    o = await lies();
+    const in2 = <T extends Zeile>(l: T[]) => l.filter((x) => x.werte.version === v2);
+    const g2 = in2(o.gebaeude!)[0]!, eg2 = in2(o.geschoss!).find((x) => x.werte.name === 'EG')!, w2 = in2(o.bauteil!)[0]!;
+    assert.notEqual(g2.id, g);
+    assert.equal(eg2.werte.gebaeude, g2.id);
+    assert.equal(w2.werte.geschoss, eg2.id);
+    assert.equal(in2(o.geschoss!).length, 2);
+    await tun(db, leitung, { objekt: 'bauteil', objektId: w, herkunft: 'geschaetzt', werte: { aufbau: 'Mauerwerk 36,5' } });
+    const v3 = randomUUID();
+    await versionKopieren(db, register, leitung, { vorgang: randomUUID(), quelle: v, projekt: p, name: 'Stand 3', versionId: v3 });
+    o = await lies();
+    assert.deepEqual(o.bauteil!.find((x) => x.werte.version === v3)!.herkunft, { aufbau: 'geschaetzt' }, 'die Herkunft wandert in die Kopie mit');
+    assert.deepEqual(o.gebaeude!.find((x) => x.werte.version === v3)!.herkunft, { name: 'ifc', bgf: 'ifc' });
+  } finally { await weg(); }
+});
+
 test('Geheimnisse: verschlüsselt in der Datenbank, lesbar nur mit dem Schlüssel aus dem Daten-Volume', async () => {
   const { db, weg } = await frischeDb();
   try {
@@ -281,7 +331,7 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
     const cookie = (await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } })).cookie!;
     const z = (await ruf('/api/zustand', { cookie })).daten;
     assert.equal(z.benutzer.rolle, 'admin');
-    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'dateien', 'bautagebuch', 'bauzeitenplan', 'verwaltung']);
+    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'gebaeudemodell', 'dateien', 'bautagebuch', 'bauzeitenplan', 'verwaltung']);
     assert.equal(z.rechte.kontakt.loeschen, true);
     const s0 = (await ruf('/api/schnappschuss', { cookie })).daten;
     assert.equal(s0.objekte.buero[0].werte.name, 'GK3');

@@ -287,7 +287,7 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   return (
     <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
       <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={leiste()}
-        inhalt={leer(`Für dieses Projekt gibt es noch keinen ${bereich!.titel}.${darf('version', 'schreiben') ? ' Mit „+ Neue Version“ legst du den ersten an.' : ''}`)} />}>
+        inhalt={leer(`„${bereich!.titel}“ gibt es für dieses Projekt noch nicht.${darf('version', 'schreiben') ? ' Mit „+ Neue Version“ legst du die erste Version an.' : ''}`)} />}>
         <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} anpassung={ANPASSUNG[m.name]} unterMenue={bereich ? leiste() : undefined}
           fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}) })} />
       </Show>

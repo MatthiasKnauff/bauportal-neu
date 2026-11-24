@@ -69,7 +69,7 @@ const karte = (objekt: string) => {
 
 // ---------- Sicht = Stand des Servers + eigene wartende Befehle ----------
 // Die Sicht bekommt eigene Kopien: Was die Oberfläche vorläufig zeigt, darf den bestätigten Stand nie verändern.
-const kopie = (z: Zeile): Zeile => ({ id: z.id, geloescht: z.geloescht, werte: { ...z.werte } });
+const kopie = (z: Zeile): Zeile => ({ id: z.id, geloescht: z.geloescht, werte: { ...z.werte }, ...(z.herkunft ? { herkunft: { ...z.herkunft } } : {}) });
 function neuRechnen(objekt: string, id: string): void {
   let z = karte(objekt).get(id);
   for (const w of wartend) if (w.objekt === objekt && w.objektId === id) z = anwenden(z, w);
@@ -103,7 +103,7 @@ export async function starte(z: Zustand): Promise<void> {
     if (kennung === z.kennung && benutzer === ich.id) {
       // Sieht der Benutzer inzwischen anderes (Rolle, Rechte, Projekte), wird der Bestand neu geholt.
       stand = sk === z.sichtKennung ? (st ?? 0) : 0;
-      if (stand) for (const e of zeilen as (Zeile & { objekt: string })[]) karte(e.objekt).set(e.id, { id: e.id, geloescht: e.geloescht, werte: e.werte });
+      if (stand) for (const e of zeilen as (Zeile & { objekt: string })[]) karte(e.objekt).set(e.id, { id: e.id, geloescht: e.geloescht, werte: e.werte, ...(e.herkunft ? { herkunft: e.herkunft } : {}) });
       wartend = (schlange as { befehl: Befehl }[]).map((e) => e.befehl);
     } else {
       // anderes Bauportal oder anderer Benutzer: nichts Altes zeigen

@@ -107,7 +107,7 @@ export function ObjektAnsicht(p: {
         }
         detailsTitel={String(karte()?.werte[m.anzeigeFeld] ?? m.titel)}
         details={karte() ? <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> : undefined} />
-      <Show when={neu()}>{(start) => <NeuFenster modell={m} start={start()} onZu={(id) => { setNeu(null); if (id) { setGewaehlt(id); rahmen.detailsZeigen(); } }} />}</Show>
+      <Show when={neu()}>{(start) => <NeuFenster modell={m} start={start()} verborgen={Object.keys(fest())} onZu={(id) => { setNeu(null); if (id) { setGewaehlt(id); rahmen.detailsZeigen(); } }} />}</Show>
     </div>
   );
 }

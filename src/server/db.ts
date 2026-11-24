@@ -163,6 +163,8 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
         ueberschrieben jsonb
       );
       alter table kern_befehl add column if not exists projekt_id uuid;
+      alter table kern_befehl add column if not exists herkunft text;
+      alter table kern_befehl add column if not exists herkunft_felder text[];
       create index if not exists kern_befehl_objekt on kern_befehl (objekt, objekt_id);
     `);
     await c.query('insert into kern_meta values ($1, $2) on conflict do nothing', ['kennung', randomUUID()]);

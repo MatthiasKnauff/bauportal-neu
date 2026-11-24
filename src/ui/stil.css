@@ -248,3 +248,9 @@ a.knopf { display: inline-flex; align-items: center; text-decoration: none; colo
 .ordnerliste button { width: 100%; text-align: left; min-height: 38px; padding: 0 12px; border: 0; background: transparent; cursor: pointer; } .ordnerliste button:hover { background: #fafaf8; }
 .hinweis-kasten { background: #fff4c2; border: 1px solid #e6d58a; border-radius: 8px; padding: 8px 12px; margin: 0; font-size: 13px; }
 .gut-text { color: var(--gut); font-size: 13px; }
+
+/* ---- Herkunft je Wert ---- */
+.herkunft { margin-left: 8px; font-size: 11px; font-weight: 600; border-radius: 99px; padding: 1px 8px; background: var(--akzent-hell); color: var(--akzent); }
+.herkunft-geschaetzt { background: #f1f1ed; color: #6b6b66; }
+td.herkunft-geschaetzt { color: #8a8a84; font-style: italic; }
+td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }

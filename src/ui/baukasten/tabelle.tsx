@@ -3,7 +3,7 @@
 import { For, Show, createMemo, createSelector, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Feld, ObjektModell } from '../../kern/modell';
-import type { Zeile } from '../../kern/befehl';
+import { HERKUNFT, type Zeile } from '../../kern/befehl';
 import { Dialog } from './dialog';
 import { anzeige } from './feld';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
@@ -111,7 +111,7 @@ export function Tabelle(p: {
             <For each={fenster().teil}>{(z) => (
               <tr classList={{ gewaehlt: istGewaehlt(z.id) }} onClick={() => p.onWahl(z.id)} onDblClick={() => p.onOeffnen?.(z)}
                 onContextMenu={(e) => { if (!p.zeilenMenue) return; p.onWahl(z.id); zeigeMenue(e, p.zeilenMenue(z)); }}>
-                <For each={spalten.sichtbare()}>{(f) => <td>{p.zelle?.(f, z) ?? anzeige(f, z.werte[f.name])}</td>}</For>
+                <For each={spalten.sichtbare()}>{(f) => <td class={z.herkunft?.[f.name] ? `herkunft-${z.herkunft[f.name]}` : undefined} title={z.herkunft?.[f.name] ? HERKUNFT[z.herkunft[f.name]!] : undefined}>{p.zelle?.(f, z) ?? anzeige(f, z.werte[f.name])}</td>}</For>
               </tr>
             )}</For>
             <tr aria-hidden="true" style={{ height: `${(sortiert().length - fenster().bis) * ZEILENHOEHE}px` }} />

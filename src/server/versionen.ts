@@ -77,7 +77,14 @@ export async function versionKopieren(db: Db, register: Modulregister, wer: Abse
         const w = z[f.name] as Werte[string];
         werte[f.name] = f.name === 'version' ? neu : f.name === m.projektFeld ? (e.projekt as string) : f.art === 'verweis' && typeof w === 'string' ? (kopien.get(w) ?? w) : w;
       }
-      liste.push({ id: randomUUID(), objekt: m.name, art: 'anlegen', objektId: kopien.get(z.id as string)!, gesehen: 0, werte });
+      const ziel = kopien.get(z.id as string)!;
+      liste.push({ id: randomUUID(), objekt: m.name, art: 'anlegen', objektId: ziel, gesehen: 0, werte });
+      // Die Herkunft der Werte wandert mit: was in der Vorlage geschätzt war, ist es auch in der Kopie.
+      const gruppen = new Map<string, Werte>();
+      for (const [k, st] of Object.entries(z._stand as Record<string, { herkunft?: string }>)) {
+        if (st.herkunft && k in werte && k !== 'version' && k !== m.projektFeld) gruppen.set(st.herkunft, { ...(gruppen.get(st.herkunft) ?? {}), [k]: werte[k]! });
+      }
+      for (const [herkunft, felder] of gruppen) liste.push({ id: randomUUID(), objekt: m.name, art: 'aendern', objektId: ziel, gesehen: 0, werte: felder, herkunft });
     }
     return liste;
   });

@@ -1,13 +1,19 @@
 // Baustein „Feld“: ein Eingabefeld, erzeugt aus der Feldbeschreibung im Datenmodell.
 import { For, Match, Show, Switch, createUniqueId } from 'solid-js';
-import type { Feld, Wert } from '../../kern/modell';
+import type { Feld, Wert, Werte } from '../../kern/modell';
+import { HERKUNFT } from '../../kern/befehl';
 import { sicht } from '../abgleich';
 import { modell } from '../api';
 import { Auswahlliste } from './auswahlliste';
 
-export function FeldEingabe(p: { feld: Feld; wert: Wert; fehler?: string; onWert: (w: Wert) => void; sofort?: boolean; gesperrt?: boolean }) {
+export function FeldEingabe(p: {
+  feld: Feld; wert: Wert; fehler?: string; onWert: (w: Wert) => void; sofort?: boolean; gesperrt?: boolean;
+  herkunft?: string;     // woher der Wert stammt, wenn nicht von Hand
+  zusammenhang?: Werte;  // Projekt und Version des Eintrags: Verweise bieten nur an, was dazugehört
+}) {
   const id = createUniqueId();
-  const text = () => (p.wert === null || p.wert === undefined ? '' : String(p.wert));
+  // Zahlen stehen mit Komma da, wie man sie hier schreibt
+  const text = () => (p.wert === null || p.wert === undefined ? '' : typeof p.wert === 'number' ? String(p.wert).replace('.', ',') : String(p.wert));
   // sofort = jede Eingabe melden (Fenster „Neu“), sonst erst beim Verlassen des Feldes (Detailkarte)
   const melden = (e: Event) => {
     const w = (e.currentTarget as HTMLInputElement | HTMLTextAreaElement).value;
@@ -17,7 +23,7 @@ export function FeldEingabe(p: { feld: Feld; wert: Wert; fehler?: string; onWert
   const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : p.feld.art === 'datum' ? 'date' : 'text');
   return (
     <div class="feld" classList={{ 'mit-fehler': !!p.fehler, quer: p.feld.art === 'ja_nein' }}>
-      <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}</label>
+      <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show></label>
       <Switch fallback={
         <input id={id} type={typ()} inputMode={p.feld.art === 'zahl' ? 'decimal' : undefined} value={text()} autocomplete="off" readOnly={p.gesperrt}
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />
@@ -41,12 +47,21 @@ export function FeldEingabe(p: { feld: Feld; wert: Wert; fehler?: string; onWert
             onClick={() => p.onWert(p.wert !== true)}><span /></button>
         </Match>
         <Match when={p.feld.art === 'verweis'}>
-          <input id={id} value={anzeige(p.feld, p.wert)} readOnly />
+          <Auswahlliste id={id} titel={p.feld.titel} platzhalter="wählen …" wert={p.wert === null ? null : String(p.wert)} gesperrt={p.gesperrt} onWert={(w) => p.onWert(w || null)}
+            optionen={[...(p.feld.pflicht ? [] : [{ wert: '', titel: '(keins)' }]), ...verweisziele(p.feld, p.zusammenhang)]} />
         </Match>
       </Switch>
       <Show when={p.fehler}><div class="feld-fehler">{p.fehler}</div></Show>
     </div>
   );
+}
+
+/** Was ein Verweis zur Wahl stellt: die Einträge des Ziels aus demselben Projekt und derselben Version. */
+function verweisziele(f: Feld, zusammenhang?: Werte): { wert: string; titel: string }[] {
+  const m = modell(f.ziel!);
+  const gleich = ['projekt', 'version'].filter((k) => zusammenhang?.[k] && m.felder.some((x) => x.name === k));
+  return Object.values(sicht[f.ziel!] ?? {}).filter((z) => !z.geloescht && gleich.every((k) => z.werte[k] === zusammenhang![k]))
+    .map((z) => ({ wert: z.id, titel: String(z.werte[m.anzeigeFeld] ?? '') })).sort((a, b) => a.titel.localeCompare(b.titel, 'de', { numeric: true }));
 }
 
 /** Wert so, wie er in einer Tabelle steht. */
@@ -56,5 +71,6 @@ export function anzeige(f: Feld, w: Wert | undefined): string {
   if (f.art === 'ja_nein') return w ? 'Ja' : '';
   if (f.art === 'datum') { const t = String(w); return t ? `${t.slice(8, 10)}.${t.slice(5, 7)}.${t.slice(0, 4)}` : ''; }
   if (f.art === 'verweis') { const z = sicht[f.ziel!]?.[String(w)]; return z ? String(z.werte[modell(f.ziel!).anzeigeFeld] ?? '') : ''; }
+  if (typeof w === 'number') return w.toLocaleString('de', { maximumFractionDigits: 3, useGrouping: f.name !== 'nummer' });
   return String(w);
 }

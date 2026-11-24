@@ -1,6 +1,6 @@
 // Befehlsprotokoll: der einzige Weg, auf dem sich Daten ändern.
 import type { Modulregister } from '../kern/modul';
-import { BEFEHL_ARTEN, type Befehl, type Protokolliert, type Ueberschrieben, type Zeile } from '../kern/befehl';
+import { BEFEHL_ARTEN, herkunftsfelder, type Befehl, type Protokolliert, type Ueberschrieben, type Zeile } from '../kern/befehl';
 import { Eingabefehler, KENNUNG as UUID, pruefeWerte, type ObjektModell, type Werte } from '../kern/modell';
 import { SPERRE_PROTOKOLL, alsBenutzer, spalte, tabelle, type Absender, type Db, type Verbindung } from './db';
 
@@ -28,7 +28,8 @@ export function pruefeBefehl(roh: unknown): Befehl {
   if (typeof b.objekt !== 'string') throw new Ablehnung('Befehl ohne Objektart');
   if (!BEFEHL_ARTEN.includes(b.art as never)) throw new Ablehnung('Unbekannter Befehl');
   const gesehen = typeof b.gesehen === 'number' && Number.isFinite(b.gesehen) ? b.gesehen : 0;
-  return { id: b.id, objekt: b.objekt, art: b.art!, objektId: b.objektId, werte: b.werte, gesehen };
+  if (b.herkunft !== undefined && (typeof b.herkunft !== 'string' || !/^[a-z_]{1,20}$/.test(b.herkunft))) throw new Ablehnung('Ungültige Herkunft');
+  return { id: b.id, objekt: b.objekt, art: b.art!, objektId: b.objektId, werte: b.werte, gesehen, ...(b.herkunft ? { herkunft: b.herkunft } : {}) };
 }
 
 function ausZeile(r: Record<string, unknown>): Protokolliert {
@@ -39,10 +40,11 @@ function ausZeile(r: Record<string, unknown>): Protokolliert {
     werte: (r.werte as Werte | null) ?? undefined,
     ueberschrieben: (r.ueberschrieben as Record<string, Ueberschrieben> | null) ?? undefined,
     gesehen: 0,
+    ...(r.herkunft ? { herkunft: r.herkunft as string, herkunftFelder: (r.herkunft_felder as string[] | null) ?? [] } : {}),
   };
 }
 
-interface Stand { seq: number; von: string; name: string }
+interface Stand { seq: number; von: string; name: string; herkunft?: string }
 
 /**
  * Fachregeln zu einem Objekt, die über die Feldprüfung hinausgehen. Sie laufen in derselben Transaktion wie der Befehl.
@@ -89,20 +91,24 @@ export async function fuehreAus(c: Verbindung, register: Modulregister, wer: Abs
       }
     }
     await regel?.vor?.(c, b, vorher, werte);
+    // Herkunft gilt für das, was der Absender geliefert hat (und was nicht leer ist) – nicht für ergänzte Vorgaben
+    const geliefert = new Set(Object.keys((b.werte ?? {}) as object));
+    const herkunftFelder = b.herkunft && werte ? herkunftsfelder({ art: b.art, werte }).filter((k) => geliefert.has(k)) : undefined;
     const projektId = !m.projektFeld ? null : m.projektFeld === 'id' ? b.objektId : (werte?.[m.projektFeld] ?? vorher?.[m.projektFeld] ?? null);
 
     try {
       const p = await c.query(
-        `insert into kern_befehl (id, benutzer_id, benutzer_name, objekt, art, objekt_id, werte, ueberschrieben, projekt_id)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning seq, zeit`,
-        [b.id, wer.id, wer.name, m.name, b.art, b.objektId, werte ? JSON.stringify(werte) : null, ueberschrieben ? JSON.stringify(ueberschrieben) : null, projektId],
+        `insert into kern_befehl (id, benutzer_id, benutzer_name, objekt, art, objekt_id, werte, ueberschrieben, projekt_id, herkunft, herkunft_felder)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning seq, zeit`,
+        [b.id, wer.id, wer.name, m.name, b.art, b.objektId, werte ? JSON.stringify(werte) : null, ueberschrieben ? JSON.stringify(ueberschrieben) : null, projektId, b.herkunft ?? null, herkunftFelder ?? null],
       );
-      const eintrag: Protokolliert = { ...b, werte, ueberschrieben, seq: p.rows[0].seq, zeit: (p.rows[0].zeit as Date).toISOString(), benutzerId: wer.id, benutzerName: wer.name, gesehen: 0 };
+      const eintrag: Protokolliert = { ...b, werte, ueberschrieben, seq: p.rows[0].seq, zeit: (p.rows[0].zeit as Date).toISOString(), benutzerId: wer.id, benutzerName: wer.name, gesehen: 0, ...(herkunftFelder ? { herkunftFelder } : {}) };
 
       if (b.art === 'anlegen' || b.art === 'aendern') {
         const namen = Object.keys(werte!);
         const marke: Record<string, Stand> = {};
-        for (const k of namen) marke[k] = { seq: eintrag.seq, von: wer.id, name: wer.name };
+        const mitHerkunft = herkunftFelder ? new Set(herkunftFelder) : null;
+        for (const k of namen) marke[k] = { seq: eintrag.seq, von: wer.id, name: wer.name, ...(mitHerkunft?.has(k) ? { herkunft: b.herkunft } : {}) };
         if (b.art === 'anlegen') {
           const sp = ['id', '_stand', ...namen.map(spalte)];
           const pl = sp.map((_, i) => `$${i + 1}`);
@@ -164,7 +170,9 @@ export async function schnappschuss(db: Db, register: Modulregister, wer: Absend
       objekte[m.name] = r.rows.map((z: Record<string, unknown>) => {
         const werte: Werte = {};
         for (const f of m.felder) werte[f.name] = z[f.name] as Werte[string];
-        return { id: z.id as string, geloescht: z.geloescht as boolean, werte };
+        const herkunft: Record<string, string> = {};
+        for (const [k, st] of Object.entries(z._stand as Record<string, Stand>)) if (st.herkunft) herkunft[k] = st.herkunft;
+        return { id: z.id as string, geloescht: z.geloescht as boolean, werte, ...(Object.keys(herkunft).length ? { herkunft } : {}) };
       });
     }
     return { stand: s, objekte };

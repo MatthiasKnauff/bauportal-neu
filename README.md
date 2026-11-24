@@ -60,9 +60,16 @@ Verwaltung, das Kennwort verschlüsselt in der Datenbank (Schlüssel im Daten-Vo
 Mit dem Dateiserver spricht der **Dateidienst** (`dienste/dateidienst`, Python, eigener Container ohne Port nach außen); er merkt sich nichts.
 Der Testserver liest die Ablage nur. Sichtbar ist der Ordner eines Projekts für alle, die das Projekt sehen dürfen.
 
+### Gebäudemodell und Herkunft je Wert
+
+Gebäude → Geschosse → Räume und Bauteile, je Projekt in Versionen (`src/module/gebaeudemodell`). Es darf ungenau beginnen oder leer bleiben.
+Der Kern führt für jedes Feld jedes Objekts die **Herkunft**: Ein Befehl kann sagen, woher seine Werte stammen (`ifc`, `geschaetzt`, `assistent` …);
+eine Eingabe von Hand nimmt die Kennzeichnung wieder weg. Die Oberfläche zeigt sie in Karte und Tabelle. Beim Kopieren einer Version wandert sie mit.
+Verweise zwischen Objekten (Geschoss → Gebäude) bieten nur an, was zum selben Projekt und zur selben Version gehört.
+
 ### Module
 
-Adressen · Projekte (Mitglieder, Beteiligte, Versionen, Ordner auf dem Dateiserver) · Pläne und Dateien (Projektordner durchblättern, ansehen, herunterladen) · Bautagebuch (nummerierte Tagesberichte je Projekt) ·
+Adressen · Gebäudemodell (Bauteile, Räume, Geschosse, Gebäude) · Projekte (Mitglieder, Beteiligte, Versionen, Ordner auf dem Dateiserver) · Pläne und Dateien (Projektordner durchblättern, ansehen, herunterladen) · Bautagebuch (nummerierte Tagesberichte je Projekt) ·
 Bauzeitenplan (Vorgänge mit Terminen in Versionen; der Balkenplan folgt) · Verwaltung (Benutzer, Rechte, Büro).
 Das Projekt wird einmal oben gewählt und gilt in allen Apps.
 
