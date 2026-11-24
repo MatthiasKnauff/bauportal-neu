@@ -215,10 +215,13 @@ def auswerten(pfad: str) -> dict:
         geschosse.append({"kennung": s.GlobalId, "name": s.LongName or s.Name or f"Geschoss {i + 1}", "ebene": i - unten, "hoehe": hoehe if hoehe and hoehe > 0 else None,
                           "gebaeude": eltern.GlobalId if eltern is not None and eltern.is_a("IfcBuilding") else None})
 
-    raeume = []
+    raeume, raum_gerechnet = [], 0
     for r in f.by_type("IfcSpace"):
         eltern = el.get_aggregate(r)
         fl = _menge(r, ("NetFloorArea", "GrossFloorArea", "Area", "Fläche"))
+        if not fl:   # keine Menge in der Datei: Grundfläche des Raumkörpers (schon in m²)
+            fl = (_flaeche_aus_geometrie(r, "raum") or 0) / flaeche or None
+            raum_gerechnet += 1 if fl else 0
         h = _menge(r, ("FinishCeilingHeight", "Height", "NetHeight"))
         raeume.append({"kennung": r.GlobalId, "nummer": r.Name or "", "name": r.LongName or r.Name or "Raum",
                        "nutzung": str(_aus_psets(r, ("Reference", "OccupancyType", "Category")) or ""),
@@ -245,6 +248,9 @@ def auswerten(pfad: str) -> dict:
             continue
         if klasse == "IfcStairFlight" and el.get_aggregate(e) is not None:
             continue   # Lauf einer Treppe: die Treppe selbst zählt
+        if klasse == "IfcRoof" and any(t.is_a("IfcSlab") for t in el.get_parts(e)):
+            continue   # Dach aus einzelnen Dachflächen: die Flächen zählen, nicht die Klammer darum
+        dachteil = klasse == "IfcSlab" and el.get_aggregate(e) is not None and el.get_aggregate(e).is_a("IfcRoof")
         aussen = _aus_psets(e, ("IsExternal",))
         if aussen is None and "Wall" in klasse and koerper.get(e.id()) is not None and aussen_geo is not None and any(v is None for v in angabe.values()):
             aussen = e.id() in aussen_geo
@@ -255,7 +261,7 @@ def auswerten(pfad: str) -> dict:
             if "Wall" in klasse:
                 art = "aussenwand" if aussen else "innenwand"
             elif klasse == "IfcSlab":
-                art = "dach" if typ == "ROOF" else "bodenplatte" if typ == "BASESLAB" else "decke"
+                art = "dach" if typ == "ROOF" or dachteil else "bodenplatte" if typ == "BASESLAB" else "decke"
             else:
                 art = "treppe"
         ort = el.get_container(e)
@@ -334,7 +340,7 @@ def auswerten(pfad: str) -> dict:
             uebersprungen[e.is_a()] = uebersprungen.get(e.is_a(), 0) + 1
 
     return {"schema": f.schema, "gebaeude": gebaeude, "geschosse": geschosse, "raeume": raeume, "bauteile": bauteile,
-            "uebersprungen": uebersprungen, "flaechen_aus_geometrie": gerechnet, "lage_aus_geometrie": lage_gerechnet, "teile_in_oeffnungen": len(in_oeffnung)}
+            "uebersprungen": uebersprungen, "flaechen_aus_geometrie": gerechnet + raum_gerechnet, "lage_aus_geometrie": lage_gerechnet, "teile_in_oeffnungen": len(in_oeffnung)}
 
 
 @app.get("/health")
