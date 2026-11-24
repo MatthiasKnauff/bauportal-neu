@@ -105,7 +105,7 @@ export const bautagebuch: Beipackzettel = {
   ],
   ausdrucke: [{
     id: 'bautagebuch.tagesbericht', titel: 'Tagesbericht', objekt: 'tagesbericht',
-    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', fuss: '{buero} · Tagesbericht Nr. {nummer} vom {datum}',
+    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', fuss: '{buero} · Tagesbericht Nr. {nummer} vom {datum}', ordner: 'Bautagebuch/Berichte',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Tagesbericht Nr. {nummer}', unter: '{datum} · {titel}' },

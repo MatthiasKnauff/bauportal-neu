@@ -187,7 +187,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
   ifcRouten(app, { db, register, nurAngemeldet });
   assistentRouten(app, { db, register, nurAngemeldet });
-  druckRouten(app, { db, register, nurAngemeldet });
+  druckRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet });
   kiRouten(app, { db, nurAngemeldet });
   wetterRouten(app, { db, nurAngemeldet });
   fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });

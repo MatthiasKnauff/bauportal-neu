@@ -8,13 +8,14 @@ import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, spalte, tabelle, type Db } from './db';
 import { Ablehnung } from './protokoll';
+import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
 import type { Benutzer } from './anmeldung';
 
 /** Zeile aus der Datenbank -> Werte des Modells (Zahlen kommen als Text an). */
 const werteAus = (m: ObjektModell, z: Record<string, unknown> | undefined): Werte =>
   Object.fromEntries(m.felder.map((f) => [f.name, f.art === 'zahl' && z?.[f.name] != null ? Number(z[f.name]) : ((z?.[f.name] ?? null) as Werte[string])]));
 
-export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer, ausdruckId: string, objektId: string): Promise<{ html: string; name: string }> {
+export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer, ausdruckId: string, objektId: string): Promise<{ html: string; name: string; projekt: string | null; projektordner: string | null; ordner: string }> {
   const a = register.ausdrucke.find((x) => x.id === ausdruckId);
   if (!a) throw new Ablehnung('Diesen Ausdruck gibt es nicht');
   const m = register.modell(a.objekt)!;
@@ -53,13 +54,15 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
     const e: Einstellungen = {};
     // bei doppelten Einträgen (zwei Geräte ohne Netz) gilt überall derselbe: der mit der kleinsten Kennung
     for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
-    return { werte, buero, projekt, namen, kinder, e, bildIds };
+    const projektId = m.projektFeld && m.projektFeld !== 'id' ? (werte[m.projektFeld] as string | null) : null;
+    const projektordner = projektId ? ((await c.query('select ordner from o_projekt where id = $1', [projektId])).rows[0]?.ordner as string | undefined) || null : null;
+    return { werte, buero, projekt, namen, kinder, e, bildIds, projektId, projektordner };
   });
   // Im PDF steckt das Vorschaubild selbst – der Druckdienst lädt nichts nach
   const bilder = new Map<string, string>();
   if (t.bildIds.length) for (const v of (await db.query('select id, bild from kern_vorschau where id = any($1)', [t.bildIds])).rows) bilder.set(v.id, `data:image/jpeg;base64,${(v.bild as Buffer).toString('base64')}`);
   const d: Druckdaten = { werte: t.werte, buero: t.buero, projekt: t.projekt, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '' };
-  return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d) };
+  return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d), projekt: t.projektId, projektordner: t.projektordner, ordner: (t.e['seite.ordner'] || a.ordner || '').trim() };
 }
 
 export async function pdfAus(html: string): Promise<Buffer> {
@@ -73,12 +76,26 @@ export async function pdfAus(html: string): Promise<Buffer> {
   return Buffer.from(await r.arrayBuffer());
 }
 
-export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
+export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
   app.post('/api/druck/pdf', { preHandler: e.nurAngemeldet }, async (req, reply) => {
     const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string };
     if (!KENNUNG.test(b.objekt ?? '')) throw new Ablehnung('Was gedruckt werden soll, fehlt');
     const { html, name } = await seiteBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!);
     const pdf = await pdfAus(html);
     return reply.header('content-type', 'application/pdf').header('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name)}`).send(pdf);
+  });
+
+  // Das PDF in den Projektordner legen – als neue Datei, nie über eine vorhandene
+  app.post('/api/druck/ablegen', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string };
+    if (!KENNUNG.test(b.objekt ?? '')) throw new Ablehnung('Was gedruckt werden soll, fehlt');
+    const s = await seiteBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!);
+    if (!s.projekt) throw new Ablehnung('Dieser Ausdruck gehört zu keinem Projekt');
+    const hindernis = await ablageHindernis(e.db, e.umgebung, s.projektordner);
+    if (hindernis) throw new Ablehnung(hindernis);
+    try {
+      const wo = await ablegen(e.db, { umgebung: e.umgebung, projekt: s.projekt, projektordner: s.projektordner, unterordner: s.ordner, name: s.name, daten: await pdfAus(s.html) });
+      return { pfad: wo.pfad };
+    } catch (err) { if (err instanceof Dienstfehler) return reply.code(err.status).send({ fehler: err.message }); throw err; }
   });
 }

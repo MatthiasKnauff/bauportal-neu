@@ -21,6 +21,7 @@ export interface Ausdruck {
   objekt: string;          // was gedruckt wird
   dateiname: string;       // Vorschlag für die PDF-Datei; {feld} wird ersetzt
   fuss: string;            // Fußzeile links; {feld} wird ersetzt. Rechts steht immer „Seite x von y“.
+  ordner?: string;         // Unterordner im Projektordner, in dem das PDF abgelegt wird (einstellbar: Stelle „seite.ordner“)
   bloecke: Druckblock[];
 }
 

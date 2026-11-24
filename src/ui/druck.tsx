@@ -6,7 +6,7 @@ import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, s
 import type { Feld, ObjektModell, Wert } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { ausfuehren, sicht } from './abgleich';
-import { darf, ladeDatei, modell, neueKennung, zustand } from './api';
+import { darf, ladeDatei, modell, neueKennung, ruf, zustand } from './api';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe, verweisname } from './baukasten/feld';
 import { hinweis } from './baukasten/hinweise';
@@ -29,7 +29,8 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   const [blockId, rest] = stelle.split('.') as [string, string | undefined];
   if (blockId === 'seite') return { titel: 'Seite', felder: [
     { name: 'schrift', titel: 'Schriftgröße', art: 'auswahl', optionen: Object.entries(SCHRIFT).map(([wert, s]) => ({ wert, titel: s.titel })), stelle: 'seite.schrift', vorgabe: 'normal' },
-    { name: 'fuss', titel: 'Fußzeile links', art: 'text', stelle: 'seite.fuss', vorgabe: a.fuss }, zeigen('seite.fuss')] };
+    { name: 'fuss', titel: 'Fußzeile links', art: 'text', stelle: 'seite.fuss', vorgabe: a.fuss }, zeigen('seite.fuss'),
+    ...(a.ordner ? [{ name: 'ordner', titel: 'Ablegen im Projektordner unter', art: 'text' as const, stelle: 'seite.ordner', vorgabe: a.ordner }] : [])] };
   const b = a.bloecke.find((x) => x.id === blockId)!;
   if (b.art === 'titel') return { titel: 'Überschrift', felder: [
     { name: 'text', titel: 'Überschrift', art: 'text', stelle: `${b.id}.text`, vorgabe: b.text },
@@ -110,10 +111,16 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
     catch (err) { hinweis((err as Error).message); }
     finally { setLaeuft(false); }
   };
+  const ablegen = async () => {
+    setLaeuft(true);
+    try { const r = await ruf<{ pfad: string }>('/api/druck/ablegen', { ausdruck: a.id, objekt: p.objekt }); hinweis(`Im Projektordner abgelegt: ${r.pfad}`); }
+    catch (err) { hinweis((err as Error).message, { art: 'fehler' }); }
+    finally { setLaeuft(false); }
+  };
   const schrauben = createMemo(() => stellschrauben(a, m, stelle()));
   return (
     <Dialog titel={`${a.titel} – Druckvorschau`} gross onAbbrechen={() => setOffen(null)}
-      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={pdf}>{laeuft() ? 'PDF wird erzeugt …' : 'PDF herunterladen'}</button></>}>
+      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner}><button class="knopf" disabled={laeuft() || !daten()} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={pdf}>{laeuft() ? 'PDF wird erzeugt …' : 'PDF herunterladen'}</button></>}>
       <div class="druck">
         <div class="druck-blatt" onClick={klick}><div ref={blatt} /></div>
         <Show when={einstellen()}>

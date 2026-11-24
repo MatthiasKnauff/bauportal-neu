@@ -78,6 +78,13 @@ export async function ablegen(db: Db, e: { umgebung: string; projekt: string; pr
   return { ort: 'bauportal', pfad: datei };
 }
 
+/** Warum im Projektordner gerade nichts abgelegt werden kann – oder null, wenn es geht. */
+export async function ablageHindernis(db: Db, umgebung: string, projektordner: string | null): Promise<string | null> {
+  if (umgebung === 'test') return 'Der Testserver legt nichts im Projektordner ab – er darf den Dateiserver nur lesen';
+  if (!(await db.query('select freigabe from o_ablage where id = $1', [ABLAGE_ID])).rows[0]?.freigabe) return 'Die Ablage ist noch nicht eingerichtet (Verwaltung → Ablage)';
+  return projektordner ? null : 'Diesem Projekt ist noch kein Ordner auf dem Dateiserver zugeordnet (Projekte → Ordner wählen)';
+}
+
 /** Das Original wieder holen – als Strom, von dort, wo es abgelegt wurde. */
 export async function originalLesen(db: Db, e: { projekt: string; projektordner: string | null; ort: string; pfad: string }): Promise<Readable> {
   if (e.ort === 'ablage') {
