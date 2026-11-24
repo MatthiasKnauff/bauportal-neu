@@ -142,6 +142,11 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
     await c.query(`
       create table if not exists kern_meta (schluessel text primary key, wert text not null);
       create table if not exists kern_geheimnis (name text primary key, wert text not null, geaendert timestamptz not null default now());
+      create table if not exists kern_ki_ausgang (
+        id bigserial primary key, zeit timestamptz not null default now(), benutzer_id uuid not null, benutzer_name text not null,
+        anbindung text not null, art text not null, modell text not null, aufgabe text not null, extern boolean not null,
+        zeichen int not null, ersetzt int not null, tokens_ein int not null default 0, tokens_aus int not null default 0, fehler text
+      );
       create table if not exists kern_kennwort (benutzer_id uuid primary key, kennwort text not null, geaendert timestamptz not null default now());
       create table if not exists kern_sitzung (
         token_hash text primary key,

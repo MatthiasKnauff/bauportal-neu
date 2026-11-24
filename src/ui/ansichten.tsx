@@ -20,6 +20,7 @@ import { ObjektAnsicht } from './objektansicht';
 import { DateienAnsicht, OrdnerFenster } from './dateien';
 import { assistentStarten, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
+import { KiEinrichten } from './baukasten/ki';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -248,6 +249,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     // nächste Nummer im Projekt, heutiges Datum
     neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv') }),
   },
+  ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
   benutzer: {
     kartenZusatz: (z) => <KennwortSetzen benutzer={z} />,
     zelle: (f, z) => (f.name === 'gesperrt' && z.werte.gesperrt ? <span class="marke-gesperrt">gesperrt</span> : undefined),

@@ -87,6 +87,12 @@ main { flex: 1; min-height: 0; display: flex; }
 .fenster { width: 100%; max-width: 460px; max-height: 100%; display: flex; flex-direction: column; background: var(--flaeche); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
 .fenster.breit { max-width: 680px; }
 .fenster.gross { max-width: 1180px; height: 100%; }
+/* KI: Knopf am Feld, Text und Vorschlag nebeneinander */
+.ki-knopf { margin-left: 8px; padding: 0 7px; border: 1px solid var(--rand-stark); border-radius: 999px; background: #fff; color: var(--akzent); font-size: 11px; font-weight: 600; cursor: pointer; }
+.ki-knopf:hover { background: var(--akzent-hell); }
+.ki-texte { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.ki-modelle { max-height: 220px; overflow: auto; margin-top: 10px; }
+@media (max-width: 700px) { .ki-texte { grid-template-columns: 1fr; } }
 .fenster.gross .fenster-inhalt { flex: 1; min-height: 0; display: flex; padding-bottom: 0; }
 /* Druckwerk: Vorschau links (das Blatt in echter Größe), Einstellen rechts */
 .druck { flex: 1; min-width: 0; display: flex; gap: 16px; }

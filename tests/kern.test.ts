@@ -16,6 +16,9 @@ import { geheimnisLesen, geheimnisSetzen } from '../src/server/ablage';
 import { planen } from '../src/server/ifc';
 import { planeSchaetzung } from '../src/server/assistent';
 import { seiteBauen } from '../src/server/druck';
+import { kiText } from '../src/server/ki';
+import { anonymisieren, klartext } from '../src/kern/anonym';
+import { createServer } from 'node:http';
 import { schaetzen } from '../src/module/gebaeudemodell/schaetzung';
 import { gebaeude as gebaeudeModell } from '../src/module/gebaeudemodell/beipackzettel';
 import { vorgangAusfuehren } from '../src/server/protokoll';
@@ -423,6 +426,53 @@ test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man seh
     await assert.rejects(tun(db, mit, { objekt: 'druckeinstellung', art: 'anlegen', werte: { ausdruck: A, stelle: 'kopf.aus', wert: 'ja' } }), Ablehnung, 'das Layout des Büros ändert nur, wer es darf');
     await assert.rejects(seiteBauen(db, register, als(gast, 'gast'), A, b), Ablehnung, 'kein Mitglied des Projekts: kein Ausdruck');
   } finally { await weg(); }
+});
+
+test('KI: nach außen nur ohne Namen, im Büro unverändert, Protokoll ohne Inhalt, Gäste nutzen keine KI', async () => {
+  // Die Ersetzung selbst
+  const e = anonymisieren('Herr Müller (Müller Bau GmbH, 0201 123456, info@mueller-bau.de) und müller sen. – IBAN DE12 3456 7890 1234 5678 90. Müllerstraße bleibt.', ['Müller Bau GmbH', 'Müller', 'ab']);
+  assert.equal(e.karte.size, 5, 'Firma, Name, Telefon, E-Mail, IBAN – der zweite „müller“ bekommt dieselbe Nummer');
+  assert.ok(!/Müller(?!straße)|müller |0201|mueller-bau|DE12/.test(e.text), e.text);
+  assert.ok(e.text.includes('Müllerstraße bleibt'), 'nur ganze Wörter');
+  assert.match(e.text, /^Herr \[\[\d{12}\]\] \(\[\[\d{12}\]\], \[\[\d{12}\]\], \[\[\d{12}\]\]\) und \[\[(\d{12})\]\] sen\./);
+  const [n] = [...e.karte.keys()];
+  assert.equal(klartext(`Vor ${n} und [[${n}]] und [[999999999999]]`, e.karte), `Vor ${e.karte.get(n!)} und ${e.karte.get(n!)} und [[999999999999]]`, 'auch ohne Klammern zurück; Unbekanntes bleibt stehen');
+
+  // Der Weg über den Server, mit einem nachgestellten KI-Ausgang
+  const gesehen: { anweisung: string; text: string; art: string; schluessel: string }[] = [];
+  const ausgang = createServer((req, res) => {
+    let roh = ''; req.on('data', (t) => (roh += t)); req.on('end', () => {
+      const b = JSON.parse(roh); gesehen.push(b);
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ text: `Heute hat ${/\[\[\d{12}\]\]/.exec(b.text)?.[0] ?? 'Müller'} betoniert.`, ein: 30, aus: 9 }));
+    });
+  });
+  await new Promise<void>((r) => ausgang.listen(0, '127.0.0.1', r));
+  process.env.KIDIENST_URL = `http://127.0.0.1:${(ausgang.address() as { port: number }).port}`;
+  const { db, weg } = await frischeDb();
+  try {
+    const { admin, mit, gast } = await leute(db);
+    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle });
+    await tun(db, admin, { objekt: 'kontakt', art: 'anlegen', werte: { name: 'Rohbau Schmitz GmbH', ansprechpartner: 'Jörg Schmitz' } });
+    const [buero, aussen, aus] = [randomUUID(), randomUUID(), randomUUID()];
+    await tun(db, admin, { objekt: 'ki_anbindung', art: 'anlegen', objektId: buero, werte: { name: 'Büro-KI', art: 'ollama', adresse: 'http://ollama:11434', modell: 'llama', aktiv: true } });
+    await tun(db, admin, { objekt: 'ki_anbindung', art: 'anlegen', objektId: aussen, werte: { name: 'Claude', art: 'claude', modell: 'claude-haiku-5-5', aktiv: true } });
+    await tun(db, admin, { objekt: 'ki_anbindung', art: 'anlegen', objektId: aus, werte: { name: 'Aus', art: 'openai', modell: 'm', aktiv: false } });
+    await assert.rejects(tun(db, mit, { objekt: 'ki_anbindung', art: 'anlegen', werte: { name: 'x', art: 'ollama' } }), Ablehnung, 'einrichten dürfen nur Administrator:innen');
+    await geheimnisSetzen(db, `ki.${aussen}`, 'sk-geheim');
+    const text = 'Schmitz hat betoniert, Rückfragen an Jörg Schmitz.';
+    let r = await kiText(db, als(mit, 'mitarbeiter'), buero, 'ausformulieren', text);
+    assert.deepEqual([r.extern, r.ersetzt, gesehen[0]!.text, gesehen[0]!.schluessel], [false, 0, text, ''], 'im Büro bleibt der Text, wie er ist');
+    r = await kiText(db, als(mit, 'mitarbeiter'), aussen, 'glaetten', text);
+    assert.ok(!/Schmitz|Jörg/.test(gesehen[1]!.text) && gesehen[1]!.anweisung.includes('doppelten eckigen Klammern') && gesehen[1]!.schluessel === 'sk-geheim', gesehen[1]!.text);
+    assert.deepEqual([r.extern, r.ersetzt, r.vorschlag], [true, 2, 'Heute hat Schmitz betoniert.'], 'die Antwort kommt in Klartext zurück');
+    await assert.rejects(kiText(db, als(mit, 'mitarbeiter'), aus, 'glaetten', text), /ausgeschaltet/);
+    await assert.rejects(kiText(db, als(gast, 'gast'), buero, 'glaetten', text), /gibt es nicht/, 'Gäste sehen keine Anbindung');
+    await assert.rejects(kiText(db, als(mit, 'mitarbeiter'), buero, 'dichten', text), Ablehnung);
+    const p = (await db.query('select anbindung, aufgabe, extern, ersetzt, tokens_ein, fehler from kern_ki_ausgang order by id')).rows;
+    assert.deepEqual(p, [{ anbindung: 'Büro-KI', aufgabe: 'ausformulieren', extern: false, ersetzt: 0, tokens_ein: 30, fehler: null }, { anbindung: 'Claude', aufgabe: 'glaetten', extern: true, ersetzt: 2, tokens_ein: 30, fehler: null }]);
+    assert.ok(!JSON.stringify((await db.query('select * from kern_ki_ausgang')).rows).includes('betoniert'), 'im Protokoll steht, dass etwas hinausging – nicht was');
+  } finally { await weg(); ausgang.close(); }
 });
 
 test('Geheimnisse: verschlüsselt in der Datenbank, lesbar nur mit dem Schlüssel aus dem Daten-Volume', async () => {

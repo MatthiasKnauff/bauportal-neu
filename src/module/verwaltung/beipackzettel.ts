@@ -87,17 +87,39 @@ export const druckeinstellung: ObjektModell = {
   ],
 };
 
+// KI-Anbindungen: die KI im Büro (Ollama) und KIs außerhalb. Der Zugangsschlüssel steht nicht hier (und nie im
+// Protokoll), sondern verschlüsselt in der Datenbank. Einrichten dürfen nur Administrator:innen; Gäste nutzen keine KI.
+export const KI_ARTEN = [
+  { wert: 'ollama', titel: 'KI im Büro (Ollama)' }, { wert: 'claude', titel: 'Claude (Anthropic)' },
+  { wert: 'openai', titel: 'ChatGPT (OpenAI)' }, { wert: 'gemini', titel: 'Gemini (Google)' },
+];
+export const ki_anbindung: ObjektModell = {
+  name: 'ki_anbindung',
+  titel: 'KI-Anbindung',
+  titelMehrzahl: 'KI-Anbindungen',
+  anzeigeFeld: 'name',
+  rechte: { lesen: OHNE_GAST, schreiben: [], loeschen: [] },
+  felder: [
+    { name: 'name', titel: 'Bezeichnung', art: 'text', pflicht: true, inListe: true, breite: 220, gruppe: 'Anbindung' },
+    { name: 'art', titel: 'Art', art: 'auswahl', optionen: KI_ARTEN, inListe: true, breite: 190, gruppe: 'Anbindung' },
+    { name: 'adresse', titel: 'Adresse von Ollama, z. B. http://192.168.1.20:11434', art: 'text', gruppe: 'Anbindung', wenn: { art: ['ollama'] } },
+    { name: 'modell', titel: 'Modell', art: 'text', inListe: true, breite: 220, gruppe: 'Anbindung' },
+    { name: 'aktiv', titel: 'Eingeschaltet', art: 'ja_nein', inListe: true, breite: 120, gruppe: 'Anbindung' },
+  ],
+};
+
 export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
   name: 'Verwaltung',
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten.',
   braucht: [],
-  objekte: [benutzer, recht, buero, ablage, druckeinstellung],
+  objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung],
   ansichten: [
     { id: 'benutzer', titel: 'Benutzer', objekt: 'benutzer', baum: ['rolle'] },
     { id: 'rechte', titel: 'Rechte', nurAdmin: true },
     { id: 'buero', titel: 'Büro' },
     { id: 'ablage', titel: 'Ablage', nurAdmin: true },
+    { id: 'ki', titel: 'KI', objekt: 'ki_anbindung', nurAdmin: true },
   ],
 };

@@ -42,12 +42,12 @@ export function Detailkarte(p: {
   const schreiben = () => darf(p.modell.name, 'schreiben');
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
   const titel = () => String(p.zeile.werte[p.modell.anzeigeFeld] ?? '');
-  const aendern = (f: Feld, w: Wert) => {
+  const aendern = (f: Feld, w: Wert, herkunft?: string) => {
     try {
       const sauber = pruefeWerte(p.modell, { [f.name]: w }, false);
       setFehler(f.name, undefined);
       if (sauber[f.name] === p.zeile.werte[f.name]) return;
-      ausfuehren({ objekt: p.modell.name, art: 'aendern', objektId: p.zeile.id, werte: sauber }, `${f.titel} von „${titel()}“ ändern`);
+      ausfuehren({ objekt: p.modell.name, art: 'aendern', objektId: p.zeile.id, werte: sauber, ...(herkunft ? { herkunft } : {}) }, `${f.titel} von „${titel()}“ ändern`);
     } catch (e) {
       if (e instanceof Eingabefehler) setFehler(f.name, e.felder[f.name]); else throw e;
     }
@@ -67,7 +67,7 @@ export function Detailkarte(p: {
         <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => (
           <fieldset>
             <Show when={g.titel}><legend>{g.titel}</legend></Show>
-            <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} zusammenhang={p.zeile.werte} onWert={(w) => aendern(f, w)} />}</For>
+            <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />}</For>
           </fieldset>
         )}</For>
         {p.zusatz?.(p.zeile)}

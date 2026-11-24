@@ -61,6 +61,11 @@ jobs:
           pip install -q -r dienste/druckdienst/requirements.txt httpx
           cd dienste/druckdienst && python test_dienst.py
 
+      - name: KI-Ausgang prüfen (gegen nachgestellte Anbieter)
+        run: |
+          pip install -q -r dienste/kidienst/requirements.txt
+          cd dienste/kidienst && python test_dienst.py
+
       - name: Geschwindigkeit im Browser (Klick unter 50 ms)
         env:
           DATABASE_URL: postgres://postgres:test@localhost:5432/postgres

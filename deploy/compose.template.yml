@@ -18,6 +18,7 @@ services:
       DATEIDIENST_URL: http://dateidienst:8000
       IFCDIENST_URL: http://ifcdienst:8000
       DRUCKDIENST_URL: http://druckdienst:8000
+      KIDIENST_URL: http://kidienst:8000
       DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
     volumes:
       - daten:/data
@@ -61,6 +62,16 @@ services:
   druckdienst:
     image: __IMAGE_BASE__-druckdienst:__TAG__
     container_name: bauportal-neu-__APP_ENV__-druckdienst
+    restart: unless-stopped
+    environment:
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
+      TZ: Europe/Berlin
+
+  # KI-Ausgang: die eine Stelle, die mit einer KI spricht (Ollama im Büro oder Anbieter außerhalb). Nur für die App
+  # erreichbar, merkt sich nichts. Ohne eingerichtete KI-Anbindung (Verwaltung → KI) geht hier nichts hinaus.
+  kidienst:
+    image: __IMAGE_BASE__-kidienst:__TAG__
+    container_name: bauportal-neu-__APP_ENV__-kidienst
     restart: unless-stopped
     environment:
       DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}

@@ -6,9 +6,10 @@ import { feldtext } from '../../kern/druck';
 import { sicht } from '../abgleich';
 import { modell } from '../api';
 import { Auswahlliste } from './auswahlliste';
+import { kiAnbindungen, kiOeffnen } from './ki';
 
 export function FeldEingabe(p: {
-  feld: Feld; wert: Wert; fehler?: string; onWert: (w: Wert) => void; sofort?: boolean; gesperrt?: boolean;
+  feld: Feld; wert: Wert; fehler?: string; onWert: (w: Wert, herkunft?: string) => void; sofort?: boolean; gesperrt?: boolean;
   herkunft?: string;     // woher der Wert stammt, wenn nicht von Hand
   zusammenhang?: Werte;  // Projekt und Version des Eintrags: Verweise bieten nur an, was dazugehört
 }) {
@@ -24,7 +25,9 @@ export function FeldEingabe(p: {
   const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : p.feld.art === 'datum' ? 'date' : 'text');
   return (
     <div class="feld" classList={{ 'mit-fehler': !!p.fehler, quer: p.feld.art === 'ja_nein' }}>
-      <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show></label>
+      <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show>
+        {/* Lange Texte: Wenn das Büro eine KI eingeschaltet hat, kann sie hier einen Vorschlag machen */}
+        <Show when={p.feld.art === 'langtext' && !p.gesperrt && kiAnbindungen().length}><button type="button" class="ki-knopf" title="Die KI macht einen Vorschlag – übernommen wird erst nach deiner Bestätigung" onClick={() => kiOeffnen({ titel: p.feld.titel, text: text(), onUebernehmen: (t) => p.onWert(t, 'ki') })}>✦ KI</button></Show></label>
       <Switch fallback={
         <input id={id} type={typ()} inputMode={p.feld.art === 'zahl' ? 'decimal' : undefined} value={text()} autocomplete="off" readOnly={p.gesperrt}
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />

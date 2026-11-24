@@ -11,6 +11,7 @@ import { AppUmgebung } from './baukasten/rahmen';
 import { projektId, setProjektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
 import { Druck } from './druck';
+import { KiFenster } from './baukasten/ki';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
@@ -51,6 +52,7 @@ export function App() {
       <Kontextmenue />
       <Uebernahmefenster />
       <Druck />
+      <KiFenster />
       <Show when={wartetLange() > 0}><div class="warte" role="status">Einen Moment …</div></Show>
     </>
   );

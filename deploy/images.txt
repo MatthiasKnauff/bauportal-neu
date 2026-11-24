@@ -2,3 +2,4 @@
 dateidienst dienste/dateidienst
 ifcdienst dienste/ifcdienst
 druckdienst dienste/druckdienst
+kidienst dienste/kidienst
