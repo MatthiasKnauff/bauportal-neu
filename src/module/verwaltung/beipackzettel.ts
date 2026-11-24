@@ -73,13 +73,27 @@ export const ablage: ObjektModell = {
   ],
 };
 
+// Was das Büro an einem Ausdruck eingestellt hat – je Stelle ein Eintrag (Druckwerk, kern/druck.ts).
+export const druckeinstellung: ObjektModell = {
+  name: 'druckeinstellung',
+  titel: 'Druckeinstellung',
+  titelMehrzahl: 'Druckeinstellungen',
+  anzeigeFeld: 'stelle',
+  rechte: { lesen: ALLE, schreiben: ['bueroleitung'], loeschen: ['bueroleitung'] },
+  felder: [
+    { name: 'ausdruck', titel: 'Ausdruck', art: 'text', pflicht: true },
+    { name: 'stelle', titel: 'Stelle', art: 'text', pflicht: true },
+    { name: 'wert', titel: 'Wert', art: 'text' },
+  ],
+};
+
 export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
   name: 'Verwaltung',
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten.',
   braucht: [],
-  objekte: [benutzer, recht, buero, ablage],
+  objekte: [benutzer, recht, buero, ablage, druckeinstellung],
   ansichten: [
     { id: 'benutzer', titel: 'Benutzer', objekt: 'benutzer', baum: ['rolle'] },
     { id: 'rechte', titel: 'Rechte', nurAdmin: true },

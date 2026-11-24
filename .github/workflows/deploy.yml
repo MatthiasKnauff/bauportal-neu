@@ -56,6 +56,11 @@ jobs:
           pip install -q -r dienste/ifcdienst/requirements.txt httpx
           cd dienste/ifcdienst && python test_dienst.py
 
+      - name: Druckdienst prüfen (eine Seite wird zum PDF)
+        run: |
+          pip install -q -r dienste/druckdienst/requirements.txt httpx
+          cd dienste/druckdienst && python test_dienst.py
+
       - name: Geschwindigkeit im Browser (Klick unter 50 ms)
         env:
           DATABASE_URL: postgres://postgres:test@localhost:5432/postgres

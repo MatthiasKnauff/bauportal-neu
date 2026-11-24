@@ -16,6 +16,7 @@ export const ich = () => zustand()!.benutzer!;
 export const istAdmin = () => zustand()?.benutzer?.rolle === 'admin';
 /** Für die Oberfläche: Knopf zeigen oder nicht. Entschieden wird in der Datenbank. */
 export const darf = (objekt: string, art: Rechtart) => zustand()?.rechte?.[objekt]?.[art] === true;
+export const ausdrucke = (objekt: string) => zustand()!.module.flatMap((m) => m.ausdrucke ?? []).filter((a) => a.objekt === objekt);
 export const modell = (name: string) => zustand()!.module.flatMap((m) => m.objekte).find((m) => m.name === name)!;
 export const MERKER = 'bp_zustand';
 export function merkeZustand(z: Zustand): void {
@@ -52,6 +53,23 @@ async function rufOhneUhr<T>(pfad: string, body?: unknown): Promise<T> {
   const daten = await r.json().catch(() => ({}));
   if (!r.ok) throw new Serverfehler(daten.fehler ?? `Fehler ${r.status}`, r.status, daten.felder);
   return daten as T;
+}
+
+/** Holt eine Datei vom Server (z. B. ein PDF) und legt sie über den Browser beim Benutzer ab. */
+export async function ladeDatei(pfad: string, body: unknown): Promise<void> {
+  let lange = false;
+  const uhr = setTimeout(() => { lange = true; setWartetLange((n) => n + 1); }, 1500);
+  try {
+    let r: Response;
+    try { r = await fetch(pfad, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); }
+    catch { throw new Netzfehler('Keine Verbindung zum Server'); }
+    if (!r.ok) throw new Serverfehler((await r.json().catch(() => ({}))).fehler ?? `Fehler ${r.status}`, r.status);
+    const name = decodeURIComponent(/filename\*=UTF-8''([^;]+)/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? 'Datei');
+    const verweis = document.createElement('a');
+    verweis.href = URL.createObjectURL(await r.blob()); verweis.download = name;
+    verweis.click();
+    setTimeout(() => URL.revokeObjectURL(verweis.href), 60000);
+  } finally { clearTimeout(uhr); if (lange) setWartetLange((n) => n - 1); }
 }
 
 export function neueKennung(): string {

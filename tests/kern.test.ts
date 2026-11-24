@@ -15,6 +15,7 @@ import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen
 import { geheimnisLesen, geheimnisSetzen } from '../src/server/ablage';
 import { planen } from '../src/server/ifc';
 import { planeSchaetzung } from '../src/server/assistent';
+import { seiteBauen } from '../src/server/druck';
 import { schaetzen } from '../src/module/gebaeudemodell/schaetzung';
 import { gebaeude as gebaeudeModell } from '../src/module/gebaeudemodell/beipackzettel';
 import { vorgangAusfuehren } from '../src/server/protokoll';
@@ -394,6 +395,33 @@ test('Assistent: Schätzung aus den Angaben, Antworten am Gebäude, ein Plan ers
     // Danach schätzt der Assistent nichts mehr dazu – er trägt nur noch Angaben ein
     const d = await planeSchaetzung(db, register, wer, p, v, haus.id, { heizung: 'wp_luft' });
     assert.deepEqual(d.liste.map((x) => [x.objekt, x.art]), [['gebaeude', 'aendern']]);
+  } finally { await weg(); }
+});
+
+test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man sehen darf', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung, mit, gast } = await leute(db);
+    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle });
+    const [p, b] = [randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus <A> & Söhne' } });
+    await tun(db, leitung, { objekt: 'buero', art: 'aendern', objektId: '00000000-0000-4000-8000-0000000b0e01', werte: { name: 'GK3', ort: 'Essen', plz: '45127' } });
+    await tun(db, leitung, { objekt: 'tagesbericht', art: 'anlegen', objektId: b, werte: { projekt: p, nummer: 7, datum: '2026-11-24', titel: 'Bodenplatte', wetter: 'regen', temperatur: 4.5, leistungen: 'Bewehrung verlegt\n<b>fett?</b>' } });
+    const A = 'bautagebuch.tagesbericht';
+    let s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
+    assert.equal(s.name, 'Tagesbericht 7 24.11.2026 Haus -A- & Söhne.pdf');
+    for (const t of ['<h1 data-stelle="titel.text">Tagesbericht Nr. 7</h1>', '24.11.2026 · Bodenplatte', '<dt>Wetter</dt><dd>Regen</dd>', '<dd>4,5</dd>', 'Haus &lt;A&gt; &amp; Söhne', '45127 Essen', '&lt;b&gt;fett?&lt;/b&gt;', 'GK3 · Tagesbericht Nr. 7 vom 24.11.2026', 'counter(pages)']) assert.ok(s.html.includes(t), t);
+    assert.ok(!s.html.includes('Mängel und Behinderungen'), 'leere Abschnitte fallen weg');
+    // Das Büro stellt ein: andere Überschrift, Temperatur aus, Mängel auch leer zeigen, kleine Schrift
+    for (const [stelle, wert] of [['titel.text', 'Bautagesbericht {nummer}'], ['angaben.temperatur.aus', 'ja'], ['maengel.leer', 'ja'], ['angaben.wetter.titel', 'Witterung'], ['seite.schrift', 'klein']] as [string, string][]) {
+      await tun(db, leitung, { objekt: 'druckeinstellung', art: 'anlegen', werte: { ausdruck: A, stelle, wert } });
+    }
+    await tun(db, leitung, { objekt: 'projekt_mitglied', art: 'anlegen', werte: { projekt: p, benutzer: mit.id } });
+    s = await seiteBauen(db, register, als(mit, 'mitarbeiter'), A, b);
+    for (const t of ['>Bautagesbericht 7</h1>', '<dt>Witterung</dt>', 'Mängel und Behinderungen', 'font: 9pt']) assert.ok(s.html.includes(t), t);
+    assert.ok(!s.html.includes('Temperatur'));
+    await assert.rejects(tun(db, mit, { objekt: 'druckeinstellung', art: 'anlegen', werte: { ausdruck: A, stelle: 'kopf.aus', wert: 'ja' } }), Ablehnung, 'das Layout des Büros ändert nur, wer es darf');
+    await assert.rejects(seiteBauen(db, register, als(gast, 'gast'), A, b), Ablehnung, 'kein Mitglied des Projekts: kein Ausdruck');
   } finally { await weg(); }
 });
 

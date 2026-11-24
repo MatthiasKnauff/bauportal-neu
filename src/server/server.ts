@@ -16,6 +16,7 @@ import { ablageRouten } from './ablage';
 import { ifcRouten } from './ifc';
 import { assistentRouten } from './assistent';
 import { uebernahmeRouten } from './uebernahme';
+import { druckRouten } from './druck';
 
 export interface Einstellungen {
   db: Db;
@@ -182,6 +183,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
   ifcRouten(app, { db, register, nurAngemeldet });
   assistentRouten(app, { db, register, nurAngemeldet });
+  druckRouten(app, { db, register, nurAngemeldet });
   uebernahmeRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
 
   app.get('/api/strom', { preHandler: nurAngemeldet }, async (req, reply) => {

@@ -40,4 +40,17 @@ export const bautagebuch: Beipackzettel = {
   braucht: ['projekte'],
   objekte: [tagesbericht],
   ansichten: [{ id: 'berichte', titel: 'Berichte', objekt: 'tagesbericht', brauchtProjekt: true }],
+  ausdrucke: [{
+    id: 'bautagebuch.tagesbericht', titel: 'Tagesbericht', objekt: 'tagesbericht',
+    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', fuss: '{buero} · Tagesbericht Nr. {nummer} vom {datum}',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Tagesbericht Nr. {nummer}', unter: '{datum} · {titel}' },
+      { id: 'angaben', art: 'felder', felder: ['datum', 'nummer', 'wetter', 'temperatur'] },
+      { id: 'anwesende', art: 'text', feld: 'anwesende' },
+      { id: 'leistungen', art: 'text', feld: 'leistungen' },
+      { id: 'maengel', art: 'text', feld: 'maengel' },
+      { id: 'anordnungen', art: 'text', feld: 'anordnungen' },
+    ],
+  }],
 };

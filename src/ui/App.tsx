@@ -10,6 +10,7 @@ import { Kopfleiste } from './baukasten/kopfleiste';
 import { AppUmgebung } from './baukasten/rahmen';
 import { projektId, setProjektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
+import { Druck } from './druck';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
@@ -49,6 +50,7 @@ export function App() {
       <Hinweise />
       <Kontextmenue />
       <Uebernahmefenster />
+      <Druck />
       <Show when={wartetLange() > 0}><div class="warte" role="status">Einen Moment …</div></Show>
     </>
   );

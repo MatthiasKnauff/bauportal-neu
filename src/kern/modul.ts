@@ -2,6 +2,7 @@
 // Der Kern liest daraus, welche Objekte es gibt und was das Modul braucht.
 
 import { pruefeModell, type ObjektModell } from './modell';
+import type { Ausdruck } from './druck';
 
 export interface Beipackzettel {
   id: string;
@@ -11,6 +12,7 @@ export interface Beipackzettel {
   braucht: string[];          // Module, ohne die dieses nicht läuft
   objekte: ObjektModell[];    // Objekte, die das Modul mitbringt
   ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
+  ausdrucke?: Ausdruck[];     // was das Modul drucken kann (Druckwerk)
   versionen?: Versionsbereich[];   // Bereiche mit benannten Versionen (z. B. der Bauzeitenplan eines Projekts)
 }
 
@@ -44,9 +46,18 @@ export class Modulregister {
     for (const z of module) for (const b of z.braucht) {
       if (!this.zettel.has(b)) throw new Error(`Modul „${z.id}“ braucht „${b}“, das fehlt`);
     }
+    // Ausdrucke dürfen nur Felder nennen, die es gibt
+    for (const a of this.ausdrucke) {
+      const m = this.modelle.get(a.objekt);
+      if (!m) throw new Error(`Ausdruck „${a.id}“: Objekt „${a.objekt}“ fehlt`);
+      for (const n of a.bloecke.flatMap((b) => (b.art === 'felder' ? b.felder : b.art === 'text' ? [b.feld] : []))) {
+        if (!m.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Feld „${n}“ fehlt`);
+      }
+    }
   }
   get module(): Beipackzettel[] { return [...this.zettel.values()]; }
   get alleModelle(): ObjektModell[] { return [...this.modelle.values()]; }
+  get ausdrucke(): Ausdruck[] { return this.module.flatMap((m) => m.ausdrucke ?? []); }
   get versionsbereiche(): Versionsbereich[] { return this.module.flatMap((m) => m.versionen ?? []); }
   modell(name: string): ObjektModell | undefined { return this.modelle.get(name); }
 }

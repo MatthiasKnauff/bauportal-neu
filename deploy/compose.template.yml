@@ -17,6 +17,7 @@ services:
       DATABASE_URL: postgres://bauportal:${DB_PASSWORT:-bauportal}@db:5432/bauportal
       DATEIDIENST_URL: http://dateidienst:8000
       IFCDIENST_URL: http://ifcdienst:8000
+      DRUCKDIENST_URL: http://druckdienst:8000
       DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
     volumes:
       - daten:/data
@@ -51,6 +52,15 @@ services:
   ifcdienst:
     image: __IMAGE_BASE__-ifcdienst:__TAG__
     container_name: bauportal-neu-__APP_ENV__-ifcdienst
+    restart: unless-stopped
+    environment:
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
+      TZ: Europe/Berlin
+
+  # Druckdienst: macht aus der fertigen Seite das PDF (Chromium ohne Fenster). Nur für die App erreichbar, merkt sich nichts.
+  druckdienst:
+    image: __IMAGE_BASE__-druckdienst:__TAG__
+    container_name: bauportal-neu-__APP_ENV__-druckdienst
     restart: unless-stopped
     environment:
       DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}

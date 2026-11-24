@@ -5,7 +5,7 @@ import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
 import { ausfuehren, sicht } from './abgleich';
-import { darf, istAdmin, modell, neueKennung, ruf, zustand } from './api';
+import { ausdrucke, darf, istAdmin, modell, neueKennung, ruf, zustand } from './api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { Versionsleiste } from './baukasten/versionsleiste';
 import type { Versionsweg } from '../kern/modul';
@@ -19,6 +19,7 @@ import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
 import { DateienAnsicht, OrdnerFenster } from './dateien';
 import { assistentStarten, ifcEinlesen } from './uebernahme';
+import { druckOeffnen } from './druck';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -253,7 +254,12 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
 };
 
-export const kartenZusatz = (objekt: string) => ANPASSUNG[objekt]?.kartenZusatz;
+const anpassung = (objekt: string): Anpassung => ({ ...ANPASSUNG[objekt], kartenZusatz: kartenZusatz(objekt) });
+/** Unter der Karte: was das Modul dort ergänzt, und – für alles, was sich drucken lässt – der Weg zum Ausdruck. */
+export const kartenZusatz = (objekt: string) => (z: Zeile): JSX.Element => <>
+  {ANPASSUNG[objekt]?.kartenZusatz?.(z)}
+  <For each={ausdrucke(objekt)}>{(a) => <div class="karte-fuss"><button class="knopf" onClick={() => druckOeffnen(a.id, z.id)}>⎙ Drucken / PDF{ausdrucke(objekt).length > 1 ? ` – ${a.titel}` : ''}</button></div>}</For>
+</>;
 
 export function sichtbar(a: Ansicht): boolean {
   if (a.nurAdmin && !istAdmin()) return false;
@@ -293,7 +299,7 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
     <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
       <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={leiste()}
         inhalt={leer(`„${bereich!.titel}“ gibt es für dieses Projekt noch nicht.${darf('version', 'schreiben') ? ' Mit „+ Neue Version“ legst du die erste Version an.' : ''}`)} />}>
-        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} anpassung={ANPASSUNG[m.name]} unterMenue={bereich ? leiste() : undefined}
+        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} anpassung={anpassung(m.name)} unterMenue={bereich ? leiste() : undefined}
           fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}) })} />
       </Show>
     </Show>
@@ -304,5 +310,5 @@ export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   const eigene = EIGENE[`${p.modul.id}.${p.ansicht.id}`];
   if (eigene) return eigene();
   if (p.ansicht.brauchtProjekt) return <ProjektAnsicht modul={p.modul} ansicht={p.ansicht} />;
-  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} anpassung={ANPASSUNG[p.ansicht.objekt!]} />;
+  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} anpassung={anpassung(p.ansicht.objekt!)} />;
 }

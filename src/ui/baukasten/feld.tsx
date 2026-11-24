@@ -2,6 +2,7 @@
 import { For, Match, Show, Switch, createUniqueId } from 'solid-js';
 import type { Feld, Wert, Werte } from '../../kern/modell';
 import { HERKUNFT } from '../../kern/befehl';
+import { feldtext } from '../../kern/druck';
 import { sicht } from '../abgleich';
 import { modell } from '../api';
 import { Auswahlliste } from './auswahlliste';
@@ -73,14 +74,6 @@ function verweisziele(f: Feld, zusammenhang?: Werte): { wert: string; titel: str
     .map((z) => ({ wert: z.id, titel: String(z.werte[m.anzeigeFeld] ?? '') })).sort((a, b) => a.titel.localeCompare(b.titel, 'de', { numeric: true }));
 }
 
-/** Wert so, wie er in einer Tabelle steht. */
-export function anzeige(f: Feld, w: Wert | undefined): string {
-  if (w === null || w === undefined) return '';
-  if (f.art === 'auswahl') return f.optionen?.find((o) => o.wert === w)?.titel ?? String(w);
-  if (f.art === 'mehrfach') return f.optionen!.filter((o) => String(w).split(',').includes(o.wert)).map((o) => o.titel).join(', ');
-  if (f.art === 'ja_nein') return w ? 'Ja' : '';
-  if (f.art === 'datum') { const t = String(w); return t ? `${t.slice(8, 10)}.${t.slice(5, 7)}.${t.slice(0, 4)}` : ''; }
-  if (f.art === 'verweis') { const z = sicht[f.ziel!]?.[String(w)]; return z ? String(z.werte[modell(f.ziel!).anzeigeFeld] ?? '') : ''; }
-  if (typeof w === 'number') return w.toLocaleString('de', { maximumFractionDigits: 3, useGrouping: f.name !== 'nummer' });
-  return String(w);
-}
+/** Wert so, wie er in einer Tabelle steht – derselbe Text wie im Ausdruck. */
+export const anzeige = (f: Feld, w: Wert | undefined): string => feldtext(f, w, verweisname);
+export const verweisname = (ziel: string, id: string): string => { const z = sicht[ziel]?.[id]; return z ? String(z.werte[modell(ziel).anzeigeFeld] ?? '') : ''; };
