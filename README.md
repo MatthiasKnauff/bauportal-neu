@@ -53,15 +53,22 @@ Je Projekt und Bereich (z. B. Bauzeitenplan) gibt es benannte, unabhängig bearb
 Neue Version auf drei Wegen: aus der aktuellen, leer, aus einem anderen Projekt – welche Wege gelten, steht im Beipackzettel des Moduls.
 Kopieren läuft als ein Vorgang auf dem Server (alle Einträge oder keiner). Die Versionsleiste ist ein Baustein.
 
+### Ablage (Dateiserver)
+
+Die Originale bleiben auf dem Dateiserver. Das Bauportal verbindet sich selbst mit der Freigabe (SMB); Freigabe und Benutzer stehen in der
+Verwaltung, das Kennwort verschlüsselt in der Datenbank (Schlüssel im Daten-Volume, `src/server/ablage.ts`).
+Mit dem Dateiserver spricht der **Dateidienst** (`dienste/dateidienst`, Python, eigener Container ohne Port nach außen); er merkt sich nichts.
+Der Testserver liest die Ablage nur. Sichtbar ist der Ordner eines Projekts für alle, die das Projekt sehen dürfen.
+
 ### Module
 
-Adressen · Projekte (Mitglieder, Beteiligte, Versionen) · Bautagebuch (nummerierte Tagesberichte je Projekt) ·
+Adressen · Projekte (Mitglieder, Beteiligte, Versionen, Ordner auf dem Dateiserver) · Pläne und Dateien (Projektordner durchblättern, ansehen, herunterladen) · Bautagebuch (nummerierte Tagesberichte je Projekt) ·
 Bauzeitenplan (Vorgänge mit Terminen in Versionen; der Balkenplan folgt) · Verwaltung (Benutzer, Rechte, Büro).
 Das Projekt wird einmal oben gewählt und gilt in allen Apps.
 
 ## Technik
 
-TypeScript durchgehend, SolidJS für die Oberfläche, PostgreSQL. Ein Programm, ein Container (plus Datenbank).
+TypeScript durchgehend, SolidJS für die Oberfläche, PostgreSQL. Ein Programm, ein Container – dazu die Datenbank und der Dateidienst (Python) als Hilfsdienst.
 
 | Ordner | Inhalt |
 |---|---|

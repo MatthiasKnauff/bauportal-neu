@@ -17,6 +17,7 @@ import type { Anpassung } from './baukasten/anpassung';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
+import { DateienAnsicht, OrdnerFenster } from './dateien';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -97,6 +98,55 @@ function Beteiligte(p: { projekt: Zeile }) {
         </Show>
       </fieldset>
     </Show>
+  );
+}
+
+// ---------- Projekte: Ordner auf dem Dateiserver zuordnen ----------
+function OrdnerWahl(p: { projekt: Zeile }) {
+  const [offen, setOffen] = createSignal(false);
+  return (
+    <Show when={darf('projekt', 'schreiben')}>
+      <div><button class="knopf" onClick={() => setOffen(true)}>Ordner auf dem Dateiserver wählen …</button></div>
+      <Show when={offen()}>
+        <OrdnerFenster start={String(p.projekt.werte.ordner ?? '')} onZu={() => setOffen(false)}
+          onWahl={(pfad) => { setOffen(false); ausfuehren({ objekt: 'projekt', art: 'aendern', objektId: p.projekt.id, werte: { ordner: pfad } }, `Ordner von „${p.projekt.werte.name}“ zuordnen`); }} />
+      </Show>
+    </Show>
+  );
+}
+
+// ---------- Verwaltung: Verbindung zur Ablage ----------
+function AblageVerbindung() {
+  const m = () => modell('ablage');
+  const z = () => sicht.ablage?.[m().einzeln!];
+  const [lage, setLage] = createSignal<{ eingerichtet: boolean; kennwortGesetzt: boolean; nurLesen: boolean } | null>(null);
+  const [ergebnis, setErgebnis] = createSignal<{ gut: boolean; text: string } | null>(null);
+  const [kennwort, setKennwort] = createSignal(false);
+  const holeLage = () => ruf<{ eingerichtet: boolean; kennwortGesetzt: boolean; nurLesen: boolean }>('/api/ablage/zustand').then(setLage, () => undefined);
+  void holeLage();
+  const pruefen = async () => {
+    setErgebnis({ gut: true, text: 'Verbindung wird geprüft …' });
+    try { const r = await ruf<{ ordner: number; dateien: number }>('/api/ablage/pruefen', {}); setErgebnis({ gut: true, text: `Verbindung steht. In der Freigabe liegen ${r.ordner} Ordner und ${r.dateien} Dateien.` }); }
+    catch (e) { setErgebnis({ gut: false, text: (e as Error).message }); }
+  };
+  return (
+    <Rahmen schluessel="verwaltung.ablage" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Wird geladen …</p>}>{(zeile) => (
+      <Detailkarte modell={m()} zeile={zeile()} zusatz={() => (
+        <fieldset>
+          <legend>Kennwort und Prüfung</legend>
+          <p class="still-text klein-text">Das Kennwort wird verschlüsselt gespeichert und steht nie im Protokoll. {lage()?.kennwortGesetzt ? 'Es ist ein Kennwort hinterlegt.' : 'Es ist noch kein Kennwort hinterlegt.'}</p>
+          <Show when={lage()?.nurLesen}><p class="hinweis-kasten">Testserver: Die Ablage wird hier nur gelesen. Auf dem Dateiserver wird nichts angelegt, geändert oder gelöscht.</p></Show>
+          <div class="reihe"><button class="knopf" onClick={() => setKennwort(true)}>Kennwort eintragen …</button><button class="knopf haupt" onClick={pruefen}>Verbindung prüfen</button></div>
+          <Show when={ergebnis()}>{(e) => <p classList={{ 'feld-fehler': !e().gut, 'gut-text': e().gut }} role="status">{e().text}</p>}</Show>
+          <Show when={kennwort()}>
+            <Dialog titel="Kennwort für den Dateiserver" onAbbrechen={() => setKennwort(false)} knoepfe={<button class="knopf" onClick={() => setKennwort(false)}>Abbrechen</button>}>
+              <Formular knopf="Speichern" pfad="/api/ablage/kennwort" felder={[{ name: 'kennwort', titel: 'Kennwort des Benutzers auf dem Dateiserver', typ: 'password', auto: 'new-password' }]}
+                onFertig={() => { setKennwort(false); hinweis('Kennwort gespeichert.'); void holeLage(); }} />
+            </Dialog>
+          </Show>
+        </fieldset>
+      )} />
+    )}</Show></section>} />
   );
 }
 
@@ -181,11 +231,11 @@ function Buero() {
   return <Rahmen schluessel="verwaltung.buero" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} />}</Show></section>} />;
 }
 
-const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero };
+const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'dateien.dateien': DateienAnsicht };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
 const ANPASSUNG: Record<string, Anpassung> = {
   projekt: {
-    kartenZusatz: (z) => <><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
+    kartenZusatz: (z) => <><OrdnerWahl projekt={z} /><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
     zelle: (f, z) => (f.name === 'status' ? <span class={`marke-${z.werte.status}`}>{f.optionen!.find((o) => o.wert === z.werte.status)?.titel}</span> : undefined),
   },
   tagesbericht: {

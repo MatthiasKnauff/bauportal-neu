@@ -234,3 +234,17 @@ main { flex: 1; min-height: 0; display: flex; }
 .rahmen > .mitte, .platz-mitte > .mitte { flex: 1; }
 @media (max-width: 860px) { .projektwahl { order: 8; width: 100%; } }
 .auswahlliste-knopf span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* ---- Ablage und Dateien ---- */
+.krumen { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; flex-wrap: wrap; }
+.krumen button { border: 0; background: transparent; cursor: pointer; padding: 4px 6px; border-radius: 6px; white-space: nowrap; }
+.krumen button:hover { background: #f1f1ed; } .krumen button:last-child { font-weight: 600; } .krumen span { color: var(--text-still); }
+.ordnername { font-weight: 600; }
+.vorschau { display: block; max-width: 100%; max-height: 320px; margin: 14px auto 0; border-radius: 8px; border: 1px solid var(--rand); }
+.angaben { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 16px 0; } .angaben dt { color: var(--text-still); font-size: 13px; } .angaben dd { margin: 0; overflow-wrap: anywhere; }
+a.knopf { display: inline-flex; align-items: center; text-decoration: none; color: inherit; } a.knopf.haupt { color: #fff; }
+.ordnerliste { list-style: none; margin: 10px 0 0; padding: 0; max-height: 320px; overflow: auto; border: 1px solid var(--rand); border-radius: 8px; }
+.ordnerliste li { border-bottom: 1px solid #efefea; } .ordnerliste li:last-child { border-bottom: 0; } .ordnerliste li.still-text { padding: 10px; }
+.ordnerliste button { width: 100%; text-align: left; min-height: 38px; padding: 0 12px; border: 0; background: transparent; cursor: pointer; } .ordnerliste button:hover { background: #fafaf8; }
+.hinweis-kasten { background: #fff4c2; border: 1px solid #e6d58a; border-radius: 8px; padding: 8px 12px; margin: 0; font-size: 13px; }
+.gut-text { color: var(--gut); font-size: 13px; }

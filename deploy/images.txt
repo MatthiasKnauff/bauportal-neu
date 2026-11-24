@@ -1,0 +1,2 @@
+# je Zeile: <name> <ordner>  →  Image <haupt-image>-<name>
+dateidienst dienste/dateidienst

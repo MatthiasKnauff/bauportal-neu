@@ -141,6 +141,7 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
     await c.query(`do $$ begin create role bp_nutzer nologin; exception when duplicate_object then null; end $$`);
     await c.query(`
       create table if not exists kern_meta (schluessel text primary key, wert text not null);
+      create table if not exists kern_geheimnis (name text primary key, wert text not null, geaendert timestamptz not null default now());
       create table if not exists kern_kennwort (benutzer_id uuid primary key, kennwort text not null, geaendert timestamptz not null default now());
       create table if not exists kern_sitzung (
         token_hash text primary key,

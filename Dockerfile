@@ -13,6 +13,7 @@ COPY --from=bau /app/dist ./dist
 ARG APP_VERSION=dev
 ENV APP_VERSION=$APP_VERSION NODE_ENV=production PORT=8000
 EXPOSE 8000
-USER node
+# Start als root nur, um das Daten-Volume dem Benutzer „node“ zu geben (dort liegt der Schlüssel für gespeicherte Kennwörter);
+# das Programm selbst läuft danach ohne root-Rechte.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s CMD node -e "fetch('http://127.0.0.1:8000/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
-CMD ["node", "dist/server.mjs"]
+CMD ["sh", "-c", "mkdir -p /data && chown node:node /data && exec setpriv --reuid=node --regid=node --init-groups node dist/server.mjs"]

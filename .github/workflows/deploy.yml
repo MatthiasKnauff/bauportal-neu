@@ -46,6 +46,11 @@ jobs:
           npm run typen
           npm test
 
+      - name: Dateidienst prüfen (gegen einen Test-Dateiserver)
+        run: |
+          pip install -q -r dienste/dateidienst/requirements.txt impacket httpx
+          cd dienste/dateidienst && python test_dienst.py
+
       - name: Geschwindigkeit im Browser (Klick unter 50 ms)
         env:
           DATABASE_URL: postgres://postgres:test@localhost:5432/postgres

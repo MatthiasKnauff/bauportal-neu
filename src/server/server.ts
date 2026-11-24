@@ -12,6 +12,7 @@ import { ROLLEN } from '../kern/rechte';
 import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss, stand } from './protokoll';
 import * as anm from './anmeldung';
 import { versionKopieren, versionsregelnAnmelden } from './versionen';
+import { ablageRouten } from './ablage';
 
 export interface Einstellungen {
   db: Db;
@@ -174,6 +175,8 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
     void verteilen();
     return { versionId: p.objektId, seq: p.seq };
   });
+
+  ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
 
   app.get('/api/strom', { preHandler: nurAngemeldet }, async (req, reply) => {
     const q = Number((req.query as { seit?: string }).seit ?? 0);

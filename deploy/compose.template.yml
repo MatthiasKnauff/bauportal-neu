@@ -15,8 +15,19 @@ services:
       APP_ENV: __APP_ENV__
       TZ: Europe/Berlin
       DATABASE_URL: postgres://bauportal:${DB_PASSWORT:-bauportal}@db:5432/bauportal
+      DATEIDIENST_URL: http://dateidienst:8000
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
     volumes:
       - daten:/data
+
+  # Dateidienst: spricht mit dem Dateiserver. Nur für die App erreichbar (kein Port nach außen), merkt sich nichts.
+  dateidienst:
+    image: __IMAGE_BASE__-dateidienst:__TAG__
+    container_name: bauportal-neu-__APP_ENV__-dateidienst
+    restart: unless-stopped
+    environment:
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
+      TZ: Europe/Berlin
 
   db:
     image: postgres:18-alpine

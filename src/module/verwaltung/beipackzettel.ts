@@ -56,16 +56,34 @@ export const buero: ObjektModell = {
   ],
 };
 
+// Verbindung zur Ablage auf dem Dateiserver. Das Kennwort steht nicht hier (und nie im Protokoll),
+// sondern verschlüsselt in der Datenbank; der Schlüssel dazu liegt im Daten-Volume.
+export const ABLAGE_ID = '00000000-0000-4000-8000-0000000ab1a6';
+export const ablage: ObjektModell = {
+  name: 'ablage',
+  titel: 'Ablage',
+  titelMehrzahl: 'Ablage',
+  anzeigeFeld: 'freigabe',
+  einzeln: ABLAGE_ID,
+  rechte: { lesen: [], schreiben: [], loeschen: [] },
+  felder: [
+    { name: 'freigabe', titel: 'Freigabe, z. B. \\\\server\\projekte', art: 'text', gruppe: 'Dateiserver' },
+    { name: 'benutzer', titel: 'Benutzer auf dem Dateiserver', art: 'text', gruppe: 'Dateiserver' },
+    { name: 'domaene', titel: 'Domäne (meist leer)', art: 'text', gruppe: 'Dateiserver' },
+  ],
+};
+
 export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
   name: 'Verwaltung',
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten.',
   braucht: [],
-  objekte: [benutzer, recht, buero],
+  objekte: [benutzer, recht, buero, ablage],
   ansichten: [
     { id: 'benutzer', titel: 'Benutzer', objekt: 'benutzer', baum: ['rolle'] },
     { id: 'rechte', titel: 'Rechte', nurAdmin: true },
     { id: 'buero', titel: 'Büro' },
+    { id: 'ablage', titel: 'Ablage', nurAdmin: true },
   ],
 };

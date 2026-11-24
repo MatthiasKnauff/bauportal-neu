@@ -22,6 +22,7 @@ export const projekt: ObjektModell = {
     { name: 'strasse', titel: 'Straße und Hausnummer', art: 'text', gruppe: 'Baustelle' },
     { name: 'plz', titel: 'PLZ', art: 'text', gruppe: 'Baustelle' },
     { name: 'ort', titel: 'Ort', art: 'text', inListe: true, breite: 150, gruppe: 'Baustelle' },
+    { name: 'ordner', titel: 'Ordner auf dem Dateiserver', art: 'text', gruppe: 'Ablage' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Notiz' },
   ],
 };

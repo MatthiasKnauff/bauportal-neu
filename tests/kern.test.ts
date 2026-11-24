@@ -12,6 +12,12 @@ import { festeKennung, grundausstattung } from '../src/server/grundausstattung';
 import { kennwortSetzen } from '../src/server/anmeldung';
 import { baueServer } from '../src/server/server';
 import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen';
+import { geheimnisLesen, geheimnisSetzen } from '../src/server/ablage';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+
+process.env.DATEN_PFAD = mkdtempSync(path.join(tmpdir(), 'bp-daten-'));
 
 versionsregelnAnmelden(register);
 
@@ -219,6 +225,19 @@ test('Versionen: erste ist gültig, genau eine gültig, Kopie im Projekt und in 
   } finally { await weg(); }
 });
 
+test('Geheimnisse: verschlüsselt in der Datenbank, lesbar nur mit dem Schlüssel aus dem Daten-Volume', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    await geheimnisSetzen(db, 'ablage.kennwort', 'Sehr Geheim! äöü');
+    const roh = (await db.query("select wert from kern_geheimnis where name = 'ablage.kennwort'")).rows[0].wert as string;
+    assert.ok(!roh.includes('Geheim') && !Buffer.from(roh, 'base64').toString('latin1').includes('Geheim'));
+    assert.equal(await geheimnisLesen(db, 'ablage.kennwort'), 'Sehr Geheim! äöü');
+    await geheimnisSetzen(db, 'ablage.kennwort', 'neu');
+    assert.equal(await geheimnisLesen(db, 'ablage.kennwort'), 'neu');
+    assert.equal(await geheimnisLesen(db, 'gibtsnicht'), null);
+  } finally { await weg(); }
+});
+
 test('Übernahme: Benutzer aus dem ersten Stand werden zu Objekten und können sich weiter anmelden', async () => {
   const id = randomUUID();
   const { db, weg } = await frischeDb(async (d) => {
@@ -262,7 +281,7 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
     const cookie = (await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } })).cookie!;
     const z = (await ruf('/api/zustand', { cookie })).daten;
     assert.equal(z.benutzer.rolle, 'admin');
-    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'bautagebuch', 'bauzeitenplan', 'verwaltung']);
+    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'dateien', 'bautagebuch', 'bauzeitenplan', 'verwaltung']);
     assert.equal(z.rechte.kontakt.loeschen, true);
     const s0 = (await ruf('/api/schnappschuss', { cookie })).daten;
     assert.equal(s0.objekte.buero[0].werte.name, 'GK3');
