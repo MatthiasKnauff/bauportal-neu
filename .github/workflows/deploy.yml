@@ -46,6 +46,17 @@ jobs:
           npm run typen
           npm test
 
+      - name: Geschwindigkeit im Browser (Klick unter 50 ms)
+        env:
+          DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+          PORT: 8000
+        run: |
+          npm run build
+          npx playwright install --with-deps chromium
+          node dist/server.mjs &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 1; done
+          node tests/ui/klick.mjs
+
       - name: Ziel und Version bestimmen
         id: meta
         run: bash .github/scripts/meta.sh

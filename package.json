@@ -7,6 +7,7 @@
     "dev:ui": "vite",
     "typen": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "test:klick": "node tests/ui/klick.mjs",
     "build": "vite build && esbuild src/server/start.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/server.mjs --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\"",
     "start": "node dist/server.mjs"
   },
@@ -21,6 +22,7 @@
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
     "esbuild": "^0.28.2",
+    "playwright": "^1.63.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
