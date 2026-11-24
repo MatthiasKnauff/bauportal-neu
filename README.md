@@ -34,9 +34,14 @@ Das Modul **Adressen** läuft einmal durch alle Schichten des neuen Fundaments:
 
 ### Baukasten der Oberfläche (`src/ui/baukasten`)
 
-Jedes Modul benutzt dieselben Bausteine – was einer kann, können alle:
+Jede App hat denselben Aufbau (`rahmen.tsx`): **Kopfleiste** · **Abfolge-Leiste** (nur bei Apps mit Abfolge) · **Menüleiste** · darunter drei Plätze
+**Baum | Inhalt | Details**. Jeder Teil ist ein fertiger Baustein, den die App nur auf seinen Platz setzt. Zugeklappte Plätze geben ihren Platz an die Mitte ab;
+am Handy stehen die Plätze nacheinander. Was ein Modul an einem Baustein verändern darf, steht an einer Stelle: `anpassung.ts` (Stellschrauben).
+Fehlt eine, kommt sie dort dazu und gilt dann für alle – im Modul wird nichts „drübergebaut“.
 
-- **Liste mit Detailkarte** (`objektliste.tsx`): Suchen, Sortieren, Spalten ein-/ausblenden, ordnen und in der Breite ziehen (je Benutzer und Gerät gemerkt),
+- **Baum** (`baum.tsx`), **Tabelle** (`tabelle.tsx`), **Detailkarte** (`detailkarte.tsx`), **Menüleiste**, **Abfolge-Leiste**, **Kopfleiste**.
+  `objektansicht.tsx` setzt sie für ein Objekt aus dem Datenmodell zusammen; der Baum gliedert nach den Feldern, die der Beipackzettel nennt.
+- **Tabelle**: Suchen, Sortieren, Spalten ein-/ausblenden, ordnen und in der Breite ziehen (je Benutzer und Gerät gemerkt),
   Tastatur (Pfeile, Bild auf/ab, Pos1/Ende, Enter, Entf, Esc, `/` für die Suche), Kontextmenü, Karte zuklappen oder in ein eigenes Browserfenster legen.
   Im Dokument stehen nur die sichtbaren Zeilen – gemessen mit 5000 Kontakten: Klick auf eine Zeile unter 25 ms, Sortieren und Suchen unter 50 ms.
 - **Feld**, **Auswahlliste** (eigene Liste mit Suche statt Browser-Auswahl), **Fenster**, **Formular**, **Hinweis** (mit Rückgängig), **Kontextmenü** (höchstens 6 Punkte).

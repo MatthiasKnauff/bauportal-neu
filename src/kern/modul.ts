@@ -17,6 +17,7 @@ export interface Ansicht {
   id: string;
   titel: string;
   objekt?: string;            // Liste dieses Objekts; ohne Angabe bringt die Oberfläche eine eigene Ansicht mit
+  baum?: string[];            // Felder, nach denen der Baum links gliedert
   nurAdmin?: boolean;
 }
 

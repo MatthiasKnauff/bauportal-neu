@@ -180,3 +180,43 @@ main { flex: 1; min-height: 0; display: flex; }
 .kartenfenster { flex: 1; min-height: 0; display: flex; flex-direction: column; } .kartenfenster .karte { flex: 1; width: auto; border: 0; border-radius: 0; }
 .kartenfenster .status { padding: 6px 14px; border-top: 1px solid var(--rand); background: var(--flaeche); }
 @media (max-width: 860px) { .karten-halter { flex: 1; } .reiter { display: none; } .tabelle th .griff { display: none; } }
+
+/* ---- Rahmen: Abfolge-Leiste · Menüleiste · Baum | Inhalt | Details ---- */
+.ansicht, .rahmen { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.menueleiste { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--flaeche); border-bottom: 1px solid var(--rand); min-height: 49px; }
+.menue-reiter { display: flex; gap: 2px; align-self: stretch; margin: -6px 8px -6px 0; }
+.menue-reiter button { padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; white-space: nowrap; }
+.menue-reiter button.aktiv { border-bottom-color: var(--akzent); color: var(--akzent); font-weight: 600; }
+.menue-mitte { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.plaetze { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px; }
+.platz-links { flex: none; width: 230px; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 12px; overflow: hidden; }
+.platz-mitte { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 12px; overflow: hidden; }
+.platz-mitte > .blatt { margin: 0; border: 0; border-radius: 0; }
+.platz-mitte:has(> .blatt.schmal) { background: transparent; border: 0; }
+.platz-rechts { flex: none; display: flex; min-height: 0; }
+.reiter.links { order: -1; }
+.baum { flex: 1; overflow: auto; padding: 6px; outline-offset: -2px; }
+.baum-zeile { display: flex; align-items: center; gap: 4px; min-height: 32px; padding-right: 8px; border-radius: 6px; cursor: pointer; }
+.baum-zeile:hover { background: #fafaf8; } .baum-zeile.gewaehlt { background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
+.baum-klappe { flex: none; width: 20px; height: 24px; border: 0; background: transparent; cursor: pointer; padding: 0; color: var(--text-still); font-style: normal; }
+.baum-titel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.baum-anzahl { font-size: 12px; color: var(--text-still); font-weight: 400; }
+.abfolge { flex: none; list-style: none; margin: 0; padding: 8px 12px; display: flex; gap: 4px; background: var(--flaeche); border-bottom: 1px solid var(--rand); overflow-x: auto; }
+.abfolge li { display: flex; align-items: center; }
+.abfolge li + li::before { content: ''; width: 18px; height: 2px; background: var(--rand-stark); margin: 0 4px; }
+.abfolge li.erledigt + li::before, .abfolge li.erledigt::before { background: var(--akzent); }
+.abfolge button { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px 0 6px; border: 1px solid var(--rand-stark); border-radius: 99px; background: #fff; cursor: pointer; white-space: nowrap; color: var(--text-still); }
+.abfolge button:disabled { cursor: default; opacity: 1; }
+.abfolge b { width: 22px; height: 22px; border-radius: 50%; background: var(--rand-stark); color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.abfolge li.erledigt button { border-color: var(--akzent); color: var(--text); } .abfolge li.erledigt b { background: var(--akzent); }
+.abfolge li.aktiv button { border-color: var(--akzent); background: var(--akzent-hell); color: var(--akzent); font-weight: 600; } .abfolge li.aktiv b { background: var(--akzent); }
+.formular > .abfolge { padding: 0; border: 0; background: transparent; }
+.marke-aktiv::before, .marke-ruht::before, .marke-archiviert::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--gut); }
+.marke-ruht::before { background: var(--warn); } .marke-archiviert::before { background: var(--rand-stark); }
+.marke-gesperrt { font-size: 12px; font-weight: 600; color: var(--gefahr); background: #fdecec; border-radius: 99px; padding: 2px 8px; }
+@media (max-width: 860px) {
+  .plaetze { padding: 0; gap: 0; } .platz-links, .platz-mitte { border-radius: 0; border-left: 0; border-right: 0; }
+  .platz-links { display: none; } .plaetze.baum-offen .platz-links { display: flex; flex: 1; width: auto; } .plaetze.baum-offen .platz-mitte { display: none; }
+  .plaetze.mit-details .platz-mitte, .plaetze.mit-details .platz-links { display: none; } .platz-rechts { flex: 1; }
+  .menueleiste { flex-wrap: wrap; } .menue-reiter { margin: 0; align-self: auto; min-height: 36px; }
+}

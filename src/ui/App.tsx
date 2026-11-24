@@ -4,7 +4,10 @@ import { MERKER, Netzfehler, Serverfehler, ich, merkeZustand, modell, ruf, setZu
 import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './abgleich';
 import { AnsichtZeigen, kartenZusatz, sichtbar } from './ansichten';
 import { Kontextmenue } from './baukasten/kontextmenue';
-import { Detailkarte } from './baukasten/objektliste';
+import { Detailkarte } from './baukasten/detailkarte';
+import { Abfolgeleiste } from './baukasten/abfolgeleiste';
+import { Kopfleiste } from './baukasten/kopfleiste';
+import { AppUmgebung } from './baukasten/rahmen';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
@@ -82,7 +85,7 @@ function Einrichtung() {
   return (
     <div class="mitte">
       <form class="formular" onSubmit={weiter}>
-        <div class="schritte" aria-label={`Schritt ${schritt()} von 3`}><For each={[1, 2, 3]}>{(n) => <i classList={{ an: n <= schritt() }} />}</For><span>Schritt {schritt()} von 3</span></div>
+        <Abfolgeleiste bisher aktiv={String(schritt())} onWahl={(id) => setSchritt(Number(id))} schritte={[{ id: '1', titel: 'Büro' }, { id: '2', titel: 'Konto' }, { id: '3', titel: 'Ausprobieren' }]} />
         <Switch>
           <Match when={schritt() === 1}>
             <h1>Bauportal einrichten</h1>
@@ -158,7 +161,6 @@ function Portal() {
   const modul = () => module().find((m) => m.modul.id === modulId()) ?? module()[0];
   const ansicht = () => modul()?.ansichten.find((a) => a.id === ansichtId()) ?? modul()?.ansichten[0];
   const schluessel = createMemo(() => (ansicht() ? `${modul()!.modul.id}.${ansicht()!.id}` : undefined));
-  const [menue, setMenue] = createSignal(false);
   const [kennwortFenster, setKennwortFenster] = createSignal(false);
 
   const taste = (e: KeyboardEvent) => {
@@ -186,35 +188,19 @@ function Portal() {
 
   return (
     <div class="portal">
-      <header class="kopf">
-        <strong class="marke">Bauportal</strong>
-        <nav aria-label="Module">
-          <For each={module()}>{(m) => <button classList={{ aktiv: modul()?.modul.id === m.modul.id }} onClick={() => { setModulId(m.modul.id); setAnsichtId(''); }}>{m.modul.name}</button>}</For>
-        </nav>
-        <span class="status" classList={{ getrennt: lage() === 'getrennt', wartet: wartendAnzahl() > 0 }}><i />{status()}</span>
-        <button class="knopf still" aria-label="Rückgängig" title="Rückgängig (Strg+Z)" disabled={!verlauf().zurueck} onClick={rueckgaengig}>↶</button>
-        <button class="knopf still" aria-label="Wiederholen" title="Wiederholen (Strg+Y)" disabled={!verlauf().vor} onClick={wiederholen}>↷</button>
-        <div class="menue">
-          <button class="knopf still" aria-haspopup="menu" aria-expanded={menue()} onClick={() => setMenue(!menue())}>{ich().name} ▾</button>
-          <Show when={menue()}>
-            <div class="menue-liste" role="menu" onClick={() => setMenue(false)}>
-              <button role="menuitem" onClick={() => setKennwortFenster(true)}>Kennwort ändern …</button>
-              <button role="menuitem" onClick={abmelden}>Abmelden</button>
-              <div class="menue-fuss">{z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version {z().version}</div>
-            </div>
-          </Show>
-        </div>
-      </header>
-      <Show when={(modul()?.ansichten.length ?? 0) > 1}>
-        <nav class="unterleiste" aria-label={modul()!.modul.name}>
-          <For each={modul()!.ansichten}>{(a) => <button classList={{ aktiv: ansicht()?.id === a.id }} onClick={() => setAnsichtId(a.id)}>{a.titel}</button>}</For>
-        </nav>
-      </Show>
+      <Kopfleiste marke="Bauportal" apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name }))} aktiv={modul()?.modul.id}
+        onApp={(id) => { setModulId(id); setAnsichtId(''); }}
+        status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
+        rueckgaengig={{ zurueck: verlauf().zurueck > 0, vor: verlauf().vor > 0, onZurueck: rueckgaengig, onVor: wiederholen }}
+        benutzer={ich().name} menueFuss={`${z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version ${z().version}`}
+        benutzerMenue={[{ titel: 'Kennwort ändern …', tun: () => setKennwortFenster(true) }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
-        <Show when={schluessel()} keyed fallback={<div class="mitte"><p class="still-text">Für dich ist noch nichts freigegeben. Bitte wende dich an eine Administratorin oder einen Administrator.</p></div>}>
-          {(_s: string) => <AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}
-        </Show>
+        <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.map((a) => ({ id: a.id, titel: a.titel })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId }}>
+          <Show when={schluessel()} keyed fallback={<div class="mitte"><p class="still-text">Für dich ist noch nichts freigegeben. Bitte wende dich an eine Administratorin oder einen Administrator.</p></div>}>
+            {(_s: string) => <AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}
+          </Show>
+        </AppUmgebung.Provider>
       </main>
       <Show when={kennwortFenster()}>
         <Dialog titel="Kennwort ändern" onAbbrechen={() => setKennwortFenster(false)} knoepfe={<button class="knopf" onClick={() => setKennwortFenster(false)}>Abbrechen</button>}>

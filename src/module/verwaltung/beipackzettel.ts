@@ -64,7 +64,7 @@ export const verwaltung: Beipackzettel = {
   braucht: [],
   objekte: [benutzer, recht, buero],
   ansichten: [
-    { id: 'benutzer', titel: 'Benutzer', objekt: 'benutzer' },
+    { id: 'benutzer', titel: 'Benutzer', objekt: 'benutzer', baum: ['rolle'] },
     { id: 'rechte', titel: 'Rechte', nurAdmin: true },
     { id: 'buero', titel: 'Büro' },
   ],

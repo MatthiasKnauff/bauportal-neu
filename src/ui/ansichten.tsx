@@ -1,5 +1,5 @@
-// Ansichten der Module. Eine Liste eines Objekts kommt von selbst aus dem Baustein „ObjektListe“;
-// hier steht nur, was ein Modul darüber hinaus zeigt.
+// Ansichten der Module. Die Ansicht eines Objekts kommt von selbst (ObjektAnsicht: Baum, Tabelle, Detailkarte im Rahmen).
+// Hier steht nur, was ein Modul darüber hinaus zeigt – und was es an den Bausteinen über die Stellschrauben einstellt.
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
@@ -10,7 +10,10 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { hinweis } from './baukasten/hinweise';
-import { Detailkarte, ObjektListe } from './baukasten/objektliste';
+import type { Anpassung } from './baukasten/anpassung';
+import { Detailkarte } from './baukasten/detailkarte';
+import { Rahmen } from './baukasten/rahmen';
+import { ObjektAnsicht } from './objektansicht';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -133,7 +136,7 @@ function Rechte() {
     ausfuehren({ objekt: 'recht', art: 'aendern', objektId: e.id, werte }, `Recht „${a.titel}“ – ${o.titelMehrzahl} – ${r.titel}`);
   };
   return (
-    <section class="blatt">
+    <Rahmen schluessel="verwaltung.rechte" inhalt={<section class="blatt">
       <h2>Rechte je Rolle</h2>
       <p class="still-text">Ein Klick gilt sofort für alle Benutzer mit dieser Rolle – und lässt sich rückgängig machen. Administrator:innen dürfen immer alles.
         Bei Projekten und allem, was daran hängt, gilt das Recht nur in den eigenen Projekten; Büroleitung und Administrator:innen sehen alle Projekte.</p>
@@ -164,7 +167,7 @@ function Rechte() {
           </tbody>
         </table>
       </div>
-    </section>
+    </section>} />
   );
 }
 
@@ -172,16 +175,23 @@ function Rechte() {
 function Buero() {
   const m = () => modell('buero');
   const z = () => sicht.buero?.[m().einzeln!];
-  return <section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} />}</Show></section>;
+  return <Rahmen schluessel="verwaltung.buero" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} />}</Show></section>} />;
 }
 
 const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero };
-const ZUSATZ: Record<string, (z: Zeile) => JSX.Element> = {
-  projekt: (z) => <><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
-  benutzer: (z) => <KennwortSetzen benutzer={z} />,
+// Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
+const ANPASSUNG: Record<string, Anpassung> = {
+  projekt: {
+    kartenZusatz: (z) => <><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
+    zelle: (f, z) => (f.name === 'status' ? <span class={`marke-${z.werte.status}`}>{f.optionen!.find((o) => o.wert === z.werte.status)?.titel}</span> : undefined),
+  },
+  benutzer: {
+    kartenZusatz: (z) => <KennwortSetzen benutzer={z} />,
+    zelle: (f, z) => (f.name === 'gesperrt' && z.werte.gesperrt ? <span class="marke-gesperrt">gesperrt</span> : undefined),
+  },
 };
 
-export const kartenZusatz = (objekt: string) => ZUSATZ[objekt];
+export const kartenZusatz = (objekt: string) => ANPASSUNG[objekt]?.kartenZusatz;
 
 export function sichtbar(a: Ansicht): boolean {
   if (a.nurAdmin && !istAdmin()) return false;
@@ -191,5 +201,5 @@ export function sichtbar(a: Ansicht): boolean {
 export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   const eigene = EIGENE[`${p.modul.id}.${p.ansicht.id}`];
   if (eigene) return eigene();
-  return <ObjektListe modell={modell(p.ansicht.objekt!)} kartenZusatz={ZUSATZ[p.ansicht.objekt!]} />;
+  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} anpassung={ANPASSUNG[p.ansicht.objekt!]} />;
 }
