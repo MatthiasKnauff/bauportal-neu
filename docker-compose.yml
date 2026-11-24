@@ -3,7 +3,7 @@
 # Die Datenbank ist nur für die App erreichbar (kein Port nach außen).
 services:
   app:
-    image: ghcr.io/matthiasknauff/bauportal-neu:test-82ca92a
+    image: ghcr.io/matthiasknauff/bauportal-neu:test-67b7084
     container_name: bauportal-neu-test
     restart: unless-stopped
     depends_on:
@@ -23,7 +23,7 @@ services:
 
   # Dateidienst: spricht mit dem Dateiserver. Nur für die App erreichbar (kein Port nach außen), merkt sich nichts.
   dateidienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:test-82ca92a
+    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:test-67b7084
     container_name: bauportal-neu-test-dateidienst
     restart: unless-stopped
     environment:
@@ -49,7 +49,7 @@ services:
 
   # IFC-Dienst: liest IFC-Dateien für das Gebäudemodell. Nur für die App erreichbar, merkt sich nichts.
   ifcdienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-ifcdienst:test-82ca92a
+    image: ghcr.io/matthiasknauff/bauportal-neu-ifcdienst:test-67b7084
     container_name: bauportal-neu-test-ifcdienst
     restart: unless-stopped
     environment:
