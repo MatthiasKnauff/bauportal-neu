@@ -1,7 +1,4 @@
 .git
-.github
 node_modules
 dist
-deploy
-tests
-dienste
+**/__pycache__
