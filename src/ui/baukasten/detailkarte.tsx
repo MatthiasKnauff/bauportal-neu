@@ -22,6 +22,17 @@ export function gruppen(m: ObjektModell, werte: Werte, verborgen: string[] = [])
   return aus;
 }
 
+/** Ändert ein Feld eines Objekts – ein Befehl, sofort wirksam, mit Rückgängig. Liefert den Fehlertext, wenn die Eingabe nicht passt. */
+export function feldAendern(m: ObjektModell, z: Zeile, f: Feld, w: Wert, herkunft?: string): string | undefined {
+  try {
+    const sauber = pruefeWerte(m, { [f.name]: w }, false);
+    if (sauber[f.name] !== z.werte[f.name]) ausfuehren({ objekt: m.name, art: 'aendern', objektId: z.id, werte: sauber, ...(herkunft ? { herkunft } : {}) }, `${f.titel} von „${String(z.werte[m.anzeigeFeld] ?? '')}“ ändern`);
+    return undefined;
+  } catch (e) {
+    if (e instanceof Eingabefehler) return e.felder[f.name]; throw e;
+  }
+}
+
 export function loesche(m: ObjektModell, z: Zeile): void {
   const name = String(z.werte[m.anzeigeFeld] ?? '');
   ausfuehren({ objekt: m.name, art: 'loeschen', objektId: z.id }, `„${name}“ löschen`);
@@ -42,16 +53,7 @@ export function Detailkarte(p: {
   const schreiben = () => darf(p.modell.name, 'schreiben');
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
   const titel = () => String(p.zeile.werte[p.modell.anzeigeFeld] ?? '');
-  const aendern = (f: Feld, w: Wert, herkunft?: string) => {
-    try {
-      const sauber = pruefeWerte(p.modell, { [f.name]: w }, false);
-      setFehler(f.name, undefined);
-      if (sauber[f.name] === p.zeile.werte[f.name]) return;
-      ausfuehren({ objekt: p.modell.name, art: 'aendern', objektId: p.zeile.id, werte: sauber, ...(herkunft ? { herkunft } : {}) }, `${f.titel} von „${titel()}“ ändern`);
-    } catch (e) {
-      if (e instanceof Eingabefehler) setFehler(f.name, e.felder[f.name]); else throw e;
-    }
-  };
+  const aendern = (f: Feld, w: Wert, herkunft?: string) => setFehler(f.name, feldAendern(p.modell, p.zeile, f, w, herkunft));
   return (
     <aside class="karte" aria-label={`${p.modell.titel} ${titel()}`}>
       <div class="karte-kopf">

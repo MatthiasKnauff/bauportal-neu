@@ -112,7 +112,7 @@ export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
   name: 'Verwaltung',
   version: '0.1.0',
-  beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten.',
+  beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI und Updates.',
   braucht: [],
   objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung],
   ansichten: [

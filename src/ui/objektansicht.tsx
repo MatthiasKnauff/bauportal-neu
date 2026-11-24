@@ -8,7 +8,7 @@ import { geaendert, sicht } from './abgleich';
 import { darf } from './api';
 import type { Anpassung } from './baukasten/anpassung';
 import { Baum, type Knoten } from './baukasten/baum';
-import { Detailkarte, NeuFenster, inEigenemFenster, loesche } from './baukasten/detailkarte';
+import { Detailkarte, NeuFenster, inEigenemFenster, loesche, feldAendern } from './baukasten/detailkarte';
 import { anzeige } from './baukasten/feld';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 import { Tabelle, type TabellenSteuer } from './baukasten/tabelle';
@@ -25,6 +25,7 @@ export function ObjektAnsicht(p: {
   const a = p.anpassung ?? {};
   const baumFelder = (p.baum ?? []).map((n) => m.felder.find((f) => f.name === n)!);
   const [suche, setSuche] = createSignal('');
+  const [filter, setFilter] = createSignal<Record<string, string>>({});   // Filterzeile der Tabelle: Text je Spalte
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
   const [neu, setNeu] = createSignal<Werte | null>(null);
@@ -59,6 +60,10 @@ export function ObjektAnsicht(p: {
     if (ast()) { const soll = ast().slice(2); const tiefe = soll.split(TRENNER).length; l = l.filter((z) => pfad(z, tiefe) === soll); }
     const worte = suche().toLowerCase().split(/\s+/).filter(Boolean);
     if (worte.length) l = l.filter((z) => { const t = suchtext(z).toLowerCase(); return worte.every((w) => t.includes(w)); });
+    for (const [name, text] of Object.entries(filter())) {
+      const f = m.felder.find((x) => x.name === name), t = text.trim().toLowerCase();
+      if (f && t) l = l.filter((z) => anzeige(f, roh(z).werte[name]).toLowerCase().includes(t));
+    }
     return l;
   });
   // Text, in dem gesucht wird: einfache Felder direkt, Auswahl/Datum/Verweis so, wie sie angezeigt werden.
@@ -95,6 +100,8 @@ export function ObjektAnsicht(p: {
         baum={baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
         inhalt={
           <Tabelle modell={m} zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
+            filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))}
+            onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
             onWahl={setGewaehlt} onOeffnen={insErsteFeld} onSuche={() => suchfeld.focus()}
             onLoeschen={darfLoeschen() ? (z) => loesche(m, z) : undefined}
             zeilenMenue={(z) => [

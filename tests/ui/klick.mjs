@@ -29,6 +29,7 @@ await seite.goto(BASIS);
 await seite.getByLabel('Anmeldename').fill('pipeline');
 await seite.getByLabel('Kennwort').fill(KENNWORT);
 await seite.getByRole('button', { name: 'Anmelden' }).click();
+await seite.locator('.kachel', { hasText: 'Adressen' }).first().click();   // von der Startseite ins Modul
 await seite.getByText('2000 Kontakte').waitFor();
 
 // Zeit im Browser messen: vom Klick bis die Karte den Namen der Zeile zeigt und das Bild steht

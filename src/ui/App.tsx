@@ -163,9 +163,12 @@ function Kartenfenster(p: { objekt: string; id: string }) {
 function Portal() {
   const z = () => zustand()!;
   const module = createMemo(() => z().module.map((m) => ({ modul: m, ansichten: m.ansichten.filter(sichtbar) })).filter((m) => m.ansichten.length));
-  const [modulId, setModulId] = createSignal('');
+  // '' = Startseite mit den Kacheln. Beim Neuladen bleibt man, wo man war; nach dem Anmelden beginnt man auf der Startseite.
+  const gemerkt = (() => { try { return sessionStorage.getItem('bp_modul') ?? ''; } catch { return ''; } })();
+  const [modulId, setModulIdRoh] = createSignal(gemerkt);
+  const setModulId = (id: string) => { setModulIdRoh(id); try { sessionStorage.setItem('bp_modul', id); } catch { /* gesperrt */ } };
   const [ansichtId, setAnsichtId] = createSignal('');
-  const modul = () => module().find((m) => m.modul.id === modulId()) ?? module()[0];
+  const modul = () => module().find((m) => m.modul.id === modulId());
   const ansicht = () => modul()?.ansichten.find((a) => a.id === ansichtId()) ?? modul()?.ansichten[0];
   const projekte = createMemo(() => Object.values(sicht.projekt ?? {}).filter((x) => !x.geloescht && x.werte.status !== 'archiviert')
     .map((x) => ({ wert: x.id, titel: [x.werte.nummer, x.werte.name].filter(Boolean).join(' · ') })).sort((x, y) => x.titel.localeCompare(y.titel, 'de', { numeric: true })));
@@ -197,8 +200,7 @@ function Portal() {
 
   return (
     <div class="portal">
-      <Kopfleiste marke="Bauportal" apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name }))} aktiv={modul()?.modul.id}
-        onApp={(id) => { setModulId(id); setAnsichtId(''); }}
+      <Kopfleiste marke="Bauportal" aktuell={modul()?.modul.name} onStart={() => { setModulId(''); setAnsichtId(''); }}
         status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
         zusatz={<Show when={projekte().length}><div class="projektwahl"><Auswahlliste titel="Projekt" platzhalter="Projekt wählen …" optionen={projekte()} wert={projekte().some((x) => x.wert === projektId()) ? projektId() : null} onWert={setProjektId} /></div></Show>}
         benutzer={ich().name} menueFuss={`${z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version ${z().version}`}
@@ -207,7 +209,16 @@ function Portal() {
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
         <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.map((a) => ({ id: a.id, titel: a.titel })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId,
           rueckgaengig: { zurueck: () => verlauf().zurueck > 0, vor: () => verlauf().vor > 0, onZurueck: rueckgaengig, onVor: wiederholen } }}>
-          <Show when={schluessel()} keyed fallback={<div class="mitte"><p class="still-text">Für dich ist noch nichts freigegeben. Bitte wende dich an eine Administratorin oder einen Administrator.</p></div>}>
+          <Show when={schluessel()} keyed fallback={
+            <div class="start"><div class="start-innen">
+              <h1>Guten Tag, {ich().name.split(' ')[0]}</h1>
+              <Show when={module().length} fallback={<p class="still-text">Für dich ist noch nichts freigegeben. Bitte wende dich an eine Administratorin oder einen Administrator.</p>}>
+                <p class="still-text">Womit möchtest du arbeiten?</p>
+                <div class="kacheln" role="list" aria-label="Module">
+                  <For each={module()}>{(m) => <button class="kachel" role="listitem" onClick={() => { setModulId(m.modul.id); setAnsichtId(''); }}><strong>{m.modul.name}</strong><span>{m.modul.beschreibung}</span></button>}</For>
+                </div>
+              </Show>
+            </div></div>}>
             {(_s: string) => <AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}
           </Show>
         </AppUmgebung.Provider>

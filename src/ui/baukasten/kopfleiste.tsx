@@ -1,11 +1,12 @@
-// Baustein „Kopfleiste“: ganz oben – Name, Apps, Speicherstand, Benutzermenü.
+// Baustein „Kopfleiste“: ganz oben, dunkel – „Bauportal“ (zur Startseite), das aktuelle Modul, Speicherstand, Benutzermenü.
 // Rückgängig und Wiederholen stehen nicht hier (zu eng), sondern am Anfang der Menüleiste.
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import type { Menuepunkt } from './kontextmenue';
 
 export function Kopfleiste(p: {
   marke: string;
-  apps: { id: string; titel: string }[]; aktiv?: string; onApp: (id: string) => void;
+  aktuell?: string;        // Name des Moduls, in dem man gerade ist – auf der Startseite leer
+  onStart: () => void;     // zurück zur Startseite mit den Kacheln
   status: { text: string; art: 'gut' | 'wartet' | 'getrennt' };
   benutzer: string; benutzerMenue: Menuepunkt[]; menueFuss?: string;
   /** Platz für weitere Elemente einer App rechts neben den Apps. */
@@ -14,9 +15,9 @@ export function Kopfleiste(p: {
   const [menue, setMenue] = createSignal(false);
   return (
     <header class="kopf">
-      <strong class="marke">{p.marke}</strong>
-      <nav aria-label="Module">
-        <For each={p.apps}>{(a) => <button classList={{ aktiv: p.aktiv === a.id }} onClick={() => p.onApp(a.id)}>{a.titel}</button>}</For>
+      <nav aria-label="Wo bin ich">
+        <button class="marke" title="Zur Startseite" onClick={p.onStart}>{p.marke}</button>
+        <Show when={p.aktuell}><span class="trenner" aria-hidden="true">›</span><span class="modulname" aria-current="page">{p.aktuell}</span></Show>
       </nav>
       {p.zusatz}
       <span class="status" classList={{ getrennt: p.status.art === 'getrennt', wartet: p.status.art === 'wartet' }}><i />{p.status.text}</span>

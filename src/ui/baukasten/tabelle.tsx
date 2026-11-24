@@ -1,8 +1,9 @@
-// Baustein „Tabelle“ (Platz Mitte): Spalten aus dem Datenmodell. Sortieren, Spalten einstellen, Tastatur, Kontextmenü.
+// Baustein „Tabelle“ (Platz Mitte): Spalten aus dem Datenmodell. Sortieren, Filtern je Spalte, Spalten einstellen,
+// Bearbeiten direkt in der Zelle (Doppelklick oder F2), Tastatur, Kontextmenü.
 // Im Dokument stehen nur die sichtbaren Zeilen – die Tabelle bleibt auch mit tausenden Einträgen schnell.
 import { For, Show, createMemo, createSelector, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { unwrap } from 'solid-js/store';
-import type { Feld, ObjektModell } from '../../kern/modell';
+import type { Feld, ObjektModell, Wert } from '../../kern/modell';
 import { HERKUNFT, type Zeile } from '../../kern/befehl';
 import { Dialog } from './dialog';
 import { anzeige } from './feld';
@@ -11,6 +12,8 @@ import { spaltenFuer } from './spalten';
 
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const ZEILENHOEHE = 37;
+/** Diese Feldarten lassen sich in der Zelle schreiben; Ja/Nein schaltet der Doppelklick um. Alles andere öffnet die Karte. */
+const IN_ZELLE = ['text', 'zahl', 'datum', 'email', 'telefon'];
 
 export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void }
 
@@ -19,7 +22,10 @@ export function Tabelle(p: {
   zeilen: Zeile[];                              // schon gefiltert; sortiert wird hier
   gewaehlt: string | null;
   onWahl: (id: string | null) => void;
-  onOeffnen?: (z: Zeile) => void;               // Enter oder Doppelklick
+  onOeffnen?: (z: Zeile) => void;               // Enter – oder Doppelklick auf eine Zelle, die sich nicht in der Tabelle bearbeiten lässt
+  filter?: Record<string, string>;              // Filterzeile: Text je Spalte (gefiltert wird außerhalb – so stimmt auch der Zähler)
+  onFilter?: (feld: string, text: string) => void;
+  onZelle?: (z: Zeile, f: Feld, w: Wert) => string | undefined;   // Wert aus der Zelle übernehmen; liefert den Fehlertext, wenn er nicht passt
   onLoeschen?: (z: Zeile) => void;              // Entf
   onSuche?: () => void;                         // Taste /
   zeilenMenue?: (z: Zeile) => Menuepunkt[];
@@ -34,6 +40,8 @@ export function Tabelle(p: {
   const [spaltenFenster, setSpaltenFenster] = createSignal(false);
   const [rollen, setRollen] = createSignal({ oben: 0, hoehe: 600 });
   const istGewaehlt = createSelector(() => p.gewaehlt);
+  const [inArbeit, setInArbeit] = createSignal<{ id: string; feld: string; fehler?: string } | null>(null);
+  const kopfHoehe = () => (p.onFilter ? 71 : 35);
   let kasten!: HTMLDivElement;
 
   const sortiert = createMemo(() => {
@@ -53,7 +61,7 @@ export function Tabelle(p: {
   const waehle = (z: Zeile | undefined) => {
     if (!z) return;
     p.onWahl(z.id);
-    const oben = sortiert().indexOf(z) * ZEILENHOEHE, kopf = 35;
+    const oben = sortiert().indexOf(z) * ZEILENHOEHE, kopf = kopfHoehe();
     if (oben < kasten.scrollTop) kasten.scrollTop = oben;
     else if (oben + ZEILENHOEHE + kopf > kasten.scrollTop + kasten.clientHeight) kasten.scrollTop = oben + ZEILENHOEHE + kopf - kasten.clientHeight;
   };
@@ -75,9 +83,39 @@ export function Tabelle(p: {
     const schritt: Record<string, number> = { ArrowDown: i + 1, ArrowUp: i - 1, PageDown: i + seite, PageUp: i - seite, Home: 0, End: l.length - 1 };
     if (e.key in schritt) { e.preventDefault(); waehle(l[Math.max(0, Math.min(l.length - 1, schritt[e.key]!))]); }
     else if (e.key === 'Enter' && l[i] && p.onOeffnen) { e.preventDefault(); p.onOeffnen(l[i]); }
+    else if (e.key === 'F2' && l[i]) { const f = spalten.sichtbare().find((x) => p.onZelle && IN_ZELLE.includes(x.art)); if (f) { e.preventDefault(); setInArbeit({ id: l[i].id, feld: f.name }); } }
     else if (e.key === 'Delete' && l[i] && p.onLoeschen) { e.preventDefault(); const z = l[i]; waehle(l[i + 1] ?? l[i - 1]); p.onLoeschen(z); }
     else if (e.key === 'Escape' && p.gewaehlt) { e.preventDefault(); p.onWahl(null); }
     else if (e.key === '/' && p.onSuche) { e.preventDefault(); p.onSuche(); }
+  };
+
+  // ---- Bearbeiten in der Zelle ----
+  const zeigen = (f: Feld, w: Wert | undefined) => (w === null || w === undefined ? '' : typeof w === 'number' ? String(w).replace('.', ',') : String(w));
+  // Der erste Klick eines Doppelklicks wählt die Zeile – dabei kann die Karte aufgehen und die Spalten rücken.
+  // Gemeint ist die Zelle des ersten Klicks, deshalb wird sie gemerkt.
+  let ersterKlick = { id: '', feld: '', zeit: 0 };
+  const doppelklick = (z: Zeile, getroffen: Feld) => {
+    const f = ersterKlick.id === z.id && performance.now() - ersterKlick.zeit < 700 ? m.felder.find((x) => x.name === ersterKlick.feld) ?? getroffen : getroffen;
+    if (p.onZelle && f.art === 'ja_nein' && !p.zelle?.(f, z)) { p.onZelle(z, f, z.werte[f.name] !== true); return; }
+    if (p.onZelle && IN_ZELLE.includes(f.art)) { setInArbeit({ id: z.id, feld: f.name }); return; }
+    p.onOeffnen?.(z);
+  };
+  /** Übernimmt die Eingabe. weiter: +1/-1 = danach die nächste/vorige schreibbare Zelle der Zeile öffnen (Tab). */
+  const fertig = (z: Zeile, f: Feld, feld: HTMLInputElement, weiter = 0) => {
+    if (inArbeit()?.id !== z.id || inArbeit()?.feld !== f.name) return;   // schon weitergezogen (Tab) oder abgebrochen
+    const fehler = feld.value === zeigen(f, z.werte[f.name]) ? undefined : p.onZelle!(z, f, feld.value);
+    if (fehler) { setInArbeit({ id: z.id, feld: f.name, fehler }); feld.focus(); return; }
+    const reihe = spalten.sichtbare().filter((x) => IN_ZELLE.includes(x.art));
+    const naechste = weiter ? reihe[reihe.indexOf(f) + weiter] : undefined;
+    setInArbeit(naechste ? { id: z.id, feld: naechste.name } : null);
+    if (!naechste) kasten.focus();
+  };
+  const eingabeTaste = (e: KeyboardEvent, z: Zeile, f: Feld) => {
+    e.stopPropagation();
+    const feld = e.currentTarget as HTMLInputElement;
+    if (e.key === 'Enter') { e.preventDefault(); fertig(z, f, feld); }
+    else if (e.key === 'Tab') { e.preventDefault(); fertig(z, f, feld, e.shiftKey ? -1 : 1); }
+    else if (e.key === 'Escape') { e.preventDefault(); setInArbeit(null); kasten.focus(); }
   };
 
   let gezogen = '';
@@ -105,13 +143,32 @@ export function Tabelle(p: {
                 <i class="griff" aria-hidden="true" onPointerDown={(e) => breiteZiehen(e, f)} onClick={(e) => e.stopPropagation()} />
               </th>
             )}</For>
-          </tr></thead>
+          </tr>
+          <Show when={p.onFilter}>
+            <tr class="filterzeile">
+              <For each={spalten.sichtbare()}>{(f) => (
+                <th><input type="search" aria-label={`${f.titel} filtern`} placeholder="filtern" value={p.filter?.[f.name] ?? ''} onInput={(e) => p.onFilter!(f.name, e.currentTarget.value)}
+                  onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { p.onFilter!(f.name, ''); } else if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); kasten.focus(); if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); } }} /></th>
+              )}</For>
+            </tr>
+          </Show>
+          </thead>
           <tbody>
             <tr aria-hidden="true" style={{ height: `${fenster().von * ZEILENHOEHE}px` }} />
             <For each={fenster().teil}>{(z) => (
-              <tr classList={{ gewaehlt: istGewaehlt(z.id) }} onClick={() => p.onWahl(z.id)} onDblClick={() => p.onOeffnen?.(z)}
+              <tr classList={{ gewaehlt: istGewaehlt(z.id) }} onClick={() => p.onWahl(z.id)}
                 onContextMenu={(e) => { if (!p.zeilenMenue) return; p.onWahl(z.id); zeigeMenue(e, p.zeilenMenue(z)); }}>
-                <For each={spalten.sichtbare()}>{(f) => <td class={z.herkunft?.[f.name] ? `herkunft-${z.herkunft[f.name]}` : undefined} title={z.herkunft?.[f.name] ? HERKUNFT[z.herkunft[f.name]!] : undefined}>{p.zelle?.(f, z) ?? anzeige(f, z.werte[f.name])}</td>}</For>
+                <For each={spalten.sichtbare()}>{(f) => (
+                  <td class={z.herkunft?.[f.name] ? `herkunft-${z.herkunft[f.name]}` : undefined} classList={{ 'in-arbeit': inArbeit()?.id === z.id && inArbeit()?.feld === f.name }}
+                    title={z.herkunft?.[f.name] ? HERKUNFT[z.herkunft[f.name]!] : undefined}
+                    onClick={(e) => { if (e.detail === 1) ersterKlick = { id: z.id, feld: f.name, zeit: performance.now() }; }} onDblClick={() => doppelklick(z, f)}>
+                    <Show when={inArbeit()?.id === z.id && inArbeit()?.feld === f.name} fallback={p.zelle?.(f, z) ?? anzeige(f, z.werte[f.name])}>
+                      <input ref={(el) => queueMicrotask(() => { el.focus(); el.select?.(); })} type={f.art === 'datum' ? 'date' : 'text'} inputMode={f.art === 'zahl' ? 'decimal' : undefined} value={zeigen(f, z.werte[f.name])}
+                        aria-label={f.titel} aria-invalid={!!inArbeit()?.fehler} title={inArbeit()?.fehler} classList={{ falsch: !!inArbeit()?.fehler }}
+                        onKeyDown={(e) => eingabeTaste(e, z, f)} onBlur={(e) => fertig(z, f, e.currentTarget)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()} />
+                    </Show>
+                  </td>
+                )}</For>
               </tr>
             )}</For>
             <tr aria-hidden="true" style={{ height: `${(sortiert().length - fenster().bis) * ZEILENHOEHE}px` }} />
