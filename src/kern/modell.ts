@@ -2,7 +2,7 @@
 // Daraus entstehen die Tabelle in der Datenbank, die Prüfung der Eingaben,
 // die Befehle und die Masken und Tabellen der Oberfläche.
 
-export type FeldArt = 'text' | 'langtext' | 'auswahl' | 'email' | 'telefon' | 'zahl' | 'ja_nein' | 'verweis' | 'datum';
+export type FeldArt = 'text' | 'langtext' | 'auswahl' | 'email' | 'telefon' | 'zahl' | 'ja_nein' | 'verweis' | 'datum' | 'mehrfach';
 export type Wert = string | number | boolean | null;
 export type Werte = Record<string, Wert>;
 
@@ -11,7 +11,8 @@ export interface Feld {
   titel: string;           // Beschriftung in der Oberfläche
   art: FeldArt;
   pflicht?: boolean;
-  optionen?: { wert: string; titel: string }[];   // nur bei art = auswahl
+  optionen?: { wert: string; titel: string }[];   // bei art = auswahl (eine) und mehrfach (mehrere, gespeichert als „a,b“ in der Reihenfolge der Optionen)
+  wenn?: Record<string, string[]>;   // Feld gilt nur, wenn ein anderes Feld (auswahl, mehrfach) einen dieser Werte hat
   gruppe?: string;         // Abschnitt in der Detailkarte
   inListe?: boolean;       // Spalte in der Tabelle
   breite?: number;         // Spaltenbreite in px
@@ -55,12 +56,18 @@ export function pruefeModell(m: ObjektModell): void {
     if (!NAME.test(f.name) || f.name === 'id' || f.name === 'geloescht') throw new Error(`Feldname ungültig: ${m.name}.${f.name}`);
     if (gesehen.has(f.name)) throw new Error(`Feld doppelt: ${m.name}.${f.name}`);
     gesehen.add(f.name);
-    if (f.art === 'auswahl' && !f.optionen?.length) throw new Error(`Auswahl ohne Optionen: ${m.name}.${f.name}`);
+    if ((f.art === 'auswahl' || f.art === 'mehrfach') && !f.optionen?.length) throw new Error(`Auswahl ohne Optionen: ${m.name}.${f.name}`);
     if (f.art === 'verweis' && !f.ziel) throw new Error(`Verweis ohne Ziel: ${m.name}.${f.name}`);
   }
+  for (const f of m.felder) for (const k of Object.keys(f.wenn ?? {})) if (!gesehen.has(k)) throw new Error(`Bedingung auf unbekanntes Feld: ${m.name}.${f.name} → ${k}`);
   if (!gesehen.has(m.anzeigeFeld)) throw new Error(`Anzeigefeld fehlt: ${m.name}.${m.anzeigeFeld}`);
   if (m.versionsBereich && !gesehen.has('version')) throw new Error(`Versioniertes Objekt ohne Feld „version“: ${m.name}`);
   if (m.projektFeld && m.projektFeld !== 'id' && !gesehen.has(m.projektFeld)) throw new Error(`Projektfeld fehlt: ${m.name}.${m.projektFeld}`);
+}
+
+/** Gilt das Feld bei diesen Werten? (Bedingung „wenn“ – z. B. Fragen, die nur beim Bauen im Bestand Sinn haben) */
+export function gilt(f: Feld, werte: Werte): boolean {
+  return Object.entries(f.wenn ?? {}).every(([k, erlaubt]) => String(werte[k] ?? '').split(',').some((w) => erlaubt.includes(w)));
 }
 
 export function leerwert(f: Feld): Wert {
@@ -91,6 +98,12 @@ function pruefeFeld(f: Feld, roh: unknown): Wert {
       if (roh === null || roh === '' || roh === undefined) return null;
       if (typeof roh !== 'string' || !KENNUNG.test(roh)) throw new Error('Ungültiger Verweis');
       return roh.toLowerCase();
+    }
+    case 'mehrfach': {
+      if (roh !== null && roh !== undefined && typeof roh !== 'string') throw new Error('Auswahl erwartet');
+      const teile = (roh ?? '').split(',').filter(Boolean);
+      if (teile.some((w) => !f.optionen!.some((o) => o.wert === w))) throw new Error('Bitte Einträge aus der Liste wählen');
+      return f.optionen!.filter((o) => teile.includes(o.wert)).map((o) => o.wert).join(',');
     }
     case 'auswahl': {
       const w = String(roh ?? '');

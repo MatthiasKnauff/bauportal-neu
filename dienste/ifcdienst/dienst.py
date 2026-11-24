@@ -24,6 +24,7 @@ ARTEN = {
     "IfcSlab": None, "IfcRoof": "dach",
     "IfcWindow": "fenster", "IfcDoor": "tuer",
     "IfcColumn": "stuetze", "IfcBeam": "stuetze", "IfcStair": "treppe", "IfcStairFlight": None,
+    "IfcFooting": "fundament",
 }
 FLAECHE = ("NetSideArea", "GrossSideArea", "NetArea", "GrossArea", "NetFloorArea", "GrossFloorArea", "Area", "Fläche", "Flaeche")
 
@@ -76,6 +77,16 @@ def _flaeche_aus_geometrie(e, art: str) -> float | None:
         g = ifcopenshell.geom.create_shape(ifcopenshell.geom.settings(), e).geometry
         f = form.get_side_area(g) if art in ("aussenwand", "innenwand") else form.get_footprint_area(g)
         return round(float(f), 2) if f and f > 0 else None
+    except Exception:  # noqa: BLE001 – ohne brauchbare Geometrie bleibt die Menge leer
+        return None
+
+
+def _volumen_aus_geometrie(e) -> float | None:
+    try:
+        import ifcopenshell.geom
+        import ifcopenshell.util.shape as form
+        v = form.get_volume(ifcopenshell.geom.create_shape(ifcopenshell.geom.settings(), e).geometry)
+        return round(float(v), 2) if v and v > 0 else None
     except Exception:  # noqa: BLE001 – ohne brauchbare Geometrie bleibt die Menge leer
         return None
 
@@ -280,6 +291,14 @@ def auswerten(pfad: str) -> dict:
             b, h = getattr(e, "OverallWidth", None), getattr(e, "OverallHeight", None)
             if b and h:
                 abmessung = f"{_zahl(b * laenge)} × {_zahl(h * laenge)} m"
+        elif art == "fundament":
+            mass = "m3"
+            m = _menge(e, ("NetVolume", "GrossVolume", "Volumen"))
+            if m:
+                menge = round(m * einheit.calculate_unit_scale(f, "VOLUMEUNIT"), 2)
+            else:
+                menge = _volumen_aus_geometrie(e)
+                gerechnet += 1 if menge else 0
         elif art == "stuetze":
             mass = "m"
             m = _menge(e, ("Length", "Height", "Länge"))

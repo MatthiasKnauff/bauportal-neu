@@ -14,6 +14,9 @@ import { baueServer } from '../src/server/server';
 import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen';
 import { geheimnisLesen, geheimnisSetzen } from '../src/server/ablage';
 import { planen } from '../src/server/ifc';
+import { planeSchaetzung } from '../src/server/assistent';
+import { schaetzen } from '../src/module/gebaeudemodell/schaetzung';
+import { gebaeude as gebaeudeModell } from '../src/module/gebaeudemodell/beipackzettel';
 import { vorgangAusfuehren } from '../src/server/protokoll';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -322,6 +325,75 @@ test('IFC: erster Plan legt an, neuer Planstand ändert nur, was nicht von Hand 
     o = await lies();
     assert.equal(o.bauteil!.find((x) => x.werte.kennung === 'w3')!.geloescht, false);
     assert.equal(o.bauteil!.filter((x) => !x.geloescht).length, 4);
+  } finally { await weg(); }
+});
+
+test('Assistent: Schätzung aus den Angaben, Antworten am Gebäude, ein Plan ersetzt das Geschätzte', async () => {
+  // Mehrfachauswahl und Bedingungen im Modell
+  assert.equal(pruefeWerte(gebaeudeModell, { massnahme: 'umbau,neubau' }, false).massnahme, 'neubau,umbau', 'gespeichert in der Reihenfolge der Optionen');
+  assert.throws(() => pruefeWerte(gebaeudeModell, { massnahme: 'neubau,quatsch' }, false), Eingabefehler);
+  // Die Rechnung: EFH, 2 Geschosse, Keller, ausgebautes Satteldach, 150 m² Wohnfläche
+  const efh = { nutzung: 'efh', wohnflaeche: 150, geschosszahl: 2, keller: 'wu', dachform: 'sattel', dach_oben: 'ausgebaut', tragwerk: 'massiv', fassade: 'wdvs', fenster: 'holz' };
+  const s = schaetzen(efh);
+  assert.ok(!('fehlt' in s));
+  assert.deepEqual(s.geschosse.map((g) => [g.name, g.ebene]), [['Keller', -1], ['Erdgeschoss', 0], ['1. Obergeschoss', 1], ['Dachgeschoss', 2]]);
+  assert.equal(s.bgf, 274.1, '150 m² / 0,75 liegen in 2,7 Geschossen, der Keller kommt dazu');
+  const teil = (k: string) => s.bauteile.find((b) => b.schluessel === k);
+  assert.equal(teil('aussenwand:0')!.aufbau, 'Massivbau (Mauerwerk), WDVS mit Putz');
+  assert.equal(teil('aussenwand:-1')!.name, 'Kellerwand Keller');
+  assert.equal(teil('decke:2'), undefined, 'über dem ausgebauten Dach liegt keine Decke');
+  assert.ok(teil('decke:1') && teil('dach:x') && teil('bodenplatte:-1') && !teil('fundament:-1'));
+  assert.ok('fehlt' in schaetzen({ nutzung: 'efh' }), 'ohne Fläche keine Schätzung');
+  const flach = schaetzen({ nutzung: 'buero', bgf: 900, geschosszahl: 3, dachform: 'flach' });
+  assert.ok(!('fehlt' in flach) && flach.bauteile.filter((b) => b.art === 'decke').length === 2 && flach.bauteile.some((b) => b.art === 'fundament'));
+
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung } = await leute(db);
+    const wer = { ...leitung, anmeldename: 'leitung', rolle: 'bueroleitung' };
+    const [p, v] = [randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus B' } });
+    await tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: v, werte: { projekt: p, bereich: 'gebaeudemodell', name: 'Erste Idee' } });
+    const lies = async () => (await schnappschuss(db, register, leitung)).objekte;
+    const a = await planeSchaetzung(db, register, wer, p, v, null, { name: 'Wohnhaus', ...efh });
+    assert.deepEqual([a.je.gebaeude!.neu, a.je.geschoss!.neu, a.je.bauteil!.neu], [1, 4, s.bauteile.length]);
+    await vorgangAusfuehren(db, register, wer, a.liste);
+    let o = await lies();
+    const haus = o.gebaeude![0]!;
+    assert.equal(haus.werte.fassade, 'wdvs');
+    assert.deepEqual(haus.herkunft, { bgf: 'geschaetzt' }, 'die Antworten gelten als von Hand eingetragen, nur die gerechnete Fläche ist geschätzt');
+    assert.equal(o.bauteil!.find((x) => x.werte.art === 'dach')!.herkunft!.menge, 'geschaetzt');
+    assert.equal((await planeSchaetzung(db, register, wer, p, v, haus.id, efh)).liste.length, 0, 'dieselben Angaben noch einmal: nichts zu tun');
+
+    // Von Hand: Fensterfläche im EG korrigiert. Dann ein Geschoss weniger – die Schätzung zieht nach, die Korrektur bleibt.
+    const fenster = o.bauteil!.find((x) => String(x.werte.kennung).endsWith('fenster:0'))!;
+    await tun(db, leitung, { objekt: 'bauteil', objektId: fenster.id, werte: { menge: 31 } });
+    const b = await planeSchaetzung(db, register, wer, p, v, haus.id, { geschosszahl: 1 });
+    assert.equal(b.je.geschoss!.entfernt, 1);
+    assert.equal(b.je.bauteil!.behalten, 1);
+    await vorgangAusfuehren(db, register, wer, b.liste);
+    o = await lies();
+    assert.equal(o.bauteil!.find((x) => x.id === fenster.id)!.werte.menge, 31);
+    assert.equal(o.geschoss!.filter((x) => !x.geloescht).length, 3);
+
+    // Jetzt kommt der Plan: ein Gebäude, EG und OG. Das Gebäude bleibt dasselbe (mit seinen Antworten),
+    // das geschätzte EG wird das EG aus dem Plan, die geschätzten Bauteile entfallen.
+    const eg = o.geschoss!.find((x) => !x.geloescht && x.werte.ebene === 0)!;
+    const plan = { schema: 'IFC4', uebersprungen: {}, flaechen_aus_geometrie: 0, gebaeude: [{ kennung: 'haus', name: 'Haus aus dem Plan' }],
+      geschosse: [{ kennung: 'eg', name: 'EG', ebene: 0, hoehe: 2.9, gebaeude: 'haus' }, { kennung: 'og', name: 'OG', ebene: 1, hoehe: 2.9, gebaeude: 'haus' }], raeume: [],
+      bauteile: [{ kennung: 'w1', art: 'aussenwand', name: 'Außenwand Nord', geschoss: 'eg', lage: 'aussen', menge: 22, einheit: 'm2', abmessung: '', aufbau: '' }] };
+    const c = await planen(db, register, wer, p, v, plan);
+    assert.deepEqual([c.je.gebaeude!.neu, c.je.gebaeude!.geaendert, c.je.geschoss!.neu, c.je.geschoss!.geaendert, c.je.geschoss!.entfernt], [0, 1, 0, 2, 1], 'EG und das geschätzte Dachgeschoss (Ebene 1) werden die Geschosse aus dem Plan, der Keller entfällt');
+    assert.ok(c.hinweise.some((h) => h.includes('geschätzte Bauteile')));
+    await vorgangAusfuehren(db, register, wer, c.liste);
+    o = await lies();
+    assert.equal(o.gebaeude!.filter((x) => !x.geloescht).length, 1);
+    assert.deepEqual([o.gebaeude![0]!.id, o.gebaeude![0]!.werte.name, o.gebaeude![0]!.werte.kennung, o.gebaeude![0]!.werte.fassade], [haus.id, 'Wohnhaus', 'haus', 'wdvs'], 'der von Hand vergebene Name bleibt');
+    assert.deepEqual([o.geschoss!.find((x) => x.id === eg.id)!.werte.kennung, o.geschoss!.find((x) => x.id === eg.id)!.werte.name], ['eg', 'EG']);
+    assert.deepEqual(o.bauteil!.filter((x) => !x.geloescht).map((x) => x.werte.kennung), ['w1']);
+    // Danach schätzt der Assistent nichts mehr dazu – er trägt nur noch Angaben ein
+    const d = await planeSchaetzung(db, register, wer, p, v, haus.id, { heizung: 'wp_luft' });
+    assert.deepEqual(d.liste.map((x) => [x.objekt, x.art]), [['gebaeude', 'aendern']]);
   } finally { await weg(); }
 });
 

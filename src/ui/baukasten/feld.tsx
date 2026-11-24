@@ -31,7 +31,7 @@ export function FeldEingabe(p: {
         <Match when={p.feld.art === 'langtext'}>
           <textarea id={id} rows={5} value={text()} readOnly={p.gesperrt} {...ereignis()} />
         </Match>
-        <Match when={p.feld.art === 'auswahl' && p.feld.optionen!.length > 5}>
+        <Match when={p.feld.art === 'auswahl' && p.feld.optionen!.length > 4}>
           <Auswahlliste id={id} titel={p.feld.titel} optionen={p.feld.optionen!} wert={text()} gesperrt={p.gesperrt} onWert={p.onWert} />
         </Match>
         <Match when={p.feld.art === 'auswahl'}>
@@ -40,6 +40,15 @@ export function FeldEingabe(p: {
               <button type="button" role="radio" aria-checked={p.wert === o.wert} classList={{ aktiv: p.wert === o.wert }} disabled={p.gesperrt && p.wert !== o.wert}
                 onClick={() => { if (p.wert !== o.wert && !p.gesperrt) p.onWert(o.wert); }}>{o.titel}</button>
             )}</For>
+          </div>
+        </Match>
+        <Match when={p.feld.art === 'mehrfach'}>
+          <div class="auswahl" role="group" id={id} aria-label={p.feld.titel}>
+            <For each={p.feld.optionen}>{(o) => {
+              const an = () => text().split(',').includes(o.wert);
+              return <button type="button" role="checkbox" aria-checked={an()} classList={{ aktiv: an() }} disabled={p.gesperrt}
+                onClick={() => p.onWert(p.feld.optionen!.filter((x) => (x.wert === o.wert) !== text().split(',').includes(x.wert)).map((x) => x.wert).join(','))}>{o.titel}</button>;
+            }}</For>
           </div>
         </Match>
         <Match when={p.feld.art === 'ja_nein'}>
@@ -68,6 +77,7 @@ function verweisziele(f: Feld, zusammenhang?: Werte): { wert: string; titel: str
 export function anzeige(f: Feld, w: Wert | undefined): string {
   if (w === null || w === undefined) return '';
   if (f.art === 'auswahl') return f.optionen?.find((o) => o.wert === w)?.titel ?? String(w);
+  if (f.art === 'mehrfach') return f.optionen!.filter((o) => String(w).split(',').includes(o.wert)).map((o) => o.titel).join(', ');
   if (f.art === 'ja_nein') return w ? 'Ja' : '';
   if (f.art === 'datum') { const t = String(w); return t ? `${t.slice(8, 10)}.${t.slice(5, 7)}.${t.slice(0, 4)}` : ''; }
   if (f.art === 'verweis') { const z = sicht[f.ziel!]?.[String(w)]; return z ? String(z.werte[modell(f.ziel!).anzeigeFeld] ?? '') : ''; }

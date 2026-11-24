@@ -180,6 +180,10 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
         if (f.eindeutig) await c.query(`create unique index if not exists "o_${m.name}_${f.name}_eindeutig" on ${t} (${spalte(f.name)}) where not geloescht`);
       }
     }
+    // Umstellung 24.11.2026: Gebäudeart und Maßnahme haben die Auswahl des Assistenten bekommen – alte Werte auf die neuen
+    await c.query(`update o_gebaeude set nutzung = '' where nutzung = 'wohnen';
+      update o_gebaeude set massnahme = 'kernsanierung' where massnahme = 'sanierung';
+      update o_gebaeude set massnahme = 'anbau' where massnahme = 'erweiterung'`);
     // Rechte: Funktionen, Leseregeln und Prüfung je Tabelle
     await c.query(RECHTE_SQL);
     for (const m of register.alleModelle) {

@@ -36,6 +36,7 @@ h1 { font-size: 24px; margin: 0; } h2 { font-size: 18px; margin: 0; } h3 { font-
 .auswahl { display: flex; flex-wrap: wrap; border: 1px solid var(--rand-stark); border-radius: 8px; overflow: hidden; background: #fff; }
 .auswahl button { flex: 1 1 auto; min-height: 34px; padding: 0 10px; border: 0; border-right: 1px solid var(--rand); background: transparent; cursor: pointer; }
 .auswahl button:last-child { border-right: 0; }
+.auswahl [role=checkbox] { margin-bottom: -1px; border-bottom: 1px solid var(--rand); }
 .auswahl button.aktiv { background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
 .schalter { width: 44px; height: 24px; border-radius: 99px; border: 0; background: var(--rand-stark); padding: 2px; cursor: pointer; }
 .schalter span { display: block; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .12s; }
@@ -89,6 +90,9 @@ main { flex: 1; min-height: 0; display: flex; }
 .fenster-inhalt { padding: 14px 20px; overflow: auto; }
 .fenster-knoepfe { display: flex; justify-content: space-between; gap: 8px; padding: 12px 20px 18px; }
 .fenster-knoepfe > :only-child { margin-left: auto; }
+.raster .feld:has([role=group]), .raster .feld:has(textarea) { grid-column: 1 / -1; }
+.fragen { border: 0; padding: 0; margin: 16px 0 0; }
+.fragen legend { font-weight: 600; padding: 0 0 6px; }
 .raster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
 .benutzer { list-style: none; margin: 0; padding: 0; }
 .benutzer li { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid #efefea; }

@@ -9,7 +9,7 @@ import { Abfolgeleiste } from './baukasten/abfolgeleiste';
 import { Kopfleiste } from './baukasten/kopfleiste';
 import { AppUmgebung } from './baukasten/rahmen';
 import { projektId, setProjektId } from './projekt';
-import { IfcFenster } from './ifc';
+import { Uebernahmefenster } from './uebernahme';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
@@ -48,7 +48,7 @@ export function App() {
       </Switch>
       <Hinweise />
       <Kontextmenue />
-      <IfcFenster />
+      <Uebernahmefenster />
       <Show when={wartetLange() > 0}><div class="warte" role="status">Einen Moment …</div></Show>
     </>
   );

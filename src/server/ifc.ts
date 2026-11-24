@@ -2,12 +2,12 @@
 // Gebäudemodell verglichen. Erst die Vorschau („was würde sich ändern“), dann – nach Bestätigung – die Übernahme
 // als ein Vorgang: alles oder nichts. Was von Hand eingetragen wurde, überschreibt ein neuer Planstand nicht.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import type { Befehl } from '../kern/befehl';
-import { KENNUNG, type Werte } from '../kern/modell';
-import { alsBenutzer, tabelle, type Db } from './db';
-import { Ablehnung, vorgangAusfuehren } from './protokoll';
+import { KENNUNG } from '../kern/modell';
+import { alsBenutzer, type Db } from './db';
+import { Ablehnung } from './protokoll';
+import { ASSISTENT, abgleicher, merken, versionPruefen, type Vorschau, type Zahl } from './uebernahme';
 import type { Benutzer } from './anmeldung';
 
 interface Gelesen {
@@ -21,11 +21,6 @@ interface Gelesen {
   lage_aus_geometrie?: number;
   teile_in_oeffnungen?: number;
 }
-type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
-export interface Vorschau { token: string; schema: string; je: Record<string, Zahl>; uebersprungen: Record<string, number>; flaechenAusGeometrie: number; lageAusGeometrie: number; teileInOeffnungen: number; ohneGeschoss: number; befehle: number }
-
-const plaene = new Map<string, { wer: string; befehle: Befehl[]; bis: number }>();
-
 async function lies(datei: Buffer): Promise<Gelesen> {
   let r: Response;
   try {
@@ -39,66 +34,46 @@ async function lies(datei: Buffer): Promise<Gelesen> {
 }
 
 /** Vergleicht das Gelesene mit dem Modell einer Version und baut daraus die Befehle. */
-export async function planen(db: Db, register: Modulregister, wer: Benutzer, projekt: string, version: string, d: Gelesen): Promise<Omit<Vorschau, 'token'> & { liste: Befehl[] }> {
+export async function planen(db: Db, register: Modulregister, wer: Benutzer, projekt: string, version: string, d: Gelesen): Promise<{ je: Record<string, Zahl>; hinweise: string[]; ohneGeschoss: number; befehle: number; liste: Befehl[] }> {
   return alsBenutzer(db, wer, async (c) => {
-    const v = (await c.query("select 1 from o_version where id = $1 and projekt = $2 and bereich = 'gebaeudemodell' and not geloescht", [version, projekt])).rowCount;
-    if (!v) throw new Ablehnung('Die Version des Gebäudemodells gibt es nicht (mehr)');
-    const liste: Befehl[] = [];
-    const je: Record<string, Zahl> = {};
-    const kopf = () => ({ id: randomUUID(), gesehen: 0, herkunft: 'ifc' });
-    // Kennung im Plan -> Kennung im Bauportal, je Objektart; so finden Geschosse ihr Gebäude und Bauteile ihr Geschoss
-    const ort: Record<string, Map<string, string>> = {};
-
-    const abgleichen = async (objekt: string, eintraege: { kennung: string; werte: Werte }[]) => {
-      const m = register.modell(objekt)!;
-      const z: Zahl = (je[objekt] = { neu: 0, geaendert: 0, entfernt: 0, unveraendert: 0, behalten: 0 });
-      const da = new Map<string, Record<string, unknown>>();
-      for (const zeile of (await c.query(`select * from ${tabelle(objekt)} where version = $1 and kennung <> ''`, [version])).rows) da.set(zeile.kennung, zeile);
-      const karte = (ort[objekt] = new Map<string, string>());
-      for (const e of eintraege) {
-        const alt = da.get(e.kennung);
-        if (!alt) {
-          const id = randomUUID();
-          karte.set(e.kennung, id);
-          liste.push({ ...kopf(), objekt, art: 'anlegen', objektId: id, werte: { projekt, version, kennung: e.kennung, ...e.werte } });
-          z.neu++;
-          continue;
-        }
-        const id = alt.id as string;
-        karte.set(e.kennung, id);
-        if (alt.geloescht) liste.push({ ...kopf(), objekt, art: 'wiederherstellen', objektId: id });
-        const stand = alt._stand as Record<string, { herkunft?: string }>;
-        const aendern: Werte = {};
-        let behalten = false;
-        for (const [k, w] of Object.entries(e.werte)) {
-          const jetzt = alt[k] ?? null;
-          if (jetzt === w || (jetzt === '' && w === null) || !m.felder.some((f) => f.name === k)) continue;
-          // Von Hand eingetragen (keine Herkunft „ifc“) und nicht leer: bleibt, auch wenn der Plan jetzt anderes sagt.
-          if (stand[k]?.herkunft !== 'ifc' && jetzt !== '' && jetzt !== null) behalten = true; else aendern[k] = w;
-        }
-        if (Object.keys(aendern).length) { liste.push({ ...kopf(), objekt, art: 'aendern', objektId: id, werte: aendern }); z.geaendert++; }
-        else if (alt.geloescht) z.neu++;
-        else z.unveraendert++;
-        if (behalten) z.behalten++;
-        da.delete(e.kennung);
-      }
-      // Was aus dem Plan stammte und im neuen Stand fehlt, wird entfernt (bleibt im Protokoll und lässt sich zurückholen).
-      for (const alt of da.values()) if (!alt.geloescht) { liste.push({ ...kopf(), objekt, art: 'loeschen', objektId: alt.id as string }); z.entfernt++; }
-    };
+    await versionPruefen(c, projekt, version);
+    // Der Plan ersetzt auch, was der Assistent geschätzt hat: Alles mit einer Kennung zählt zur Quelle „Plan“.
+    const { liste, je, ort, abgleichen } = abgleicher(c, register, { projekt, version }, 'ifc', ['ifc', 'geschaetzt']);
+    const alles = () => true;
+    const geschaetzt = (x: Record<string, unknown>) => x.kennung === '' || String(x.kennung).startsWith(ASSISTENT);
 
     const gebaeude = d.gebaeude.length ? d.gebaeude : [{ kennung: 'ohne-gebaeude', name: 'Gebäude' }];
-    await abgleichen('gebaeude', gebaeude.map((g) => ({ kennung: g.kennung, werte: { name: g.name } })));
+    // Ein Gebäude im Plan, ein Gebäude ohne Plan im Modell (von Hand oder vom Assistenten): es ist dasselbe.
+    await abgleichen('gebaeude', gebaeude.map((g) => ({ kennung: g.kennung, werte: { name: g.name } })), alles,
+      (_e, vorhanden) => (gebaeude.length === 1 && vorhanden.length === 1 && geschaetzt(vorhanden[0]!) ? vorhanden[0] : undefined));
     const erstes = ort.gebaeude!.get(gebaeude[0]!.kennung)!;
-    await abgleichen('geschoss', d.geschosse.map((g) => ({ kennung: g.kennung, werte: { name: g.name, ebene: g.ebene, hoehe: g.hoehe, gebaeude: (g.gebaeude && ort.gebaeude!.get(g.gebaeude)) || erstes } })));
+    // Ein geschätztes Geschoss derselben Ebene wird zum Geschoss aus dem Plan.
+    await abgleichen('geschoss', d.geschosse.map((g) => ({ kennung: g.kennung, werte: { name: g.name, ebene: g.ebene, hoehe: g.hoehe, gebaeude: (g.gebaeude && ort.gebaeude!.get(g.gebaeude)) || erstes } })), alles,
+      (e, vorhanden) => vorhanden.find((x) => String(x.kennung).startsWith(ASSISTENT) && x.gebaeude === e.werte.gebaeude && Number(x.ebene) === e.werte.ebene));
     const mitGeschoss = d.raeume.filter((r) => r.geschoss && ort.geschoss!.has(r.geschoss));
-    await abgleichen('raum', mitGeschoss.map((r) => ({ kennung: r.kennung, werte: { nummer: r.nummer, name: r.name, nutzung: r.nutzung, flaeche: r.flaeche, hoehe: r.hoehe, geschoss: ort.geschoss!.get(r.geschoss!)! } })));
-    await abgleichen('bauteil', d.bauteile.map((b) => ({ kennung: b.kennung, werte: {
-      name: b.name, art: b.art, lage: b.lage, menge: b.menge, einheit: b.einheit, abmessung: b.abmessung, aufbau: b.aufbau, gewerk: b.gewerk ?? '', geschoss: (b.geschoss && ort.geschoss!.get(b.geschoss)) || null } })));
-    return { schema: d.schema, je, uebersprungen: d.uebersprungen, flaechenAusGeometrie: d.flaechen_aus_geometrie, lageAusGeometrie: d.lage_aus_geometrie ?? 0, teileInOeffnungen: d.teile_in_oeffnungen ?? 0, ohneGeschoss: d.raeume.length - mitGeschoss.length, befehle: liste.length, liste };
+    await abgleichen('raum', mitGeschoss.map((r) => ({ kennung: r.kennung, werte: { nummer: r.nummer, name: r.name, nutzung: r.nutzung, flaeche: r.flaeche, hoehe: r.hoehe, geschoss: ort.geschoss!.get(r.geschoss!)! } })), alles);
+    const vorher = await abgleichen('bauteil', d.bauteile.map((b) => ({ kennung: b.kennung, werte: {
+      name: b.name, art: b.art, lage: b.lage, menge: b.menge, einheit: b.einheit, abmessung: b.abmessung, aufbau: b.aufbau, gewerk: b.gewerk ?? '', geschoss: (b.geschoss && ort.geschoss!.get(b.geschoss)) || null } })), alles);
+
+    const ohneGeschoss = d.raeume.length - mitGeschoss.length;
+    const behalten = Object.values(je).reduce((s, z) => s + z.behalten, 0);
+    const ersetzt = vorher.filter((x) => !x.geloescht && String(x.kennung).startsWith(ASSISTENT)).length;
+    const hinweise = [
+      !liste.length && 'Der Plan stimmt mit dem Gebäudemodell überein – es gibt nichts zu übernehmen.',
+      ersetzt && `${ersetzt} geschätzte Bauteile aus dem Assistenten werden durch die Bauteile aus dem Plan ersetzt.`,
+      behalten && `${behalten} ${behalten === 1 ? 'Eintrag hat' : 'Einträge haben'} von Hand geänderte Werte, die vom Plan abweichen. Sie bleiben, wie du sie eingetragen hast.`,
+      d.flaechen_aus_geometrie && `Bei ${d.flaechen_aus_geometrie} Bauteilen oder Räumen stand keine Menge in der Datei – die Fläche ist aus der Geometrie gerechnet.`,
+      d.lage_aus_geometrie && `Bei ${d.lage_aus_geometrie} Wänden stand nicht in der Datei, ob sie außen oder innen liegen – das ist aus dem Grundriss ermittelt.`,
+      d.teile_in_oeffnungen && `Fenster und Türen sind aus den Wandöffnungen gelesen; ihre ${d.teile_in_oeffnungen} Einzelteile (Rahmen, Flügel, Glas) zählen nicht als eigene Bauteile.`,
+      ohneGeschoss && `${ohneGeschoss} Räume ohne Geschoss im Plan wurden ausgelassen.`,
+      Object.keys(d.uebersprungen).length && `Nicht ins Modell übernommen: ${Object.entries(d.uebersprungen).map(([k, n]) => `${n} × ${k.replace(/^Ifc/, '')}`).join(', ')}.`,
+      `Alles, was übernommen wird, trägt die Marke „aus IFC“. Format der Datei: ${d.schema}.`,
+    ].filter((x): x is string => typeof x === 'string');
+    return { je, hinweise, ohneGeschoss, befehle: liste.length, liste };
   });
 }
 
-export function ifcRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
+export function ifcRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
   // IFC-Dateien kommen als Ganzes (bis 300 MB)
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: 300 * 1024 * 1024 }, (_req, body, fertig) => fertig(null, body));
 
@@ -106,20 +81,6 @@ export function ifcRouten(app: FastifyInstance, e: { db: Db; register: Modulregi
     const q = req.query as { projekt?: string; version?: string };
     if (!KENNUNG.test(q.projekt ?? '') || !KENNUNG.test(q.version ?? '')) throw new Ablehnung('Projekt und Version fehlen');
     if (!Buffer.isBuffer(req.body) || !req.body.length) throw new Ablehnung('Die Datei fehlt');
-    const { liste, ...vorschau } = await planen(e.db, e.register, req.benutzer!, q.projekt!, q.version!, await lies(req.body));
-    const token = randomUUID();
-    for (const [k, p] of plaene) if (p.bis < Date.now()) plaene.delete(k);
-    plaene.set(token, { wer: req.benutzer!.id, befehle: liste, bis: Date.now() + 30 * 60000 });
-    return { token, ...vorschau };
-  });
-
-  app.post('/api/gebaeudemodell/ifc/uebernehmen', { preHandler: e.nurAngemeldet }, async (req) => {
-    const token = String((req.body as { token?: unknown } | null)?.token ?? '');
-    const plan = plaene.get(token);
-    if (!plan || plan.wer !== req.benutzer!.id || plan.bis < Date.now()) throw new Ablehnung('Die Vorschau ist abgelaufen – bitte die Datei noch einmal einlesen');
-    plaene.delete(token);
-    if (plan.befehle.length) await vorgangAusfuehren(e.db, e.register, req.benutzer!, plan.befehle);
-    e.nachBefehlen();
-    return { ok: true, befehle: plan.befehle.length };
+    return merken(req.benutzer!.id, await planen(e.db, e.register, req.benutzer!, q.projekt!, q.version!, await lies(req.body)));
   });
 }

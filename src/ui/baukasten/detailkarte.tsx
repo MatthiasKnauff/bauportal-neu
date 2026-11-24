@@ -2,7 +2,7 @@
 // Jede Änderung eines Feldes ist ein Befehl – sofort wirksam, mit Rückgängig.
 import { For, Show, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { Eingabefehler, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
+import { Eingabefehler, gilt, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
 import { ausfuehren, rueckgaengig } from '../abgleich';
 import { darf, neueKennung } from '../api';
@@ -10,10 +10,10 @@ import { Dialog } from './dialog';
 import { FeldEingabe } from './feld';
 import { hinweis } from './hinweise';
 
-function gruppen(m: ObjektModell, verborgen: string[] = []): { titel: string; felder: Feld[] }[] {
+export function gruppen(m: ObjektModell, werte: Werte, verborgen: string[] = []): { titel: string; felder: Feld[] }[] {
   const aus: { titel: string; felder: Feld[] }[] = [];
   for (const f of m.felder) {
-    if (verborgen.includes(f.name)) continue;
+    if (verborgen.includes(f.name) || !gilt(f, werte)) continue;
     const t = f.gruppe ?? '';
     let g = aus.find((x) => x.titel === t);
     if (!g) aus.push((g = { titel: t, felder: [] }));
@@ -64,7 +64,7 @@ export function Detailkarte(p: {
         <Show when={p.onZu}><button class="knopf still nur-breit" aria-label="Karte schließen" title="Schließen (Esc)" onClick={p.onZu}>{p.symbole?.schliessen ?? '×'}</button></Show>
       </div>
       <div class="karte-inhalt">
-        <For each={gruppen(p.modell, p.verborgen)}>{(g) => (
+        <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => (
           <fieldset>
             <Show when={g.titel}><legend>{g.titel}</legend></Show>
             <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} zusammenhang={p.zeile.werte} onWert={(w) => aendern(f, w)} />}</For>
@@ -102,7 +102,7 @@ export function NeuFenster(p: { modell: ObjektModell; start: Werte; verborgen?: 
     <Dialog titel={`${p.modell.titel} anlegen`} breit onAbbrechen={() => p.onZu()}
       knoepfe={<><button class="knopf" onClick={() => p.onZu()}>Abbrechen</button><button class="knopf haupt" onClick={ok}>Anlegen</button></>}>
       <form class="raster" onSubmit={(e) => { e.preventDefault(); ok(); }}>
-        <For each={p.modell.felder.filter((f) => f.art !== 'langtext' && !p.verborgen?.includes(f.name))}>{(f) => (
+        <For each={p.modell.felder.filter((f) => f.art !== 'langtext' && !p.verborgen?.includes(f.name) && gilt(f, werte))}>{(f) => (
           <FeldEingabe feld={f} wert={werte[f.name] ?? null} fehler={fehler[f.name]} sofort zusammenhang={werte} onWert={(w) => setWerte(f.name, w)} />
         )}</For>
         <button type="submit" hidden />

@@ -14,6 +14,8 @@ import * as anm from './anmeldung';
 import { versionKopieren, versionsregelnAnmelden } from './versionen';
 import { ablageRouten } from './ablage';
 import { ifcRouten } from './ifc';
+import { assistentRouten } from './assistent';
+import { uebernahmeRouten } from './uebernahme';
 
 export interface Einstellungen {
   db: Db;
@@ -178,7 +180,9 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   });
 
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
-  ifcRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
+  ifcRouten(app, { db, register, nurAngemeldet });
+  assistentRouten(app, { db, register, nurAngemeldet });
+  uebernahmeRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
 
   app.get('/api/strom', { preHandler: nurAngemeldet }, async (req, reply) => {
     const q = Number((req.query as { seit?: string }).seit ?? 0);
