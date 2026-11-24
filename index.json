@@ -1,0 +1,15 @@
+{
+ "kanal": "Bauportal Kataloge",
+ "kataloge": [
+  {
+   "id": "gewerke",
+   "titel": "Gewerke nach VOB/C",
+   "beschreibung": "64 Gewerke mit ihrer ATV-Norm (DIN 18299 bis DIN 18459), eingeteilt in Bereiche.",
+   "version": 1,
+   "stand": "2016-09",
+   "quelle": "Gewerke-Liste der VOB/C, Der Senator für Wirtschaft, Arbeit und Häfen Bremen (Stand September 2016); Einteilung in Bereiche vom Bauportal",
+   "datei": "gewerke/gewerke-1.json",
+   "sha256": "d545e0f9f40f36bcadca901c258a546dbe8501a4b0f4d96ac5b7d135108d836d"
+  }
+ ]
+}

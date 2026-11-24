@@ -1,0 +1,520 @@
+{
+ "id": "gewerke",
+ "version": 1,
+ "stand": "2016-09",
+ "quelle": "Gewerke-Liste der VOB/C, Der Senator für Wirtschaft, Arbeit und Häfen Bremen (Stand September 2016); Einteilung in Bereiche vom Bauportal",
+ "eintraege": [
+  {
+   "schluessel": "din18299",
+   "werte": {
+    "name": "Allgemeine Regelungen für Bauarbeiten jeder Art",
+    "norm": "ATV DIN 18299",
+    "bereich": "allgemein"
+   }
+  },
+  {
+   "schluessel": "din18300",
+   "werte": {
+    "name": "Erdarbeiten",
+    "norm": "ATV DIN 18300",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18301",
+   "werte": {
+    "name": "Bohrarbeiten",
+    "norm": "ATV DIN 18301",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18302",
+   "werte": {
+    "name": "Arbeiten zum Ausbau von Bohrungen",
+    "norm": "ATV DIN 18302",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18303",
+   "werte": {
+    "name": "Verbauarbeiten",
+    "norm": "ATV DIN 18303",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18304",
+   "werte": {
+    "name": "Ramm-, Rüttel- und Pressarbeiten",
+    "norm": "ATV DIN 18304",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18305",
+   "werte": {
+    "name": "Wasserhaltungsarbeiten",
+    "norm": "ATV DIN 18305",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18306",
+   "werte": {
+    "name": "Entwässerungskanalarbeiten",
+    "norm": "ATV DIN 18306",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18307",
+   "werte": {
+    "name": "Druckrohrleitungsarbeiten außerhalb von Gebäuden",
+    "norm": "ATV DIN 18307",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18308",
+   "werte": {
+    "name": "Drän- und Versickerarbeiten",
+    "norm": "ATV DIN 18308",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18309",
+   "werte": {
+    "name": "Einpressarbeiten",
+    "norm": "ATV DIN 18309",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18311",
+   "werte": {
+    "name": "Nassbaggerarbeiten",
+    "norm": "ATV DIN 18311",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18312",
+   "werte": {
+    "name": "Untertagebauarbeiten",
+    "norm": "ATV DIN 18312",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18313",
+   "werte": {
+    "name": "Schlitzwandarbeiten mit stützenden Flüssigkeiten",
+    "norm": "ATV DIN 18313",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18314",
+   "werte": {
+    "name": "Spritzbetonarbeiten",
+    "norm": "ATV DIN 18314",
+    "bereich": "rohbau"
+   }
+  },
+  {
+   "schluessel": "din18315",
+   "werte": {
+    "name": "Verkehrswegebauarbeiten – Oberbauschichten ohne Bindemittel",
+    "norm": "ATV DIN 18315",
+    "bereich": "aussen"
+   }
+  },
+  {
+   "schluessel": "din18316",
+   "werte": {
+    "name": "Verkehrswegebauarbeiten – Oberbauschichten mit hydraulischen Bindemitteln",
+    "norm": "ATV DIN 18316",
+    "bereich": "aussen"
+   }
+  },
+  {
+   "schluessel": "din18317",
+   "werte": {
+    "name": "Verkehrswegebauarbeiten – Oberbauschichten aus Asphalt",
+    "norm": "ATV DIN 18317",
+    "bereich": "aussen"
+   }
+  },
+  {
+   "schluessel": "din18318",
+   "werte": {
+    "name": "Verkehrswegebauarbeiten – Pflasterdecken und Plattenbeläge in ungebundener Ausführung, Einfassungen",
+    "norm": "ATV DIN 18318",
+    "bereich": "aussen"
+   }
+  },
+  {
+   "schluessel": "din18319",
+   "werte": {
+    "name": "Rohrvortriebsarbeiten",
+    "norm": "ATV DIN 18319",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18320",
+   "werte": {
+    "name": "Landschaftsbauarbeiten",
+    "norm": "ATV DIN 18320",
+    "bereich": "aussen"
+   }
+  },
+  {
+   "schluessel": "din18321",
+   "werte": {
+    "name": "Düsenstrahlarbeiten",
+    "norm": "ATV DIN 18321",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18322",
+   "werte": {
+    "name": "Kabelleitungstiefbauarbeiten",
+    "norm": "ATV DIN 18322",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18323",
+   "werte": {
+    "name": "Kampfmittelräumarbeiten",
+    "norm": "ATV DIN 18323",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18324",
+   "werte": {
+    "name": "Horizontalspülbohrarbeiten",
+    "norm": "ATV DIN 18324",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18325",
+   "werte": {
+    "name": "Gleisbauarbeiten",
+    "norm": "ATV DIN 18325",
+    "bereich": "aussen"
+   }
+  },
+  {
+   "schluessel": "din18326",
+   "werte": {
+    "name": "Renovierungsarbeiten an Entwässerungskanälen",
+    "norm": "ATV DIN 18326",
+    "bereich": "tiefbau"
+   }
+  },
+  {
+   "schluessel": "din18329",
+   "werte": {
+    "name": "Verkehrssicherungsarbeiten",
+    "norm": "ATV DIN 18329",
+    "bereich": "allgemein"
+   }
+  },
+  {
+   "schluessel": "din18330",
+   "werte": {
+    "name": "Mauerarbeiten",
+    "norm": "ATV DIN 18330",
+    "bereich": "rohbau"
+   }
+  },
+  {
+   "schluessel": "din18331",
+   "werte": {
+    "name": "Betonarbeiten",
+    "norm": "ATV DIN 18331",
+    "bereich": "rohbau"
+   }
+  },
+  {
+   "schluessel": "din18332",
+   "werte": {
+    "name": "Naturwerksteinarbeiten",
+    "norm": "ATV DIN 18332",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18334",
+   "werte": {
+    "name": "Zimmer- und Holzbauarbeiten",
+    "norm": "ATV DIN 18334",
+    "bereich": "rohbau"
+   }
+  },
+  {
+   "schluessel": "din18335",
+   "werte": {
+    "name": "Stahlbauarbeiten",
+    "norm": "ATV DIN 18335",
+    "bereich": "rohbau"
+   }
+  },
+  {
+   "schluessel": "din18336",
+   "werte": {
+    "name": "Abdichtungsarbeiten",
+    "norm": "ATV DIN 18336",
+    "bereich": "rohbau"
+   }
+  },
+  {
+   "schluessel": "din18338",
+   "werte": {
+    "name": "Dachdeckungs- und Dachabdichtungsarbeiten",
+    "norm": "ATV DIN 18338",
+    "bereich": "huelle"
+   }
+  },
+  {
+   "schluessel": "din18339",
+   "werte": {
+    "name": "Klempnerarbeiten",
+    "norm": "ATV DIN 18339",
+    "bereich": "huelle"
+   }
+  },
+  {
+   "schluessel": "din18340",
+   "werte": {
+    "name": "Trockenbauarbeiten",
+    "norm": "ATV DIN 18340",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18345",
+   "werte": {
+    "name": "Wärmedämm-Verbundsysteme",
+    "norm": "ATV DIN 18345",
+    "bereich": "huelle"
+   }
+  },
+  {
+   "schluessel": "din18349",
+   "werte": {
+    "name": "Betonerhaltungsarbeiten",
+    "norm": "ATV DIN 18349",
+    "bereich": "rohbau"
+   }
+  },
+  {
+   "schluessel": "din18350",
+   "werte": {
+    "name": "Putz- und Stuckarbeiten",
+    "norm": "ATV DIN 18350",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18351",
+   "werte": {
+    "name": "Vorgehängte hinterlüftete Fassaden",
+    "norm": "ATV DIN 18351",
+    "bereich": "huelle"
+   }
+  },
+  {
+   "schluessel": "din18352",
+   "werte": {
+    "name": "Fliesen- und Plattenarbeiten",
+    "norm": "ATV DIN 18352",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18353",
+   "werte": {
+    "name": "Estricharbeiten",
+    "norm": "ATV DIN 18353",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18354",
+   "werte": {
+    "name": "Gussasphaltarbeiten",
+    "norm": "ATV DIN 18354",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18355",
+   "werte": {
+    "name": "Tischlerarbeiten",
+    "norm": "ATV DIN 18355",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18356",
+   "werte": {
+    "name": "Parkett- und Holzpflasterarbeiten",
+    "norm": "ATV DIN 18356",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18357",
+   "werte": {
+    "name": "Beschlagarbeiten",
+    "norm": "ATV DIN 18357",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18358",
+   "werte": {
+    "name": "Rollladenarbeiten",
+    "norm": "ATV DIN 18358",
+    "bereich": "huelle"
+   }
+  },
+  {
+   "schluessel": "din18360",
+   "werte": {
+    "name": "Metallbauarbeiten",
+    "norm": "ATV DIN 18360",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18361",
+   "werte": {
+    "name": "Verglasungsarbeiten",
+    "norm": "ATV DIN 18361",
+    "bereich": "huelle"
+   }
+  },
+  {
+   "schluessel": "din18363",
+   "werte": {
+    "name": "Maler- und Lackierarbeiten – Beschichtungen",
+    "norm": "ATV DIN 18363",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18364",
+   "werte": {
+    "name": "Korrosionsschutzarbeiten an Stahlbauten",
+    "norm": "ATV DIN 18364",
+    "bereich": "rohbau"
+   }
+  },
+  {
+   "schluessel": "din18365",
+   "werte": {
+    "name": "Bodenbelagarbeiten",
+    "norm": "ATV DIN 18365",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18366",
+   "werte": {
+    "name": "Tapezierarbeiten",
+    "norm": "ATV DIN 18366",
+    "bereich": "ausbau"
+   }
+  },
+  {
+   "schluessel": "din18379",
+   "werte": {
+    "name": "Raumlufttechnische Anlagen",
+    "norm": "ATV DIN 18379",
+    "bereich": "technik"
+   }
+  },
+  {
+   "schluessel": "din18380",
+   "werte": {
+    "name": "Heizanlagen und zentrale Wassererwärmungsanlagen",
+    "norm": "ATV DIN 18380",
+    "bereich": "technik"
+   }
+  },
+  {
+   "schluessel": "din18381",
+   "werte": {
+    "name": "Gas-, Wasser- und Entwässerungsanlagen innerhalb von Gebäuden",
+    "norm": "ATV DIN 18381",
+    "bereich": "technik"
+   }
+  },
+  {
+   "schluessel": "din18382",
+   "werte": {
+    "name": "Nieder- und Mittelspannungsanlagen mit Nennspannungen bis 36 kV",
+    "norm": "ATV DIN 18382",
+    "bereich": "technik"
+   }
+  },
+  {
+   "schluessel": "din18384",
+   "werte": {
+    "name": "Blitzschutzanlagen",
+    "norm": "ATV DIN 18384",
+    "bereich": "technik"
+   }
+  },
+  {
+   "schluessel": "din18385",
+   "werte": {
+    "name": "Aufzugsanlagen, Fahrtreppen und Fahrsteige sowie Förderanlagen",
+    "norm": "ATV DIN 18385",
+    "bereich": "technik"
+   }
+  },
+  {
+   "schluessel": "din18386",
+   "werte": {
+    "name": "Gebäudeautomation",
+    "norm": "ATV DIN 18386",
+    "bereich": "technik"
+   }
+  },
+  {
+   "schluessel": "din18421",
+   "werte": {
+    "name": "Dämm- und Brandschutzarbeiten an technischen Anlagen",
+    "norm": "ATV DIN 18421",
+    "bereich": "technik"
+   }
+  },
+  {
+   "schluessel": "din18451",
+   "werte": {
+    "name": "Gerüstarbeiten",
+    "norm": "ATV DIN 18451",
+    "bereich": "allgemein"
+   }
+  },
+  {
+   "schluessel": "din18459",
+   "werte": {
+    "name": "Abbruch- und Rückbauarbeiten",
+    "norm": "ATV DIN 18459",
+    "bereich": "allgemein"
+   }
+  }
+ ]
+}
