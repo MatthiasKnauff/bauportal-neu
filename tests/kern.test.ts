@@ -23,6 +23,7 @@ import { katalogPlanen } from '../src/server/updates';
 import { wetterFuer, wetterlage } from '../src/server/wetter';
 import { fotoAblegen } from '../src/server/foto';
 import { aufbauText } from '../src/server/aufbau';
+import { altdatenLesen, altdatenPlanen } from '../src/server/altdaten';
 // @ts-expect-error – Werkzeug in reinem JavaScript
 import { aufbauLesen } from '../tools/aufbau.mjs';
 import { existsSync, readdirSync } from 'node:fs';
@@ -608,6 +609,51 @@ test('Aufbau: jede Datei ist ein Baustein mit Beschreibung, der Kern kennt niema
   assert.deepEqual(verstoesse, [], 'kein Baustein greift in eine Schicht über sich');
   const text = aufbauText(register, q, ['POST /api/befehle']);
   for (const t of ['### Bautagebuch (`bautagebuch`', '- `firma` verweis → kontakt', '### `src/kern/modell.ts`', 'POST /api/befehle', 'KI-Ausgang']) assert.ok(text.includes(t), t);
+});
+
+test('Übernahme aus dem alten Bautagebuch: Export → Objekte, wiederholbar, nichts doppelt', async () => {
+  const exp = { format: 1, tables: {
+    contacts: [{ id: 1, name: 'Rohbau Schmitz GmbH', trade: 'Rohbau', phone: '0201 1', email: 'kaputt', art: '' }, { id: 2, name: 'Gerüstbau Ruhr', trade: 'Gerüst' }],
+    projects: [{ id: 5, name: 'Haus A', client: 'Familie Muster', street: 'Musterweg 1', zip: '45127', city: 'Essen', folder: '2026-01 Haus A', archived: 0 }, { id: 6, name: 'Altprojekt', archived: 1 }],
+    reports: [{ id: 10, project_id: 5, number: 3, date: '2026-04-15', time: '09:15', weather: 'Bedeckt', precip: 'leichter Regen', temp: '7.5', humidity: '81', wind: '12', site_manager: 'Unbekannt, leitung', chk_tidy: 1, chk_photos: 1 },
+      { id: 11, project_id: 5, number: 4, date: '' }, { id: 12, project_id: 99, number: 1, date: '2026-01-01' }],
+    items: [{ id: 100, report_id: 10, kind: 'anwesende', text: 'Rohbau Schmitz GmbH', contact_id: 1, activity: 'Schalung Decke', headcount: 4 },
+      { id: 101, report_id: 10, kind: 'maengel', text: 'Riss in der Sohle', company: 'gerüstbau ruhr', due: '2026-05-01', done: 1 },
+      { id: 102, report_id: 10, kind: 'weisungen', text: 'Gerüstlage 3 sichern', company: 'Fremdfirma Neu' }, { id: 103, report_id: 10, kind: 'material', text: 'gibt es nicht mehr' },
+      { id: 104, report_id: 10, kind: 'anwesende', text: 'Elektro Unbekannt', activity: 'Leerrohre' }],
+    images: [{ id: 7, report_id: 10, file: 'a1b2.jpg', caption: 'Sohle' }, { id: 8, report_id: 12, file: 'weg.jpg' }],
+  } };
+  const u = altdatenLesen(exp);
+  assert.deepEqual([u.kontakte.length, u.projekte.length, u.berichte.length, u.eintraege.length, u.bilder.length], [2, 2, 1, 4, 1]);
+  assert.deepEqual(u.berichte[0]!.werte, { nummer: 3, datum: '2026-04-15', uhrzeit: '09:15', titel: 'Tagesbericht 3', wetter: 'regen', temperatur: 7.5, luftfeuchte: 81, wind: 12, aufgeraeumt: true, masskontrolle: false, fotodoku: true, firmen_angesprochen: false });
+  assert.deepEqual(u.eintraege.map((e) => [e.werte.art, e.werte.text, e.firma, e.werte.reihe]), [['anwesend', 'Schalung Decke', 'alt:kontakt:1', 1], ['mangel', 'Riss in der Sohle', 'alt:kontakt:2', 1], ['weisung', 'Gerüstlage 3 sichern (Fremdfirma Neu)', '', 1], ['anwesend', 'Elektro Unbekannt – Leerrohre', '', 2]]);
+  assert.throws(() => altdatenLesen({ irgendwas: 1 }), Ablehnung);
+
+  const { db, weg } = await frischeDb();
+  try {
+    const { admin, leitung } = await leute(db);
+    const wer = { ...admin, anmeldename: 'admin', rolle: 'admin' };
+    // Den Kontakt gibt es schon (anders geschrieben), das Projekt auch
+    const schon = randomUUID();
+    await tun(db, admin, { objekt: 'kontakt', art: 'anlegen', objektId: schon, werte: { name: 'rohbau schmitz gmbh', ort: 'Essen' } });
+    let p = await altdatenPlanen(db, register, wer, u);
+    assert.deepEqual([p.je.kontakt!.neu, p.je.kontakt!.geaendert, p.je.projekt!.neu, p.je.tagesbericht!.neu, p.je.bericht_eintrag!.neu], [1, 1, 2, 1, 4]);
+    assert.ok(p.hinweise.some((h) => h.includes('1 Fotos')) && p.hinweise.some((h) => h.includes('ohne Datum')));
+    await vorgangAusfuehren(db, register, wer, p.liste);
+    const o = (await schnappschuss(db, register, admin)).objekte;
+    const kontakt = o.kontakt!.find((x) => x.id === schon)!;
+    assert.deepEqual([o.kontakt!.length, kontakt.werte.name, kontakt.werte.ort, kontakt.werte.gewerk, kontakt.werte.kennung], [2, 'rohbau schmitz gmbh', 'Essen', 'Rohbau', 'alt:kontakt:1'], 'vorhandener Kontakt wird weitergeführt; was von Hand dasteht, bleibt');
+    const bericht = o.tagesbericht![0]!;
+    assert.deepEqual([bericht.werte.bauleitung, bericht.herkunft?.wetter, o.projekt!.find((x) => x.id === bericht.werte.projekt)!.werte.ordner], [leitung.id, 'uebernahme', '2026-01 Haus A'], 'Bauleitung über den Namen gefunden');
+    const mangel = o.bericht_eintrag!.find((x) => x.werte.art === 'mangel')!;
+    assert.deepEqual([mangel.werte.erledigt, mangel.werte.frist, mangel.werte.bericht, o.kontakt!.find((x) => x.id === mangel.werte.firma)!.werte.name], [true, '2026-05-01', bericht.id, 'Gerüstbau Ruhr']);
+    assert.equal((await altdatenPlanen(db, register, wer, u)).liste.length, 0, 'derselbe Export noch einmal: nichts zu tun');
+    // Später: im alten Bautagebuch kam ein Eintrag dazu, im neuen wurde der Mangel von Hand umformuliert
+    await tun(db, leitung, { objekt: 'bericht_eintrag', objektId: mangel.id, werte: { text: 'Riss in der Sohle, Achse B' } });
+    exp.tables.items.push({ id: 105, report_id: 10, kind: 'notizen', text: 'Nachgereicht' });
+    p = await altdatenPlanen(db, register, wer, altdatenLesen(exp));
+    assert.deepEqual(p.je.bericht_eintrag, { neu: 1, geaendert: 0, entfernt: 0, unveraendert: 4, behalten: 1 });
+  } finally { await weg(); }
 });
 
 test('Geheimnisse: verschlüsselt in der Datenbank, lesbar nur mit dem Schlüssel aus dem Daten-Volume', async () => {

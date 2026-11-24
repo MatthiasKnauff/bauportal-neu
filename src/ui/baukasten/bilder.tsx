@@ -12,8 +12,8 @@ import { hinweis } from './hinweise';
 
 const KANTE = 800;   // längste Kante des Vorschaubilds in Pixeln – reicht für Karte und Ausdruck (zwei Bilder je Zeile)
 
-const base64 = (b: Blob) => new Promise<string>((ok, nein) => { const l = new FileReader(); l.onload = () => ok(String(l.result).split(',')[1] ?? ''); l.onerror = () => nein(l.error); l.readAsDataURL(b); });
-async function vorschau(datei: File): Promise<Blob> {
+export const base64 = (b: Blob) => new Promise<string>((ok, nein) => { const l = new FileReader(); l.onload = () => ok(String(l.result).split(',')[1] ?? ''); l.onerror = () => nein(l.error); l.readAsDataURL(b); });
+export async function vorschaubild(datei: File): Promise<Blob> {
   let bild: ImageBitmap;
   try { bild = await createImageBitmap(datei, { imageOrientation: 'from-image' }); }
   catch { throw new Error(`„${datei.name}“ kann dieser Browser nicht lesen (bei HEIC-Fotos vom iPhone: in den Kamera-Einstellungen „Maximale Kompatibilität“ wählen)`); }
@@ -43,7 +43,7 @@ export function Bilder(p: {
     let n = 0;
     for (const d of dateien) {
       setLage(`Foto ${++n} von ${dateien.length} wird abgelegt …`);
-      try { await ruf(p.hochladen, { ...p.fest, name: d.name, original: await base64(d), vorschau: await base64(await vorschau(d)) }); }
+      try { await ruf(p.hochladen, { ...p.fest, name: d.name, original: await base64(d), vorschau: await base64(await vorschaubild(d)) }); }
       catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
     }
     setLage('');

@@ -20,7 +20,7 @@ const ARTEN: [string, (b: Buffer) => boolean][] = [
 const bildart = (b: Buffer) => ARTEN.find(([, passt]) => passt(b))?.[0];
 const GRENZE_ORIGINAL = 40 * 1024 * 1024, GRENZE_VORSCHAU = 800 * 1024;
 
-export interface Hochgeladen { projekt: string; bericht: string; name: string; original: Buffer; vorschau: Buffer }
+export interface Hochgeladen { projekt: string; bericht: string; name: string; original: Buffer; vorschau: Buffer; beschriftung?: string; kennung?: string; herkunft?: string }
 
 export async function fotoAblegen(db: Db, register: Modulregister, umgebung: string, wer: Benutzer, f: Hochgeladen): Promise<{ id: string; ort: string }> {
   if (!KENNUNG.test(f.projekt) || !KENNUNG.test(f.bericht)) throw new Ablehnung('Projekt und Bericht fehlen');
@@ -40,8 +40,8 @@ export async function fotoAblegen(db: Db, register: Modulregister, umgebung: str
   const wo = await ablegen(db, { umgebung, projekt: f.projekt, projektordner: z.ordner || null, unterordner: `${basis}/${z.bericht.datum} Bericht ${Number(z.bericht.nummer ?? 0)}`, name, daten: f.original });
   const id = randomUUID();
   await db.query('insert into kern_vorschau (id, bild) values ($1, $2)', [id, f.vorschau]);
-  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: 0, objekt: 'foto', art: 'anlegen', objektId: id,
-    werte: { projekt: f.projekt, bericht: f.bericht, name: wo.pfad.split('/').pop()!.replace(/^[0-9a-f]{16}-/, ''), beschriftung: '', ort: wo.ort, pfad: wo.pfad, reihe: Number(z.reihe) } });
+  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: 0, objekt: 'foto', art: 'anlegen', objektId: id, ...(f.herkunft ? { herkunft: f.herkunft } : {}),
+    werte: { projekt: f.projekt, bericht: f.bericht, name: wo.pfad.split('/').pop()!.replace(/^[0-9a-f]{16}-/, ''), beschriftung: f.beschriftung ?? '', ort: wo.ort, pfad: wo.pfad, reihe: Number(z.reihe), kennung: f.kennung ?? '' } });
   return { id, ort: wo.ort };
 }
 

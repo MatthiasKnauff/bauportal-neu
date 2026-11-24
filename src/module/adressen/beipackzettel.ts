@@ -30,6 +30,7 @@ export const kontakt: ObjektModell = {
     { name: 'email', titel: 'E-Mail', art: 'email', inListe: true, breite: 230, gruppe: 'Erreichbarkeit' },
     { name: 'web', titel: 'Internetseite', art: 'text', gruppe: 'Erreichbarkeit' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Notiz' },
+    { name: 'kennung', titel: 'Kennung aus der Übernahme', art: 'text', verborgen: true },
   ],
 };
 

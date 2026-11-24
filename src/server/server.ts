@@ -22,6 +22,7 @@ import { updateRouten } from './updates';
 import { wetterRouten } from './wetter';
 import { fotoRouten } from './foto';
 import { aufbauRouten } from './aufbau';
+import { altdatenRouten } from './altdaten';
 
 export interface Einstellungen {
   db: Db;
@@ -196,6 +197,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   wetterRouten(app, { db, nurAngemeldet });
   fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   aufbauRouten(app, { db, register, routen, nurAngemeldet });
+  altdatenRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   updateRouten(app, { db, register, version: e.version, umgebung: e.umgebung, nurAngemeldet });
   uebernahmeRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
 

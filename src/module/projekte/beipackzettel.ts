@@ -25,6 +25,7 @@ export const projekt: ObjektModell = {
     { name: 'ort', titel: 'Ort', art: 'text', inListe: true, breite: 150, gruppe: 'Baustelle' },
     { name: 'ordner', titel: 'Ordner auf dem Dateiserver', art: 'text', gruppe: 'Ablage' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Notiz' },
+    { name: 'kennung', titel: 'Kennung aus der Übernahme', art: 'text', verborgen: true },
   ],
 };
 
