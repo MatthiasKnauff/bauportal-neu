@@ -1,4 +1,4 @@
-// Übernahme ins Gebäudemodell – ein Fenster für alle Quellen: IFC-Datei oder Assistent → Vorschau, was sich ändern
+// Übernahme – ein Fenster für alle Quellen: IFC-Datei, Assistent oder Katalog → Vorschau, was sich ändern
 // würde → Übernehmen. Nichts ändert sich ohne Bestätigung; die Übernahme ist ein Vorgang (alles oder nichts).
 import { For, Show, createSignal } from 'solid-js';
 import { createStore, unwrap } from 'solid-js/store';
@@ -12,15 +12,14 @@ import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './baukasten/hinweise';
 
 type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
-interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number }
-const TITEL: Record<string, string> = { gebaeude: 'Gebäude', geschoss: 'Geschosse', raum: 'Räume', bauteil: 'Bauteile' };
+export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number }
 
-interface Quelle { titel: string; wartetext: string; fertig: string; zurueck?: () => void }
+interface Quelle { titel: string; wartetext: string; fertig: string; zurueck?: () => void; danach?: () => void }
 type Lage = { art: 'liest' } | { art: 'vorschau'; v: Vorschau } | { art: 'uebernimmt' } | { art: 'fehler'; text: string };
 const [stand, setStand] = createSignal<(Quelle & { lage: Lage }) | null>(null);
 
 /** Holt die Vorschau einer Quelle und zeigt sie; „Übernehmen“ führt sie aus. */
-async function vorschauZeigen(q: Quelle, holen: () => Promise<Vorschau>): Promise<void> {
+export async function vorschauZeigen(q: Quelle, holen: () => Promise<Vorschau>): Promise<void> {
   setStand({ ...q, lage: { art: 'liest' } });
   try { setStand({ ...q, lage: { art: 'vorschau', v: await holen() } }); }
   catch (e) { setStand({ ...q, lage: { art: 'fehler', text: (e as Error).message } }); }
@@ -97,7 +96,7 @@ export function Uebernahmefenster() {
   const zu = () => setStand(null);
   const uebernehmen = async (q: Quelle, v: Vorschau) => {
     setStand({ ...q, lage: { art: 'uebernimmt' } });
-    try { await ruf('/api/gebaeudemodell/uebernehmen', { token: v.token }); zu(); hinweis(q.fertig); }
+    try { await ruf('/api/uebernehmen', { token: v.token }); zu(); hinweis(q.fertig); q.danach?.(); }
     catch (e) { setStand({ ...q, lage: { art: 'fehler', text: (e as Error).message } }); }
   };
   return (<>
@@ -112,10 +111,10 @@ export function Uebernahmefenster() {
           if (l.art === 'uebernimmt') return <p class="still-text">Die Änderungen werden übernommen …</p>;
           if (l.art === 'fehler') return <p class="feld-fehler" role="alert">{l.text}</p>;
           return (<>
-            <p class="still-text">Das würde sich in dieser Version ändern. Noch ist nichts übernommen.</p>
+            <p class="still-text">Das würde sich ändern. Noch ist nichts übernommen.</p>
             <table class="matrix vorschau-tabelle">
               <thead><tr><th>Bereich</th><th>neu</th><th>geändert</th><th>entfällt</th><th>unverändert</th></tr></thead>
-              <tbody><For each={Object.entries(l.v.je)}>{([o, z]) => <tr><th scope="row">{TITEL[o] ?? o}</th><td>{z.neu}</td><td>{z.geaendert}</td><td>{z.entfernt}</td><td>{z.unveraendert}</td></tr>}</For></tbody>
+              <tbody><For each={Object.entries(l.v.je)}>{([o, z]) => <tr><th scope="row">{modell(o)?.titelMehrzahl ?? o}</th><td>{z.neu}</td><td>{z.geaendert}</td><td>{z.entfernt}</td><td>{z.unveraendert}</td></tr>}</For></tbody>
             </table>
             <ul class="vorschau-hinweise"><For each={l.v.hinweise}>{(h) => <li>{h}</li>}</For></ul>
           </>);

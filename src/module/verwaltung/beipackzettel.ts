@@ -121,5 +121,6 @@ export const verwaltung: Beipackzettel = {
     { id: 'buero', titel: 'Büro' },
     { id: 'ablage', titel: 'Ablage', nurAdmin: true },
     { id: 'ki', titel: 'KI', objekt: 'ki_anbindung', nurAdmin: true },
+    { id: 'updates', titel: 'Updates', nurAdmin: true },
   ],
 };

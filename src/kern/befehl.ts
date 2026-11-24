@@ -18,7 +18,7 @@ export interface Befehl {
 }
 
 /** Herkunft der Werte, die nicht von Hand eingegeben wurden. Von Hand = keine Angabe. */
-export const HERKUNFT: Record<string, string> = { ifc: 'aus IFC', geschaetzt: 'geschätzt', ki: 'von der KI', assistent: 'vom Assistenten', plan: 'aus dem Plan', uebernahme: 'übernommen' };
+export const HERKUNFT: Record<string, string> = { ifc: 'aus IFC', geschaetzt: 'geschätzt', ki: 'von der KI', katalog: 'aus dem Katalog', assistent: 'vom Assistenten', plan: 'aus dem Plan', uebernahme: 'übernommen' };
 /**
  * Für welche Felder eines Befehls die Herkunft gilt: für die Felder, die der Absender wirklich geliefert hat –
  * nicht für Vorgaben, die das Modell beim Anlegen ergänzt. Im Protokoll stehen sie ausdrücklich (herkunftFelder).

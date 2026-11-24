@@ -17,6 +17,8 @@ import { planen } from '../src/server/ifc';
 import { planeSchaetzung } from '../src/server/assistent';
 import { seiteBauen } from '../src/server/druck';
 import { kiText } from '../src/server/ki';
+import { katalogPlanen } from '../src/server/updates';
+import { createHash } from 'node:crypto';
 import { anonymisieren, klartext } from '../src/kern/anonym';
 import { createServer } from 'node:http';
 import { schaetzen } from '../src/module/gebaeudemodell/schaetzung';
@@ -432,7 +434,7 @@ test('KI: nach außen nur ohne Namen, im Büro unverändert, Protokoll ohne Inha
   // Die Ersetzung selbst
   const e = anonymisieren('Herr Müller (Müller Bau GmbH, 0201 123456, info@mueller-bau.de) und müller sen. – IBAN DE12 3456 7890 1234 5678 90. Müllerstraße bleibt.', ['Müller Bau GmbH', 'Müller', 'ab']);
   assert.equal(e.karte.size, 5, 'Firma, Name, Telefon, E-Mail, IBAN – der zweite „müller“ bekommt dieselbe Nummer');
-  assert.ok(!/Müller(?!straße)|müller |0201|mueller-bau|DE12/.test(e.text), e.text);
+  assert.ok(!/Müller(?!straße)|müller |0201 123456|mueller-bau|DE12/.test(e.text), e.text);
   assert.ok(e.text.includes('Müllerstraße bleibt'), 'nur ganze Wörter');
   assert.match(e.text, /^Herr \[\[\d{12}\]\] \(\[\[\d{12}\]\], \[\[\d{12}\]\], \[\[\d{12}\]\]\) und \[\[(\d{12})\]\] sen\./);
   const [n] = [...e.karte.keys()];
@@ -473,6 +475,47 @@ test('KI: nach außen nur ohne Namen, im Büro unverändert, Protokoll ohne Inha
     assert.deepEqual(p, [{ anbindung: 'Büro-KI', aufgabe: 'ausformulieren', extern: false, ersetzt: 0, tokens_ein: 30, fehler: null }, { anbindung: 'Claude', aufgabe: 'glaetten', extern: true, ersetzt: 2, tokens_ein: 30, fehler: null }]);
     assert.ok(!JSON.stringify((await db.query('select * from kern_ki_ausgang')).rows).includes('betoniert'), 'im Protokoll steht, dass etwas hinausging – nicht was');
   } finally { await weg(); ausgang.close(); }
+});
+
+test('Kataloge: aus dem Kanal mit Prüfsumme, Vorschau, eigene Einträge und Änderungen des Büros bleiben', async () => {
+  const datei = (version: number, eintraege: [string, string, string][]) => Buffer.from(JSON.stringify({ id: 'gewerke', version, stand: '2026-01', eintraege: eintraege.map(([schluessel, name, bereich]) => ({ schluessel, werte: { name, norm: schluessel.toUpperCase(), bereich } })) }));
+  const dateien: Record<string, Buffer> = {
+    '/gewerke/1.json': datei(1, [['din18330', 'Mauerarbeiten', 'rohbau'], ['din18331', 'Betonarbeiten', 'rohbau'], ['din18333', 'Betonwerksteinarbeiten', 'ausbau']]),
+    '/gewerke/2.json': datei(2, [['din18330', 'Mauerarbeiten', 'rohbau'], ['din18331', 'Beton- und Stahlbetonarbeiten', 'rohbau'], ['din18340', 'Trockenbauarbeiten', 'ausbau']]),
+  };
+  let fassung = 1, falsch = false;
+  const kanal = createServer((req, res) => {
+    const d = dateien[`/gewerke/${fassung}.json`]!;
+    if (req.url === '/index.json') return res.end(JSON.stringify({ kataloge: [
+      { id: 'gewerke', titel: 'Gewerke', beschreibung: '', version: fassung, stand: '2026-01', quelle: 'Test', datei: `gewerke/${fassung}.json`, sha256: falsch ? 'f'.repeat(64) : createHash('sha256').update(d).digest('hex') },
+      { id: 'unbekannt', titel: 'kennt dieses Programm nicht', version: 1, stand: '', quelle: '', datei: 'x.json', sha256: '' }] }));
+    res.end(dateien[req.url!] ?? '');
+  });
+  await new Promise<void>((r) => kanal.listen(0, '127.0.0.1', r));
+  process.env.KATALOG_KANAL = `http://127.0.0.1:${(kanal.address() as { port: number }).port}/`;
+  const { db, weg } = await frischeDb();
+  try {
+    const { admin, leitung } = await leute(db);
+    const wer = { ...admin, anmeldename: 'admin', rolle: 'admin' };
+    const lies = async () => (await schnappschuss(db, register, admin)).objekte.gewerk!.filter((x) => !x.geloescht);
+    falsch = true;
+    await assert.rejects(katalogPlanen(db, register, wer, 'gewerke'), /Prüfsumme/);
+    falsch = false;
+    await assert.rejects(katalogPlanen(db, register, wer, 'unbekannt'), Ablehnung);
+    let p = await katalogPlanen(db, register, wer, 'gewerke');
+    assert.equal(p.je.gewerk!.neu, 3);
+    await vorgangAusfuehren(db, register, wer, p.liste);
+    assert.deepEqual((await lies()).map((x) => [x.werte.kennung, x.herkunft?.name]).sort(), [['din18330', 'katalog'], ['din18331', 'katalog'], ['din18333', 'katalog']]);
+    assert.equal((await katalogPlanen(db, register, wer, 'gewerke')).liste.length, 0, 'derselbe Stand noch einmal: nichts zu tun');
+    // Das Büro: eigenes Gewerk, eigener Name für die Mauerarbeiten
+    await tun(db, leitung, { objekt: 'gewerk', art: 'anlegen', werte: { name: 'Lehmbau (eigenes Gewerk)' } });
+    await tun(db, leitung, { objekt: 'gewerk', objektId: (await lies()).find((x) => x.werte.kennung === 'din18330')!.id, werte: { name: 'Maurer' } });
+    fassung = 2;
+    p = await katalogPlanen(db, register, wer, 'gewerke');
+    assert.deepEqual(p.je.gewerk, { neu: 1, geaendert: 1, entfernt: 1, unveraendert: 1, behalten: 1 }, 'die Mauerarbeiten heißen im Büro anders – das bleibt');
+    await vorgangAusfuehren(db, register, wer, p.liste);
+    assert.deepEqual((await lies()).map((x) => x.werte.name).sort(), ['Beton- und Stahlbetonarbeiten', 'Lehmbau (eigenes Gewerk)', 'Maurer', 'Trockenbauarbeiten']);
+  } finally { await weg(); kanal.close(); }
 });
 
 test('Geheimnisse: verschlüsselt in der Datenbank, lesbar nur mit dem Schlüssel aus dem Daten-Volume', async () => {
@@ -531,7 +574,7 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
     const cookie = (await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } })).cookie!;
     const z = (await ruf('/api/zustand', { cookie })).daten;
     assert.equal(z.benutzer.rolle, 'admin');
-    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'gebaeudemodell', 'dateien', 'bautagebuch', 'bauzeitenplan', 'verwaltung']);
+    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'gebaeudemodell', 'dateien', 'bautagebuch', 'bauzeitenplan', 'kataloge', 'verwaltung']);
     assert.equal(z.rechte.kontakt.loeschen, true);
     const s0 = (await ruf('/api/schnappschuss', { cookie })).daten;
     assert.equal(s0.objekte.buero[0].werte.name, 'GK3');

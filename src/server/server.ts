@@ -18,6 +18,7 @@ import { assistentRouten } from './assistent';
 import { uebernahmeRouten } from './uebernahme';
 import { druckRouten } from './druck';
 import { kiRouten } from './ki';
+import { updateRouten } from './updates';
 
 export interface Einstellungen {
   db: Db;
@@ -186,6 +187,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   assistentRouten(app, { db, register, nurAngemeldet });
   druckRouten(app, { db, register, nurAngemeldet });
   kiRouten(app, { db, nurAngemeldet });
+  updateRouten(app, { db, register, version: e.version, umgebung: e.umgebung, nurAngemeldet });
   uebernahmeRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
 
   app.get('/api/strom', { preHandler: nurAngemeldet }, async (req, reply) => {

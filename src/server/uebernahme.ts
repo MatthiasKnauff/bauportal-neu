@@ -1,5 +1,5 @@
-// Übernahme ins Gebäudemodell: Eine Quelle (IFC-Plan, Assistent) liefert Einträge mit einer Kennung; hier werden sie
-// mit dem vorhandenen Modell einer Version verglichen. Erst die Vorschau („was würde sich ändern“), dann – nach
+// Übernahme aus einer Quelle (IFC-Plan, Assistent, Katalog): Die Quelle liefert Einträge mit einer Kennung; hier werden
+// sie mit dem Vorhandenen verglichen (im Gebäudemodell: mit einer Version). Erst die Vorschau („was würde sich ändern“), dann – nach
 // Bestätigung – die Übernahme als ein Vorgang: alles oder nichts. Von Hand Eingetragenes überschreibt keine Quelle.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
@@ -7,7 +7,7 @@ import type { PoolClient } from 'pg';
 import type { Modulregister } from '../kern/modul';
 import type { Befehl } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
-import { tabelle, type Db } from './db';
+import { spalte, tabelle, type Db } from './db';
 import { Ablehnung, vorgangAusfuehren } from './protokoll';
 
 export type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
@@ -22,7 +22,9 @@ export const ASSISTENT = 'assistent:';
  * herkunft: Marke der übernommenen Werte. ueberschreibbar: Werte mit diesen Marken darf die Quelle ersetzen
  * (alles andere gilt als von Hand eingetragen und bleibt).
  */
-export function abgleicher(c: PoolClient, register: Modulregister, ziel: { projekt: string; version: string }, herkunft: string, ueberschreibbar: string[]) {
+export function abgleicher(c: PoolClient, register: Modulregister, ziel: Werte, herkunft: string, ueberschreibbar: string[]) {
+  // ziel: der Zusammenhang, in dem verglichen wird (z. B. Projekt und Version) – neue Einträge bekommen ihn mit
+  const wo = Object.keys(ziel).filter((k) => k !== 'projekt');
   const liste: Befehl[] = [];
   const je: Record<string, Zahl> = {};
   // Kennung der Quelle -> Kennung im Bauportal, je Objektart; so finden Geschosse ihr Gebäude und Bauteile ihr Geschoss
@@ -37,7 +39,7 @@ export function abgleicher(c: PoolClient, register: Modulregister, ziel: { proje
   const abgleichen = async (objekt: string, eintraege: Eintrag[], gehoert: (kennung: string) => boolean, ersatz?: (e: Eintrag, vorhanden: Vorhanden[]) => Vorhanden | undefined) => {
     const m = register.modell(objekt)!;
     const z: Zahl = (je[objekt] = { neu: 0, geaendert: 0, entfernt: 0, unveraendert: 0, behalten: 0 });
-    const alle: Vorhanden[] = (await c.query(`select * from ${tabelle(objekt)} where version = $1`, [ziel.version])).rows;
+    const alle: Vorhanden[] = (await c.query(`select * from ${tabelle(objekt)}${wo.length ? ' where ' + wo.map((k, i) => `${spalte(k)} = $${i + 1}`).join(' and ') : ''}`, wo.map((k) => ziel[k]))).rows;
     const da = new Map<string, Vorhanden>(alle.filter((x) => x.kennung !== '').map((x) => [x.kennung as string, x]));
     const vergeben = new Set<unknown>();
     const karte = (ort[objekt] = new Map<string, string>());
@@ -87,21 +89,23 @@ export async function versionPruefen(c: PoolClient, projekt: string, version: st
 }
 
 // Vorschauen warten 30 Minuten auf die Bestätigung
-const plaene = new Map<string, { wer: string; befehle: Befehl[]; bis: number }>();
-export function merken(wer: string, plan: { je: Record<string, Zahl>; hinweise: string[]; liste: Befehl[] }): Vorschau {
+const plaene = new Map<string, { wer: string; befehle: Befehl[]; bis: number; danach?: () => Promise<void> }>();
+/** danach: läuft nach der Übernahme (z. B. den eingespielten Katalogstand festhalten). */
+export function merken(wer: string, plan: { je: Record<string, Zahl>; hinweise: string[]; liste: Befehl[] }, danach?: () => Promise<void>): Vorschau {
   const token = randomUUID();
   for (const [k, p] of plaene) if (p.bis < Date.now()) plaene.delete(k);
-  plaene.set(token, { wer, befehle: plan.liste, bis: Date.now() + 30 * 60000 });
+  plaene.set(token, { wer, befehle: plan.liste, bis: Date.now() + 30 * 60000, danach });
   return { token, je: plan.je, hinweise: plan.hinweise, befehle: plan.liste.length };
 }
 
 export function uebernahmeRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
-  app.post('/api/gebaeudemodell/uebernehmen', { preHandler: e.nurAngemeldet }, async (req) => {
+  app.post('/api/uebernehmen', { preHandler: e.nurAngemeldet }, async (req) => {
     const token = String((req.body as { token?: unknown } | null)?.token ?? '');
     const plan = plaene.get(token);
     if (!plan || plan.wer !== req.benutzer!.id || plan.bis < Date.now()) throw new Ablehnung('Die Vorschau ist abgelaufen – bitte noch einmal beginnen');
     plaene.delete(token);
     if (plan.befehle.length) await vorgangAusfuehren(e.db, e.register, req.benutzer!, plan.befehle);
+    await plan.danach?.();
     e.nachBefehlen();
     return { ok: true, befehle: plan.befehle.length };
   });

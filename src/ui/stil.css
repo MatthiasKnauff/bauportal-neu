@@ -45,8 +45,9 @@ h1 { font-size: 24px; margin: 0; } h2 { font-size: 18px; margin: 0; } h3 { font-
 .portal { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .kopf { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: var(--flaeche); border-bottom: 1px solid var(--rand); }
 .marke { font-size: 16px; margin-right: 8px; }
-.kopf nav { display: flex; gap: 2px; flex: 1; min-width: 0; }
-.kopf nav button { min-height: 36px; padding: 0 12px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; }
+.kopf nav { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }  /* reicht der Platz nicht, lässt sich die Reihe der Module schieben – nichts liegt übereinander */
+.kopf nav::-webkit-scrollbar { display: none; }
+.kopf nav button { flex: none; white-space: nowrap; min-height: 36px; padding: 0 12px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; }
 .kopf nav button.aktiv { background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
 .status { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-still); white-space: nowrap; }
 .status i { width: 9px; height: 9px; border-radius: 50%; background: var(--gut); }
@@ -87,6 +88,10 @@ main { flex: 1; min-height: 0; display: flex; }
 .fenster { width: 100%; max-width: 460px; max-height: 100%; display: flex; flex-direction: column; background: var(--flaeche); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
 .fenster.breit { max-width: 680px; }
 .fenster.gross { max-width: 1180px; height: 100%; }
+.update-kasten { border: 1px solid var(--rand); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; background: var(--flaeche); }
+.update-kasten h3 { margin: 0 0 4px; font-size: 15px; }
+.update-kasten .reihe { margin-top: 10px; }
+.update-text { white-space: pre-wrap; font-size: 13px; max-height: 220px; overflow: auto; margin: 8px 0 0; }
 /* KI: Knopf am Feld, Text und Vorschlag nebeneinander */
 .ki-knopf { margin-left: 8px; padding: 0 7px; border: 1px solid var(--rand-stark); border-radius: 999px; background: #fff; color: var(--akzent); font-size: 11px; font-weight: 600; cursor: pointer; }
 .ki-knopf:hover { background: var(--akzent-hell); }

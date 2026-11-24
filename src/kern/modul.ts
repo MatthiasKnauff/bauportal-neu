@@ -12,9 +12,13 @@ export interface Beipackzettel {
   braucht: string[];          // Module, ohne die dieses nicht läuft
   objekte: ObjektModell[];    // Objekte, die das Modul mitbringt
   ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
+  kataloge?: Katalog[];       // Kataloge, die über den Katalog-Kanal kommen und sich auf Knopfdruck aktualisieren lassen
   ausdrucke?: Ausdruck[];     // was das Modul drucken kann (Druckwerk)
   versionen?: Versionsbereich[];   // Bereiche mit benannten Versionen (z. B. der Bauzeitenplan eines Projekts)
 }
+
+/** Ein Katalog füllt ein Objekt; seine Einträge erkennt man an der Kennung (Feld „kennung“). */
+export interface Katalog { id: string; titel: string; objekt: string }
 
 /** Wege, eine neue Version anzulegen: aus der aktuellen, leer, aus einem anderen Projekt. */
 export type Versionsweg = 'kopie' | 'leer' | 'projekt';
@@ -57,6 +61,7 @@ export class Modulregister {
   }
   get module(): Beipackzettel[] { return [...this.zettel.values()]; }
   get alleModelle(): ObjektModell[] { return [...this.modelle.values()]; }
+  get kataloge(): Katalog[] { return this.module.flatMap((m) => m.kataloge ?? []); }
   get ausdrucke(): Ausdruck[] { return this.module.flatMap((m) => m.ausdrucke ?? []); }
   get versionsbereiche(): Versionsbereich[] { return this.module.flatMap((m) => m.versionen ?? []); }
   modell(name: string): ObjektModell | undefined { return this.modelle.get(name); }

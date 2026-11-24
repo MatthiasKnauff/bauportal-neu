@@ -147,6 +147,7 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
         anbindung text not null, art text not null, modell text not null, aufgabe text not null, extern boolean not null,
         zeichen int not null, ersetzt int not null, tokens_ein int not null default 0, tokens_aus int not null default 0, fehler text
       );
+      create table if not exists kern_katalog (id text primary key, version int not null, stand text not null, eingespielt timestamptz not null default now());
       create table if not exists kern_kennwort (benutzer_id uuid primary key, kennwort text not null, geaendert timestamptz not null default now());
       create table if not exists kern_sitzung (
         token_hash text primary key,
