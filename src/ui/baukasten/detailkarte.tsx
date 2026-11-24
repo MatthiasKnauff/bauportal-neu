@@ -10,9 +10,10 @@ import { Dialog } from './dialog';
 import { FeldEingabe } from './feld';
 import { hinweis } from './hinweise';
 
-function gruppen(m: ObjektModell): { titel: string; felder: Feld[] }[] {
+function gruppen(m: ObjektModell, verborgen: string[] = []): { titel: string; felder: Feld[] }[] {
   const aus: { titel: string; felder: Feld[] }[] = [];
   for (const f of m.felder) {
+    if (verborgen.includes(f.name)) continue;
     const t = f.gruppe ?? '';
     let g = aus.find((x) => x.titel === t);
     if (!g) aus.push((g = { titel: t, felder: [] }));
@@ -36,6 +37,7 @@ export function Detailkarte(p: {
   onZu?: () => void; onZuklappen?: () => void;
   zusatz?: (z: Zeile) => JSX.Element;
   symbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
+  verborgen?: string[];                    // Felder, die der Zusammenhang schon festlegt (Projekt, Version)
 }) {
   const schreiben = () => darf(p.modell.name, 'schreiben');
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
@@ -62,7 +64,7 @@ export function Detailkarte(p: {
         <Show when={p.onZu}><button class="knopf still nur-breit" aria-label="Karte schließen" title="Schließen (Esc)" onClick={p.onZu}>{p.symbole?.schliessen ?? '×'}</button></Show>
       </div>
       <div class="karte-inhalt">
-        <For each={gruppen(p.modell)}>{(g) => (
+        <For each={gruppen(p.modell, p.verborgen)}>{(g) => (
           <fieldset>
             <Show when={g.titel}><legend>{g.titel}</legend></Show>
             <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} onWert={(w) => aendern(f, w)} />}</For>
@@ -80,6 +82,7 @@ export function Detailkarte(p: {
 
 /** Fenster zum Anlegen eines Objekts – Felder aus dem Datenmodell, auf Wunsch vorbelegt (Duplizieren). */
 export function NeuFenster(p: { modell: ObjektModell; start: Werte; onZu: (id?: string) => void }) {
+  // Verweise (Projekt, Version) kommen aus dem Zusammenhang über „start“ und stehen nicht im Fenster.
   const start: Werte = {};
   for (const f of p.modell.felder) start[f.name] = p.start[f.name] ?? leerwert(f);
   const [werte, setWerte] = createStore<Werte>(start);

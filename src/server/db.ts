@@ -32,7 +32,7 @@ export const spalte = (feld: string) => `"${feld}"`;
 
 function spaltentyp(f: Feld): string {
   if (f.art === 'zahl') return 'numeric';
-  if (f.art === 'verweis') return 'uuid';
+  if (f.art === 'verweis') return 'uuid';   // datum: Text JJJJ-MM-TT, sortiert richtig und bleibt ohne Zeitzone
   if (f.art === 'ja_nein') return 'boolean not null default false';
   return "text not null default ''";
 }

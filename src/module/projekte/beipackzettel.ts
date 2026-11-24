@@ -53,12 +53,30 @@ export const projektKontakt: ObjektModell = {
   ],
 };
 
+// Versionen: benannte, unabhängig bearbeitbare Stände je Projekt und Bereich (z. B. Bauzeitenplan „Startversion“).
+// Genau eine Version je Projekt und Bereich ist gültig – darauf zeigen später die Verknüpfungen.
+export const version: ObjektModell = {
+  name: 'version',
+  titel: 'Version',
+  titelMehrzahl: 'Versionen',
+  anzeigeFeld: 'name',
+  projektFeld: 'projekt',
+  rechte: { lesen: ALLE, schreiben: ['bueroleitung', 'bauleitung'], loeschen: ['bueroleitung', 'bauleitung'] },
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'bereich', titel: 'Bereich', art: 'text', pflicht: true },
+    { name: 'name', titel: 'Name der Version', art: 'text', pflicht: true },
+    { name: 'gueltig', titel: 'Gültige Version', art: 'ja_nein' },
+    { name: 'notiz', titel: 'Notiz', art: 'langtext' },
+  ],
+};
+
 export const projekte: Beipackzettel = {
   id: 'projekte',
   name: 'Projekte',
   version: '0.1.0',
   beschreibung: 'Projekte und wer daran mitarbeitet. Daran hängen später Bautagebuch, Termine und Kosten.',
   braucht: ['verwaltung', 'adressen'],
-  objekte: [projekt, projektMitglied, projektKontakt],
+  objekte: [projekt, projektMitglied, projektKontakt, version],
   ansichten: [{ id: 'projekte', titel: 'Projekte', objekt: 'projekt', baum: ['status'] }],
 };

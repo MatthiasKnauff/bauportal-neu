@@ -47,6 +47,18 @@ Fehlt eine, kommt sie dort dazu und gilt dann für alle – im Modul wird nichts
 - **Feld**, **Auswahlliste** (eigene Liste mit Suche statt Browser-Auswahl), **Fenster**, **Formular**, **Hinweis** (mit Rückgängig), **Kontextmenü** (höchstens 6 Punkte).
 - Warte-Hinweis bei allem, was länger als 1,5 Sekunden dauert.
 
+### Versionen (im Kern, für alle Module gleich)
+
+Je Projekt und Bereich (z. B. Bauzeitenplan) gibt es benannte, unabhängig bearbeitbare Versionen; genau eine ist gültig (`src/server/versionen.ts`).
+Neue Version auf drei Wegen: aus der aktuellen, leer, aus einem anderen Projekt – welche Wege gelten, steht im Beipackzettel des Moduls.
+Kopieren läuft als ein Vorgang auf dem Server (alle Einträge oder keiner). Die Versionsleiste ist ein Baustein.
+
+### Module
+
+Adressen · Projekte (Mitglieder, Beteiligte, Versionen) · Bautagebuch (nummerierte Tagesberichte je Projekt) ·
+Bauzeitenplan (Vorgänge mit Terminen in Versionen; der Balkenplan folgt) · Verwaltung (Benutzer, Rechte, Büro).
+Das Projekt wird einmal oben gewählt und gilt in allen Apps.
+
 ## Technik
 
 TypeScript durchgehend, SolidJS für die Oberfläche, PostgreSQL. Ein Programm, ein Container (plus Datenbank).
@@ -57,7 +69,7 @@ TypeScript durchgehend, SolidJS für die Oberfläche, PostgreSQL. Ein Programm, 
 | `src/module` | die Module, je mit Beipackzettel; `index.ts` ist die Liste aller Module |
 | `src/server` | Datenbank, Protokoll, Anmeldung, HTTP und Live-Strom |
 | `src/ui` | Oberfläche: `abgleich.ts` (Daten im Gerät), `baukasten/` (Bausteine für alle Module) |
-| `tests` | Tests für Kern und Server (laufen in der Pipeline gegen PostgreSQL) |
+| `tests` | Tests für Kern und Server (laufen in der Pipeline gegen PostgreSQL); `tests/ui/klick.mjs` misst im Browser: Klick in einer Liste mit 2000 Einträgen unter 50 ms |
 
 Lokal: `npm ci`, `npm run typen`, `npm test`, `npm run build`, `npm start` (braucht `DATABASE_URL`).
 

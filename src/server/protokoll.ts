@@ -2,7 +2,7 @@
 import type { Modulregister } from '../kern/modul';
 import { BEFEHL_ARTEN, type Befehl, type Protokolliert, type Ueberschrieben, type Zeile } from '../kern/befehl';
 import { Eingabefehler, KENNUNG as UUID, pruefeWerte, type ObjektModell, type Werte } from '../kern/modell';
-import { SPERRE_PROTOKOLL, alsBenutzer, spalte, tabelle, type Absender, type Db } from './db';
+import { SPERRE_PROTOKOLL, alsBenutzer, spalte, tabelle, type Absender, type Db, type Verbindung } from './db';
 
 export class Ablehnung extends Error {}
 export type { Absender };
@@ -45,17 +45,28 @@ function ausZeile(r: Record<string, unknown>): Protokolliert {
 interface Stand { seq: number; von: string; name: string }
 
 /**
- * Führt einen Befehl aus: prüfen, Daten ändern, ins Protokoll schreiben – alles in einer Transaktion.
- * Ein schon bekannter Befehl (gleiche Kennung) wird nicht noch einmal ausgeführt.
+ * Fachregeln zu einem Objekt, die über die Feldprüfung hinausgehen. Sie laufen in derselben Transaktion wie der Befehl.
+ * vor: darf Werte ergänzen oder den Befehl ablehnen. nach: liefert Folgebefehle (z. B. „die anderen Versionen sind nicht mehr gültig“).
  */
-export async function befehlAusfuehren(db: Db, register: Modulregister, wer: Absender, roh: unknown): Promise<Protokolliert> {
+export interface Regel {
+  vor?: (c: Verbindung, b: Befehl, vorher: Record<string, unknown> | undefined, werte: Werte | undefined) => Promise<void>;
+  nach?: (c: Verbindung, b: Befehl, vorher: Record<string, unknown> | undefined, werte: Werte | undefined) => Promise<Befehl[]>;
+}
+export const regeln = new Map<string, Regel>();
+
+/**
+ * Kern eines Befehls: prüfen, Daten ändern, ins Protokoll schreiben, Folgebefehle ausführen.
+ * Läuft auf einer Verbindung, die schon im Namen des Benutzers arbeitet (alsBenutzer) – so lassen sich
+ * mehrere Befehle zu einem Vorgang zusammenfassen, der ganz oder gar nicht wirkt.
+ */
+export async function fuehreAus(c: Verbindung, register: Modulregister, wer: Absender, roh: unknown): Promise<Protokolliert> {
   const b = pruefeBefehl(roh);
   const m: ObjektModell | undefined = register.modell(b.objekt);
   if (!m) throw new Ablehnung(`Unbekannte Objektart „${b.objekt}“`);
   const t = tabelle(m.name);
+  const regel = regeln.get(m.name);
   if (m.einzeln && b.objektId !== m.einzeln) throw new Ablehnung(`${m.titel} gibt es nur einmal`);
   if (m.einzeln && b.art === 'loeschen') throw new Ablehnung(`${m.titel} lässt sich nicht löschen`);
-  return alsBenutzer(db, wer, async (c) => {
     const vorher = (await c.query(`select * from ${t} where id = $1`, [b.objektId])).rows[0] as Record<string, unknown> | undefined;
     let werte: Werte | undefined;
     let ueberschrieben: Record<string, Ueberschrieben> | undefined;
@@ -77,6 +88,7 @@ export async function befehlAusfuehren(db: Db, register: Modulregister, wer: Abs
         }
       }
     }
+    await regel?.vor?.(c, b, vorher, werte);
     const projektId = !m.projektFeld ? null : m.projektFeld === 'id' ? b.objektId : (werte?.[m.projektFeld] ?? vorher?.[m.projektFeld] ?? null);
 
     try {
@@ -102,18 +114,36 @@ export async function befehlAusfuehren(db: Db, register: Modulregister, wer: Abs
       } else {
         await c.query(`update ${t} set geloescht = $2 where id = $1`, [b.objektId, b.art === 'loeschen']);
       }
+      for (const folge of (await regel?.nach?.(c, b, vorher, werte)) ?? []) await fuehreAus(c, register, wer, folge);
       return eintrag;
     } catch (e) {
       deute(e, m);
     }
-  }, async (c) => {
-    // Ein Befehl nach dem anderen: so ist die Reihenfolge im Protokoll auch die Reihenfolge der Wirkung.
-    await c.query('select pg_advisory_xact_lock($1)', [SPERRE_PROTOKOLL]);
-    const schon = await c.query('select * from kern_befehl where id = $1', [b.id]);
-    return schon.rows[0] ? ausZeile(schon.rows[0]) : undefined;
-  });
 }
 
+const bekannt = (id: string) => async (c: Verbindung) => {
+  // Ein Befehl nach dem anderen: so ist die Reihenfolge im Protokoll auch die Reihenfolge der Wirkung.
+  await c.query('select pg_advisory_xact_lock($1)', [SPERRE_PROTOKOLL]);
+  const schon = await c.query('select * from kern_befehl where id = $1', [id]);
+  return schon.rows[0] ? ausZeile(schon.rows[0]) : undefined;
+};
+
+/**
+ * Führt einen Befehl aus – in einer Transaktion. Ein schon bekannter Befehl (gleiche Kennung) wird nicht noch einmal ausgeführt.
+ */
+export async function befehlAusfuehren(db: Db, register: Modulregister, wer: Absender, roh: unknown): Promise<Protokolliert> {
+  const b = pruefeBefehl(roh);
+  return alsBenutzer(db, wer, (c) => fuehreAus(c, register, wer, b), bekannt(b.id));
+}
+
+/** Mehrere Befehle als ein Vorgang: alle oder keiner. Der erste Befehl trägt die Kennung des Vorgangs. */
+export async function vorgangAusfuehren(db: Db, register: Modulregister, wer: Absender, befehle: Befehl[]): Promise<Protokolliert> {
+  return alsBenutzer(db, wer, async (c) => {
+    let erster!: Protokolliert;
+    for (const [i, b] of befehle.entries()) { const p = await fuehreAus(c, register, wer, b); if (i === 0) erster = p; }
+    return erster;
+  }, bekannt(befehle[0]!.id));
+}
 export async function stand(db: Db): Promise<number> {
   return (await db.query('select coalesce(max(seq), 0) as s from kern_befehl')).rows[0].s as number;
 }

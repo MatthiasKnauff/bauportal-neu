@@ -2,7 +2,7 @@
 // Daraus entstehen die Tabelle in der Datenbank, die Prüfung der Eingaben,
 // die Befehle und die Masken und Tabellen der Oberfläche.
 
-export type FeldArt = 'text' | 'langtext' | 'auswahl' | 'email' | 'telefon' | 'zahl' | 'ja_nein' | 'verweis';
+export type FeldArt = 'text' | 'langtext' | 'auswahl' | 'email' | 'telefon' | 'zahl' | 'ja_nein' | 'verweis' | 'datum';
 export type Wert = string | number | boolean | null;
 export type Werte = Record<string, Wert>;
 
@@ -32,6 +32,8 @@ export interface ObjektModell {
   rechte: Record<Rechtart, string[]>;
   /** Gehört das Objekt zu einem Projekt? Dann: Name des Feldes mit dem Projekt ("id" beim Projekt selbst). Sichtbar nur für Projektmitglieder. */
   projektFeld?: string;
+  /** Gehört das Objekt zu einer Version (z. B. Vorgänge eines Bauzeitenplans)? Dann: Name des Versionsbereichs. Das Objekt braucht ein Feld „version“. */
+  versionsBereich?: string;
   /** Feste Kennung, wenn es das Objekt genau einmal gibt (z. B. die Bürodaten). */
   einzeln?: string;
 }
@@ -57,6 +59,7 @@ export function pruefeModell(m: ObjektModell): void {
     if (f.art === 'verweis' && !f.ziel) throw new Error(`Verweis ohne Ziel: ${m.name}.${f.name}`);
   }
   if (!gesehen.has(m.anzeigeFeld)) throw new Error(`Anzeigefeld fehlt: ${m.name}.${m.anzeigeFeld}`);
+  if (m.versionsBereich && !gesehen.has('version')) throw new Error(`Versioniertes Objekt ohne Feld „version“: ${m.name}`);
   if (m.projektFeld && m.projektFeld !== 'id' && !gesehen.has(m.projektFeld)) throw new Error(`Projektfeld fehlt: ${m.name}.${m.projektFeld}`);
 }
 
@@ -77,6 +80,13 @@ function pruefeFeld(f: Feld, roh: unknown): Wert {
     }
     case 'ja_nein':
       return roh === true || roh === 'true';
+    case 'datum': {
+      if (roh === null || roh === '' || roh === undefined) return '';
+      const t = String(roh);
+      const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+      if (!d || new Date(`${t}T00:00:00Z`).toISOString().slice(0, 10) !== t) throw new Error('Bitte ein Datum eintragen');
+      return t;
+    }
     case 'verweis': {
       if (roh === null || roh === '' || roh === undefined) return null;
       if (typeof roh !== 'string' || !KENNUNG.test(roh)) throw new Error('Ungültiger Verweis');

@@ -11,6 +11,7 @@ import { kennung, type Db } from './db';
 import { ROLLEN } from '../kern/rechte';
 import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss, stand } from './protokoll';
 import * as anm from './anmeldung';
+import { versionKopieren, versionsregelnAnmelden } from './versionen';
 
 export interface Einstellungen {
   db: Db;
@@ -31,6 +32,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   const app = Fastify({ trustProxy: true, bodyLimit: 2 * 1024 * 1024 });
   await app.register(cookie);
   const dbKennung = await kennung(db);
+  versionsregelnAnmelden(register);
 
   // ---------- Live-Strom: neue Befehle gehen an alle verbundenen Geräte ----------
   interface Geraet { r: ServerResponse; wer: anm.Benutzer; pos: number }
@@ -165,6 +167,12 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
     }
     void verteilen(rechteGeaendert);
     return { ergebnis };
+  });
+
+  app.post('/api/version/kopieren', { preHandler: nurAngemeldet }, async (req) => {
+    const p = await versionKopieren(db, register, req.benutzer!, (req.body ?? {}) as Record<string, unknown>);
+    void verteilen();
+    return { versionId: p.objektId, seq: p.seq };
   });
 
   app.get('/api/strom', { preHandler: nurAngemeldet }, async (req, reply) => {

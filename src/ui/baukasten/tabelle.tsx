@@ -1,6 +1,7 @@
 // Baustein „Tabelle“ (Platz Mitte): Spalten aus dem Datenmodell. Sortieren, Spalten einstellen, Tastatur, Kontextmenü.
 // Im Dokument stehen nur die sichtbaren Zeilen – die Tabelle bleibt auch mit tausenden Einträgen schnell.
 import { For, Show, createMemo, createSelector, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { unwrap } from 'solid-js/store';
 import type { Feld, ObjektModell } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
 import { Dialog } from './dialog';
@@ -38,7 +39,8 @@ export function Tabelle(p: {
   const sortiert = createMemo(() => {
     const s = sort();
     const f = m.felder.find((x) => x.name === s.feld)!;
-    const schluessel = new Map(p.zeilen.map((z) => [z.id, anzeige(f, z.werte[s.feld])]));
+    // ohne Abhören lesen: p.zeilen kommt bei jeder Änderung neu, das genügt als Auslöser
+    const schluessel = new Map(p.zeilen.map((z) => { const r = unwrap(z); return [r.id, anzeige(f, r.werte[s.feld])]; }));
     return [...p.zeilen].sort((a, b) => vergleich.compare(schluessel.get(a.id)!, schluessel.get(b.id)!) * (s.ab ? -1 : 1));
   });
   const fenster = createMemo(() => {

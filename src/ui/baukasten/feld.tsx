@@ -14,7 +14,7 @@ export function FeldEingabe(p: { feld: Feld; wert: Wert; fehler?: string; onWert
     if (w !== text()) p.onWert(w);
   };
   const ereignis = () => (p.sofort ? { onInput: melden } : { onChange: melden });
-  const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : 'text');
+  const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : p.feld.art === 'datum' ? 'date' : 'text');
   return (
     <div class="feld" classList={{ 'mit-fehler': !!p.fehler, quer: p.feld.art === 'ja_nein' }}>
       <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}</label>
@@ -54,6 +54,7 @@ export function anzeige(f: Feld, w: Wert | undefined): string {
   if (w === null || w === undefined) return '';
   if (f.art === 'auswahl') return f.optionen?.find((o) => o.wert === w)?.titel ?? String(w);
   if (f.art === 'ja_nein') return w ? 'Ja' : '';
+  if (f.art === 'datum') { const t = String(w); return t ? `${t.slice(8, 10)}.${t.slice(5, 7)}.${t.slice(0, 4)}` : ''; }
   if (f.art === 'verweis') { const z = sicht[f.ziel!]?.[String(w)]; return z ? String(z.werte[modell(f.ziel!).anzeigeFeld] ?? '') : ''; }
   return String(w);
 }

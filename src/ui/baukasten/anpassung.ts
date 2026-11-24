@@ -22,6 +22,9 @@ export interface Anpassung {
   // --- Baum (links) ---
   /** Zeichen vor einem Knoten im Baum. */
   baumSymbol?: (k: Knoten) => string | undefined;
+  // --- Anlegen ---
+  /** Vorbelegung für einen neuen Eintrag (z. B. nächste Nummer, heutiges Datum). Bekommt die Einträge, die gerade zur Auswahl gehören. */
+  neuVorgabe?: (vorhandene: Zeile[]) => Record<string, string | number | boolean | null>;
   // --- Menüleiste ---
   /** Zusätzliche Knöpfe in der Menüleiste dieser Ansicht. */
   knoepfe?: () => Knopf[];

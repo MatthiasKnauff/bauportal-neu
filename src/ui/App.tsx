@@ -8,6 +8,7 @@ import { Detailkarte } from './baukasten/detailkarte';
 import { Abfolgeleiste } from './baukasten/abfolgeleiste';
 import { Kopfleiste } from './baukasten/kopfleiste';
 import { AppUmgebung } from './baukasten/rahmen';
+import { projektId, setProjektId } from './projekt';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
@@ -160,6 +161,8 @@ function Portal() {
   const [ansichtId, setAnsichtId] = createSignal('');
   const modul = () => module().find((m) => m.modul.id === modulId()) ?? module()[0];
   const ansicht = () => modul()?.ansichten.find((a) => a.id === ansichtId()) ?? modul()?.ansichten[0];
+  const projekte = createMemo(() => Object.values(sicht.projekt ?? {}).filter((x) => !x.geloescht && x.werte.status !== 'archiviert')
+    .map((x) => ({ wert: x.id, titel: [x.werte.nummer, x.werte.name].filter(Boolean).join(' · ') })).sort((x, y) => x.titel.localeCompare(y.titel, 'de', { numeric: true })));
   const schluessel = createMemo(() => (ansicht() ? `${modul()!.modul.id}.${ansicht()!.id}` : undefined));
   const [kennwortFenster, setKennwortFenster] = createSignal(false);
 
@@ -191,6 +194,7 @@ function Portal() {
       <Kopfleiste marke="Bauportal" apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name }))} aktiv={modul()?.modul.id}
         onApp={(id) => { setModulId(id); setAnsichtId(''); }}
         status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
+        zusatz={<Show when={projekte().length}><div class="projektwahl"><Auswahlliste titel="Projekt" platzhalter="Projekt wählen …" optionen={projekte()} wert={projekte().some((x) => x.wert === projektId()) ? projektId() : null} onWert={setProjektId} /></div></Show>}
         benutzer={ich().name} menueFuss={`${z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version ${z().version}`}
         benutzerMenue={[{ titel: 'Kennwort ändern …', tun: () => setKennwortFenster(true) }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>

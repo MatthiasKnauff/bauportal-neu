@@ -19,6 +19,13 @@ const [verlauf, setVerlauf] = createSignal({ zurueck: 0, vor: 0 });
 const [abgelaufen, setAbgelaufen] = createSignal(false);
 export { sicht, lage, wartendAnzahl, verlauf, abgelaufen };
 
+// Zähler je Objektart: steigt bei jeder Änderung. Listen mit tausenden Einträgen hängen sich an diesen einen Zähler
+// statt an jedes Feld jeder Zeile – so bleibt Suchen und Sortieren schnell. Einzelne Zellen und Karten lesen weiter fein aus „sicht“.
+const zaehler = new Map<string, ReturnType<typeof createSignal<number>>>();
+const zaehlerFuer = (objekt: string) => { let z = zaehler.get(objekt); if (!z) zaehler.set(objekt, (z = createSignal(0))); return z; };
+export const geaendert = (objekt: string): number => zaehlerFuer(objekt)[0]();
+const melde = (objekt: string) => zaehlerFuer(objekt)[1]((n) => n + 1);
+
 interface Schritt { gegen: Vorlage; wieder: Vorlage; titel: string }
 
 let idb: IDBDatabase | null = null;
@@ -68,6 +75,7 @@ function neuRechnen(objekt: string, id: string): void {
   for (const w of wartend) if (w.objekt === objekt && w.objektId === id) z = anwenden(z, w);
   if (z && sicht[objekt]?.[id]) setSicht(objekt, id, reconcile(z));
   else setSicht(objekt, produce((o) => { if (z) o[id] = kopie(z); else delete o[id]; }));
+  melde(objekt);
 }
 function allesRechnen(): void {
   const neu: Record<string, Record<string, Zeile>> = {};
@@ -77,6 +85,7 @@ function allesRechnen(): void {
     neu[name] = o;
   }
   setSicht(reconcile(neu));
+  for (const name of modelle.keys()) melde(name);
   for (const w of wartend) neuRechnen(w.objekt, w.objektId);
 }
 

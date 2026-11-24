@@ -11,6 +11,9 @@ import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss } from '../src/
 import { festeKennung, grundausstattung } from '../src/server/grundausstattung';
 import { kennwortSetzen } from '../src/server/anmeldung';
 import { baueServer } from '../src/server/server';
+import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen';
+
+versionsregelnAnmelden(register);
 
 const BASIS = process.env.TEST_DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5433/postgres';
 
@@ -175,6 +178,47 @@ test('Projekte: sichtbar nur für Mitglieder und für Rollen, die alle Projekte 
   } finally { await weg(); }
 });
 
+test('Versionen: erste ist gültig, genau eine gültig, Kopie im Projekt und in ein anderes Projekt', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung, mit } = await leute(db);
+    const [p1, p2, vA, vB] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p1, werte: { name: 'Haus A' } });
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p2, werte: { name: 'Haus B' } });
+    const ver = (id: string, name: string, projekt = p1, bereich = 'bauzeitenplan') => tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: id, werte: { projekt, bereich, name } });
+    assert.equal((await ver(vA, 'Startversion')).werte!.gueltig, true, 'die erste Version ist gültig');
+    assert.equal((await ver(vB, 'Test 2')).werte!.gueltig, false);
+    await assert.rejects(ver(randomUUID(), 'x', p1, 'gibtsnicht'), Ablehnung);
+    const vorgang = (version: string, name: string, projekt = p1) => tun(db, leitung, { objekt: 'vorgang', art: 'anlegen', werte: { projekt, version, name, beginn: '2026-12-01', ende: '2026-12-12' } });
+    await vorgang(vA, 'Rohbau'); await vorgang(vA, 'Dach');
+    await assert.rejects(vorgang(randomUUID(), 'ohne Version'), Ablehnung);
+    await assert.rejects(vorgang(vA, 'falsches Projekt', p2), Ablehnung);
+    await assert.rejects(tun(db, leitung, { objekt: 'vorgang', art: 'anlegen', werte: { projekt: p1, version: vA, name: 'x', beginn: '2026-02-30' } }), Eingabefehler, 'kein gültiges Datum');
+    await assert.rejects(tun(db, mit, { objekt: 'version', art: 'anlegen', werte: { projekt: p1, bereich: 'bauzeitenplan', name: 'x' } }), Ablehnung, 'Mitarbeiter:in ohne Mitgliedschaft und Recht');
+
+    // B wird gültig -> A ist es nicht mehr, und das steht als Folgebefehl im Protokoll
+    await assert.rejects(tun(db, leitung, { objekt: 'version', objektId: vA, werte: { gueltig: false } }), /andere Version/);
+    await tun(db, leitung, { objekt: 'version', objektId: vB, werte: { gueltig: true } });
+    const gueltig = async () => (await schnappschuss(db, register, leitung)).objekte.version!.filter((v) => v.werte.gueltig && !v.geloescht).map((v) => v.werte.name).sort();
+    assert.deepEqual(await gueltig(), ['Test 2']);
+    assert.ok((await befehleSeit(db, leitung, 0)).some((b) => b.objekt === 'version' && b.objektId === vA && b.werte?.gueltig === false));
+    await assert.rejects(tun(db, leitung, { objekt: 'version', art: 'loeschen', objektId: vB }), /gültige Version/);
+
+    // Kopie im selben Projekt und in ein anderes Projekt
+    const vC = randomUUID(), vD = randomUUID(), vorgangC = randomUUID();
+    await versionKopieren(db, register, leitung, { vorgang: vorgangC, quelle: vA, projekt: p1, name: 'nach Bauherrengespräch', versionId: vC });
+    await versionKopieren(db, register, leitung, { vorgang: vorgangC, quelle: vA, projekt: p1, name: 'nach Bauherrengespräch', versionId: vC });   // doppelt gesendet: wirkt einmal
+    await versionKopieren(db, register, leitung, { vorgang: randomUUID(), quelle: vA, projekt: p2, name: 'aus Haus A', versionId: vD });
+    await assert.rejects(versionKopieren(db, register, leitung, { vorgang: randomUUID(), quelle: vA, projekt: p1, name: '', versionId: randomUUID() }), Eingabefehler);
+    const s = await schnappschuss(db, register, leitung);
+    const in_ = (v: string) => s.objekte.vorgang!.filter((x) => x.werte.version === v).map((x) => [x.werte.name, x.werte.projekt]).sort();
+    assert.deepEqual(in_(vC), [['Dach', p1], ['Rohbau', p1]]);
+    assert.deepEqual(in_(vD), [['Dach', p2], ['Rohbau', p2]]);
+    assert.equal(s.objekte.vorgang!.length, 6);
+    assert.deepEqual(await gueltig(), ['Test 2', 'aus Haus A'], 'im anderen Projekt ist die erste Version dort gültig');
+  } finally { await weg(); }
+});
+
 test('Übernahme: Benutzer aus dem ersten Stand werden zu Objekten und können sich weiter anmelden', async () => {
   const id = randomUUID();
   const { db, weg } = await frischeDb(async (d) => {
@@ -218,7 +262,7 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
     const cookie = (await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } })).cookie!;
     const z = (await ruf('/api/zustand', { cookie })).daten;
     assert.equal(z.benutzer.rolle, 'admin');
-    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'verwaltung']);
+    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'bautagebuch', 'bauzeitenplan', 'verwaltung']);
     assert.equal(z.rechte.kontakt.loeschen, true);
     const s0 = (await ruf('/api/schnappschuss', { cookie })).daten;
     assert.equal(s0.objekte.buero[0].werte.name, 'GK3');

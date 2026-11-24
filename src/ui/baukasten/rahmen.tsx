@@ -15,6 +15,7 @@ export function Rahmen(p: {
   schluessel: string;                       // merkt sich je Ansicht, was zugeklappt ist
   abfolge?: { schritte: Schritt[]; aktiv: string; onWahl?: (id: string) => void };
   knoepfe?: Knopf[]; menueMitte?: JSX.Element;
+  unterMenue?: JSX.Element;                 // z. B. die Versionsleiste
   baum?: JSX.Element; baumTitel?: string;
   inhalt: JSX.Element;
   details?: JSX.Element; detailsTitel?: string;
@@ -40,6 +41,7 @@ export function Rahmen(p: {
     <div class="rahmen">
       <Show when={p.abfolge}>{(a) => <Abfolgeleiste schritte={a().schritte} aktiv={a().aktiv} onWahl={a().onWahl} />}</Show>
       <Menueleiste rueckgaengig={app?.rueckgaengig} reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}>{p.menueMitte}</Menueleiste>
+      {p.unterMenue}
       <div class="plaetze" classList={{ 'mit-details': !!p.details && !rechtsWeg(), 'baum-offen': baumAmHandy() }}>
         <Show when={p.baum}>
           <Show when={!linksZu() || baumAmHandy()} fallback={<button class="reiter links" title={`${p.baumTitel ?? 'Gliederung'} aufklappen`} onClick={() => setLinksZu(false)}><span>{p.baumTitel ?? 'Gliederung'}</span></button>}>

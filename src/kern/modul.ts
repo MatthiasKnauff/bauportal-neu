@@ -11,13 +11,19 @@ export interface Beipackzettel {
   braucht: string[];          // Module, ohne die dieses nicht läuft
   objekte: ObjektModell[];    // Objekte, die das Modul mitbringt
   ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
+  versionen?: Versionsbereich[];   // Bereiche mit benannten Versionen (z. B. der Bauzeitenplan eines Projekts)
 }
+
+/** Wege, eine neue Version anzulegen: aus der aktuellen, leer, aus einem anderen Projekt. */
+export type Versionsweg = 'kopie' | 'leer' | 'projekt';
+export interface Versionsbereich { bereich: string; titel: string; wege: Versionsweg[] }
 
 export interface Ansicht {
   id: string;
   titel: string;
   objekt?: string;            // Liste dieses Objekts; ohne Angabe bringt die Oberfläche eine eigene Ansicht mit
   baum?: string[];            // Felder, nach denen der Baum links gliedert
+  brauchtProjekt?: boolean;   // zeigt nur die Einträge des oben gewählten Projekts
   nurAdmin?: boolean;
 }
 
@@ -41,5 +47,6 @@ export class Modulregister {
   }
   get module(): Beipackzettel[] { return [...this.zettel.values()]; }
   get alleModelle(): ObjektModell[] { return [...this.modelle.values()]; }
+  get versionsbereiche(): Versionsbereich[] { return this.module.flatMap((m) => m.versionen ?? []); }
   modell(name: string): ObjektModell | undefined { return this.modelle.get(name); }
 }

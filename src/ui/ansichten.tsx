@@ -5,7 +5,10 @@ import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
 import { ausfuehren, sicht } from './abgleich';
-import { darf, istAdmin, modell, neueKennung, zustand } from './api';
+import { darf, istAdmin, modell, neueKennung, ruf, zustand } from './api';
+import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
+import { Versionsleiste } from './baukasten/versionsleiste';
+import type { Versionsweg } from '../kern/modul';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
@@ -185,6 +188,10 @@ const ANPASSUNG: Record<string, Anpassung> = {
     kartenZusatz: (z) => <><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
     zelle: (f, z) => (f.name === 'status' ? <span class={`marke-${z.werte.status}`}>{f.optionen!.find((o) => o.wert === z.werte.status)?.titel}</span> : undefined),
   },
+  tagesbericht: {
+    // nächste Nummer im Projekt, heutiges Datum
+    neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv') }),
+  },
   benutzer: {
     kartenZusatz: (z) => <KennwortSetzen benutzer={z} />,
     zelle: (f, z) => (f.name === 'gesperrt' && z.werte.gesperrt ? <span class="marke-gesperrt">gesperrt</span> : undefined),
@@ -198,8 +205,49 @@ export function sichtbar(a: Ansicht): boolean {
   return a.objekt ? darf(a.objekt, 'lesen') : true;
 }
 
+// Ansicht, die zum oben gewählten Projekt gehört – bei Modulen mit Versionen zusätzlich zur gewählten Version.
+function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
+  const m = modell(p.ansicht.objekt!);
+  const schluessel = `${p.modul.id}.${p.ansicht.id}`;
+  const bereich = zustand()!.module.flatMap((x) => x.versionen ?? []).find((v) => v.bereich === m.versionsBereich);
+  const projekt = () => { const id = projektId(); const z = id ? sicht.projekt?.[id] : undefined; return z && !z.geloescht ? z : undefined; };
+  const versionen = createMemo(() => (!bereich || !projekt() ? [] : lebende('version').filter((v) => v.werte.projekt === projekt()!.id && v.werte.bereich === bereich.bereich)
+    .sort((x, y) => String(x.werte.name).localeCompare(String(y.werte.name), 'de', { numeric: true }))));
+  const aktiv = createMemo(() => { const g = projekt() && bereich ? gewaehlteVersion(projekt()!.id, bereich.bereich) : undefined; return versionen().find((v) => v.id === g) ?? versionen().find((v) => v.werte.gueltig) ?? versionen()[0]; });
+  const vorlagen = () => (!bereich ? [] : lebende('version').filter((v) => v.werte.bereich === bereich.bereich && v.werte.projekt !== projekt()?.id)
+    .map((v) => ({ wert: v.id, titel: `${sicht.projekt?.[String(v.werte.projekt)]?.werte.name ?? 'Projekt'} – ${v.werte.name}` })).sort((x, y) => x.titel.localeCompare(y.titel, 'de')));
+  const neu = async (weg: Versionsweg, name: string, vorlage?: string) => {
+    const pr = projekt()!.id, id = neueKennung();
+    if (weg === 'leer') ausfuehren({ objekt: 'version', art: 'anlegen', objektId: id, werte: { projekt: pr, bereich: bereich!.bereich, name, gueltig: !versionen().some((v) => v.werte.gueltig), notiz: '' } }, `Version „${name}“ anlegen`);
+    else {
+      // Kopieren macht der Server in einem Stück (alle Einträge oder keiner) – das geht nur mit Verbindung.
+      try { await ruf('/api/version/kopieren', { vorgang: neueKennung(), quelle: weg === 'kopie' ? aktiv()!.id : vorlage, projekt: pr, name, versionId: id }); }
+      catch (e) { hinweis(`Version nicht angelegt: ${(e as Error).message}`, { art: 'fehler' }); return; }
+    }
+    waehleVersion(pr, bereich!.bereich, id);
+  };
+  const leiste = () => (
+    <Versionsleiste titel={bereich!.titel} versionen={versionen()} aktiv={aktiv()?.id ?? null} wege={bereich!.wege} darfAendern={darf('version', 'schreiben')} vorlagen={vorlagen}
+      onWahl={(id) => waehleVersion(projekt()!.id, bereich!.bereich, id)} onNeu={neu}
+      onGueltig={(id) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { gueltig: true } }, 'Version gültig machen')}
+      onUmbenennen={(id, name) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { name } }, 'Version umbenennen')}
+      onLoeschen={(id) => ausfuehren({ objekt: 'version', art: 'loeschen', objektId: id }, 'Version löschen', true)} />
+  );
+  const leer = (text: string) => <div class="mitte"><p class="still-text">{text}</p></div>;
+  return (
+    <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
+      <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={leiste()}
+        inhalt={leer(`Für dieses Projekt gibt es noch keinen ${bereich!.titel}.${darf('version', 'schreiben') ? ' Mit „+ Neue Version“ legst du den ersten an.' : ''}`)} />}>
+        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} anpassung={ANPASSUNG[m.name]} unterMenue={bereich ? leiste() : undefined}
+          fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}) })} />
+      </Show>
+    </Show>
+  );
+}
+
 export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   const eigene = EIGENE[`${p.modul.id}.${p.ansicht.id}`];
   if (eigene) return eigene();
+  if (p.ansicht.brauchtProjekt) return <ProjektAnsicht modul={p.modul} ansicht={p.ansicht} />;
   return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} anpassung={ANPASSUNG[p.ansicht.objekt!]} />;
 }
