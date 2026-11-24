@@ -3,7 +3,7 @@ import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
 
 export interface Option { wert: string; titel: string }
 
-export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string }) {
+export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string; platzhalter?: string }) {
   const [offen, setOffen] = createSignal(false);
   const [suche, setSuche] = createSignal('');
   const [zeiger, setZeiger] = createSignal(0);
@@ -32,7 +32,7 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
     <div class="auswahlliste" ref={wurzel}>
       <button type="button" id={p.id} class="auswahlliste-knopf" aria-haspopup="listbox" aria-expanded={offen()} disabled={p.gesperrt}
         onClick={() => (offen() ? zu() : auf())} onKeyDown={(e) => { if (e.key === 'ArrowDown' && !offen()) { e.preventDefault(); auf(); } }}>
-        <span>{aktuell()}</span><i>▾</i>
+        <span classList={{ platzhalter: !aktuell() }}>{aktuell() || p.platzhalter || ''}</span><i>▾</i>
       </button>
       <Show when={offen()}>
         <div class="auswahlliste-fenster" onKeyDown={taste}>

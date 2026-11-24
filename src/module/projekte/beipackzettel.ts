@@ -39,12 +39,26 @@ export const projektMitglied: ObjektModell = {
   ],
 };
 
+export const projektKontakt: ObjektModell = {
+  name: 'projekt_kontakt',
+  titel: 'Beteiligte:r',
+  titelMehrzahl: 'Projektbeteiligte',
+  anzeigeFeld: 'kontakt',
+  projektFeld: 'projekt',
+  rechte: { lesen: ALLE, schreiben: ['bueroleitung', 'bauleitung'], loeschen: ['bueroleitung', 'bauleitung'] },
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'kontakt', titel: 'Kontakt', art: 'verweis', ziel: 'kontakt', pflicht: true },
+    { name: 'aufgabe', titel: 'Aufgabe im Projekt', art: 'text' },
+  ],
+};
+
 export const projekte: Beipackzettel = {
   id: 'projekte',
   name: 'Projekte',
   version: '0.1.0',
   beschreibung: 'Projekte und wer daran mitarbeitet. Daran hängen später Bautagebuch, Termine und Kosten.',
-  braucht: ['verwaltung'],
-  objekte: [projekt, projektMitglied],
+  braucht: ['verwaltung', 'adressen'],
+  objekte: [projekt, projektMitglied, projektKontakt],
   ansichten: [{ id: 'projekte', titel: 'Projekte', objekt: 'projekt' }],
 };

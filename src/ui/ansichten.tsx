@@ -6,6 +6,7 @@ import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
 import { ausfuehren, sicht } from './abgleich';
 import { darf, istAdmin, modell, neueKennung, zustand } from './api';
+import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { hinweis } from './baukasten/hinweise';
@@ -46,6 +47,50 @@ function Mitglieder(p: { projekt: Zeile }) {
         }}</For>
       </ul>
     </fieldset>
+  );
+}
+
+// ---------- Projekte: Beteiligte aus den Adressen ----------
+function Beteiligte(p: { projekt: Zeile }) {
+  const schreiben = () => darf('projekt_kontakt', 'schreiben');
+  const name = (id: unknown) => String(sicht.kontakt?.[String(id)]?.werte.name ?? '(Kontakt nicht sichtbar)');
+  const eintraege = createMemo(() => lebende('projekt_kontakt').filter((e) => e.werte.projekt === p.projekt.id).sort((a, b) => name(a.werte.kontakt).localeCompare(name(b.werte.kontakt), 'de')));
+  const frei = createMemo(() => {
+    const drin = new Set(eintraege().map((e) => e.werte.kontakt));
+    return lebende('kontakt').filter((k) => !drin.has(k.id)).map((k) => ({ wert: k.id, titel: [k.werte.name, k.werte.gewerk].filter(Boolean).join(' – ') })).sort((a, b) => a.titel.localeCompare(b.titel, 'de'));
+  });
+  const dazu = (kontaktId: string) => {
+    const alt = Object.values(sicht.projekt_kontakt ?? {}).find((e) => e.geloescht && e.werte.projekt === p.projekt.id && e.werte.kontakt === kontaktId);
+    const titel = `„${name(kontaktId)}“ am Projekt „${p.projekt.werte.name}“ beteiligen`;
+    if (alt) ausfuehren({ objekt: 'projekt_kontakt', art: 'wiederherstellen', objektId: alt.id }, titel);
+    else ausfuehren({ objekt: 'projekt_kontakt', art: 'anlegen', objektId: neueKennung(), werte: { projekt: p.projekt.id, kontakt: kontaktId, aufgabe: String(sicht.kontakt?.[kontaktId]?.werte.gewerk ?? '') } }, titel);
+  };
+  return (
+    <Show when={darf('projekt_kontakt', 'lesen')}>
+      <fieldset>
+        <legend>Beteiligte</legend>
+        <p class="still-text klein-text">Firmen, Personen und Behörden aus den Adressen, die an diesem Projekt mitwirken.</p>
+        <ul class="schaltliste">
+          <For each={eintraege()}>{(e) => (
+            <li>
+              <span class="beteiligt">
+                <strong>{name(e.werte.kontakt)}</strong>
+                <input aria-label={`Aufgabe von ${name(e.werte.kontakt)}`} placeholder="Aufgabe im Projekt" value={String(e.werte.aufgabe ?? '')} readOnly={!schreiben()}
+                  onKeyDown={(x) => { if (x.key === 'Enter') x.currentTarget.blur(); }}
+                  onChange={(x) => ausfuehren({ objekt: 'projekt_kontakt', art: 'aendern', objektId: e.id, werte: { aufgabe: x.currentTarget.value.trim() } }, `Aufgabe von „${name(e.werte.kontakt)}“ ändern`)} />
+              </span>
+              <Show when={darf('projekt_kontakt', 'loeschen')}>
+                <button class="knopf klein still" aria-label={`${name(e.werte.kontakt)} entfernen`} title="Entfernen"
+                  onClick={() => ausfuehren({ objekt: 'projekt_kontakt', art: 'loeschen', objektId: e.id }, `„${name(e.werte.kontakt)}“ aus Projekt „${p.projekt.werte.name}“ entfernen`)}>×</button>
+              </Show>
+            </li>
+          )}</For>
+        </ul>
+        <Show when={schreiben() && darf('kontakt', 'lesen')}>
+          <Auswahlliste titel="Kontakt hinzufügen" platzhalter="+ Kontakt hinzufügen …" optionen={frei()} wert={null} onWert={dazu} />
+        </Show>
+      </fieldset>
+    </Show>
   );
 }
 
@@ -132,9 +177,11 @@ function Buero() {
 
 const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero };
 const ZUSATZ: Record<string, (z: Zeile) => JSX.Element> = {
-  projekt: (z) => <Mitglieder projekt={z} />,
+  projekt: (z) => <><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
   benutzer: (z) => <KennwortSetzen benutzer={z} />,
 };
+
+export const kartenZusatz = (objekt: string) => ZUSATZ[objekt];
 
 export function sichtbar(a: Ansicht): boolean {
   if (a.nurAdmin && !istAdmin()) return false;

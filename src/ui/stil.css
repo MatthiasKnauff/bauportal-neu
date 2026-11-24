@@ -157,3 +157,26 @@ main { flex: 1; min-height: 0; display: flex; }
 .haken { width: 28px; height: 28px; border: 1px solid var(--rand-stark); border-radius: 6px; background: #fff; cursor: pointer; color: #fff; font-weight: 700; line-height: 1; }
 .haken.an { background: var(--akzent); border-color: var(--akzent); }
 .strich { color: var(--text-still); }
+
+/* ---- F3: Baukasten ---- */
+.tabelle { min-width: 100%; }
+.tabelle th { position: sticky; }
+.tabelle th button span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabelle th .griff { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: col-resize; }
+.tabelle th .griff:hover, .tabelle th .griff:active { background: var(--akzent-hell); border-right: 2px solid var(--akzent); }
+.tabelle td { height: 37px; padding-top: 0; padding-bottom: 0; }
+.tabelle tbody tr[aria-hidden] { cursor: default; } .tabelle tbody tr[aria-hidden]:hover { background: none; }
+.karten-halter { display: flex; flex: none; min-height: 0; }
+.reiter { flex: none; width: 34px; border: 1px solid var(--rand); border-radius: 12px; background: var(--flaeche); cursor: pointer; padding: 12px 0; display: flex; justify-content: center; }
+.reiter span { writing-mode: vertical-rl; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: 100%; }
+.reiter:hover { background: #fafaf8; }
+.kontextmenue { position: fixed; z-index: 90; min-width: 220px; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.16); padding: 6px; display: flex; flex-direction: column; }
+.kontextmenue button { text-align: left; min-height: 34px; padding: 0 10px; border: 0; background: transparent; border-radius: 6px; cursor: pointer; }
+.kontextmenue button:hover:not(:disabled) { background: #f1f1ed; } .kontextmenue button.gefahr { color: var(--gefahr); } .kontextmenue button:disabled { opacity: .4; }
+.reihe-knoepfe { flex-direction: row !important; align-items: center; gap: 4px; }
+.warte { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 95; background: #1c1c1a; color: #f6f6f3; border-radius: 99px; padding: 6px 14px; font-size: 13px; }
+.platzhalter { color: var(--text-still); }
+.beteiligt { flex: 1; gap: 4px; } .beteiligt input { min-height: 30px; padding: 2px 8px; border: 1px solid var(--rand); border-radius: 6px; font-size: 13px; width: 100%; }
+.kartenfenster { flex: 1; min-height: 0; display: flex; flex-direction: column; } .kartenfenster .karte { flex: 1; width: auto; border: 0; border-radius: 0; }
+.kartenfenster .status { padding: 6px 14px; border-top: 1px solid var(--rand); background: var(--flaeche); }
+@media (max-width: 860px) { .karten-halter { flex: 1; } .reiter { display: none; } .tabelle th .griff { display: none; } }

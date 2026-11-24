@@ -32,6 +32,16 @@ Das Modul **Adressen** läuft einmal durch alle Schichten des neuen Fundaments:
 - **Projekte** – sichtbar für Mitglieder und für Rollen, die alle Projekte sehen. Jedes Gerät bekommt nur, was sein Benutzer sehen darf.
 - **Benutzer, Rechte, Bürodaten** sind Objekte wie alle anderen: Änderungen laufen über Befehle, mit Protokoll und Rückgängig. Kennwörter stehen nie im Protokoll.
 
+### Baukasten der Oberfläche (`src/ui/baukasten`)
+
+Jedes Modul benutzt dieselben Bausteine – was einer kann, können alle:
+
+- **Liste mit Detailkarte** (`objektliste.tsx`): Suchen, Sortieren, Spalten ein-/ausblenden, ordnen und in der Breite ziehen (je Benutzer und Gerät gemerkt),
+  Tastatur (Pfeile, Bild auf/ab, Pos1/Ende, Enter, Entf, Esc, `/` für die Suche), Kontextmenü, Karte zuklappen oder in ein eigenes Browserfenster legen.
+  Im Dokument stehen nur die sichtbaren Zeilen – gemessen mit 5000 Kontakten: Klick auf eine Zeile unter 25 ms, Sortieren und Suchen unter 50 ms.
+- **Feld**, **Auswahlliste** (eigene Liste mit Suche statt Browser-Auswahl), **Fenster**, **Formular**, **Hinweis** (mit Rückgängig), **Kontextmenü** (höchstens 6 Punkte).
+- Warte-Hinweis bei allem, was länger als 1,5 Sekunden dauert.
+
 ## Technik
 
 TypeScript durchgehend, SolidJS für die Oberfläche, PostgreSQL. Ein Programm, ein Container (plus Datenbank).

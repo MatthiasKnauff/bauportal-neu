@@ -1,8 +1,10 @@
-import { For, Match, Show, Switch, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { MERKER, Netzfehler, Serverfehler, ich, merkeZustand, ruf, setZustand, zustand, type Zustand } from './api';
-import { abgelaufen, geraetLeeren, lage, rueckgaengig, starte, verlauf, wartendAnzahl, wiederholen } from './abgleich';
-import { AnsichtZeigen, sichtbar } from './ansichten';
+import { MERKER, Netzfehler, Serverfehler, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './api';
+import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './abgleich';
+import { AnsichtZeigen, kartenZusatz, sichtbar } from './ansichten';
+import { Kontextmenue } from './baukasten/kontextmenue';
+import { Detailkarte } from './baukasten/objektliste';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
@@ -36,9 +38,12 @@ export function App() {
       <Switch fallback={<div class="mitte"><p class="still-text">{stoerung() || 'Bauportal wird geladen …'}</p><Show when={stoerung()}><button class="knopf" onClick={laden}>Erneut versuchen</button></Show></div>}>
         <Match when={zustand() && !zustand()!.eingerichtet}><Einrichtung /></Match>
         <Match when={zustand() && (!zustand()!.benutzer || abgelaufen())}><Anmeldung hinweis={abgelaufen() ? 'Deine Anmeldung ist abgelaufen. Deine Änderungen im Gerät bleiben erhalten.' : ''} /></Match>
+        <Match when={bereit() && einzelkarte}><Kartenfenster objekt={einzelkarte![0]!} id={einzelkarte![1]!} /></Match>
         <Match when={bereit()}><Portal /></Match>
       </Switch>
       <Hinweise />
+      <Kontextmenue />
+      <Show when={wartetLange() > 0}><div class="warte" role="status">Einen Moment …</div></Show>
     </>
   );
 }
@@ -124,6 +129,23 @@ function Anmeldung(p: { hinweis: string }) {
           { name: 'anmeldename', titel: 'Anmeldename', auto: 'username' },
           { name: 'kennwort', titel: 'Kennwort', typ: 'password', auto: 'current-password' },
         ]} />
+    </div>
+  );
+}
+
+// Eine Karte im eigenen Browserfenster (?karte=objekt:kennung) – z. B. für den zweiten Bildschirm.
+const einzelkarte = new URLSearchParams(location.search).get('karte')?.split(':') ?? null;
+
+function Kartenfenster(p: { objekt: string; id: string }) {
+  const m = modell(p.objekt);
+  const z = () => { const x = m && sicht[p.objekt]?.[p.id]; return x && !x.geloescht ? x : undefined; };
+  createEffect(() => { document.title = `${z()?.werte[m?.anzeigeFeld ?? ''] ?? 'Bauportal'}`; });
+  return (
+    <div class="kartenfenster">
+      <Show when={z()} fallback={<div class="mitte"><p class="still-text">Diesen Eintrag gibt es nicht (mehr) oder du darfst ihn nicht sehen.</p></div>}>
+        {(zeile) => <Detailkarte modell={m} zeile={zeile()} zusatz={kartenZusatz(p.objekt)} />}
+      </Show>
+      <div class="status" classList={{ getrennt: lage() === 'getrennt', wartet: wartendAnzahl() > 0 }}><i />{lage() === 'verbunden' ? (wartendAnzahl() ? 'Wird gespeichert …' : 'Alles gespeichert') : 'Ohne Verbindung'}</div>
     </div>
   );
 }

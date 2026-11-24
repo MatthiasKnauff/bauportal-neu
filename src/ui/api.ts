@@ -29,7 +29,17 @@ export class Serverfehler extends Error {
 /** Kein Netz oder Server nicht erreichbar. */
 export class Netzfehler extends Error {}
 
+/** Zahl der Aufrufe, die schon länger als 1,5 Sekunden laufen – dann zeigt die Oberfläche einen Warte-Hinweis. */
+export const [wartetLange, setWartetLange] = createSignal(0);
+
 export async function ruf<T>(pfad: string, body?: unknown): Promise<T> {
+  let lange = false;
+  const uhr = setTimeout(() => { lange = true; setWartetLange((n) => n + 1); }, 1500);
+  try { return await rufOhneUhr<T>(pfad, body); }
+  finally { clearTimeout(uhr); if (lange) setWartetLange((n) => n - 1); }
+}
+
+async function rufOhneUhr<T>(pfad: string, body?: unknown): Promise<T> {
   let r: Response;
   try {
     r = await fetch(pfad, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
