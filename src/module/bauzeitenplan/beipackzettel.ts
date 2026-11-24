@@ -1,3 +1,4 @@
+// Modul Bauzeitenplan: Vorgänge eines Projekts in benannten Versionen (der Balkenplan folgt).
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';

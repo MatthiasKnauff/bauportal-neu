@@ -1,3 +1,4 @@
+// Einstieg der Oberfläche: Stil laden, Portal einhängen, Service Worker anmelden.
 import { render } from 'solid-js/web';
 import { App } from './App';
 import './stil.css';

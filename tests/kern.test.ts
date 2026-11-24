@@ -1,3 +1,5 @@
+// Tests gegen eine echte Datenbank: Kern, Protokoll, Rechte, Versionen, Übernahme (IFC, Assistent, Kataloge),
+// Druckwerk, KI, Wetter, Fotos und der Server als Ganzes. Ohne grüne Tests baut die Pipeline kein Image.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -20,6 +22,9 @@ import { kiText } from '../src/server/ki';
 import { katalogPlanen } from '../src/server/updates';
 import { wetterFuer, wetterlage } from '../src/server/wetter';
 import { fotoAblegen } from '../src/server/foto';
+import { aufbauText } from '../src/server/aufbau';
+// @ts-expect-error – Werkzeug in reinem JavaScript
+import { aufbauLesen } from '../tools/aufbau.mjs';
 import { existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { anonymisieren, klartext } from '../src/kern/anonym';
@@ -588,6 +593,21 @@ test('Fotos: Vorschaubild im Bauportal, Original abgelegt, im Ausdruck eingebett
     const s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), 'bautagebuch.tagesbericht', b);
     assert.ok(s.html.includes('<h2>Fotos</h2>') && s.html.includes(`<img src="data:image/jpeg;base64,${jpeg.toString('base64').slice(0, 40)}`), 'im PDF steckt das Vorschaubild selbst');
   } finally { await weg(); }
+});
+
+test('Aufbau: jede Datei ist ein Baustein mit Beschreibung, der Kern kennt niemanden', () => {
+  const q = aufbauLesen() as import('../src/server/aufbau').Quelltext;
+  const ohne = q.bausteine.filter((b) => /\.(ts|tsx|mjs|py)$/.test(b.pfad) && !b.beschreibung).map((b) => b.pfad);
+  assert.deepEqual(ohne, [], 'jede Quelldatei beginnt mit einem Kommentar, der sagt, wofür sie da ist');
+  const d = q.bausteine.find((b) => b.pfad === 'src/server/druck.ts')!;
+  assert.ok(d.bereich === 'server' && d.bindetEin.includes('src/kern/druck.ts') && d.stelltBereit.includes('seiteBauen'));
+  // Die Schichten: Der Kern bindet nur Kern ein, die Module nur Kern und Module, der Baukasten nichts aus den Modul-Ansichten
+  const bereich = new Map(q.bausteine.map((b) => [b.pfad, b.bereich]));
+  const verstoesse = q.bausteine.flatMap((b) => b.bindetEin.filter((z) =>
+    (b.bereich === 'kern' && bereich.get(z) !== 'kern') || (b.bereich === 'module' && !['kern', 'module'].includes(bereich.get(z)!)) || (b.bereich === 'server' && ['oberflaeche', 'baukasten'].includes(bereich.get(z)!))).map((z) => `${b.pfad} → ${z}`));
+  assert.deepEqual(verstoesse, [], 'kein Baustein greift in eine Schicht über sich');
+  const text = aufbauText(register, q, ['POST /api/befehle']);
+  for (const t of ['### Bautagebuch (`bautagebuch`', '- `firma` verweis → kontakt', '### `src/kern/modell.ts`', 'POST /api/befehle', 'KI-Ausgang']) assert.ok(text.includes(t), t);
 });
 
 test('Geheimnisse: verschlüsselt in der Datenbank, lesbar nur mit dem Schlüssel aus dem Daten-Volume', async () => {

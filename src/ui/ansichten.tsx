@@ -21,6 +21,7 @@ import { DateienAnsicht, OrdnerFenster } from './dateien';
 import { assistentStarten, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
 import { Updates } from './updates';
+import { AufbauAnsicht } from './aufbau';
 import { KiEinrichten } from './baukasten/ki';
 import { Unterliste } from './baukasten/unterliste';
 import { Bilder } from './baukasten/bilder';
@@ -273,7 +274,7 @@ function Buero() {
   return <Rahmen schluessel="verwaltung.buero" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} />}</Show></section>} />;
 }
 
-const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'dateien.dateien': DateienAnsicht };
+const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'dateien.dateien': DateienAnsicht };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
 const ANPASSUNG: Record<string, Anpassung> = {
   projekt: {

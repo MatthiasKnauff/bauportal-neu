@@ -1,3 +1,4 @@
+// Start des Programms: Datenbank verbinden, Schema und Grundausstattung herstellen, Server hochfahren.
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { register } from '../module';

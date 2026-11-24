@@ -1,3 +1,4 @@
+// Modul Pläne und Dateien: der Projektordner auf dem Dateiserver – die Ansicht dazu bringt die Oberfläche mit (ui/dateien.tsx).
 import type { Beipackzettel } from '../../kern/modul';
 
 // Die Originale bleiben auf dem Dateiserver. Dieses Modul zeigt den Ordner des gewählten Projekts;

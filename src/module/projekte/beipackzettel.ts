@@ -1,3 +1,4 @@
+// Modul Projekte: Projekte, ihre Mitglieder (wer sieht was), Beteiligte aus den Adressen und die Versionen aller Module.
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';

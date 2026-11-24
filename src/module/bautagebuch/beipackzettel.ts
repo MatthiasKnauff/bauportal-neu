@@ -1,3 +1,4 @@
+// Modul Bautagebuch: Tagesberichte mit Einträgen und Fotos, projektweite Mängel-, Aufgaben- und Weisungslisten, Ausdruck.
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';

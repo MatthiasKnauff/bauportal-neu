@@ -1,3 +1,4 @@
+// Modul Kataloge: Nachschlagelisten aus dem Katalog-Kanal, zuerst die Gewerke nach VOB/C.
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';

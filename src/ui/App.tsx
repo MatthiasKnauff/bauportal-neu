@@ -1,3 +1,4 @@
+// Das Portal: Einrichtung, Anmeldung, Startseite mit den Kacheln und der Rahmen um jedes Modul (Kopfleiste, Reiter, Rückgängig).
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { MERKER, Netzfehler, Serverfehler, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './api';

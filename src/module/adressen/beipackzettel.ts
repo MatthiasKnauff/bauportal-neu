@@ -1,3 +1,4 @@
+// Modul Adressen: Firmen, Personen und Behörden – eine Liste für alle Module.
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 

@@ -1,3 +1,5 @@
+// Die eine Stelle, an der die Oberfläche mit dem Server spricht – und der Zustand des Programms für diesen Benutzer
+// (wer bin ich, welche Module, was darf ich).
 import { createSignal } from 'solid-js';
 import type { Beipackzettel } from '../kern/modul';
 import type { Rechtart } from '../kern/modell';

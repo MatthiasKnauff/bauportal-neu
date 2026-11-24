@@ -1,3 +1,4 @@
+// Modul Gebäudemodell: Gebäude, Geschosse, Räume, Bauteile in Versionen – gespeist aus IFC oder vom Assistenten.
 import type { Beipackzettel } from '../../kern/modul';
 import type { Feld, ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';

@@ -8,7 +8,7 @@
     "typen": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
     "test:klick": "node tests/ui/klick.mjs",
-    "build": "vite build && esbuild src/server/start.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/server.mjs --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\"",
+    "build": "vite build && esbuild src/server/start.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/server.mjs --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" && node tools/aufbau.mjs dist/aufbau.json",
     "start": "node dist/server.mjs"
   },
   "dependencies": {

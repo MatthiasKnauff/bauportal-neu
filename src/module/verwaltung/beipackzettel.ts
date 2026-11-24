@@ -1,3 +1,4 @@
+// Modul Verwaltung: Benutzer, Rechte, Bürodaten, Ablage, Druckeinstellungen, KI-Anbindungen, Updates, Aufbau.
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE, OHNE_GAST, ROLLEN_OPTIONEN } from '../../kern/rechte';
@@ -123,5 +124,6 @@ export const verwaltung: Beipackzettel = {
     { id: 'ablage', titel: 'Ablage', nurAdmin: true },
     { id: 'ki', titel: 'KI', objekt: 'ki_anbindung', nurAdmin: true },
     { id: 'updates', titel: 'Updates', nurAdmin: true },
+    { id: 'aufbau', titel: 'Aufbau', nurAdmin: true },
   ],
 };

@@ -21,6 +21,7 @@ import { kiRouten } from './ki';
 import { updateRouten } from './updates';
 import { wetterRouten } from './wetter';
 import { fotoRouten } from './foto';
+import { aufbauRouten } from './aufbau';
 
 export interface Einstellungen {
   db: Db;
@@ -39,6 +40,9 @@ declare module 'fastify' {
 export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   const { db, register } = e;
   const app = Fastify({ trustProxy: true, bodyLimit: 2 * 1024 * 1024 });
+  // jede Server-Stelle merken – die Verwaltung zeigt sie unter „Aufbau“
+  const routen: string[] = [];
+  app.addHook('onRoute', (r) => { if (r.url.startsWith('/api/') || r.url === '/health') for (const m of [r.method].flat()) if (m !== 'HEAD') routen.push(`${m} ${r.url}`); });
   await app.register(cookie);
   const dbKennung = await kennung(db);
   versionsregelnAnmelden(register);
@@ -191,6 +195,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   kiRouten(app, { db, nurAngemeldet });
   wetterRouten(app, { db, nurAngemeldet });
   fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
+  aufbauRouten(app, { db, register, routen, nurAngemeldet });
   updateRouten(app, { db, register, version: e.version, umgebung: e.umgebung, nurAngemeldet });
   uebernahmeRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
 
