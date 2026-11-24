@@ -26,6 +26,6 @@ export interface Anpassung {
   /** Vorbelegung für einen neuen Eintrag (z. B. nächste Nummer, heutiges Datum). Bekommt die Einträge, die gerade zur Auswahl gehören. */
   neuVorgabe?: (vorhandene: Zeile[]) => Record<string, string | number | boolean | null>;
   // --- Menüleiste ---
-  /** Zusätzliche Knöpfe in der Menüleiste dieser Ansicht. */
-  knoepfe?: () => Knopf[];
+  /** Zusätzliche Knöpfe in der Menüleiste dieser Ansicht. Bekommt den Zusammenhang (Projekt, Version). */
+  knoepfe?: (zusammenhang: Record<string, string | number | boolean | null>) => Knopf[];
 }

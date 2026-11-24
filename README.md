@@ -67,6 +67,13 @@ Der Kern führt für jedes Feld jedes Objekts die **Herkunft**: Ein Befehl kann 
 eine Eingabe von Hand nimmt die Kennzeichnung wieder weg. Die Oberfläche zeigt sie in Karte und Tabelle. Beim Kopieren einer Version wandert sie mit.
 Verweise zwischen Objekten (Geschoss → Gebäude) bieten nur an, was zum selben Projekt und zur selben Version gehört.
 
+### IFC einlesen
+
+Der **IFC-Dienst** (`dienste/ifcdienst`, Python mit ifcopenshell, eigener Container ohne Port nach außen) liest IFC2x3/IFC4 und liefert Gebäude,
+Geschosse, Räume und Bauteile mit der Kennung aus dem Plan; fehlen Mengen, rechnet er Wand- und Deckenflächen aus der Geometrie.
+`src/server/ifc.ts` vergleicht das mit dem Gebäudemodell: erst die Vorschau (neu, geändert, entfällt), nach Bestätigung die Übernahme als ein Vorgang.
+Alles Übernommene trägt die Herkunft „aus IFC“. Werte, die von Hand geändert wurden, überschreibt ein neuer Planstand nicht.
+
 ### Module
 
 Adressen · Gebäudemodell (Bauteile, Räume, Geschosse, Gebäude) · Projekte (Mitglieder, Beteiligte, Versionen, Ordner auf dem Dateiserver) · Pläne und Dateien (Projektordner durchblättern, ansehen, herunterladen) · Bautagebuch (nummerierte Tagesberichte je Projekt) ·
@@ -75,7 +82,7 @@ Das Projekt wird einmal oben gewählt und gilt in allen Apps.
 
 ## Technik
 
-TypeScript durchgehend, SolidJS für die Oberfläche, PostgreSQL. Ein Programm, ein Container – dazu die Datenbank und der Dateidienst (Python) als Hilfsdienst.
+TypeScript durchgehend, SolidJS für die Oberfläche, PostgreSQL. Ein Programm, ein Container – dazu die Datenbank und zwei Hilfsdienste in Python: Dateidienst und IFC-Dienst.
 
 | Ordner | Inhalt |
 |---|---|

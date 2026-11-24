@@ -81,7 +81,7 @@ export function ObjektAnsicht(p: {
     <div class="ansicht" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented && (e.target as HTMLElement).closest('.karte')) { e.preventDefault(); tabelle.fokus(); } }}>
       <Rahmen schluessel={p.schluessel} steuer={(s) => (rahmen = s)}
         knoepfe={[
-          ...(a.knoepfe?.() ?? []),
+          ...(a.knoepfe?.(fest()) ?? []),
           { titel: 'Spalten einstellen', symbol: '☰', nurSymbol: true, tun: () => tabelle.spaltenEinstellen() },
           ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, symbol: '+', haupt: true, tun: () => neuStart() }] : []),
         ]}

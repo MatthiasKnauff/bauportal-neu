@@ -28,6 +28,7 @@ export const gebaeude: ObjektModell = {
     { name: 'bgf', titel: 'Brutto-Grundfläche in m²', art: 'zahl', inListe: true, breite: 150, gruppe: 'Größe' },
     { name: 'bri', titel: 'Brutto-Rauminhalt in m³', art: 'zahl', inListe: true, breite: 150, gruppe: 'Größe' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Notiz' },
+    { name: 'kennung', titel: 'Kennung im Plan (IFC)', art: 'text', gruppe: 'Aus dem Plan' },
   ],
 };
 
@@ -40,6 +41,7 @@ export const geschoss: ObjektModell = {
     { name: 'ebene', titel: 'Ebene (0 = Erdgeschoss, -1 = Keller)', art: 'zahl', inListe: true, breite: 90, gruppe: 'Geschoss' },
     { name: 'hoehe', titel: 'Geschosshöhe in m', art: 'zahl', inListe: true, breite: 130, gruppe: 'Geschoss' },
     { name: 'flaeche', titel: 'Brutto-Grundfläche in m²', art: 'zahl', inListe: true, breite: 150, gruppe: 'Geschoss' },
+    { name: 'kennung', titel: 'Kennung im Plan (IFC)', art: 'text', gruppe: 'Aus dem Plan' },
   ],
 };
 
@@ -53,6 +55,7 @@ export const raum: ObjektModell = {
     { name: 'nutzung', titel: 'Nutzung', art: 'text', inListe: true, breite: 160, gruppe: 'Raum' },
     { name: 'flaeche', titel: 'Fläche in m²', art: 'zahl', inListe: true, breite: 110, gruppe: 'Maße' },
     { name: 'hoehe', titel: 'Lichte Höhe in m', art: 'zahl', inListe: true, breite: 120, gruppe: 'Maße' },
+    { name: 'kennung', titel: 'Kennung im Plan (IFC)', art: 'text', gruppe: 'Aus dem Plan' },
   ],
 };
 
@@ -70,8 +73,10 @@ export const bauteil: ObjektModell = {
     { name: 'lage', titel: 'Lage', art: 'auswahl', inListe: true, breite: 100, gruppe: 'Bauteil', optionen: [{ wert: '', titel: 'offen' }, { wert: 'aussen', titel: 'außen' }, { wert: 'innen', titel: 'innen' }] },
     { name: 'menge', titel: 'Menge', art: 'zahl', inListe: true, breite: 100, gruppe: 'Menge' },
     { name: 'einheit', titel: 'Einheit', art: 'auswahl', inListe: true, breite: 90, gruppe: 'Menge', optionen: [{ wert: 'm2', titel: 'm²' }, { wert: 'm', titel: 'm' }, { wert: 'stk', titel: 'Stück' }, { wert: 'm3', titel: 'm³' }] },
+    { name: 'abmessung', titel: 'Abmessung', art: 'text', gruppe: 'Menge' },
     { name: 'aufbau', titel: 'Aufbau, Material', art: 'text', inListe: true, breite: 220, gruppe: 'Aufbau' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Aufbau' },
+    { name: 'kennung', titel: 'Kennung im Plan (IFC)', art: 'text', gruppe: 'Aus dem Plan' },
   ],
 };
 

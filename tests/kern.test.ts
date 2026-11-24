@@ -13,6 +13,8 @@ import { kennwortSetzen } from '../src/server/anmeldung';
 import { baueServer } from '../src/server/server';
 import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen';
 import { geheimnisLesen, geheimnisSetzen } from '../src/server/ablage';
+import { planen } from '../src/server/ifc';
+import { vorgangAusfuehren } from '../src/server/protokoll';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -272,6 +274,54 @@ test('Gebäudemodell: Herkunft je Wert, Verweise wandern beim Kopieren einer Ver
     o = await lies();
     assert.deepEqual(o.bauteil!.find((x) => x.werte.version === v3)!.herkunft, { aufbau: 'geschaetzt' }, 'die Herkunft wandert in die Kopie mit');
     assert.deepEqual(o.gebaeude!.find((x) => x.werte.version === v3)!.herkunft, { name: 'ifc', bgf: 'ifc' });
+  } finally { await weg(); }
+});
+
+test('IFC: erster Plan legt an, neuer Planstand ändert nur, was nicht von Hand geändert wurde', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung } = await leute(db);
+    const wer = { ...leitung, anmeldename: 'leitung', rolle: 'bueroleitung' };
+    const [p, v] = [randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
+    await tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: v, werte: { projekt: p, bereich: 'gebaeudemodell', name: 'Vorentwurf' } });
+    const wand = (kennung: string, name: string, menge: number, geschoss = 'eg') => ({ kennung, art: 'aussenwand', name, geschoss, lage: 'aussen', menge, einheit: 'm2', abmessung: '', aufbau: 'Mauerwerk 36,5 cm' });
+    const plan1 = { schema: 'IFC4', uebersprungen: {}, flaechen_aus_geometrie: 0,
+      gebaeude: [{ kennung: 'haus', name: 'Wohnhaus' }],
+      geschosse: [{ kennung: 'eg', name: 'EG', ebene: 0, hoehe: 2.85, gebaeude: 'haus' }, { kennung: 'og', name: 'OG', ebene: 1, hoehe: null, gebaeude: 'haus' }],
+      raeume: [{ kennung: 'r1', nummer: '0.01', name: 'Wohnen', nutzung: '', flaeche: 28.4, hoehe: null, geschoss: 'eg' }, { kennung: 'r2', nummer: 'x', name: 'ohne Geschoss', nutzung: '', flaeche: 1, hoehe: null, geschoss: null }],
+      bauteile: [wand('w1', 'Außenwand Nord', 22), wand('w2', 'Außenwand Süd', 22), wand('w3', 'Außenwand OG', 16.5, 'og')] };
+    const a = await planen(db, register, wer, p, v, plan1);
+    assert.deepEqual([a.je.gebaeude!.neu, a.je.geschoss!.neu, a.je.raum!.neu, a.je.bauteil!.neu, a.ohneGeschoss], [1, 2, 1, 3, 1]);
+    await vorgangAusfuehren(db, register, wer, a.liste);
+    const lies = async () => (await schnappschuss(db, register, leitung)).objekte;
+    let o = await lies();
+    const w1 = o.bauteil!.find((x) => x.werte.kennung === 'w1')!;
+    assert.equal(w1.werte.geschoss, o.geschoss!.find((x) => x.werte.kennung === 'eg')!.id);
+    assert.equal(w1.herkunft!.menge, 'ifc');
+    assert.equal((await planen(db, register, wer, p, v, plan1)).befehle, 0, 'derselbe Plan noch einmal: nichts zu tun');
+
+    // Von Hand: Menge von w1 korrigiert, eigenes Bauteil ohne Plan angelegt
+    await tun(db, leitung, { objekt: 'bauteil', objektId: w1.id, werte: { menge: 23.5 } });
+    await tun(db, leitung, { objekt: 'bauteil', art: 'anlegen', werte: { projekt: p, version: v, name: 'Vordach (von Hand)', art: 'sonstiges' } });
+    // Neuer Planstand: w1 und w2 mit anderer Menge, w3 entfällt, w4 neu
+    const plan2 = { ...plan1, bauteile: [wand('w1', 'Außenwand Nord', 25), wand('w2', 'Außenwand Süd', 24), wand('w4', 'Außenwand West', 30)] };
+    const b = await planen(db, register, wer, p, v, plan2);
+    assert.deepEqual(b.je.bauteil, { neu: 1, geaendert: 1, entfernt: 1, unveraendert: 1, behalten: 1 });
+    assert.equal(b.je.geschoss!.unveraendert, 2);
+    await vorgangAusfuehren(db, register, wer, b.liste);
+    o = await lies();
+    const menge = (k: string) => o.bauteil!.find((x) => x.werte.kennung === k)!;
+    assert.equal(menge('w1').werte.menge, 23.5, 'von Hand korrigiert: bleibt');
+    assert.equal(menge('w2').werte.menge, 24);
+    assert.equal(menge('w3').geloescht, true);
+    assert.equal(o.bauteil!.find((x) => x.werte.name === 'Vordach (von Hand)')!.geloescht, false, 'was nicht aus dem Plan stammt, bleibt unberührt');
+    // Der alte Planstand noch einmal: w3 kommt zurück, w4 entfällt
+    const cplan = await planen(db, register, wer, p, v, plan1);
+    await vorgangAusfuehren(db, register, wer, cplan.liste);
+    o = await lies();
+    assert.equal(o.bauteil!.find((x) => x.werte.kennung === 'w3')!.geloescht, false);
+    assert.equal(o.bauteil!.filter((x) => !x.geloescht).length, 4);
   } finally { await weg(); }
 });
 

@@ -18,6 +18,7 @@ import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
 import { DateienAnsicht, OrdnerFenster } from './dateien';
+import { ifcEinlesen } from './ifc';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -238,6 +239,10 @@ const ANPASSUNG: Record<string, Anpassung> = {
     kartenZusatz: (z) => <><OrdnerWahl projekt={z} /><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
     zelle: (f, z) => (f.name === 'status' ? <span class={`marke-${z.werte.status}`}>{f.optionen!.find((o) => o.wert === z.werte.status)?.titel}</span> : undefined),
   },
+  // Gebäudemodell: in jeder seiner Ansichten lässt sich eine IFC-Datei einlesen
+  ...Object.fromEntries(['bauteil', 'raum', 'geschoss', 'gebaeude'].map((o) => [o, {
+    knoepfe: (z) => (darf('bauteil', 'schreiben') ? [{ titel: 'IFC einlesen', symbol: '⇪', tun: () => ifcEinlesen(String(z.projekt), String(z.version)) }] : []),
+  } satisfies Anpassung])),
   tagesbericht: {
     // nächste Nummer im Projekt, heutiges Datum
     neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv') }),

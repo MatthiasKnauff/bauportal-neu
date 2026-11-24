@@ -254,3 +254,5 @@ a.knopf { display: inline-flex; align-items: center; text-decoration: none; colo
 .herkunft-geschaetzt { background: #f1f1ed; color: #6b6b66; }
 td.herkunft-geschaetzt { color: #8a8a84; font-style: italic; }
 td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
+.vorschau-tabelle { margin: 12px 0; width: 100%; } .vorschau-tabelle td { font-variant-numeric: tabular-nums; }
+.vorschau-hinweise { margin: 0; padding-left: 18px; color: var(--text-still); font-size: 13px; line-height: 1.5; }

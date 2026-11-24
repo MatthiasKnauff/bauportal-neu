@@ -42,7 +42,9 @@ export async function ruf<T>(pfad: string, body?: unknown): Promise<T> {
 async function rufOhneUhr<T>(pfad: string, body?: unknown): Promise<T> {
   let r: Response;
   try {
-    r = await fetch(pfad, body === undefined ? {} : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    // Dateien gehen als Ganzes, alles andere als JSON
+    r = await fetch(pfad, body === undefined ? {} : body instanceof Blob ? { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body }
+      : { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
   } catch {
     throw new Netzfehler('Keine Verbindung zum Server');
   }
