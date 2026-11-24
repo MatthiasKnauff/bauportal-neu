@@ -3,7 +3,7 @@
 # Die Datenbank ist nur für die App erreichbar (kein Port nach außen).
 services:
   app:
-    image: ghcr.io/matthiasknauff/bauportal-neu:v0.1.1
+    image: ghcr.io/matthiasknauff/bauportal-neu:v0.1.2
     container_name: bauportal-neu-prod
     restart: unless-stopped
     depends_on:
@@ -15,8 +15,20 @@ services:
       APP_ENV: prod
       TZ: Europe/Berlin
       DATABASE_URL: postgres://bauportal:${DB_PASSWORT:-bauportal}@db:5432/bauportal
+      DATEIDIENST_URL: http://dateidienst:8000
+      IFCDIENST_URL: http://ifcdienst:8000
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
     volumes:
       - daten:/data
+
+  # Dateidienst: spricht mit dem Dateiserver. Nur für die App erreichbar (kein Port nach außen), merkt sich nichts.
+  dateidienst:
+    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:v0.1.2
+    container_name: bauportal-neu-prod-dateidienst
+    restart: unless-stopped
+    environment:
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
+      TZ: Europe/Berlin
 
   db:
     image: postgres:18-alpine
@@ -34,6 +46,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  # IFC-Dienst: liest IFC-Dateien für das Gebäudemodell. Nur für die App erreichbar, merkt sich nichts.
+  ifcdienst:
+    image: ghcr.io/matthiasknauff/bauportal-neu-ifcdienst:v0.1.2
+    container_name: bauportal-neu-prod-ifcdienst
+    restart: unless-stopped
+    environment:
+      DIENST_SCHLUESSEL: ${DB_PASSWORT:-bauportal}
+      TZ: Europe/Berlin
 
 volumes:
   daten:
