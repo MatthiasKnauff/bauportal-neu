@@ -8,13 +8,14 @@ export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.E
   const taste = (e: KeyboardEvent) => { if (e.key === 'Escape' && p.onAbbrechen) { e.stopPropagation(); p.onAbbrechen(); } };
   onMount(() => {
     document.addEventListener('keydown', taste, true);
-    (kasten.querySelector('input, textarea, button') as HTMLElement | null)?.focus();
+    // Im großen Fenster (z. B. Druckvorschau) steht oben etwas zum Ansehen – dort bleibt der Blick, kein Sprung ins erste Feld
+    if (p.gross) kasten.focus(); else (kasten.querySelector('input, textarea, button') as HTMLElement | null)?.focus();
   });
   onCleanup(() => document.removeEventListener('keydown', taste, true));
   return (
     <Portal>
       <div class="fenster-hinter">
-        <div class="fenster" classList={{ breit: p.breit, gross: p.gross }} role="dialog" aria-modal="true" aria-label={p.titel} ref={kasten}>
+        <div class="fenster" classList={{ breit: p.breit, gross: p.gross }} role="dialog" aria-modal="true" aria-label={p.titel} tabindex="-1" ref={kasten}>
           <h2>{p.titel}</h2>
           <div class="fenster-inhalt">{p.children}</div>
           <div class="fenster-knoepfe">{p.knoepfe}</div>

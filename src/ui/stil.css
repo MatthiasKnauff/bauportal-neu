@@ -169,10 +169,15 @@ main { flex: 1; min-height: 0; display: flex; }
 .druck-blatt { flex: 1; min-width: 0; overflow: auto; background: #e9e8e3; border-radius: 10px; padding: 14px; }
 .druck-seite { width: 280px; flex: none; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
 .druck-seite h3 { font-size: 14px; margin: 0; }
-@media (max-width: 900px) { .druck { flex-direction: column; } .druck-seite { width: auto; } }
+/* schmal (Handy): erst das ganze Blatt, darunter das Einstellen – das Fenster rollt als Ganzes */
+@media (max-width: 900px) {
+  .fenster.gross .fenster-inhalt { display: block; overflow: auto; padding-bottom: 12px; }
+  .druck { display: block; } .druck-blatt { overflow: visible; padding: 8px; margin-bottom: 14px; } .druck-seite { width: auto; overflow: visible; }
+}
 .fenster h2 { padding: 18px 20px 0; }
-.fenster-inhalt { padding: 14px 20px; overflow: auto; }
-.fenster-knoepfe { display: flex; justify-content: space-between; gap: 8px; padding: 12px 20px 18px; }
+.fenster-inhalt { flex: 1 1 auto; min-height: 0; padding: 14px 20px; overflow: auto; }   /* lange Masken rollen im Fenster; die Knöpfe bleiben unten stehen */
+.fenster-knoepfe { flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 12px 20px 18px; }
+.fenster:focus { outline: none; }
 .fenster-knoepfe > :only-child { margin-left: auto; }
 .raster .feld:has([role=group]), .raster .feld:has(textarea) { grid-column: 1 / -1; }
 .fragen { border: 0; padding: 0; margin: 16px 0 0; }
@@ -272,8 +277,10 @@ main { flex: 1; min-height: 0; display: flex; }
 /* ---- Rahmen: Abfolge-Leiste · Menüleiste · Baum | Inhalt | Details ---- */
 .ansicht, .rahmen { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .menueleiste { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--flaeche); border-bottom: 1px solid var(--rand); min-height: 49px; }
-.menue-reiter { display: flex; gap: 2px; align-self: stretch; margin: -6px 8px -6px 0; }
-.menue-reiter button { padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; white-space: nowrap; }
+/* Die Reiter machen die Seite nie breiter als den Bildschirm: Reicht der Platz nicht, lässt sich die Reihe schieben. */
+.menue-reiter { display: flex; gap: 2px; align-self: stretch; margin: -6px 8px -6px 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.menue-reiter::-webkit-scrollbar { display: none; }
+.menue-reiter button { flex: none; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; white-space: nowrap; }
 .menue-reiter button.aktiv { border-bottom-color: var(--akzent); color: var(--akzent); font-weight: 600; }
 .menue-mitte { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
 .plaetze { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 12px; }
@@ -306,7 +313,7 @@ main { flex: 1; min-height: 0; display: flex; }
   .plaetze { padding: 0; gap: 0; } .platz-links, .platz-mitte { border-radius: 0; border-left: 0; border-right: 0; }
   .platz-links { display: none; } .plaetze.baum-offen .platz-links { display: flex; flex: 1; width: auto; } .plaetze.baum-offen .platz-mitte { display: none; }
   .plaetze.mit-details .platz-mitte, .plaetze.mit-details .platz-links { display: none; } .platz-rechts { flex: 1; }
-  .menueleiste { flex-wrap: wrap; } .menue-reiter { margin: 0; align-self: auto; min-height: 36px; }
+  .menueleiste { flex-wrap: wrap; } .menue-reiter { margin: 0; align-self: auto; min-height: 36px; order: 9; flex: 1 1 100%; }   /* Handy: Reiter als eigene Zeile unter den Knöpfen */
 }
 .menue-verlauf { display: flex; gap: 2px; padding-right: 8px; margin-right: 4px; border-right: 1px solid var(--rand); }
 

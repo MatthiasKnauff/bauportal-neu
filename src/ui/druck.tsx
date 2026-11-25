@@ -57,6 +57,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
   const einstellen = () => darf('druckeinstellung', 'schreiben');
   const [stelle, setStelle] = createSignal('seite');
   const [laeuft, setLaeuft] = createSignal(false);
+  const test = () => zustand()!.umgebung === 'test';   // der Testserver legt nichts im Projektordner ab
   const da = createMemo(() => eintraege(a.id));
   const e = createMemo((): Einstellungen => Object.fromEntries(Object.entries(da()).map(([k, v]) => [k, v.wert])));
   const daten = createMemo((): Druckdaten | null => {
@@ -120,7 +121,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
   const schrauben = createMemo(() => stellschrauben(a, m, stelle()));
   return (
     <Dialog titel={`${a.titel} – Druckvorschau`} gross onAbbrechen={() => setOffen(null)}
-      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner}><button class="knopf" disabled={laeuft() || !daten()} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={pdf}>{laeuft() ? 'PDF wird erzeugt …' : 'PDF herunterladen'}</button></>}>
+      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={pdf}>{laeuft() ? 'PDF wird erzeugt …' : 'PDF herunterladen'}</button></>}>
       <div class="druck">
         <div class="druck-blatt" onClick={klick}><div ref={blatt} /></div>
         <Show when={einstellen()}>
