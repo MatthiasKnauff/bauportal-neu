@@ -4,6 +4,8 @@
 // Bedienung wie gewohnt: Zelle anklicken und lostippen, F2, Enter/Tab/Esc; Einfg, Entf; Alt+Umschalt+Pfeile gliedern und
 // verschieben; Balken ziehen (verschieben), rechte Kante ziehen (Dauer), Punkt am Balkenende auf einen anderen ziehen (verknüpfen).
 import { Auswahlliste } from './baukasten/auswahlliste';
+import { spaltenwahl } from './baukasten/spalten';
+import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { For, Show, createEffect, createMemo, createResource, createSignal, untrack } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
@@ -118,7 +120,10 @@ export function Balkenplan(p: Mitte) {
   const [leisteOffen, setLeisteOffen] = createSignal(false);   // Handy: Einstellungen nur auf Wunsch, damit Platz für den Plan bleibt
   const [handy, setHandy] = createSignal<'jetzt' | 'ablauf' | 'gewerke' | 'plan'>(holen('bzp.handy', 'jetzt'));
   createEffect(() => merken('bzp.handy', handy()));
-  const spalten = () => (schmal() ? SPALTEN.slice(0, 2).map((s) => (s.id === 'name' ? { ...s, breite: 150 } : s)) : SPALTEN);
+  // Spalten wählen und ordnen: derselbe Baustein wie bei jeder Tabelle (Spaltenwahl, Spaltenfeld)
+  const spw = spaltenwahl('bp_spalten_bauzeitenplan', SPALTEN.map((x) => ({ ...x, name: x.id, inListe: true, fest: x.id === 'nr' || x.id === 'name' })));
+  const [spaltenFeld, setSpaltenFeld] = createSignal<{ x: number; y: number } | null>(null);
+  const spalten = () => (schmal() ? SPALTEN.slice(0, 2).map((s) => (s.id === 'name' ? { ...s, breite: 150 } : s)) : spw.sichtbare().map((x) => ({ ...x, breite: spw.breite(x) })));
 
   const sichtbar = createMemo(() => {
     const t = erg().termine, zuSet = eingeklappt();
@@ -429,6 +434,7 @@ export function Balkenplan(p: Mitte) {
           optionen={[{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }]} /></span>
         <Show when={schreiben()}><label class="bzp-haken" title="Einfügen setzt die neue Leistung in die Kette, Löschen überbrückt sie"><input type="checkbox" checked={autom()} onChange={(e) => setAutom(e.currentTarget.checked)} /> Autom. verknüpfen</label></Show>
         <Show when={schreiben()}><button class="knopf klein" onClick={() => setAssi(true)}>✦ Assistent</button></Show>
+        <button class="knopf klein" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSpaltenFeld({ x: r.left, y: r.bottom + 4 }); }}>☰ Spalten</button>
         <button class="knopf klein" onClick={() => setDrucken(true)}>⎙ Drucken / PDF</button>
         <button class="knopf klein" onClick={austauschMenue}>Export / Import ▾</button>
         <input ref={dateiWahl} type="file" accept=".gantt,.json,application/json" hidden onChange={() => void einlesen()} />
@@ -439,7 +445,7 @@ export function Balkenplan(p: Mitte) {
         onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); setZoom(Math.max(0, Math.min(ZOOM.length - 1, zoom() + (e.deltaY < 0 ? 1 : -1)))); } }}>
         <div class="bzp-innen" style={{ width: `${breiteL() + breiteR()}px`, height: `${KOPF + (sichtbar().length + 1) * H}px` }}>
           <div class="bzp-kopf" style={{ width: `${breiteL() + breiteR()}px` }}>
-            <div class="bzp-links bzp-kopfzellen">
+            <div class="bzp-links bzp-kopfzellen" onContextMenu={(e) => { e.preventDefault(); setSpaltenFeld({ x: e.clientX, y: e.clientY }); }}>
               <For each={spalten()}>{(s) => <div class="bzp-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }}>{s.titel}</div>}</For>
             </div>
             <svg class="bzp-achse" width={breiteR()} height={KOPF}>
@@ -546,6 +552,7 @@ export function Balkenplan(p: Mitte) {
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
+      <Show when={spaltenFeld()}>{(o) => <Spaltenfeld spalten={spw} ort={o()} onZu={() => setSpaltenFeld(null)} />}</Show>
     </div>
   );
 }
