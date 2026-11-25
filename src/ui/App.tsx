@@ -242,7 +242,9 @@ function Portal() {
                 </div>
                 <Show when={projektId() && sicht.projekt?.[projektId()!] && !sicht.projekt[projektId()!]!.geloescht}><Projektkacheln projekt={projektId()!} onApp={(id, a) => oeffne(id, a ?? '')} /></Show>
               </Show>
-            </div></div>}>
+            </div>
+            <p class="start-version still-text klein-text">{zustand()!.umgebung === 'test' ? `Testserver · wird ${zustand()!.version}` : `Version ${zustand()!.version}`}</p>
+            </div>}>
             {(_s: string) => <AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}
           </Show>
         </AppUmgebung.Provider>

@@ -55,8 +55,9 @@ h1 { font-size: 24px; margin: 0; } h2 { font-size: 18px; margin: 0; } h3 { font-
 .kopf .menue > .knopf:hover { background: rgba(255,255,255,.12); }
 .kopf .menue-liste { color: var(--text); }
 /* Startseite: eine Kachel je Modul */
-.start { flex: 1; overflow: auto; padding: 28px 20px 40px; }
-.start-innen { max-width: 1080px; margin: 0 auto; }
+.start { flex: 1; overflow: auto; padding: 28px 20px 16px; display: flex; flex-direction: column; }
+.start-innen { max-width: 1080px; width: 100%; margin: 0 auto; }
+.start-version { margin-top: auto; padding-top: 24px; }
 .start h1 { font-size: 24px; margin: 0 0 4px; }
 .kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 22px; }
 .kachel { display: flex; flex-direction: column; gap: 6px; min-height: 118px; padding: 16px; text-align: left; border: 1px solid var(--rand); border-radius: 14px; background: var(--flaeche); cursor: pointer; font: inherit; color: inherit; }
