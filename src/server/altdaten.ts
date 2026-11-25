@@ -12,6 +12,9 @@ import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
 import { fotoAblegen } from './foto';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
+import { randomUUID } from 'node:crypto';
+import { altplanLesen, type Altplan } from '../module/bauzeitenplan/austausch';
+import { planUebernehmen } from './bauzeitenplan';
 import { abgleicher, merken, type Eintrag, type Vorschau, type Zahl } from './uebernahme';
 
 type Alt = Record<string, unknown>;
@@ -203,6 +206,46 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     let roh: unknown;
     try { roh = JSON.parse((await quelle.holen('api/export')).toString('utf8')); } catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung('Der Export des alten Bautagebuchs ist nicht lesbar'); }
     return vorschau(req.benutzer!, roh, quelle);
+  });
+  // Bauzeitenpläne der alten Gantt-App: dieselbe Anmeldung (gilt im alten Bauportal für alle Apps)
+  app.post('/api/altdaten/plaene', { preHandler: e.nurAngemeldet }, async (req) => {
+    admin(req);
+    const q = await anmelden();
+    let l: unknown;
+    try { l = JSON.parse((await q.holen('../bauzeitenplan/api/projects')).toString('utf8')); } catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung('Die Liste der Bauzeitenpläne ist nicht lesbar'); }
+    const da = new Set((await db.query("select kennung from o_version where bereich = 'bauzeitenplan' and not geloescht and kennung like 'alt-gantt:%'")).rows.map((r) => r.kennung as string));
+    return { plaene: (Array.isArray(l) ? l : []).map((p: Record<string, unknown>) => ({ id: String(p.id), name: String(p.name ?? ''), leistungen: Number(p.n ?? 0), geaendert: String(p.updated ?? ''), uebernommen: da.has(`alt-gantt:${p.id}`) })) };
+  });
+  app.post('/api/altdaten/plan', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
+    admin(req);
+    const id = String((req.body as { id?: string } | undefined)?.id ?? '');
+    if (!/^[\w-]{1,80}$/.test(id)) throw new Ablehnung('Welcher Plan?');
+    const q = await anmelden();
+    let alt: Altplan;
+    try { alt = altplanLesen(JSON.parse((await q.holen(`../bauzeitenplan/api/projects/${encodeURIComponent(id)}`)).toString('utf8')), `alt-gantt:${id}:`); }
+    catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung(`Der Plan ist nicht lesbar (${(x as Error).message})`); }
+    const plan = await alsBenutzer(db, req.benutzer!, async (c) => {
+      const vorweg: Befehl[] = [], hinweise: string[] = [];
+      const kopf = () => ({ id: randomUUID(), gesehen: 0, herkunft: 'uebernahme' });
+      // Projekt: das aus dem alten Bautagebuch übernommene, mit dem der Plan verknüpft war – sonst ein neues
+      let projekt = (alt.bt !== null ? (await c.query('select id from o_projekt where kennung = $1 and not geloescht', [`alt:projekt:${alt.bt}`])).rows[0]?.id : undefined)
+        ?? (await c.query('select id from o_projekt where kennung = $1 and not geloescht', [`alt-gantt:${id}`])).rows[0]?.id as string | undefined;
+      if (!projekt) {
+        projekt = randomUUID();
+        vorweg.push({ ...kopf(), objekt: 'projekt', art: 'anlegen', objektId: projekt, werte: { name: alt.name, nummer: '', status: 'aktiv', bauherr: '', strasse: '', plz: '', ort: '', ordner: '', notiz: '', kennung: `alt-gantt:${id}` } });
+        hinweise.push(alt.bt !== null ? 'Das verknüpfte Projekt des alten Bautagebuchs ist noch nicht übernommen – der Plan kommt in ein neues Projekt. Erst das Bautagebuch übernehmen, dann landet er beim richtigen Projekt.' : `Der Plan war mit keinem Projekt verknüpft – er kommt in ein neues Projekt „${alt.name}“.`);
+      }
+      let version = (await c.query("select id from o_version where projekt = $1 and bereich = 'bauzeitenplan' and kennung = $2 and not geloescht", [projekt, `alt-gantt:${id}`])).rows[0]?.id as string | undefined;
+      if (!version) {
+        version = randomUUID();
+        const andere = (await c.query("select count(*)::int as n from o_version where projekt = $1 and bereich = 'bauzeitenplan' and not geloescht", [projekt])).rows[0].n as number;
+        vorweg.push({ ...kopf(), objekt: 'version', art: 'anlegen', objektId: version, werte: { projekt, bereich: 'bauzeitenplan', name: `Übernommen: ${alt.name}`.slice(0, 120), gueltig: andere === 0, notiz: '', kennung: `alt-gantt:${id}` } });
+      }
+      const r = await planUebernehmen(c, e.register, { projekt, version }, alt, `alt-gantt:${id}:`);
+      const neu = (o: string) => (vorweg.some((b) => b.objekt === o) ? { [o]: { neu: 1, geaendert: 0, entfernt: 0, unveraendert: 0, behalten: 0 } } : {});
+      return { je: { ...neu('projekt'), ...neu('version'), ...r.je }, hinweise: [...hinweise, ...r.hinweise], liste: [...vorweg, ...r.liste] };
+    });
+    return merken(req.benutzer!.id, plan);
   });
   app.post('/api/altdaten/fotos-holen', { preHandler: e.nurAngemeldet }, async (req) => {
     admin(req);

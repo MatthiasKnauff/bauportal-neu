@@ -8,7 +8,7 @@ import { register } from '../src/module';
 import { kontakt } from '../src/module/adressen/beipackzettel';
 import { Eingabefehler, pruefeWerte } from '../src/kern/modell';
 import { anwenden, gegenbefehl, type Befehl, type Zeile } from '../src/kern/befehl';
-import { SYSTEM, schemaAnlegen, verbinden, type Absender, type Db } from '../src/server/db';
+import { SYSTEM, alsBenutzer, schemaAnlegen, verbinden, type Absender, type Db } from '../src/server/db';
 import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss } from '../src/server/protokoll';
 import { festeKennung, grundausstattung } from '../src/server/grundausstattung';
 import { kennwortSetzen } from '../src/server/anmeldung';
@@ -831,4 +831,31 @@ test('Gebäudemodell: Kostengruppe aus Art, Lage, Tragfähigkeit; U-Wert eines A
     .map(([a, l, t]) => kostengruppeNummer(a, l, t)), ['331', '332', '330', '341', '344', '361', '322', null]);
   assert.equal(uWert('aussenwand', [{ dicke: 36.5, lambda: 0.08 }]), 0.21);   // 1 / (0,13 + 4,5625 + 0,04)
   assert.equal(uWert('aussenwand', [{ dicke: 36.5, lambda: 0.08 }, { dicke: 1.5, lambda: null }]), null, 'ohne λ kein Wert');
+});
+
+test('Bauzeitenplan: Plan der Gantt-App in eine Version übernehmen, wiederholbar, Hand-Änderungen bleiben', async () => {
+  const { altplanLesen } = await import('../src/module/bauzeitenplan/austausch');
+  const { planUebernehmen, planLaden } = await import('../src/server/bauzeitenplan');
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung } = await leute(db);
+    const wer = { ...leitung, anmeldename: 'leitung', rolle: 'bueroleitung' };
+    const [p, v] = [randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
+    await tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: v, werte: { projekt: p, bereich: 'bauzeitenplan', name: 'Start' } });
+    const alt = { name: 'Haus A', startDate: '2026-11-16', cal: { week: 5 }, tasks: [{ uid: 1, name: 'Mauern', lvl: 0, dur: 10 }, { uid: 2, name: 'Decke', lvl: 0, dur: 5, preds: [{ uid: 1, type: 'FS', lag: 0 }] }] };
+    const plane = () => alsBenutzer(db, wer, (c) => planUebernehmen(c, register, { projekt: p, version: v }, altplanLesen(alt, 'alt-gantt:7:'), 'alt-gantt:7:'));
+    const a = await plane();
+    assert.deepEqual([a.je.zeitplan!.neu, a.je.vorgang!.neu, a.je.verknuepfung!.neu], [1, 2, 1]);
+    await vorgangAusfuehren(db, register, wer, a.liste);
+    assert.equal((await plane()).liste.length, 0, 'derselbe Plan noch einmal: nichts zu tun');
+    const l = await planLaden(db, register, wer, v);
+    assert.deepEqual(l.plan.zeilen.map((z) => [z.name, z.termin.anfang, z.termin.ende, z.vorg]), [['Mauern', '2026-11-16', '2026-11-27', ''], ['Decke', '2026-11-30', '2026-12-04', '1']]);
+    // von Hand: Dauer der Decke geändert; neuer Stand der Gantt-App ändert sie auch – die Hand-Änderung bleibt
+    const decke = l.plan.reihe.find((x) => x.werte.name === 'Decke')!;
+    await tun(db, leitung, { objekt: 'vorgang', objektId: decke.id, werte: { dauer: 6 } });
+    alt.tasks[1]!.dur = 8;
+    const b = await plane();
+    assert.deepEqual(b.je.vorgang, { neu: 0, geaendert: 0, entfernt: 0, unveraendert: 2, behalten: 1 });
+  } finally { await weg(); }
 });

@@ -34,6 +34,7 @@ export const freierTag: ObjektModell = {
     { name: 'von', titel: 'von', art: 'datum', pflicht: true, inListe: true, gruppe: 'Freie Tage' },
     { name: 'bis', titel: 'bis', art: 'datum', inListe: true, gruppe: 'Freie Tage' },
     { name: 'jaehrlich', titel: 'jedes Jahr', art: 'ja_nein', inListe: true, gruppe: 'Freie Tage' },
+    { name: 'kennung', titel: 'Kennung (Übernahme)', art: 'text', verborgen: true },
   ],
 };
 

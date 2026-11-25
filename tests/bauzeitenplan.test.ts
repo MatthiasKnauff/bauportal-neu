@@ -83,3 +83,43 @@ test('Bearbeiten: einfügen in die Kette, löschen überbrückt, Vorgänger, gli
   const g = [{ id: 'a', reihe: 1, ebene: 0 }, { id: 'a1', reihe: 2, ebene: 1 }, { id: 'b', reihe: 3, ebene: 0 }];
   assert.deepEqual(verschieben(g, 'b', -1).map((b) => [b.objektId, b.werte!.reihe]), [['b', 1], ['a', 2], ['a1', 3]], 'Gruppe wandert als Ganzes');
 });
+
+test('Austausch und Ausdruck: Gantt-Plan lesen, Sicherung, CSV, MS Project, Seiten', async () => {
+  const { altplanLesen, planJsonAus, csvAus, mspdiAus } = await import('../src/module/bauzeitenplan/austausch');
+  const { planAus } = await import('../src/module/bauzeitenplan/plan');
+  const { planDruck, STANDARD } = await import('../src/module/bauzeitenplan/druck');
+  const alt = { name: 'Haus A', start: tagAus('2026-11-16'), cal: { week: 5, state: 'NW', state_hand: true, free: [{ from: '2026-12-24', to: '2027-01-01', name: 'Betriebsferien', yearly: true }] }, gwColors: { Rohbau: '#78909c' },
+    tasks: [
+      { uid: 1, name: 'Rohbau', lvl: 0, dur: 0 },
+      { uid: 2, name: 'Mauern', lvl: 1, dur: 10, gw: 'Rohbau', res: 'Schmitz', pct: 20, preds: [] },
+      { uid: 3, name: 'Decke', lvl: 1, dur: 7, gw: 'Rohbau', segs: [{ d: 3 }, { d: 4, gap: 2 }], preds: [{ uid: 2, type: 'FS', lag: 1 }, { uid: 99, type: 'FS' }] },
+      { uid: 4, name: 'Dach', lvl: 0, dur: 5, cons: tagAus('2027-01-11'), preds: [{ uid: 1, type: 'SS', lag: 3 }] },
+    ], trades: { Rohbau: { firm: 'x' } } };
+  const a = altplanLesen(alt, 'alt-gantt:7:');
+  assert.deepEqual([a.zeitplan, a.frei.length, a.vorgaenge.length, a.links.length], [{ anfang: '2026-11-16', arbeitswoche: '5', bundesland: 'NW' }, 1, 4, 2]);
+  assert.deepEqual(a.vorgaenge[2]!.werte.unterbrechung, '3+(2)+4');
+  assert.equal(a.vorgaenge[1]!.werte.farbe, '#78909c', 'Farbe des Gewerks bleibt');
+  assert.equal(a.vorgaenge[3]!.werte.anfang_nicht_vor, '2027-01-11');
+  assert.deepEqual(a.links.map((l) => [l.von, l.nach, l.werte.art, l.werte.abstand]), [['alt-gantt:7:2', 'alt-gantt:7:3', 'ea', 1], ['alt-gantt:7:1', 'alt-gantt:7:4', 'aa', 3]]);
+  assert.equal(a.hinweise.length, 2, 'fremde Verknüpfung und Firmen werden erklärt');
+  assert.throws(() => altplanLesen({ name: 'x' }, ''), /kein Bauzeitenplan/);
+  // als Plan: Sicherung und wieder lesen ergibt dasselbe
+  const id = (k: string) => k.split(':').pop()!;
+  const plan = planAus({ vorgaenge: a.vorgaenge.map((v) => ({ id: id(v.kennung), werte: v.werte })), links: a.links.map((l) => ({ id: l.kennung, werte: { ...l.werte, von: id(l.von), nach: id(l.nach) } })), zeitplan: a.zeitplan, frei: a.frei.map((f) => ({ id: f.kennung, werte: f.werte })), land: '', heute: '2026-11-25' });
+  const wieder = altplanLesen(JSON.parse(planJsonAus(plan, 'Haus A', a.zeitplan, a.frei)), 'x:');
+  assert.deepEqual(wieder.vorgaenge.map((v) => [v.werte.name, v.werte.dauer, v.werte.ebene, v.werte.unterbrechung]), a.vorgaenge.map((v) => [v.werte.name, v.werte.dauer, v.werte.ebene, v.werte.unterbrechung]));
+  assert.equal(wieder.links.length, 2);
+  const csv = csvAus(plan);
+  assert.ok(csv.startsWith('﻿Nr.;Gliederung;Leistung') && csv.includes('3;1;  Decke;7;'), csv.split('\r\n')[3]);
+  const xml = mspdiAus(plan, 'Haus A');
+  assert.equal((xml.match(/<Task>/g) ?? []).length, 4);
+  assert.ok(xml.includes('<PredecessorLink><PredecessorUID>2</PredecessorUID><Type>1</Type>'));
+  // Ausdruck: A3 quer eine Seite; viele Zeilen auf A4 hoch mehrere; Rolle wächst mit dem Plan
+  const d = { titel: 'Bauzeitenplan Haus A', unter: '', buero: 'GK3', zeilen: plan.zeilen, links: plan.links, kal: plan.kal, ende: plan.erg.endeDatum, heute: '2026-11-25' };
+  assert.equal(planDruck(d, STANDARD).seiten, 1);
+  const viele = { ...d, zeilen: Array.from({ length: 200 }, (_, i) => ({ ...plan.zeilen[1]!, id: `z${i}`, nr: i + 1 })) };
+  assert.ok(planDruck(viele, { ...STANDARD, format: 'A4', quer: false }).seiten >= 4);
+  assert.equal(planDruck(d, { ...STANDARD, anpassen: 'breite', seitenBreit: 2 }).seiten, 2, 'auf zwei Seiten breit');
+  const rolle = planDruck(d, { ...STANDARD, format: 'ROLLE', rolle: 914, anpassen: 'fest', mmJeTag: 5 });
+  assert.ok(rolle.seiten === 1 && rolle.blatt.b > 300 && rolle.html.includes('@page { size: '));
+});

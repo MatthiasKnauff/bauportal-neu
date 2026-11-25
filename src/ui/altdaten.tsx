@@ -1,7 +1,7 @@
 // Verwaltung → Übernahme: die Daten des bisherigen Bautagebuchs ins neue Bauportal holen. Am einfachsten holt das
 // Bauportal selbst: Es meldet sich am alten Bautagebuch an, holt den Export (Vorschau wie bei jeder Übernahme) und danach
 // die Fotos. Ohne Verbindung geht es weiter mit dem Export als Datei und den Fotos als Dateien.
-import { Show, createResource, createSignal, onCleanup } from 'solid-js';
+import { For, Show, createResource, createSignal, onCleanup } from 'solid-js';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { ruf } from './api';
@@ -21,6 +21,28 @@ export function Altdaten() {
   onCleanup(() => clearInterval(uhr));
   const holen = () => void vorschauZeigen({ titel: 'Aus dem alten Bautagebuch übernehmen', wartetext: 'Anmeldung am alten Bautagebuch, der Export wird geholt und mit dem Bauportal verglichen …', fertig: 'Die Daten sind übernommen. Die Fotos werden jetzt nachgeholt.', danach: () => void refetch() },
     () => ruf<Vorschau>('/api/altdaten/abholen', {}));
+  type AltPlan = { id: string; name: string; leistungen: number; geaendert: string; uebernommen: boolean };
+  const [plaene, setPlaene] = createSignal<AltPlan[] | null>(null);
+  const [planLage, setPlanLage] = createSignal('');
+  const plaeneHolen = async () => {
+    setPlanLage('Wird abgerufen …');
+    try { setPlaene((await ruf<{ plaene: AltPlan[] }>('/api/altdaten/plaene', {})).plaene); } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); } finally { setPlanLage(''); }
+  };
+  const einen = (pl: AltPlan) => void vorschauZeigen({ titel: `Bauzeitenplan übernehmen – ${pl.name}`, wartetext: 'Der Plan wird geholt und mit dem Bauportal verglichen …', fertig: `„${pl.name}“ ist übernommen.`, danach: () => void plaeneHolen() },
+    () => ruf<Vorschau>('/api/altdaten/plan', { id: pl.id }));
+  // Alle nacheinander, ohne Rückfrage je Plan – die Vorschau wäre bei vielen Plänen nur Klickerei
+  const alle = async () => {
+    const l = plaene() ?? [];
+    let n = 0, fehler = 0;
+    for (const pl of l) {
+      setPlanLage(`Plan ${++n} von ${l.length} …`);
+      try { const v = await ruf<Vorschau>('/api/altdaten/plan', { id: pl.id }); if (v.befehle) await ruf('/api/uebernehmen', { token: v.token }); }
+      catch (e) { fehler++; if (fehler <= 3) hinweis(`${pl.name}: ${(e as Error).message}`, { art: 'fehler' }); }
+    }
+    setPlanLage('');
+    hinweis(`${l.length - fehler} von ${l.length} Bauzeitenplänen übernommen.`);
+    void plaeneHolen();
+  };
   const fotosHolen = async () => { try { await ruf('/api/altdaten/fotos-holen', {}); void refetch(); } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); } };
   const [lage, setLage] = createSignal('');
   let exportWahl!: HTMLInputElement, fotoWahl!: HTMLInputElement;
@@ -86,6 +108,26 @@ export function Altdaten() {
             </Show>
           </Show>
         )}</Show>
+      </div>
+      <div class="update-kasten">
+        <h3>3. Bauzeitenpläne</h3>
+        <Show when={verbunden()} fallback={<p class="still-text">Mit der Verbindung aus Schritt 1 holt das Bauportal auch die Pläne der alten Gantt-App. Einzelne Pläne lassen sich außerdem im Balkenplan unter „Export / Import“ aus einer Datei einlesen.</p>}>
+          <p class="still-text">Jeder Plan kommt als eigene Version in sein Projekt – in das aus dem Bautagebuch übernommene, wenn er damit verknüpft war. Wiederholbar: Von Hand Geändertes bleibt.</p>
+          <div class="reihe">
+            <button class="knopf" disabled={!!planLage()} onClick={() => void plaeneHolen()}>{plaene() ? 'Liste neu abrufen' : 'Pläne abrufen'}</button>
+            <Show when={plaene()?.length}><button class="knopf haupt" disabled={!!planLage()} onClick={() => void alle()}>{planLage() || 'Alle übernehmen'}</button></Show>
+          </div>
+          <Show when={plaene()}>{(l) => (
+            <ul class="planliste">
+              <For each={l()} fallback={<li class="still-text">Im alten Bauportal gibt es keine Bauzeitenpläne.</li>}>{(pl) => (
+                <li>
+                  <span><strong>{pl.name}</strong> <span class="still-text">· {pl.leistungen} Leistungen{pl.uebernommen ? ' · schon übernommen' : ''}</span></span>
+                  <button class="knopf klein" disabled={!!planLage()} onClick={() => einen(pl)}>{pl.uebernommen ? 'Erneut übernehmen' : 'Übernehmen'}</button>
+                </li>
+              )}</For>
+            </ul>
+          )}</Show>
+        </Show>
       </div>
     </section>} />
   );

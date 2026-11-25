@@ -12,7 +12,7 @@ import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
 import type { Benutzer } from './anmeldung';
 
 /** Zeile aus der Datenbank -> Werte des Modells (Zahlen kommen als Text an). */
-const werteAus = (m: ObjektModell, z: Record<string, unknown> | undefined): Werte =>
+export const werteAus = (m: ObjektModell, z: Record<string, unknown> | undefined): Werte =>
   Object.fromEntries(m.felder.map((f) => [f.name, f.art === 'zahl' && z?.[f.name] != null ? Number(z[f.name]) : ((z?.[f.name] ?? null) as Werte[string])]));
 
 export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer, ausdruckId: string, objektId: string): Promise<{ html: string; name: string; projekt: string | null; projektordner: string | null; ordner: string }> {

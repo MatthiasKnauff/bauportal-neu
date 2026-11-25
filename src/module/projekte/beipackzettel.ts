@@ -71,6 +71,7 @@ export const version: ObjektModell = {
     { name: 'name', titel: 'Name der Version', art: 'text', pflicht: true },
     { name: 'gueltig', titel: 'Gültige Version', art: 'ja_nein' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext' },
+    { name: 'kennung', titel: 'Kennung aus der Übernahme', art: 'text', verborgen: true },
   ],
 };
 

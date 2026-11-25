@@ -401,3 +401,16 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .bzp-pfeil.kritisch path { stroke: #d32f2f; } .bzp-pfeil.kritisch .bzp-spitze { fill: #d32f2f; }
 .bzp-zieh { stroke: var(--akzent); stroke-dasharray: 4 3; }
 .bzp-leer { padding: 8px 12px; }
+.plandruck { display: flex; gap: 16px; min-height: 0; height: 100%; width: 100%; }
+.plandruck-optionen { width: 260px; flex: none; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.plandruck-optionen fieldset { border: 1px solid var(--rand); border-radius: 8px; padding: 6px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+.plandruck-optionen legend { font-weight: 600; font-size: 13px; }
+.druck-feld { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; }
+.druck-feld input, .druck-feld select { min-height: 28px; border: 1px solid var(--rand-stark); border-radius: 6px; padding: 0 6px; max-width: 150px; background: var(--flaeche); }
+.druck-feld input[type=number] { width: 80px; }
+.druck-haken { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.plandruck-vorschau { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.plandruck-vorschau iframe { flex: 1; min-height: 420px; width: 100%; border: 1px solid var(--rand); border-radius: 8px; background: #e9e9e4; }
+@media (max-width: 760px) { .plandruck { flex-direction: column; } .plandruck-optionen { width: auto; } }
+.planliste { list-style: none; margin: 8px 0 0; padding: 0; max-height: 340px; overflow: auto; border-top: 1px solid var(--rand); }
+.planliste li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #efefea; font-size: 14px; }

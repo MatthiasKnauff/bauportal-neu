@@ -103,7 +103,7 @@ export function rechnen(vorgaenge: Eingang[], verbindungen: Verbindung[], k: Kal
   const s = new Array<number>(n).fill(0);
   for (const i of reihenfolge) {
     const v = vorgaenge[i]!;
-    let x = v.anfangNichtVor && /^\d{4}-\d{2}-\d{2}/.test(v.anfangNichtVor) ? Math.max(0, k.arbeitstag(tagAus_(v.anfangNichtVor))) : 0;
+    let x = v.anfangNichtVor && /^\d{4}-\d{2}-\d{2}/.test(v.anfangNichtVor) ? k.arbeitstag(tagAus_(v.anfangNichtVor)) : 0;   // ein fester Anfang gilt auch vor dem Projektanfang
     for (const e of ein[i]!) x = Math.max(x, s[e.von]! + e.c);
     s[i] = x;
   }

@@ -7,8 +7,9 @@ import { For, Show, createEffect, createMemo, createResource, createSignal, untr
 import { unwrap } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
-import { Kalender, BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenplan/kalender';
-import { abschnitteLesen, abschnitteSchreiben, rechnen, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
+import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenplan/kalender';
+import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
+import { balkenFarbe, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
 import { einfuegen, gliedern, loeschen, verschieben, vorgaengerSetzen, type L, type V, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './abgleich';
@@ -16,6 +17,9 @@ import { darf, neueKennung, ruf } from './api';
 import type { Mitte } from './baukasten/anpassung';
 import { hinweis } from './baukasten/hinweise';
 import { zeigeMenue } from './baukasten/kontextmenue';
+import { PlanDrucken } from './plandruck';
+import { csvAus, mspdiAus, planJsonAus } from '../module/bauzeitenplan/austausch';
+import { vorschauZeigen, type Vorschau } from './uebernahme';
 
 const H = 30, KOPF = 46;
 type Spalte = { id: 'nr' | 'name' | 'dauer' | 'anfang' | 'ende' | 'vorg' | 'gewerk' | 'pct'; titel: string; breite: number; rechts?: boolean };
@@ -26,11 +30,9 @@ const SPALTEN: Spalte[] = [
 ];
 const BEARBEITBAR = new Set(['name', 'dauer', 'anfang', 'vorg', 'gewerk', 'pct']);
 const ZOOM = [3, 6, 12, 24, 40];   // Bildpunkte je Kalendertag
-const FARBEN = ['#5b8def', '#e8a33d', '#4caf7a', '#d9645b', '#8d6fd1', '#3fb5c4', '#c27c4e', '#7c8b99', '#d4b13f', '#5fa35a', '#c85b9a', '#4d7fa8'];
-const farbe = (g: string) => { let h = 0; for (const c of g) h = (h * 31 + c.charCodeAt(0)) >>> 0; return g ? FARBEN[h % FARBEN.length]! : '#8aa1b8'; };
 const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}` : '');
 const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
-const naechsterMontag = () => { const h = tagAus(new Date().toLocaleDateString('sv')); return isoAus(h + ((7 - wochentag(h)) % 7)); };
+const naechsterMontag = () => montag(new Date().toLocaleDateString('sv'));
 const merken = (k: string, w: unknown) => { try { localStorage.setItem(k, JSON.stringify(w)); } catch { /* ohne Speicher geht es auch */ } };
 const holen = <T,>(k: string, d: T): T => { try { const x = localStorage.getItem(k); return x ? (JSON.parse(x) as T) : d; } catch { return d; } };
 
@@ -62,15 +64,10 @@ export function Balkenplan(p: Mitte) {
     angelegt.add(v);
     ausfuehren({ objekt: 'zeitplan', art: 'anlegen', objektId: neueKennung(), werte: { projekt: z().projekt, version: v, anfang: naechsterMontag(), arbeitswoche: '5', bundesland: '', notiz: '' } }, 'Kalender anlegen', true);
   });
-  const landJetzt = () => String(zp()?.werte.bundesland || land() || 'DE');
-  const kal = createMemo(() => new Kalender({
-    anfang: String(zp()?.werte.anfang || naechsterMontag()), arbeitswoche: Number(zp()?.werte.arbeitswoche || 5), land: landJetzt(),
-    frei: lebend('freier_tag').map((f) => ({ von: String(f.werte.von ?? ''), bis: (f.werte.bis as string | null) ?? null, name: String(f.werte.name ?? ''), jaehrlich: f.werte.jaehrlich === true })),
-  }));
-  const erg = createMemo(() => rechnen(
-    vorgaenge().map((v) => ({ id: v.id, ebene: Number(v.werte.ebene ?? 0), dauer: Number(v.werte.dauer ?? 0), abschnitte: abschnitteLesen(v.werte.unterbrechung as string), anfangNichtVor: (v.werte.anfang_nicht_vor as string | null) ?? null })),
-    links().map((l) => ({ id: l.id, von: String(l.werte.von), nach: String(l.werte.nach), art: (l.werte.art || 'ea') as Art, abstand: Number(l.werte.abstand ?? 0), vonAbschnitt: l.werte.von_abschnitt as number | null, nachAbschnitt: l.werte.nach_abschnitt as number | null })),
-    kal()));
+    // Kalender, Terminrechnung und Zeilen – dieselbe Aufbereitung wie für Ausdruck und Export
+  const plan = createMemo(() => planAus({ vorgaenge: vorgaenge(), links: links(), zeitplan: zp()?.werte, frei: lebend('freier_tag'), land: land() ?? '', heute: new Date().toLocaleDateString('sv') }));
+  const kal = () => plan().kal;
+  const erg = () => plan().erg;
   const V_ = (): V[] => vorgaenge().map((v) => ({ id: v.id, reihe: Number(v.werte.reihe ?? 0), ebene: Number(v.werte.ebene ?? 0) }));
   const L_ = (): L[] => links().map((l) => ({ id: l.id, von: String(l.werte.von), nach: String(l.werte.nach), art: (l.werte.art || 'ea') as Art, abstand: Number(l.werte.abstand ?? 0) }));
   const zu = () => ({ projekt: z().projekt, version: z().version });
@@ -85,6 +82,30 @@ export function Balkenplan(p: Mitte) {
   const [autom, setAutom] = createSignal<boolean>(holen('bzp.autom', true));
   createEffect(() => { merken('bzp.zoom', zoom()); merken('bzp.pfeile', pfeile()); merken('bzp.kritisch', kritisch()); merken('bzp.autom', autom()); });
   const px = () => ZOOM[zoom()] ?? 12;
+  const [drucken, setDrucken] = createSignal(false);
+  // Export als Datei (im Browser erzeugt) und Plan aus einer Datei einlesen (Vorschau wie jede Übernahme)
+  let dateiWahl!: HTMLInputElement;
+  const titel = () => { const pr = sicht.projekt?.[z().projekt]?.werte; return `Bauzeitenplan ${[pr?.nummer, pr?.name].filter(Boolean).join(' ')} ${sicht.version?.[z().version]?.werte.name ?? ''}`.trim(); };
+  const speichern = (inhalt: string, endung: string, typ: string) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([inhalt], { type: typ }));
+    a.download = `${titel()} ${new Date().toLocaleDateString('sv')}.${endung}`.replace(/[\\/:*?"<>|]+/g, '-');
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
+  const austauschMenue = (e: MouseEvent) => zeigeMenue(e, [
+    { titel: 'Excel / CSV', tun: () => speichern(csvAus(plan()), 'csv', 'text/csv;charset=utf-8') },
+    { titel: 'MS Project (XML)', tun: () => speichern(mspdiAus(plan(), titel()), 'xml', 'application/xml') },
+    { titel: 'Sicherung (.gantt)', tun: () => speichern(planJsonAus(plan(), titel(), (zp()?.werte ?? {}) as Record<string, Wert>, lebend('freier_tag')), 'gantt', 'application/json') },
+    ...(schreiben() ? [{ titel: 'Plan aus Datei einlesen …', tun: () => dateiWahl.click() }] : []),
+  ]);
+  const einlesen = async () => {
+    const d = dateiWahl.files?.[0];
+    dateiWahl.value = '';
+    if (!d) return;
+    const inhalt = await d.text();
+    void vorschauZeigen({ titel: `Plan einlesen – ${d.name}`, wartetext: 'Die Datei wird gelesen und mit dieser Version verglichen …', fertig: 'Der Plan ist übernommen.' }, () => ruf<Vorschau>('/api/bauzeitenplan/einlesen', { version: z().version, inhalt }));
+  };
   // Auf dem Handy nur Nummer und Leistung links – der Platz gehört den Balken
   const schmalAbfrage = typeof matchMedia === 'function' ? matchMedia('(max-width: 760px)') : null;
   const [schmal, setSchmal] = createSignal(!!schmalAbfrage?.matches);
@@ -389,6 +410,9 @@ export function Balkenplan(p: Mitte) {
         <label>Pfeile <select value={pfeile()} onChange={(e) => setPfeile(e.currentTarget.value as 'markiert')}>
           <option value="markiert">bei markierter</option><option value="kritisch">kritischer Weg</option><option value="alle">alle</option><option value="keine">keine</option></select></label>
         <Show when={schreiben()}><label class="bzp-haken" title="Einfügen setzt die neue Leistung in die Kette, Löschen überbrückt sie"><input type="checkbox" checked={autom()} onChange={(e) => setAutom(e.currentTarget.checked)} /> Autom. verknüpfen</label></Show>
+        <button class="knopf klein" onClick={() => setDrucken(true)}>⎙ Drucken / PDF</button>
+        <button class="knopf klein" onClick={austauschMenue}>Export / Import ▾</button>
+        <input ref={dateiWahl} type="file" accept=".gantt,.json,application/json" hidden onChange={() => void einlesen()} />
         <span class="bzp-zoom"><button class="knopf klein still" aria-label="Verkleinern" disabled={zoom() === 0} onClick={() => setZoom(zoom() - 1)}>−</button><button class="knopf klein still" aria-label="Vergrößern" disabled={zoom() === ZOOM.length - 1} onClick={() => setZoom(zoom() + 1)}>+</button></span>
         <Show when={erg().zyklen.length}><span class="feld-fehler">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</span></Show>
       </div>
@@ -412,7 +436,7 @@ export function Balkenplan(p: Mitte) {
             <For each={sichtbar()}>{(v, i) => {
               const t = (): Termin | undefined => erg().termine.get(v.id);
               const y = () => i() * H;
-              const fb = () => String(v.werte.farbe || '') || farbe(String(v.werte.gewerk ?? ''));
+              const fb = () => balkenFarbe(v.werte);
               return (
                 <Show when={t()}>{(tt) => (
                   <g class="bzp-vorgang" onDblClick={() => oeffnen(v.id)} onContextMenu={(e) => balkenMenue(e, v)}>
@@ -459,7 +483,7 @@ export function Balkenplan(p: Mitte) {
                         s.id === 'name'
                           ? <span class="bzp-name" style={{ 'padding-left': `${Number(v.werte.ebene ?? 0) * 16}px` }}>
                               <Show when={t()?.gruppe} fallback={<span class="bzp-dreieck" />}><button class="bzp-dreieck" aria-label={eingeklappt().has(v.id) ? 'Aufklappen' : 'Zuklappen'} onClick={(e) => { e.stopPropagation(); umschalten(v.id); }}>{eingeklappt().has(v.id) ? '▸' : '▾'}</button></Show>
-                              <Show when={!t()?.gruppe}><i class="bzp-farbe" style={{ background: String(v.werte.farbe || '') || farbe(String(v.werte.gewerk ?? '')) }} /></Show>
+                              <Show when={!t()?.gruppe}><i class="bzp-farbe" style={{ background: balkenFarbe(v.werte) }} /></Show>
                               {wert(v, 'name')}
                             </span>
                           : wert(v, s.id)}>
@@ -485,6 +509,7 @@ export function Balkenplan(p: Mitte) {
           </div>
         </div>
       </div>
+      <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Tippe unten in „+ Neue Leistung“ – Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
     </div>
   );
