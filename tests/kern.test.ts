@@ -26,7 +26,7 @@ import { katalogPlanen } from '../src/server/updates';
 import { wetterFuer, wetterlage } from '../src/server/wetter';
 import { fotoAblegen } from '../src/server/foto';
 import { aufbauText } from '../src/server/aufbau';
-import { altdatenLesen, altdatenPlanen } from '../src/server/altdaten';
+import { altAnmelden, altFotosHolen, altdatenLesen, altdatenPlanen } from '../src/server/altdaten';
 // @ts-expect-error – Werkzeug in reinem JavaScript
 import { aufbauLesen } from '../tools/aufbau.mjs';
 import { existsSync, readdirSync } from 'node:fs';
@@ -682,6 +682,38 @@ test('Übernahme aus dem alten Bautagebuch: Export → Objekte, wiederholbar, ni
     exp.tables.items.push({ id: 105, report_id: 10, kind: 'notizen', text: 'Nachgereicht' });
     p = await altdatenPlanen(db, register, wer, altdatenLesen(exp));
     assert.deepEqual(p.je.bericht_eintrag, { neu: 1, geaendert: 0, entfernt: 0, unveraendert: 4, behalten: 1 });
+
+    // Direkt vom alten Bautagebuch: anmelden, Export holen, Fotos samt Vorschaubild nachholen
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(500, 3)]);
+    const alt = createServer((req, res) => {
+      if (req.url === '/bautagebuch/api/login') {
+        let body = ''; req.on('data', (d) => (body += d)); req.on('end', () => {
+          const d = JSON.parse(body) as { name: string; password: string };
+          if (d.name !== 'chef' || d.password !== 'geheim') { res.writeHead(401, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'Name oder Kennwort ist falsch.' })); return; }
+          res.writeHead(200, { 'set-cookie': ['session=abc; Path=/; HttpOnly', 'bp_sso=xyz; Path=/'] }); res.end('{"ok":true}');
+        }); return;
+      }
+      if (req.headers.cookie !== 'session=abc; bp_sso=xyz') { res.writeHead(401); res.end(); return; }
+      if (req.url === '/bautagebuch/api/export') { res.end(JSON.stringify(exp)); return; }
+      if (req.url === '/bautagebuch/uploads/a1b2.jpg' || req.url === '/bautagebuch/api/thumb/240/a1b2.jpg') { res.writeHead(200, { 'content-type': 'image/jpeg' }); res.end(jpeg); return; }
+      res.writeHead(404); res.end();
+    });
+    await new Promise<void>((r) => alt.listen(0, '127.0.0.1', r));
+    try {
+      const adresse = `http://127.0.0.1:${(alt.address() as { port: number }).port}/bautagebuch/`;
+      await assert.rejects(altAnmelden(adresse, 'chef', 'falsch'), /Anmeldung am alten Bautagebuch abgelehnt: Name oder Kennwort ist falsch/);
+      await assert.rejects(altAnmelden('ftp://x', 'chef', 'geheim'), /https/);
+      const quelle = await altAnmelden(adresse, 'chef', 'geheim');
+      assert.equal(altdatenLesen(JSON.parse((await quelle.holen('api/export')).toString())).bilder.length, 1);
+      for (const b of u.bilder) await db.query('insert into kern_altbild (datei, bericht, beschriftung, reihe) values ($1,$2,$3,$4)', [b.datei, b.bericht, b.beschriftung, b.reihe]);
+      const stand = { n: 0, von: 0, fehler: [] as string[] };
+      await altFotosHolen(db, register, 'test', wer, quelle, stand, () => undefined);
+      assert.deepEqual([stand.n, stand.von, stand.fehler], [1, 1, []]);
+      const foto = (await schnappschuss(db, register, admin)).objekte.foto!;
+      assert.deepEqual(foto.map((f) => [f.werte.beschriftung, f.werte.kennung, f.herkunft?.name]), [['Sohle', 'alt:bild:a1b2.jpg', 'uebernahme']]);
+      await altFotosHolen(db, register, 'test', wer, quelle, stand, () => undefined);
+      assert.equal((await schnappschuss(db, register, admin)).objekte.foto!.length, 1, 'noch einmal: nichts doppelt');
+    } finally { alt.close(); }
   } finally { await weg(); }
 });
 

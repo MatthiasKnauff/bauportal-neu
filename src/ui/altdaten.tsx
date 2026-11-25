@@ -1,6 +1,9 @@
-// Verwaltung → Übernahme: die Daten des bisherigen Bautagebuchs ins neue Bauportal holen. Schritt 1 nimmt dessen
-// Export (JSON) und zeigt die Vorschau der gemeinsamen Übernahme; Schritt 2 reicht die Fotos als Dateien nach.
-import { Show, createResource, createSignal } from 'solid-js';
+// Verwaltung → Übernahme: die Daten des bisherigen Bautagebuchs ins neue Bauportal holen. Am einfachsten holt das
+// Bauportal selbst: Es meldet sich am alten Bautagebuch an, holt den Export (Vorschau wie bei jeder Übernahme) und danach
+// die Fotos. Ohne Verbindung geht es weiter mit dem Export als Datei und den Fotos als Dateien.
+import { Show, createResource, createSignal, onCleanup } from 'solid-js';
+import { Dialog } from './baukasten/dialog';
+import { Formular } from './baukasten/formular';
 import { ruf } from './api';
 import { vorschaubild, base64 } from './baukasten/bilder';
 import { hinweis } from './baukasten/hinweise';
@@ -8,7 +11,17 @@ import { Rahmen } from './baukasten/rahmen';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 
 export function Altdaten() {
-  const [fotos, { refetch }] = createResource(() => ruf<{ offen: string[]; erledigt: number }>('/api/altdaten/fotos'));
+  type Fotos = { offen: string[]; erledigt: number; laeuft: { n: number; von: number; fehler: string[]; fertig: boolean } | null };
+  const [fotos, { refetch }] = createResource(() => ruf<Fotos>('/api/altdaten/fotos'));
+  const [quelle, quelleNeu] = createResource(() => ruf<{ adresse: string; name: string; kennwortGesetzt: boolean }>('/api/altdaten/quelle'));
+  const [verbindung, setVerbindung] = createSignal(false);
+  const verbunden = () => !!(quelle()?.adresse && quelle()?.name && quelle()?.kennwortGesetzt);
+  // solange Fotos geholt werden, alle zwei Sekunden nachsehen
+  const uhr = setInterval(() => { const l = fotos()?.laeuft; if (l && !l.fertig) void refetch(); }, 2000);
+  onCleanup(() => clearInterval(uhr));
+  const holen = () => void vorschauZeigen({ titel: 'Aus dem alten Bautagebuch übernehmen', wartetext: 'Anmeldung am alten Bautagebuch, der Export wird geholt und mit dem Bauportal verglichen …', fertig: 'Die Daten sind übernommen. Die Fotos werden jetzt nachgeholt.', danach: () => void refetch() },
+    () => ruf<Vorschau>('/api/altdaten/abholen', {}));
+  const fotosHolen = async () => { try { await ruf('/api/altdaten/fotos-holen', {}); void refetch(); } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); } };
   const [lage, setLage] = createSignal('');
   let exportWahl!: HTMLInputElement, fotoWahl!: HTMLInputElement;
   const exportGewaehlt = () => {
@@ -39,18 +52,37 @@ export function Altdaten() {
       <p class="still-text">Projekte, Kontakte, Berichte mit ihren Einträgen und Fotos. Das alte Bautagebuch bleibt dabei unverändert und läuft weiter. Die Übernahme lässt sich wiederholen: Sie ergänzt, was neu dazugekommen ist, und legt nichts doppelt an.</p>
       <div class="update-kasten">
         <h3>1. Daten</h3>
-        <p class="still-text">Im alten Bautagebuch als Administrator:in den Export herunterladen (Adresse des alten Bautagebuchs mit <code>/api/export</code> am Ende) und die Datei „bautagebuch-….json“ hier wählen. Vor dem Übernehmen siehst du, was angelegt würde.</p>
-        <input ref={exportWahl} type="file" accept=".json,application/json" hidden onChange={exportGewaehlt} />
-        <div class="reihe"><button class="knopf haupt" onClick={() => exportWahl.click()}>Export wählen …</button></div>
+        <p class="still-text">{verbunden() ? <>Verbindung: <strong>{quelle()!.adresse}</strong>, angemeldet als {quelle()!.name}. </> : 'Trag die Adresse des alten Bautagebuchs und ein Administrator-Konto ein. Das Bauportal meldet sich dort an und holt alles selbst, nur lesend. '}Vor dem Übernehmen siehst du, was angelegt würde.</p>
+        <div class="reihe">
+          <Show when={verbunden()}><button class="knopf haupt" onClick={holen}>Jetzt holen</button></Show>
+          <button class="knopf" classList={{ haupt: !verbunden() }} onClick={() => setVerbindung(true)}>{verbunden() ? 'Verbindung ändern …' : 'Verbindung eintragen …'}</button>
+          <input ref={exportWahl} type="file" accept=".json,application/json" hidden onChange={exportGewaehlt} />
+          <button class="knopf still" onClick={() => exportWahl.click()}>oder Export als Datei …</button>
+        </div>
+        <Show when={verbindung()}>
+          <Dialog titel="Verbindung zum alten Bautagebuch" onAbbrechen={() => setVerbindung(false)} knoepfe={<button class="knopf" onClick={() => setVerbindung(false)}>Abbrechen</button>}>
+            <Formular knopf="Speichern" pfad="/api/altdaten/quelle" vorgaben={{ adresse: quelle()?.adresse ?? '', name: quelle()?.name ?? '' }}
+              text={`Das Kennwort wird verschlüsselt gespeichert. ${quelle()?.kennwortGesetzt ? 'Es ist schon eines hinterlegt – leer lassen, um es zu behalten.' : ''}`}
+              felder={[{ name: 'adresse', titel: 'Adresse des alten Bautagebuchs (z. B. https://bauportal.firma.de/bautagebuch)' }, { name: 'name', titel: 'Anmeldename (Administrator:in)', auto: 'username' }, { name: 'kennwort', titel: 'Kennwort', typ: 'password', auto: 'current-password' }]}
+              onFertig={() => { setVerbindung(false); hinweis('Verbindung gespeichert.'); void quelleNeu.refetch(); }} />
+          </Dialog>
+        </Show>
       </div>
       <div class="update-kasten">
         <h3>2. Fotos</h3>
         <Show when={fotos()} fallback={<p class="still-text">{fotos.error ? (fotos.error as Error).message : 'Wird abgefragt …'}</p>}>{(f) => (
           <Show when={f().offen.length + f().erledigt} fallback={<p class="still-text">Erst die Daten übernehmen – danach steht hier, welche Fotos fehlen.</p>}>
-            <p class="still-text">{f().erledigt} Fotos sind übernommen, {f().offen.length} fehlen noch. Die Fotos liegen im alten Bautagebuch im Ordner <code>data/uploads</code>. Wähle den Ordner (oder einzelne Dateien) – das Bauportal nimmt nur, was zu einem übernommenen Bericht gehört, und ordnet es über den Dateinamen zu.</p>
-            <Show when={f().offen.length}>
+            <p class="still-text">{f().erledigt} Fotos sind übernommen, {f().offen.length} fehlen noch.</p>
+            <Show when={f().laeuft}>{(l) => (
+              <p class="still-text" role="status">{l().fertig ? `Fotos geholt: ${l().von - l().fehler.length} von ${l().von}.` : `Fotos werden geholt: ${l().n} von ${l().von || '…'}`}{l().fehler.length ? ` ${l().fehler.length} ohne Erfolg, z. B. ${l().fehler[0]}` : ''}</p>
+            )}</Show>
+            <Show when={f().offen.length && !(f().laeuft && !f().laeuft!.fertig)}>
               <input ref={fotoWahl} type="file" accept="image/*" multiple hidden onChange={() => void fotosGewaehlt()} />
-              <div class="reihe"><button class="knopf haupt" disabled={!!lage()} onClick={() => fotoWahl.click()}>{lage() || 'Fotos wählen …'}</button></div>
+              <div class="reihe">
+                <Show when={verbunden()}><button class="knopf haupt" onClick={() => void fotosHolen()}>Fotos vom alten Bautagebuch holen</button></Show>
+                <button class="knopf" classList={{ still: verbunden(), haupt: !verbunden() }} disabled={!!lage()} onClick={() => fotoWahl.click()}>{lage() || (verbunden() ? 'oder Fotos als Dateien …' : 'Fotos wählen …')}</button>
+              </div>
+              <Show when={!verbunden()}><p class="still-text klein-text">Die Fotos liegen im alten Bautagebuch im Ordner <code>data/uploads</code>. Das Bauportal nimmt nur, was zu einem übernommenen Bericht gehört, und ordnet es über den Dateinamen zu.</p></Show>
             </Show>
           </Show>
         )}</Show>

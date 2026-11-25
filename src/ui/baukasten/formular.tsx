@@ -5,8 +5,8 @@ import { Serverfehler, ruf } from '../api';
 
 export interface Formularfeld { name: string; titel: string; typ?: string; auto?: string }
 
-export function Formular(p: { titel?: string; text?: string; felder: Formularfeld[]; knopf: string; pfad: string; fest?: Record<string, unknown>; onFertig: (antwort: unknown) => void }) {
-  const [werte, setWerte] = createStore<Record<string, string>>({});
+export function Formular(p: { titel?: string; text?: string; felder: Formularfeld[]; knopf: string; pfad: string; fest?: Record<string, unknown>; vorgaben?: Record<string, string>; onFertig: (antwort: unknown) => void }) {
+  const [werte, setWerte] = createStore<Record<string, string>>({ ...p.vorgaben });
   const [fehler, setFehler] = createStore<{ text: string; felder: Record<string, string> }>({ text: '', felder: {} });
   const [laeuft, setLaeuft] = createSignal(false);
   const senden = async (e: Event) => {

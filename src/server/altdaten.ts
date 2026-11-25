@@ -11,6 +11,7 @@ import { alsBenutzer, type Db } from './db';
 import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
 import { fotoAblegen } from './foto';
+import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { abgleicher, merken, type Eintrag, type Vorschau, type Zahl } from './uebernahme';
 
 type Alt = Record<string, unknown>;
@@ -102,38 +103,124 @@ export async function altdatenPlanen(db: Db, register: Modulregister, wer: Benut
   });
 }
 
+/** Anmeldung am alten Bautagebuch – danach holt `holen` Seiten mit dessen Sitzung. Adresse: bis einschließlich „/bautagebuch“. */
+export async function altAnmelden(adresse: string, name: string, kennwort: string, abruf: typeof fetch = fetch): Promise<{ holen: (pfad: string) => Promise<Buffer> }> {
+  let basis: URL;
+  try { basis = new URL(adresse.trim().replace(/\/+$/, '') + '/'); } catch { throw new Ablehnung('Die Adresse des alten Bautagebuchs ist keine gültige Adresse'); }
+  if (!/^https?:$/.test(basis.protocol)) throw new Ablehnung('Die Adresse muss mit https:// beginnen');
+  const url = (pfad: string) => new URL(pfad.replace(/^\//, ''), basis);
+  const nichtErreichbar = (e: unknown) => new Ablehnung(`Das alte Bautagebuch ist nicht erreichbar (${(e as Error).message})`);
+  const r = await abruf(url('api/login'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, password: kennwort }), redirect: 'manual' }).catch((e) => { throw nichtErreichbar(e); });
+  if (!r.ok) {
+    const f = await r.json().catch(() => ({})) as { error?: string };
+    throw new Ablehnung(`Anmeldung am alten Bautagebuch abgelehnt: ${f.error ?? `Fehler ${r.status}`}`);
+  }
+  const keks = r.headers.getSetCookie().map((k) => k.split(';')[0]).join('; ');
+  return {
+    async holen(pfad) {
+      const a = await abruf(url(pfad), { headers: { cookie: keks }, redirect: 'manual' }).catch((e) => { throw nichtErreichbar(e); });
+      if (!a.ok) throw new Ablehnung(a.status === 403 ? 'Das alte Bautagebuch gibt das nur Administrator:innen heraus – bitte mit einem Administrator-Konto anmelden' : `Das alte Bautagebuch antwortet mit Fehler ${a.status} (${pfad})`);
+      return Buffer.from(await a.arrayBuffer());
+    },
+  };
+}
+
+/** Ein Foto einem übernommenen Bericht zuordnen und ablegen – egal ob hochgeladen oder vom alten Bautagebuch geholt. */
+async function altFotoAblegen(db: Db, register: Modulregister, umgebung: string, wer: Benutzer, datei: string, original: Buffer, vorschau: Buffer): Promise<{ id: string; schon: boolean }> {
+  const z = (await db.query('select a.datei, a.beschriftung, a.reihe, a.foto, t.id as bericht, t.projekt from kern_altbild a join o_tagesbericht t on t.kennung = a.bericht and not t.geloescht where a.datei = $1', [datei])).rows[0];
+  if (!z) throw new Ablehnung('Dieses Foto gehört zu keinem übernommenen Bericht');
+  if (z.foto) return { id: z.foto as string, schon: true };
+  const f = await fotoAblegen(db, register, umgebung, wer, { projekt: z.projekt, bericht: z.bericht, name: z.datei, original, vorschau, beschriftung: z.beschriftung, kennung: `alt:bild:${z.datei}`, herkunft: 'uebernahme' });
+  await db.query('update kern_altbild set foto = $2 where datei = $1', [z.datei, f.id]);
+  return { id: f.id, schon: false };
+}
+
+/** Alle noch fehlenden Fotos vom alten Bautagebuch holen: das Original und dessen Vorschaubild (240 px, JPEG). */
+export async function altFotosHolen(db: Db, register: Modulregister, umgebung: string, wer: Benutzer, quelle: { holen: (pfad: string) => Promise<Buffer> }, stand: { n: number; von: number; fehler: string[] }, danach: () => void): Promise<void> {
+  const offen = (await db.query('select datei from kern_altbild where foto is null order by datei')).rows.map((r) => r.datei as string);
+  stand.von = offen.length;
+  for (const datei of offen) {
+    stand.n++;
+    try {
+      const pfad = encodeURIComponent(datei);
+      await altFotoAblegen(db, register, umgebung, wer, datei, await quelle.holen(`uploads/${pfad}`), await quelle.holen(`api/thumb/240/${pfad}`));
+      if (stand.n % 20 === 0) danach();
+    } catch (e) { stand.fehler.push(`${datei}: ${(e as Error).message}`); }
+  }
+  danach();
+}
+
 export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
   const { db } = e;
   const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
 
-  // Schritt 1: der Export als Datei → Vorschau. Übernommen wird über /api/uebernehmen.
+  // Der Export – als Datei oder vom alten Bautagebuch geholt – wird zur Vorschau. Übernommen wird über /api/uebernehmen;
+  // danach ist gemerkt, welche Fotos zu welchem Bericht gehören, und bei einer Verbindung kommen sie gleich hinterher.
+  type Stand = { n: number; von: number; fehler: string[]; fertig: boolean };
+  let laeuft: Stand | null = null;
+  const fotosStarten = (wer: Benutzer, quelle: Awaited<ReturnType<typeof altAnmelden>>) => {
+    if (laeuft && !laeuft.fertig) return;
+    const stand: Stand = (laeuft = { n: 0, von: 0, fehler: [], fertig: false });
+    void altFotosHolen(db, e.register, e.umgebung, wer, quelle, stand, e.nachBefehlen).catch((x) => { stand.fehler.push((x as Error).message); }).finally(() => { stand.fertig = true; });
+  };
+  const vorschau = async (wer: Benutzer, roh: unknown, quelle?: Awaited<ReturnType<typeof altAnmelden>>) => {
+    const u = altdatenLesen(roh);
+    return merken(wer.id, await altdatenPlanen(db, e.register, wer, u), async () => {
+      for (const b of u.bilder) await db.query('insert into kern_altbild (datei, bericht, beschriftung, reihe) values ($1,$2,$3,$4) on conflict (datei) do update set bericht = excluded.bericht, beschriftung = excluded.beschriftung, reihe = excluded.reihe', [b.datei, b.bericht, b.beschriftung, b.reihe]);
+      if (quelle) fotosStarten(wer, quelle);
+    });
+  };
   app.post('/api/altdaten/vorschau', { preHandler: e.nurAngemeldet, bodyLimit: 300 * 1024 * 1024 }, async (req): Promise<Vorschau> => {
     admin(req);
     let roh: unknown;
     try { roh = JSON.parse((req.body as Buffer).toString('utf8')); } catch { throw new Ablehnung('Die Datei ist nicht lesbar (erwartet wird der JSON-Export des Bautagebuchs)'); }
-    const u = altdatenLesen(roh);
-    return merken(req.benutzer!.id, await altdatenPlanen(db, e.register, req.benutzer!, u), async () => {
-      // welche Fotos zu welchem Bericht gehören, merken – bis die Dateien nachgereicht sind
-      for (const b of u.bilder) await db.query('insert into kern_altbild (datei, bericht, beschriftung, reihe) values ($1,$2,$3,$4) on conflict (datei) do update set bericht = excluded.bericht, beschriftung = excluded.beschriftung, reihe = excluded.reihe', [b.datei, b.bericht, b.beschriftung, b.reihe]);
-    });
+    return vorschau(req.benutzer!, roh);
+  });
+
+  // Verbindung zum alten Bautagebuch: Adresse und Anmeldung – das Kennwort verschlüsselt, es geht nie zurück an den Browser
+  const quelleLesen = async () => ({ adresse: (await geheimnisLesen(db, 'alt.adresse')) ?? '', name: (await geheimnisLesen(db, 'alt.name')) ?? '', kennwort: (await geheimnisLesen(db, 'alt.kennwort')) ?? '' });
+  app.get('/api/altdaten/quelle', { preHandler: e.nurAngemeldet }, async (req) => {
+    admin(req);
+    const q = await quelleLesen();
+    return { adresse: q.adresse, name: q.name, kennwortGesetzt: !!q.kennwort };
+  });
+  app.post('/api/altdaten/quelle', { preHandler: e.nurAngemeldet }, async (req) => {
+    admin(req);
+    const b = (req.body ?? {}) as { adresse?: string; name?: string; kennwort?: string };
+    await geheimnisSetzen(db, 'alt.adresse', String(b.adresse ?? '').trim());
+    await geheimnisSetzen(db, 'alt.name', String(b.name ?? '').trim());
+    if (b.kennwort) await geheimnisSetzen(db, 'alt.kennwort', String(b.kennwort));
+    return { ok: true };
+  });
+  const anmelden = async () => {
+    const q = await quelleLesen();
+    if (!q.adresse || !q.name || !q.kennwort) throw new Ablehnung('Erst Adresse, Anmeldename und Kennwort des alten Bautagebuchs eintragen');
+    return altAnmelden(q.adresse, q.name, q.kennwort);
+  };
+  app.post('/api/altdaten/abholen', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
+    admin(req);
+    const quelle = await anmelden();
+    let roh: unknown;
+    try { roh = JSON.parse((await quelle.holen('api/export')).toString('utf8')); } catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung('Der Export des alten Bautagebuchs ist nicht lesbar'); }
+    return vorschau(req.benutzer!, roh, quelle);
+  });
+  app.post('/api/altdaten/fotos-holen', { preHandler: e.nurAngemeldet }, async (req) => {
+    admin(req);
+    fotosStarten(req.benutzer!, await anmelden());
+    return { ok: true };
   });
 
   // Schritt 2: Fotos nachreichen
   app.get('/api/altdaten/fotos', { preHandler: e.nurAngemeldet }, async (req) => {
     admin(req);
     const r = (await db.query('select datei, foto is not null as da from kern_altbild order by datei')).rows as { datei: string; da: boolean }[];
-    return { offen: r.filter((x) => !x.da).map((x) => x.datei), erledigt: r.filter((x) => x.da).length };
+    return { offen: r.filter((x) => !x.da).map((x) => x.datei), erledigt: r.filter((x) => x.da).length, laeuft };
   });
   app.post('/api/altdaten/foto', { preHandler: e.nurAngemeldet, bodyLimit: 60 * 1024 * 1024 }, async (req) => {
     admin(req);
     const b = (req.body ?? {}) as { datei?: string; original?: string; vorschau?: string };
-    const z = (await db.query('select a.datei, a.beschriftung, a.reihe, a.foto, t.id as bericht, t.projekt from kern_altbild a join o_tagesbericht t on t.kennung = a.bericht and not t.geloescht where a.datei = $1', [String(b.datei ?? '')])).rows[0];
-    if (!z) throw new Ablehnung('Dieses Foto gehört zu keinem übernommenen Bericht');
-    if (z.foto) return { id: z.foto as string, schon: true };
-    const f = await fotoAblegen(db, e.register, e.umgebung, req.benutzer!, { projekt: z.projekt, bericht: z.bericht, name: z.datei, original: Buffer.from(String(b.original ?? ''), 'base64'), vorschau: Buffer.from(String(b.vorschau ?? ''), 'base64'),
-      beschriftung: z.beschriftung, kennung: `alt:bild:${z.datei}`, herkunft: 'uebernahme' });
-    await db.query('update kern_altbild set foto = $2 where datei = $1', [z.datei, f.id]);
-    e.nachBefehlen();
-    return { id: f.id, schon: false };
+    const f = await altFotoAblegen(db, e.register, e.umgebung, req.benutzer!, String(b.datei ?? ''), Buffer.from(String(b.original ?? ''), 'base64'), Buffer.from(String(b.vorschau ?? ''), 'base64'));
+    if (!f.schon) e.nachBefehlen();
+    return f;
   });
 }
