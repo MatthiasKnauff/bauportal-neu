@@ -6,6 +6,7 @@ import { ROLLEN } from '../kern/rechte';
 import { SYSTEM, type Db } from './db';
 import { befehlAusfuehren } from './protokoll';
 import { ABLAGE_ID, BUERO_ID } from '../module/verwaltung/beipackzettel';
+import { VORINSTALLIERT } from '../kern/design';
 
 /** Aus einem Text immer dieselbe Kennung – so entsteht ein Eintrag auch bei mehreren Starts nur einmal. */
 export function festeKennung(text: string): string {
@@ -41,4 +42,10 @@ export async function grundausstattung(db: Db, register: Modulregister): Promise
   }
   if (!(await db.query('select 1 from o_buero where id = $1', [BUERO_ID])).rowCount) await system('buero', BUERO_ID, {});
   if (!(await db.query('select 1 from o_ablage where id = $1', [ABLAGE_ID])).rowCount) await system('ablage', ABLAGE_ID, {});
+  // Vorinstallierte Designs (die Farbschemen des bisherigen Bauportals): je einmal; was das Büro gelöscht oder geändert hat, bleibt so
+  for (const v of VORINSTALLIERT) {
+    const id = festeKennung(`design:${v.schluessel}`);
+    if ((await db.query('select 1 from o_design where id = $1', [id])).rowCount) continue;
+    await system('design', id, { name: v.name, hell: JSON.stringify(v.design.hell), dunkel: JSON.stringify(v.design.dunkel), quelle: 'vorinstalliert', gruppe: v.gruppe, beschreibung: v.beschreibung });
+  }
 }

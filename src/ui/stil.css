@@ -699,14 +699,27 @@ details.feldgruppe > summary { cursor: pointer; font-weight: 600; padding: 6px 0
 .pw-links > .suche, .pw-filter { flex: none; } .pw-links > .suche { width: 100%; }
 .fenster-frage { align-items: center; } .fenster-frage span { flex: 1; font-weight: 600; }
 /* Design wählen */
-.design-wahl { display: flex; flex-direction: column; gap: 14px; }
-.design-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.design-karte { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 10px; border: 2px solid var(--rand); border-radius: calc(10px * var(--rund)); background: var(--flaeche); color: var(--text); cursor: pointer; text-align: left; }
-.design-karte.aktiv { border-color: var(--akzent); }
-.design-muster { display: flex; gap: 3px; }
-.design-muster i { width: 14px; height: 28px; border-radius: 99px; border: 1px solid var(--rand); }
-.design-rund { display: flex; align-items: center; gap: 10px; }
-.design-rund input { width: 180px; }
+.design-wahl { display: flex; flex-direction: column; gap: 10px; }
+.design-zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.design-etikett { font-size: 13px; color: var(--text-still); }
+.design-akzente { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.design-akzent { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--flaeche); box-shadow: 0 0 0 1px var(--rand-stark); cursor: pointer; padding: 0; }
+.design-akzent.aktiv { box-shadow: 0 0 0 2px var(--text); }
+.design-akzent.ohne { background: var(--flaeche); color: var(--text-still); font-size: 12px; }
+.design-hex { width: 84px; height: 28px; padding: 0 8px; border: 1px solid var(--rand-stark); border-radius: calc(6px * var(--rund)); background: var(--flaeche); color: var(--text); font: inherit; font-size: 13px; }
+.design-raster { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; padding-right: 4px; }
+.design-gruppe h4 { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--text-still); }
+.design-gruppe > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.design-karte { display: flex; flex-direction: column; gap: 5px; align-items: stretch; padding: 5px; border: 2px solid transparent; border-radius: calc(9px * var(--rund)); background: transparent; color: var(--text); cursor: pointer; font: inherit; font-size: 12.5px; text-align: left; }
+.design-karte:hover { background: var(--still); } .design-karte.aktiv { border-color: var(--akzent); }
+.design-vorschau { position: relative; display: block; height: 46px; border: 1px solid; border-radius: calc(7px * var(--rund)); overflow: hidden; }
+.design-vorschau i { position: absolute; left: 8px; top: 8px; right: 28px; bottom: 8px; border: 1px solid; border-radius: calc(4px * var(--rund)); display: flex; flex-direction: column; gap: 4px; padding: 6px; }
+.design-vorschau em { display: block; height: 4px; border-radius: 2px; width: 70%; } .design-vorschau em + em { width: 45%; }
+.design-vorschau b { position: absolute; right: 8px; top: 8px; width: 12px; height: 12px; border-radius: 50%; }
+.design-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.design-rund { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-still); }
+.design-rund input { width: 140px; }
+.design-quellen { margin: 0; padding-left: 18px; } .design-quellen a { color: var(--akzent); }
 .design-einfuegen { display: flex; flex-direction: column; gap: 8px; }
 .design-einfuegen textarea { font-family: var(--schrift-mono); font-size: 12px; padding: 8px; border: 1px solid var(--rand-stark); border-radius: calc(8px * var(--rund)); background: var(--flaeche); }
 .schritt-rahmen { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: auto; }
@@ -754,4 +767,19 @@ details.feldgruppe > summary { cursor: pointer; font-weight: 600; padding: 6px 0
 .kostenrahmen h4 { margin: 0 0 4px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
 .kostenrahmen p { margin: 2px 0; }
 .kostenrahmen-summe { font-size: 18px; font-weight: 700; }
-.zelle-verbinden { margin-left: 6px; text-decoration: none; color: var(--akzent); opacity: .7; } .zelle-verbinden:hover { opacity: 1; }
+.zelle-verbinden { margin-right: 6px; text-decoration: none; color: var(--akzent); opacity: .7; } .zelle-verbinden:hover { opacity: 1; }
+.filterfeld { position: relative; }
+.filter-vorschlaege { position: absolute; z-index: 30; left: 0; top: calc(100% + 2px); min-width: 100%; max-width: 360px; max-height: 300px; overflow-y: auto; margin: 0; padding: 4px; list-style: none; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); box-shadow: 0 6px 20px rgba(0,0,0,.12); font-weight: 400; text-align: left; }
+.filter-vorschlaege li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border-radius: calc(6px * var(--rund)); cursor: pointer; white-space: nowrap; }
+.filter-vorschlaege li:hover, .filter-vorschlaege li.markiert { background: var(--akzent-hell); }
+.filter-vorschlaege .anzahl { color: var(--text-still); }
+
+/* Kopf und Menüband ausblenden (Heftzwecke oben rechts) – erscheinen an der Oberkante über dem Inhalt */
+.platz-mitte { position: relative; }
+.oben-heftzwecke { position: absolute; top: 3px; right: 4px; z-index: 5; width: 24px; height: 22px; align-items: center; justify-content: center; border: 0; border-radius: calc(6px * var(--rund)); background: transparent; color: var(--text-still); cursor: pointer; opacity: .55; }
+.oben-heftzwecke:hover, .oben-heftzwecke:not(.an) { opacity: 1; } .oben-heftzwecke:not(.an) { color: var(--akzent); }
+html[data-oben] .kopf { display: none; }
+html[data-oben="2"] .menueleiste { display: none; }
+html[data-oben][data-oben-zeigen] .kopf { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 70; box-shadow: var(--schatten); }
+html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fixed; top: calc(var(--kopf-h, 52px) + 4px); left: 12px; right: 12px; margin: 0; z-index: 70; box-shadow: var(--schatten); }
+@media (max-width: 860px) { html[data-oben] .kopf { display: flex; } html[data-oben="2"] .menueleiste { display: flex; } }

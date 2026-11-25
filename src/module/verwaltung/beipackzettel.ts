@@ -154,6 +154,8 @@ export const design: ObjektModell = {
     { name: 'hell', titel: 'Variablen hell (JSON)', art: 'langtext' },
     { name: 'dunkel', titel: 'Variablen dunkel (JSON)', art: 'langtext' },
     { name: 'quelle', titel: 'Herkunft', art: 'text', inListe: true, breite: 220 },
+    { name: 'gruppe', titel: 'Gruppe in der Auswahl', art: 'text' },
+    { name: 'beschreibung', titel: 'Beschreibung', art: 'text' },
   ],
 };
 
@@ -165,6 +167,7 @@ export const designWahl: ObjektModell = {
     { name: 'design', titel: 'Design', art: 'verweis', ziel: 'design' },   // leer = Standard
     { name: 'modus', titel: 'Hell oder dunkel', art: 'auswahl', optionen: [{ wert: 'system', titel: 'Wie das Gerät' }, { wert: 'hell', titel: 'Hell' }, { wert: 'dunkel', titel: 'Dunkel' }] },
     { name: 'rund', titel: 'Rundung der Ecken', art: 'zahl' },   // leer = wie das Design
+    { name: 'akzent', titel: 'Akzentfarbe', art: 'text' },   // leer = wie das Design, sonst #rrggbb
   ],
 };
 

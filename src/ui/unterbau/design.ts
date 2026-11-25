@@ -1,7 +1,7 @@
 // Wendet das Design des angemeldeten Benutzers an: Standard, darüber das gewählte Design (hell/dunkel/wie das Gerät),
-// darüber die eigene Rundung. Schriften kommen vom eigenen Server (/api/schriften.css).
+// darüber eigene Rundung und Akzentfarbe. Schriften kommen vom eigenen Server (/api/schriften.css).
 import { createEffect, createSignal, onCleanup } from 'solid-js';
-import { satzFuer, VARIABLEN, type Design } from '../../kern/design';
+import { helligkeit, satzFuer, VARIABLEN, type Design } from '../../kern/design';
 import { sicht } from './abgleich';
 import { ich } from './api';
 import type { Zeile } from '../../kern/befehl';
@@ -17,7 +17,8 @@ export const schriftenNeu = () => setSchriftStand((n) => n + 1);
 /** Variablen setzen – auch für die Vorschau im Design-Fenster. */
 export function anwenden(satz: Record<string, string>, dunkel: boolean, ziel: HTMLElement = document.documentElement) {
   for (const v of VARIABLEN) { if (satz[v] !== undefined) ziel.style.setProperty(`--${v}`, satz[v]!); else ziel.style.removeProperty(`--${v}`); }
-  ziel.style.colorScheme = dunkel ? 'dark' : 'light';
+  // dunkle Designs (z. B. Schiefer) bleiben dunkel, auch wenn hell gewählt ist – maßgeblich ist der Hintergrund
+  ziel.style.colorScheme = (satz.grund && /^#[0-9a-f]{6}$/i.test(satz.grund) ? helligkeit(satz.grund) < 0.5 : dunkel) ? 'dark' : 'light';
 }
 
 export function designBeobachten() {
@@ -29,7 +30,7 @@ export function designBeobachten() {
     const w = meineWahl(), modus = String(w?.werte.modus ?? 'hell');
     const dunkel = modus === 'dunkel' || (modus === 'system' && dunkelGeraet());
     const d = w?.werte.design ? designAus(sicht.design?.[String(w.werte.design)]) : null;
-    anwenden(satzFuer(d, dunkel, w?.werte.rund === null || w?.werte.rund === undefined ? null : Number(w.werte.rund)), dunkel);
+    anwenden(satzFuer(d, dunkel, w?.werte.rund === null || w?.werte.rund === undefined ? null : Number(w.werte.rund), w?.werte.akzent ? String(w.werte.akzent) : null), dunkel);
   });
   createEffect(() => {
     const n = schriftStand();

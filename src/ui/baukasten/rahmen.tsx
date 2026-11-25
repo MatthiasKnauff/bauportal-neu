@@ -2,7 +2,7 @@
 //   Abfolge-Leiste (nur bei Apps mit Abfolge) · Menüleiste · darunter drei Plätze: Baum | Inhalt | Details
 // Die App setzt fertige Bausteine auf die Plätze. Ein leerer Platz fehlt einfach; wer zugeklappt ist,
 // gibt seinen Platz an die Mitte ab. Am Handy stehen die Plätze nacheinander statt nebeneinander.
-import { For, Show, createContext, createSignal, useContext, type JSX } from 'solid-js';
+import { For, Show, createContext, createEffect, createSignal, onCleanup, useContext, type JSX } from 'solid-js';
 import { Zeichen } from './zeichen';
 import { Seitenliste, type SeitenAbschnitt } from './seitenliste';
 import { Abfolgeleiste, type Schritt } from './abfolgeleiste';
@@ -41,6 +41,35 @@ function Griff(p: { titel: string; wert: number; min: number; max: number; werk:
 function Ansichtsliste(p: { reiter: Reiter[]; aktiv: string; onWahl: (id: string) => void }) {
   const abschnitte = (): SeitenAbschnitt[] => { const l: SeitenAbschnitt[] = []; for (const r of p.reiter) { const t = r.abschnitt ?? ''; const e = { id: r.id, titel: r.titel, zeichen: r.zeichen }; const x = l.find((a) => a.titel === t); if (x) x.eintraege.push(e); else l.push({ titel: t, eintraege: [e] }); } return l; };
   return <Seitenliste name="Ansichten" abschnitte={abschnitte()} aktiv={p.aktiv} onWahl={p.onWahl} />;
+}
+
+// Kopf und Menüband ausblenden wie im bisherigen Bauportal: die Heftzwecke oben rechts schaltet reihum –
+// 0 alles da · 1 Kopfleiste weg · 2 auch das Menüband weg. Gemerkt je App und Gerät. Ausgeblendet erscheinen beide, sobald die
+// Maus an die Oberkante kommt – über dem Inhalt, nichts verschiebt sich; weg sind sie, wenn die Maus sie verlässt (nicht beim Tippen).
+const OBEN_TEXT = ['Kopf ausblenden – mehr Platz', 'Auch das Menüband ausblenden – beide erscheinen, wenn die Maus an die Oberkante kommt', 'Kopf und Menüband wieder anheften'];
+function obenSetzen(stufe: number) {
+  const r = document.documentElement;
+  if (stufe) r.dataset.oben = String(stufe); else delete r.dataset.oben;
+  delete r.dataset.obenZeigen;
+}
+let obenBeobachtet = false;
+function obenBeobachten() {
+  if (obenBeobachtet) return; obenBeobachtet = true;
+  let weg: ReturnType<typeof setTimeout> | undefined;
+  document.addEventListener('mousemove', (e) => {
+    const r = document.documentElement;
+    if (!r.dataset.oben) return;
+    if (e.clientY <= 6 && !r.dataset.obenZeigen) {
+      clearTimeout(weg); r.dataset.obenZeigen = '1';
+      requestAnimationFrame(() => r.style.setProperty('--kopf-h', `${(document.querySelector('.kopf') as HTMLElement | null)?.offsetHeight ?? 0}px`));
+      return;
+    }
+    if (!r.dataset.obenZeigen) return;
+    const unten = Math.max(...[...document.querySelectorAll<HTMLElement>('.kopf, .menueleiste')].filter((x) => x.offsetParent).map((x) => x.getBoundingClientRect().bottom), 0);
+    if (e.clientY <= unten + 12) { clearTimeout(weg); return; }
+    const tippen = (document.activeElement as HTMLElement | null)?.closest('.kopf, .menueleiste') && (document.activeElement as HTMLElement).matches('input, textarea');
+    if (!tippen) { clearTimeout(weg); weg = setTimeout(() => delete r.dataset.obenZeigen, 350); }
+  });
 }
 
 export function Rahmen(p: {
@@ -95,6 +124,12 @@ export function Rahmen(p: {
       <div class="karte-kopf"><h2>Details</h2>{heftzwecke(rechtsZu, setRechtsZu, setRechtsSchwebt)}</div>
       <div class="karte-inhalt"><p class="still-text">{p.detailsHinweis}</p></div>
     </aside>);
+  // Kopf und Menüband: Stufe je App (erster Teil des Schlüssels)
+  const obenMerk = () => `bp.oben.${p.schluessel.split('.')[0]}`;
+  const [oben, setOben] = createSignal(0);
+  createEffect(() => { let s = 0; try { s = Math.min(2, Math.max(0, Number(localStorage.getItem(obenMerk())) || 0)); } catch { /* gesperrt */ } setOben(s); obenSetzen(s); obenBeobachten(); });
+  onCleanup(() => obenSetzen(0));
+  const obenWeiter = () => { const s = (oben() + 1) % 3; setOben(s); obenSetzen(s); try { localStorage.setItem(obenMerk(), String(s)); } catch { /* gesperrt */ } };
   return (
     <div class="rahmen">
       <Show when={p.abfolge}>{(a) => <Abfolgeleiste schritte={a().schritte} aktiv={a().aktiv} onWahl={a().onWahl} />}</Show>
@@ -111,7 +146,11 @@ export function Rahmen(p: {
             <aside class="platz-links schwebend" aria-label={p.baumTitel ?? 'Gliederung'} onMouseLeave={() => setLinksSchwebt(false)}>{linksInhalt()}</aside>
           </Show>
         </Show>
-        <section class="platz-mitte">{p.inhalt}</section>
+        <section class="platz-mitte">{p.inhalt}
+          <button type="button" class="oben-heftzwecke nur-breit-flex" classList={{ an: oben() === 0 }} aria-label={OBEN_TEXT[oben()]} title={OBEN_TEXT[oben()]} onClick={obenWeiter}>
+            <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={15} />
+          </button>
+        </section>
         <Show when={p.details || (p.detailsHinweis && !schmal())}>
           <Show when={!rechtsWeg()} fallback={<button class="reiter" title="Einblenden" onMouseEnter={() => setRechtsSchwebt(true)} onClick={() => setRechtsSchwebt(true)}><span>{p.detailsTitel ?? 'Details'}</span></button>}>
             <Griff titel="Breite der Details" wert={rechtsBreite()} min={280} max={800} werk={RECHTS} richtung={-1} onWert={setRechtsBreite} onFertig={(w) => breiteMerken('rechts', w)} />

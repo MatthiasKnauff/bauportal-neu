@@ -53,7 +53,7 @@ const zugang = async (db: Db, a: Anbindung) => ({ art: a.art, adresse: a.adresse
 async function bekannteNamen(db: Db): Promise<string[]> {
   // person = true: Namen von Menschen – im Text steht oft nur der Nachname, deshalb zählen auch die einzelnen Namensteile
   const r = await db.query(`
-    select name as n, art = 'person' as person from o_kontakt union select ansprechpartner, true from o_kontakt union select strasse, false from o_kontakt
+    select name as n, (art = 'bauherr' and not coalesce(ist_firma, false)) as person from o_kontakt union select ansprechpartner, true from o_kontakt union select strasse, false from o_kontakt
     union select name, false from o_projekt union select name, true from o_benutzer union select anmeldename, false from o_benutzer
     union select name, false from o_buero union select strasse, false from o_buero`);
   const aus = new Set<string>();

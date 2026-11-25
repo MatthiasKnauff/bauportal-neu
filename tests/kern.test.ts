@@ -87,7 +87,8 @@ test('Modell: Prüfung der Eingaben', () => {
   assert.equal(w.ort, '');
   assert.throws(() => pruefeWerte(kontakt, { name: '' }, true), Eingabefehler);
   assert.throws(() => pruefeWerte(kontakt, { email: 'keine-adresse' }, false), Eingabefehler);
-  assert.throws(() => pruefeWerte(kontakt, { art: 'gibtsnicht' }, false), Eingabefehler);
+  assert.throws(() => pruefeWerte(kontakt, { anrede: 'gibtsnicht' }, false), Eingabefehler);
+  assert.deepEqual(pruefeWerte(kontakt, { art: '  Planer:in ' }, false), { art: 'Planer:in' }, 'eigene Kontaktart');
   assert.throws(() => pruefeWerte(kontakt, { unbekannt: 'x' }, false), Eingabefehler);
   assert.deepEqual(pruefeWerte(kontakt, { ort: 'Essen' }, false), { ort: 'Essen' });
 });

@@ -60,7 +60,7 @@ function AssistentFenster(p: { projekt: string; version: string }) {
   const weiter = () => {
     try {
       // Nur was gerade gilt, geht mit (Fragen zum Bestand nicht beim reinen Neubau)
-      const werte = pruefeWerte(m, Object.fromEntries(Object.entries(antworten.werte).filter(([k]) => gilt(m.felder.find((f) => f.name === k)!, antworten.werte))), false);
+      const werte = pruefeWerte(m, Object.fromEntries(Object.entries(antworten.werte).filter(([k]) => gilt(m.felder.find((f) => f.name === k)!, antworten.werte, m))), false);
       const zu = fragen()!;   // vor dem Schließen merken: danach gibt es dieses Fenster nicht mehr
       setFragen(null);
       void vorschauZeigen({ titel: 'Assistent – Vorschau', wartetext: 'Das Gebäudemodell wird aus den Angaben geschätzt …', fertig: 'Die Angaben sind ins Gebäudemodell übernommen.', zurueck: () => setFragen(zu) },

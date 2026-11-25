@@ -38,7 +38,7 @@ export function Unterliste(p: {
   };
   const weg = (z: Zeile) => ausfuehren({ objekt: p.objekt, art: 'loeschen', objektId: z.id }, `${p.titel}: Eintrag entfernen`);
   const zeilentitel = (z: Zeile) => (p.neuUeber && z.werte[p.neuUeber] ? verweisname(feld(p.neuUeber).ziel!, String(z.werte[p.neuUeber])) : String(z.werte[p.haupt] ?? ''));
-  const neben = (z: Zeile) => (p.neben ?? []).map(feld).filter((f) => gilt(f, z.werte));
+  const neben = (z: Zeile) => (p.neben ?? []).map(feld).filter((f) => gilt(f, z.werte, m()));
   return (
     <fieldset class="unterliste" aria-label={p.titel}>
       <Show when={!p.ohneTitel}><legend>{p.titel}<Show when={eintraege().length}><span class="anzahl">{eintraege().length}</span></Show></legend></Show>

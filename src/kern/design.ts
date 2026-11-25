@@ -18,6 +18,46 @@ export const STANDARD: Design = {
   },
 };
 
+// Vorinstallierte Designs: die Farbschemen des bisherigen Bauportals (Hintergrund, Karte, Linie, Schrift, gedämpfte Schrift, Reiter,
+// Akzent), in unsere Variablen übersetzt. Dunkle Schemen sind immer dunkel. Das Büro bekommt sie beim Start als eigene Designs.
+interface Schema { bg: string; card: string; line: string; ink: string; mute: string; tabs: string; akzent: string; dunkel: boolean }
+const mische = (a: string, b: string, t: number) => '#' + [0, 2, 4].map((i) => Math.round(parseInt(a.slice(1 + i, 3 + i), 16) * (1 - t) + parseInt(b.slice(1 + i, 3 + i), 16) * t).toString(16).padStart(2, '0')).join('');
+export const helligkeit = (c: string) => { const n = parseInt(c.slice(1, 7), 16); return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
+/** Schrift auf der Akzentfarbe: dunkel auf hellen Farben, weiß auf dunklen. */
+export const aufFarbe = (c: string) => (helligkeit(c) > 0.55 ? '#111111' : '#ffffff');
+function ausSchema(f: Schema): Satz {
+  const kopf = f.dunkel ? mische(f.bg, '#000000', 0.35) : mische(f.ink, f.akzent, 0.12);
+  return {
+    grund: f.bg, flaeche: f.card, rand: f.line, 'rand-stark': mische(f.line, f.ink, 0.18), text: f.ink, 'text-still': f.mute,
+    still: f.tabs, 'still-hell': mische(f.bg, f.card, 0.5), akzent: f.akzent, 'auf-akzent': aufFarbe(f.akzent),
+    kopf, 'auf-kopf': f.dunkel ? f.ink : '#f6f5f2', 'auf-kopf-still': f.dunkel ? f.mute : mische('#f6f5f2', kopf, 0.4),
+    ...(f.dunkel ? { gefahr: '#ff7a6b', gut: '#3ddc84', warn: '#ffad5c', schatten: '0 14px 40px rgba(0, 0, 0, .55)' } : {}),
+  };
+}
+const S = (bg: string, card: string, line: string, ink: string, mute: string, tabs: string, akzent: string, dunkel = false): Schema => ({ bg, card, line, ink, mute, tabs, akzent, dunkel });
+export const VORINSTALLIERT: { schluessel: string; name: string; gruppe: string; beschreibung: string; design: Design }[] = ([
+  ['bauportal_dunkel', 'Bauportal Dunkel', 'Wie bisher', 'das dunkle Bauportal mit Pink', S('#26282b', '#2d2f33', '#3b3e42', '#f3f3f1', '#9a9c9e', '#303236', '#ff5fb3', true)],
+  ['bauportal_hell', 'Bauportal Hell', 'Wie bisher', 'helle Flächen, kräftiger Akzent', S('#f3f2ef', '#ffffff', '#d9d8d3', '#232427', '#686a6d', '#e7e5e0', '#d6338a')],
+  ['klassisch_gruen', 'Klassisch Grün', 'Wie bisher', 'hell mit Grün wie der Bauzeitenplan', S('#f3f2ef', '#ffffff', '#d9d8d3', '#232427', '#686a6d', '#e7e5e0', '#1f9d55')],
+  ['sand', 'Sand & Salbei', 'Gedämpft', 'warm, ruhig, naturnah', S('#f1eee7', '#fbfaf6', '#ddd7cb', '#2b2a26', '#66625a', '#e6e1d5', '#56775f')],
+  ['nebel', 'Nebel', 'Gedämpft', 'kühles Grau-Blau, sachlich', S('#eef1f4', '#ffffff', '#d5dbe2', '#1f2730', '#58636f', '#e2e7ed', '#3f6496')],
+  ['schiefer', 'Schiefer', 'Gedämpft', 'dunkel, entsättigt, augenschonend', S('#22262b', '#2a2f35', '#3a414a', '#e8eaed', '#9ea7b1', '#2d333a', '#8fb3c9', true)],
+  ['papier', 'Papier & Tusche', 'Klassisch', 'wie ein Plan: Schwarz auf Weiß, Rot als Korrektur', S('#f6f5f1', '#ffffff', '#d8d6cf', '#161616', '#5c5c57', '#ebe9e3', '#c8372a')],
+  ['bauhaus', 'Bauhaus', 'Klassisch', 'Grundfarbe Blau auf warmem Weiß', S('#f4f1ea', '#fffdf8', '#ddd8cc', '#1d1d1b', '#5e5b55', '#e9e4d8', '#2a5caa')],
+  ['graphit', 'Graphit', 'Klassisch', 'neutrales Dunkel mit Bernstein', S('#1c1c1e', '#252527', '#38383b', '#f2f2f0', '#a09f9b', '#29292b', '#f0b429', true)],
+  ['mitternacht', 'Mitternacht', 'Modern & kräftig', 'tiefes Blau, Indigo-Akzent', S('#0f1420', '#161c2b', '#273049', '#e6e9f2', '#939cb2', '#141a28', '#7c9cff', true)],
+  ['aubergine', 'Aubergine', 'Modern & kräftig', 'dunkles Violett mit Pink', S('#1d1724', '#251e2e', '#3a3047', '#f1ecf6', '#aaa0b8', '#221b2b', '#ff7ab6', true)],
+  ['mint', 'Mint & Koralle', 'Modern & kräftig', 'frisch, komplementär', S('#f2f7f5', '#ffffff', '#d3e3dd', '#1d2b27', '#56695f', '#e3efea', '#e5533d')],
+  ['terrakotta', 'Terrakotta', 'Modern & kräftig', 'erdig-warm, wie Ziegel', S('#f6efe8', '#fffaf5', '#e4d6c8', '#2e2420', '#715f55', '#eee2d6', '#b8562a')],
+  ['neon', 'Neon', 'Modern & kräftig', 'Schwarz mit Limette – hoher Kontrast', S('#0d0d0f', '#151518', '#2a2a30', '#f5f5f7', '#9d9da6', '#121215', '#c6ff3d', true)],
+] as [string, string, string, string, Schema][]).map(([schluessel, name, gruppe, beschreibung, f]) => {
+  const satz = ausSchema(f);
+  return { schluessel, name, gruppe, beschreibung, design: f.dunkel ? { hell: satz, dunkel: satz } : { hell: satz, dunkel: {} } };
+});
+
+/** Akzentfarben zur Wahl (wie im bisherigen Bauportal) – dazu eine eigene. */
+export const AKZENTE: [string, string][] = [['#ff5fb3', 'Pink'], ['#ffd200', 'Gelb'], ['#ff9a2e', 'Orange'], ['#ff6b5e', 'Rot'], ['#3ddc84', 'Grün'], ['#2fd6c9', 'Türkis'], ['#4da3ff', 'Blau'], ['#b18cff', 'Violett']];
+
 // shadcn-Name → unsere Variable
 const ABBILDUNG: Record<string, string> = {
   background: 'grund', card: 'flaeche', foreground: 'text', 'muted-foreground': 'text-still', border: 'rand', input: 'rand-stark',
@@ -56,9 +96,16 @@ export function schriften(d: Design): string[] {
   return [...aus];
 }
 
-/** Die Variablen, die für Benutzer und Modus gelten: Standard, darüber das gewählte Design, darüber die eigene Rundung. */
-export function satzFuer(design: Design | null, dunkel: boolean, rund?: number | null): Satz {
+/** Die Variablen, die für Benutzer und Modus gelten: Standard, darüber das gewählte Design, darüber eigene Rundung und Akzentfarbe.
+ *  Ein dunkles Design (hell und dunkel gleich) bleibt auch im hellen Modus dunkel. Eine helle Akzentfarbe wird auf hellem Grund
+ *  so weit abgedunkelt, dass sie lesbar bleibt (wie im bisherigen Bauportal). */
+export function satzFuer(design: Design | null, dunkel: boolean, rund?: number | null, akzent?: string | null): Satz {
   const s: Satz = { ...(dunkel ? STANDARD.dunkel : STANDARD.hell), ...(design ? (dunkel ? (Object.keys(design.dunkel).length ? design.dunkel : design.hell) : design.hell) : {}) };
   if (rund !== null && rund !== undefined && Number.isFinite(rund)) s.rund = String(rund);
+  if (akzent && /^#[0-9a-f]{6}$/i.test(akzent)) {
+    const grundHell = s.grund ? /^#[0-9a-f]{6}$/i.test(s.grund) ? helligkeit(s.grund) > 0.5 : !dunkel : !dunkel;
+    let c = akzent; while (grundHell && helligkeit(c) > 0.62) c = mische(c, '#000000', 0.15);
+    s.akzent = c; s['auf-akzent'] = aufFarbe(c);
+  }
   return s;
 }

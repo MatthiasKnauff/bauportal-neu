@@ -24,6 +24,45 @@ function Verbinden(p: { f: Feld; w: Wert | undefined }) {
     onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()}>{p.f.art === 'telefon' ? '☎' : '✉'}</a></Show>;
 }
 
+// Filterfeld mit Vorschlägen aus den Einträgen der Spalte: Der Filter nimmt alles, was den Text enthält
+// („dach“ → Dach, Dachdecker, Dacharbeiten); die Liste darunter zeigt diese Werte mit Anzahl – ↑↓ wählen, Enter übernimmt.
+function FilterFeld(p: { f: Feld; text: string; werte: () => string[]; onText: (t: string) => void; onWeiter: () => void }) {
+  const [offen, setOffen] = createSignal(false);
+  const [markiert, setMarkiert] = createSignal(-1);
+  const vorschlaege = createMemo(() => {
+    if (!offen()) return [];
+    const t = p.text.trim().toLowerCase();
+    const zahl = new Map<string, number>();
+    for (const w of p.werte()) if (w && (!t || w.toLowerCase().includes(t))) zahl.set(w, (zahl.get(w) ?? 0) + 1);
+    return [...zahl].sort((a, b) => Number(!a[0].toLowerCase().startsWith(t)) - Number(!b[0].toLowerCase().startsWith(t)) || vergleich.compare(a[0], b[0])).slice(0, 12);
+  });
+  const nehmen = (w: string) => { p.onText(w); setOffen(false); setMarkiert(-1); };
+  return (
+    <div class="filterfeld">
+      <input type="search" aria-label={`${p.f.titel} filtern`} placeholder="filtern" value={p.text} autocomplete="off" role="combobox" aria-expanded={offen() && vorschlaege().length > 0}
+        onInput={(e) => { p.onText(e.currentTarget.value); setOffen(true); setMarkiert(-1); }} onFocus={() => setOffen(true)} onBlur={() => setTimeout(() => setOffen(false), 150)}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          const l = vorschlaege();
+          if (e.key === 'Escape') { if (offen() && l.length) setOffen(false); else p.onText(''); }
+          else if (e.key === 'ArrowDown' && offen() && l.length) { e.preventDefault(); setMarkiert(Math.min(l.length - 1, markiert() + 1)); }
+          else if (e.key === 'ArrowUp' && offen() && markiert() >= 0) { e.preventDefault(); setMarkiert(markiert() - 1); }
+          else if (e.key === 'Enter' && markiert() >= 0 && l[markiert()]) { e.preventDefault(); nehmen(l[markiert()]![0]); }
+          else if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); setOffen(false); p.onWeiter(); }
+        }} />
+      <Show when={offen() && vorschlaege().length > 0}>
+        <ul class="filter-vorschlaege" role="listbox" aria-label={`Werte in ${p.f.titel}`}>
+          <For each={vorschlaege()}>{([w, n], i) => (
+            <li role="option" aria-selected={markiert() === i()} classList={{ markiert: markiert() === i() }} onMouseDown={(e) => { e.preventDefault(); nehmen(w); }}>
+              <span>{w}</span><span class="anzahl">{n}</span>
+            </li>
+          )}</For>
+        </ul>
+      </Show>
+    </div>
+  );
+}
+
 export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void; alsCsv: () => string }
 
 export function Tabelle(p: {
@@ -36,6 +75,7 @@ export function Tabelle(p: {
   onDoppelklick?: (z: Zeile) => void;           // Doppelklick: den Eintrag öffnen (ohne Angabe wie Enter)
   filter?: Record<string, string>;              // Filterzeile: Text je Spalte (gefiltert wird außerhalb – so stimmt auch der Zähler)
   onFilter?: (feld: string, text: string) => void;
+  filterWerte?: (f: Feld) => string[];          // alle Werte der Spalte (ungefiltert) – für die Vorschläge im Filterfeld
   onZelle?: (z: Zeile, f: Feld, w: Wert) => string | undefined;   // Wert aus der Zelle übernehmen; liefert den Fehlertext, wenn er nicht passt
   onLoeschen?: (z: Zeile) => void;              // Entf
   onSuche?: () => void;                         // Taste /
@@ -173,8 +213,8 @@ export function Tabelle(p: {
           <Show when={p.onFilter}>
             <tr class="filterzeile">
               <For each={spalten.sichtbare()}>{(f) => (
-                <th><input type="search" aria-label={`${f.titel} filtern`} placeholder="filtern" value={p.filter?.[f.name] ?? ''} onInput={(e) => p.onFilter!(f.name, e.currentTarget.value)}
-                  onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { p.onFilter!(f.name, ''); } else if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); kasten.focus(); if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); } }} /></th>
+                <th><FilterFeld f={f} text={p.filter?.[f.name] ?? ''} werte={() => p.filterWerte?.(f) ?? []} onText={(t) => p.onFilter!(f.name, t)}
+                  onWeiter={() => { kasten.focus(); if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); }} /></th>
               )}</For>
             </tr>
           </Show>
@@ -188,7 +228,7 @@ export function Tabelle(p: {
                   <td class={z.herkunft?.[f.name] ? `herkunft-${z.herkunft[f.name]}` : undefined} classList={{ 'in-arbeit': inArbeit()?.id === z.id && inArbeit()?.feld === f.name, 'aktiv-zelle': zelle()?.id === z.id && zelle()?.feld === f.name && istGewaehlt(z.id) && !inArbeit() }}
                     title={z.herkunft?.[f.name] ? HERKUNFT[z.herkunft[f.name]!] : undefined}
                     onClick={() => setZelle({ id: z.id, feld: f.name })} onDblClick={() => doppelklick(z)}>
-                    <Show when={inArbeit()?.id === z.id && inArbeit()?.feld === f.name} fallback={p.zelle?.(f, z) ?? <>{anzeige(f, z.werte[f.name])}<Verbinden f={f} w={z.werte[f.name]} /></>}>
+                    <Show when={inArbeit()?.id === z.id && inArbeit()?.feld === f.name} fallback={p.zelle?.(f, z) ?? <><Verbinden f={f} w={z.werte[f.name]} />{anzeige(f, z.werte[f.name])}</>}>
                       <input ref={(el) => queueMicrotask(() => { el.focus(); if (inArbeit()?.start === undefined) el.select?.(); })} type={f.art === 'datum' ? 'date' : 'text'} inputMode={f.art === 'zahl' ? 'decimal' : undefined} value={inArbeit()?.start ?? zeigen(f, z.werte[f.name])}
                         aria-label={f.titel} aria-invalid={!!inArbeit()?.fehler} title={inArbeit()?.fehler} classList={{ falsch: !!inArbeit()?.fehler }}
                         onKeyDown={(e) => eingabeTaste(e, z, f)} onBlur={(e) => fertig(z, f, e.currentTarget)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()} />

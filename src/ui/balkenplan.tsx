@@ -7,7 +7,7 @@ import { Zeichen } from './baukasten/zeichen';
 import { spaltenwahl } from './baukasten/spalten';
 import { Klappe, Ordner } from './baukasten/baum';
 import { Spaltenfeld } from './baukasten/spaltenfeld';
-import { For, Show, createEffect, createMemo, createResource, createSignal, untrack } from 'solid-js';
+import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
@@ -188,6 +188,10 @@ export function Balkenplan(p: Mitte) {
   const [spalte, setSpalte] = createSignal<Spalte['id']>('name');
   const [edit, setEdit] = createSignal<{ id: string | 'neu'; spalte: Spalte['id']; text: string } | null>(null);
   let flaeche!: HTMLDivElement;
+  // Die Balkenfläche reicht immer bis unten: auch unter der letzten Leistung lässt sich eine neue aufziehen (sie kommt ans Ende)
+  const [sichtHoehe, setSichtHoehe] = createSignal(0);
+  onMount(() => { const ro = new ResizeObserver(() => setSichtHoehe(flaeche.clientHeight)); ro.observe(flaeche); onCleanup(() => ro.disconnect()); });
+  const flaechenZeilen = () => Math.max(sichtbar().length + 1, Math.floor((sichtHoehe() - KOPF) / H));
   const zeileIndex = () => sichtbar().findIndex((v) => v.id === markiert());
   const waehle = (i: number) => {
     const l = sichtbar();
@@ -515,7 +519,7 @@ export function Balkenplan(p: Mitte) {
       <Show when={erg().zyklen.length}><p class="feld-fehler bzp-warnung">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</p></Show>
       <div class="bzp-flaeche" ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
         onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); setZoom(Math.max(0, Math.min(ZOOM.length - 1, zoom() + (e.deltaY < 0 ? 1 : -1)))); } }}>
-        <div class="bzp-innen" style={{ width: `${breiteL() + breiteR()}px`, height: `${KOPF + (sichtbar().length + 1) * H}px` }}>
+        <div class="bzp-innen" style={{ width: `${breiteL() + breiteR()}px`, height: `${KOPF + flaechenZeilen() * H}px` }}>
           <div class="bzp-kopf" style={{ width: `${breiteL() + breiteR()}px` }}>
             <div class="bzp-links bzp-kopfzellen" onContextMenu={(e) => { e.preventDefault(); setSpaltenFeld({ x: e.clientX, y: e.clientY }); }}>
               <For each={spalten()}>{(s) => <div class="bzp-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }}>{s.titel}</div>}</For>
@@ -525,7 +529,7 @@ export function Balkenplan(p: Mitte) {
               <For each={kopf().unten}>{(u) => <><line x1={u.x} x2={u.x} y1={24} y2={KOPF} class="bzp-linie" /><text x={kopf().tage ? u.x + px() / 2 : u.x + 3} y={39} class="bzp-woche" classList={{ frei: !!u.frei }} text-anchor={kopf().tage ? 'middle' : 'start'}>{u.t}</text></>}</For>
             </svg>
           </div>
-          <svg class="bzp-balken" width={breiteR()} height={(sichtbar().length + 1) * H} style={{ left: `${breiteL()}px`, top: `${KOPF}px` }}
+          <svg class="bzp-balken" width={breiteR()} height={flaechenZeilen() * H} style={{ left: `${breiteL()}px`, top: `${KOPF}px` }}
             onPointerDown={aufziehen} onPointerMove={bewegen} onPointerUp={loslassen}>
             <For each={freieTage()}>{(f) => <rect x={f.x} y={0} width={px()} height="100%" class={f.feiertag ? 'bzp-feiertag' : 'bzp-wochenende'}>{f.feiertag ? <title>{f.feiertag}</title> : null}</rect>}</For>
             <For each={sichtbar()}>{(v, i) => <rect x={0} y={i() * H} width="100%" height={H} class="bzp-streifen" classList={{ gewaehlt: v.id === markiert() }} />}</For>

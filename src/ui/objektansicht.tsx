@@ -88,7 +88,8 @@ export function ObjektAnsicht(p: {
     const passt = (z: Zeile) => Object.entries(lf.nur ?? {}).every(([k, ws]) => ws.includes(String(roh(z).werte[k] ?? '')));
     const zahl = new Map<string, number>();
     for (const z of lebend()) if (passt(z)) { const w = String(roh(z).werte[lf.feld!] ?? ''); zahl.set(w, (zahl.get(w) ?? 0) + 1); }
-    const werte = f.art === 'auswahl' ? f.optionen!.map((o) => o.wert).filter((w) => w !== '') : [...zahl.keys()].filter((w) => w !== '').sort((x, y) => vergleich.compare(x, y));
+    const eigene = f.eigeneWerte ? [...zahl.keys()].filter((w) => w && !f.optionen!.some((o) => o.wert === w)).sort((x, y) => vergleich.compare(x, y)) : [];
+    const werte = f.art === 'auswahl' ? [...f.optionen!.map((o) => o.wert).filter((w) => w !== ''), ...eigene] : [...zahl.keys()].filter((w) => w !== '').sort((x, y) => vergleich.compare(x, y));
     return [{ titel: lf.titel, suche: lf.suche, eintraege: [
       ...(lf.alle !== undefined ? [{ id: '', titel: lf.alle, anzahl: lebend().length, zeichen: 'personen' }] : []),
       ...werte.map((w) => ({ id: `${nr}:${w}`, titel: lf.mehrzahl?.[w] ?? (anzeige(f, w) || w), anzahl: zahl.get(w) ?? 0, zeichen: lf.zeichen?.[w] ?? (f.art === 'auswahl' ? undefined : 'liste') })),
@@ -163,7 +164,7 @@ export function ObjektAnsicht(p: {
         inhalt={a.mitte ? a.mitte(mitteP) : a.leer && !lebend().length ? a.leer(fest(), () => neuStart()) : kacheln() && a.kachel ?
           <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
-            filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))}
+            filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
             onWahl={setGewaehlt} onOeffnen={insErsteFeld} onDoppelklick={a.details ? undefined : (z) => setSchwebend(z.id)} onSuche={() => suchfeld.focus()}
             onLoeschen={darfLoeschen() ? (z) => loesche(m, z) : undefined}

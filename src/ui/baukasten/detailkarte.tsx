@@ -14,7 +14,7 @@ import { hinweis } from '../unterbau/meldungen';
 export function gruppen(m: ObjektModell, werte: Werte, verborgen: string[] = []): { titel: string; felder: Feld[] }[] {
   const aus: { titel: string; felder: Feld[] }[] = [];
   for (const f of m.felder) {
-    if (f.verborgen || verborgen.includes(f.name) || !gilt(f, werte)) continue;
+    if (f.verborgen || verborgen.includes(f.name) || !gilt(f, werte, m)) continue;
     const t = f.gruppe ?? '';
     let g = aus.find((x) => x.titel === t);
     if (!g) aus.push((g = { titel: t, felder: [] }));
@@ -123,7 +123,7 @@ export function NeuFenster(p: { modell: ObjektModell; start: Werte; verborgen?: 
     <Dialog titel={`${p.modell.titel} anlegen`} breit onAbbrechen={() => p.onZu()} geaendert={() => p.modell.felder.some((f) => werte[f.name] !== start[f.name])}
       knoepfe={<><button class="knopf" data-abbrechen onClick={() => p.onZu()}>Abbrechen</button><button class="knopf haupt" onClick={ok}>Anlegen</button></>}>
       <form class="raster" onSubmit={(e) => { e.preventDefault(); ok(); }}>
-        <For each={p.modell.felder.filter((f) => (f.art !== 'langtext' || f.name === p.modell.anzeigeFeld) && !f.verborgen && !p.verborgen?.includes(f.name) && gilt(f, werte))}>{(f) => (
+        <For each={p.modell.felder.filter((f) => (f.art !== 'langtext' || f.name === p.modell.anzeigeFeld) && !f.verborgen && !p.verborgen?.includes(f.name) && gilt(f, werte, p.modell))}>{(f) => (
           <FeldEingabe feld={f} wert={werte[f.name] ?? null} fehler={fehler[f.name]} sofort objekt={p.modell.name} zusammenhang={werte} onWert={(w) => setWerte(f.name, w)} />
         )}</For>
         <button type="submit" hidden />

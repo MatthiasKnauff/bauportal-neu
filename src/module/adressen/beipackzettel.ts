@@ -16,23 +16,23 @@ export const kontakt: ObjektModell = {
   felder: [
     // Wie im bisherigen Bauportal: je nach Art die passenden Angaben
     { name: 'name', titel: 'Firma / Name', art: 'text', pflicht: true, inListe: true, breite: 260, gruppe: 'Kontakt' },
-    { name: 'art', titel: 'Art', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Kontakt', optionen: [
+    // Art wie im bisherigen Bauportal: fünf feste Arten, dazu eigene (z. B. Planer:in, Versorger) – sie bekommen die Angaben wie eine Firma
+    { name: 'art', titel: 'Art', art: 'auswahl', eigeneWerte: true, inListe: true, breite: 120, gruppe: 'Kontakt', optionen: [
       { wert: 'firma', titel: 'Firma' },
       { wert: 'bauherr', titel: 'Bauherr:in' },
-      { wert: 'person', titel: 'Person' },
       { wert: 'behoerde', titel: 'Behörde' },
       { wert: 'baustelle', titel: 'Baustelle' },
       { wert: 'plotdienst', titel: 'Plotdienst' },
     ] },
     { name: 'ist_firma', titel: 'ist eine Firma (dann Firma und Ansprechpartner:in)', art: 'ja_nein', gruppe: 'Kontakt', wenn: { art: ['bauherr'] } },
-    { name: 'gewerk', titel: 'Gewerk bzw. Amt', art: 'text', inListe: true, breite: 170, gruppe: 'Kontakt', wenn: { art: ['firma', 'behoerde', 'plotdienst', 'person'] } },
-    { name: 'anrede', titel: 'Anrede', art: 'auswahl', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'person'] }, optionen: [
+    { name: 'gewerk', titel: 'Gewerk bzw. Amt', art: 'text', inListe: true, breite: 170, gruppe: 'Kontakt', wenn: { art: ['firma', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'anrede', titel: 'Anrede', art: 'auswahl', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] }, optionen: [
       { wert: '', titel: '–' }, { wert: 'Herr', titel: 'Herr' }, { wert: 'Frau', titel: 'Frau' },
     ] },
-    { name: 'titel', titel: 'Titel', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'person'] } },
-    { name: 'ansprechpartner', titel: 'Vorname Name', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'person'] } },
-    { name: 'zusatz', titel: 'Zusatz', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'person'] } },
-    { name: 'funktion', titel: 'Funktion', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'behoerde', 'plotdienst', 'person'] } },
+    { name: 'titel', titel: 'Titel', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'ansprechpartner', titel: 'Vorname Name', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'zusatz', titel: 'Zusatz', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'funktion', titel: 'Funktion', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'behoerde', 'plotdienst', 'eigen'] } },
     { name: 'telefon', titel: 'Telefon', art: 'telefon', inListe: true, breite: 160, gruppe: 'Erreichbarkeit' },
     { name: 'mobil', titel: 'Mobil', art: 'telefon', gruppe: 'Erreichbarkeit' },
     { name: 'email', titel: 'E-Mail', art: 'email', inListe: true, breite: 230, gruppe: 'Erreichbarkeit' },
@@ -84,10 +84,10 @@ export const adressen: Beipackzettel = {
     // links wie im bisherigen Bauportal: Kontakte nach Art, Gewerke (mit Suche), Ämter der Behörden – je mit Anzahl
     linksFilter: [
       { feld: 'art', titel: 'Kontakte', alle: 'Alle',
-        mehrzahl: { firma: 'Firmen', bauherr: 'Bauherr:innen', person: 'Personen', behoerde: 'Behörden', baustelle: 'Baustellen', plotdienst: 'Plotdienste' },
-        zeichen: { firma: 'gebaeude', bauherr: 'start', person: 'kontakt', behoerde: 'pruefung', baustelle: 'standort', plotdienst: 'drucken' } },
+        mehrzahl: { firma: 'Firmen', bauherr: 'Bauherr:innen', behoerde: 'Behörden', baustelle: 'Baustellen', plotdienst: 'Plotdienste' },
+        zeichen: { firma: 'gebaeude', bauherr: 'start', behoerde: 'pruefung', baustelle: 'standort', plotdienst: 'drucken' } },
       { titel: 'Projekte', beteiligt: { objekt: 'projekt_kontakt', feld: 'kontakt', titel: 'Beteiligte' } },
-      { feld: 'gewerk', titel: 'Gewerke', suche: true, nur: { art: ['firma', 'plotdienst', 'person', 'bauherr'] } },
+      { feld: 'gewerk', titel: 'Gewerke', suche: true, nur: { art: ['firma', 'plotdienst', 'bauherr', 'eigen'] } },
       { feld: 'gewerk', titel: 'Ämter der Behörden', nur: { art: ['behoerde'] } },
     ] }],
 };

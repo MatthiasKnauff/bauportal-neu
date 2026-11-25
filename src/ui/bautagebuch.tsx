@@ -5,7 +5,7 @@ import { Seitenliste } from './baukasten/seitenliste';
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Feld } from '../kern/modell';
-import { ausfuehren, rueckgaengig, sicht, lebende } from './unterbau/abgleich';
+import { ausfuehren, rueckgaengig, sicht, lebende, gemerkt } from './unterbau/abgleich';
 import { ausdrucke, darf, modell, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
@@ -95,11 +95,11 @@ export function BerichtLinks(p: Mitte) {
 
 // ---------- Mitte: der Bericht als Seite ----------
 /** Firmen zur Auswahl: zuerst die Beteiligten des Projekts, dann alle übrigen Kontakte. */
-const firmenFuer = (projekt: unknown) => () => {
+const firmenFuer = (projekt: unknown) => () => gemerkt(['kontakt', 'projekt_kontakt'], `firmen:${String(projekt)}`, () => {
   const beteiligt = new Set(lebende('projekt_kontakt').filter((e) => e.werte.projekt === projekt).map((e) => e.werte.kontakt));
   return lebende('kontakt').map((k) => ({ wert: k.id, titel: [k.werte.name, k.werte.gewerk].filter(Boolean).join(' – '), vorn: beteiligt.has(k.id) }))
     .sort((a, b) => Number(b.vorn) - Number(a.vorn) || a.titel.localeCompare(b.titel, 'de'));
-};
+});
 
 /** Die Listen eines Berichts – dieselben in der Seite und im Ablauf „Schritt für Schritt“. */
 function listen(bericht: Zeile, seite: boolean): Record<string, () => JSX.Element> {

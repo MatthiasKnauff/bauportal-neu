@@ -12,7 +12,8 @@ export interface Feld {
   art: FeldArt;
   pflicht?: boolean;
   optionen?: { wert: string; titel: string }[];   // bei art = auswahl (eine) und mehrfach (mehrere, gespeichert als „a,b“ in der Reihenfolge der Optionen)
-  wenn?: Record<string, string[]>;   // Feld gilt nur, wenn ein anderes Feld (auswahl, mehrfach) einen dieser Werte hat
+  wenn?: Record<string, string[]>;   // Feld gilt nur, wenn ein anderes Feld (auswahl, mehrfach) einen dieser Werte hat – „eigen“ steht für eigene Werte (s. eigeneWerte)
+  eigeneWerte?: boolean;   // bei art = auswahl: außer den Optionen auch eigene Werte (z. B. eigene Kontaktarten) – sie erscheinen danach in der Auswahl
   gruppe?: string;         // Abschnitt in der Detailkarte
   inListe?: boolean;       // Spalte in der Tabelle
   breite?: number;         // Spaltenbreite in px
@@ -75,8 +76,12 @@ export function pruefeModell(m: ObjektModell): void {
 }
 
 /** Gilt das Feld bei diesen Werten? (Bedingung „wenn“ – z. B. Fragen, die nur beim Bauen im Bestand Sinn haben) */
-export function gilt(f: Feld, werte: Werte): boolean {
-  return Object.entries(f.wenn ?? {}).every(([k, erlaubt]) => String(werte[k] ?? '').split(',').some((w) => erlaubt.includes(w)));
+/** Gilt das Feld bei diesen Werten? Ein eigener Wert (Feld mit eigeneWerte, Wert nicht unter den Optionen) zählt als „eigen“. */
+export function gilt(f: Feld, werte: Werte, m?: ObjektModell): boolean {
+  return Object.entries(f.wenn ?? {}).every(([k, erlaubt]) => {
+    const bezug = m?.felder.find((x) => x.name === k);
+    return String(werte[k] ?? '').split(',').some((w) => erlaubt.includes(w) || (erlaubt.includes('eigen') && !!w && !!bezug?.eigeneWerte && !bezug.optionen!.some((o) => o.wert === w)));
+  });
 }
 
 export function leerwert(f: Feld): Wert {
@@ -121,9 +126,10 @@ function pruefeFeld(f: Feld, roh: unknown): Wert {
       const s = aus.join(', '); if (s.length > 2000) throw new Error('Höchstens 2000 Zeichen'); return s;
     }
     case 'auswahl': {
-      const w = String(roh ?? '');
-      if (!f.optionen!.some((o) => o.wert === w)) throw new Error('Bitte einen Eintrag aus der Liste wählen');
-      return w;
+      const w = String(roh ?? '').replace(/\s+/g, ' ').trim();
+      if (f.optionen!.some((o) => o.wert === w)) return w;
+      if (f.eigeneWerte && w && w.length <= 60) return w;
+      throw new Error('Bitte einen Eintrag aus der Liste wählen');
     }
     default: {
       if (roh !== null && roh !== undefined && typeof roh !== 'string' && typeof roh !== 'number') throw new Error('Text erwartet');

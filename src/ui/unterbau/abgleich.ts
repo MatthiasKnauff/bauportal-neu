@@ -26,6 +26,20 @@ const zaehler = new Map<string, ReturnType<typeof createSignal<number>>>();
 const zaehlerFuer = (objekt: string) => { let z = zaehler.get(objekt); if (!z) zaehler.set(objekt, (z = createSignal(0))); return z; };
 export const geaendert = (objekt: string): number => zaehlerFuer(objekt)[0]();
 /** Die nicht gelöschten Einträge eines Objekts – folgt jeder Änderung daran über den Zähler je Objekt (nicht über jede Zeile). */
+/** Baustein „gemerkt“: rechnet etwas aus den Einträgen eines Objekts (z. B. alle Werte eines Felds, die Auswahl eines Verweises) – auch aus mehreren Objekten
+ *  einmal und merkt es sich, bis sich an diesem Objekt etwas ändert. So geht eine Karte nicht bei jedem Öffnen alle Einträge durch. */
+const merker = new Map<string, { stand: string; wert: unknown }>();
+export function gemerkt<T>(objekte: string | string[], schluessel: string, rechnen: () => T): T {
+  const l = typeof objekte === 'string' ? [objekte] : objekte;
+  const stand = l.map((o) => geaendert(o)).join(':'), k = `${l.join(',')}\u0000${schluessel}`, da = merker.get(k);
+  if (da && da.stand === stand) return da.wert as T;
+  const wert = untrack(rechnen);
+  merker.set(k, { stand, wert });
+  return wert;
+}
+/** Alle verschiedenen Werte eines Felds (z. B. eigene Kontaktarten), sortiert. */
+export const feldWerte = (objekt: string, feld: string): string[] => gemerkt(objekt, `werte:${feld}`, () =>
+  [...new Set(lebende(objekt).map((z) => String(z.werte[feld] ?? '')))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'de')));
 export const lebende = (objekt: string): Zeile[] => { geaendert(objekt); return untrack(() => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht)); };
 const melde = (objekt: string) => zaehlerFuer(objekt)[1]((n) => n + 1);
 

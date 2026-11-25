@@ -24,7 +24,7 @@ export function gebaeudeSchritte(id: string): Schritt[] {
   return abschnitte.map((g) => ({
     titel: FRAGEN[g]!,
     inhalt: () => {
-      const felder = (): Feld[] => m.felder.filter((f) => f.gruppe === g && !f.verborgen && z() && gilt(f, z()!.werte));
+      const felder = (): Feld[] => m.felder.filter((f) => f.gruppe === g && !f.verborgen && z() && gilt(f, z()!.werte, m));
       return (
         <div class="raster">
           <For each={felder()}>{(f) => <FeldEingabe feld={f} wert={z()!.werte[f.name] ?? null} objekt="gebaeude" zusammenhang={z()!.werte} herkunft={z()!.herkunft?.[f.name]}
