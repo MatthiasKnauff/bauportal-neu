@@ -83,22 +83,22 @@ export function ObjektAnsicht(p: {
   const leer = () => lebend().length ? 'Kein Treffer für diese Auswahl.' : `Noch keine ${m.titelMehrzahl}.${darf(m.name, 'schreiben') ? ` Mit „+ ${m.titel}“ legst du den ersten Eintrag an.` : ''}`;
 
   return (
-    <div class="ansicht" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented && (e.target as HTMLElement).closest('.karte')) { e.preventDefault(); tabelle.fokus(); } }}>
+    <div class="ansicht" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented && (e.target as HTMLElement).closest('.karte')) { e.preventDefault(); tabelle?.fokus(); } }}>
       <Rahmen schluessel={p.schluessel} steuer={(s) => (rahmen = s)}
         knoepfe={[
           ...(a.knoepfe?.(fest()) ?? []),
-          { titel: 'Spalten einstellen', symbol: '☰', nurSymbol: true, tun: () => tabelle.spaltenEinstellen() },
+          ...(a.mitte ? [] : [{ titel: 'Spalten einstellen', symbol: '☰', nurSymbol: true, tun: () => tabelle.spaltenEinstellen() }]),
           ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, symbol: '+', haupt: true, tun: () => neuStart() }] : []),
         ]}
         menueMitte={<>
           <input ref={suchfeld} class="suche" type="search" placeholder={`${m.titelMehrzahl} durchsuchen`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)}
-            onKeyDown={(e) => { if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />
+            onKeyDown={(e) => { if ((e.key === 'ArrowDown' || e.key === 'Enter') && tabelle) { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />
           <span class="zaehler">{zeilen().length === lebend().length ? `${lebend().length} ${lebend().length === 1 ? m.titel : m.titelMehrzahl}` : `${zeilen().length} von ${lebend().length}`}</span>
         </>}
         unterMenue={p.unterMenue}
         baumTitel="Gliederung"
         baum={baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
-        inhalt={
+        inhalt={a.mitte ? a.mitte({ alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld }) :
           <Tabelle modell={m} zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}

@@ -26,7 +26,7 @@ const zaehlerFuer = (objekt: string) => { let z = zaehler.get(objekt); if (!z) z
 export const geaendert = (objekt: string): number => zaehlerFuer(objekt)[0]();
 const melde = (objekt: string) => zaehlerFuer(objekt)[1]((n) => n + 1);
 
-interface Schritt { gegen: Vorlage; wieder: Vorlage; titel: string }
+interface Schritt { gegen: Vorlage[]; wieder: Vorlage[]; titel: string }
 
 let idb: IDBDatabase | null = null;
 let ich: Benutzer;
@@ -218,13 +218,21 @@ function meldeGleichzeitig(b: Protokolliert): void {
 // ---------- Eigene Änderungen ----------
 /** Führt einen Befehl aus: wirkt sofort im Gerät, geht dann an den Server. */
 export function ausfuehren(v: Vorlage, titel: string, ohneVerlauf = false): void {
+  if (ohneVerlauf) { eigenAnwenden(v); return; }
+  ausfuehrenMehrere([v], titel);
+}
+/** Mehrere Befehle als ein Schritt: Rückgängig nimmt sie zusammen zurück (z. B. Vorgang löschen und die Kette überbrücken). */
+export function ausfuehrenMehrere(vs: Vorlage[], titel: string): void {
+  if (!vs.length) return;
+  const gegen: Vorlage[] = [];
+  for (const v of vs) { gegen.unshift(gegenbefehl(sicht[v.objekt]?.[v.objektId], v)); eigenAnwenden(v); }
+  zurueck.push({ gegen, wieder: vs, titel });
+  if (zurueck.length > 200) zurueck.shift();
+  vor.length = 0;
+  setVerlauf({ zurueck: zurueck.length, vor: 0 });
+}
+function eigenAnwenden(v: Vorlage): void {
   const b: Befehl = { ...v, werte: v.werte && { ...v.werte }, id: neueKennung(), gesehen: stand };
-  if (!ohneVerlauf) {
-    zurueck.push({ gegen: gegenbefehl(sicht[v.objekt]?.[v.objektId], v), wieder: v, titel });
-    if (zurueck.length > 200) zurueck.shift();
-    vor.length = 0;
-    setVerlauf({ zurueck: zurueck.length, vor: 0 });
-  }
   wartend.push(b);
   setWartendAnzahl(wartend.length);
   schreibe((t) => t.objectStore('wartend').add({ befehl: b }));
@@ -237,7 +245,7 @@ export function rueckgaengig(): void {
   if (!s) return;
   vor.push(s);
   setVerlauf({ zurueck: zurueck.length, vor: vor.length });
-  ausfuehren(s.gegen, s.titel, true);
+  for (const g of s.gegen) eigenAnwenden(g);
   hinweis(`Rückgängig: ${s.titel}`);
 }
 export function wiederholen(): void {
@@ -245,7 +253,7 @@ export function wiederholen(): void {
   if (!s) return;
   zurueck.push(s);
   setVerlauf({ zurueck: zurueck.length, vor: vor.length });
-  ausfuehren(s.wieder, s.titel, true);
+  for (const w of s.wieder) eigenAnwenden(w);
   hinweis(`Wiederholt: ${s.titel}`);
 }
 

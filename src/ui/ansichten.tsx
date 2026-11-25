@@ -26,6 +26,7 @@ import { Altdaten } from './altdaten';
 import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
+import { Balkenplan } from './balkenplan';
 import { Bilder } from './baukasten/bilder';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
@@ -311,6 +312,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     kartenZusatz: (z) => <Berichtslisten bericht={z} />,
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
+  vorgang: { mitte: (m) => <Balkenplan {...m} /> },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
   benutzer: {
     kartenZusatz: (z) => <KennwortSetzen benutzer={z} />,

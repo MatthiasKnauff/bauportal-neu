@@ -8,6 +8,15 @@ import type { Menuepunkt } from './kontextmenue';
 import type { Knoten } from './baum';
 import type { Knopf } from './menueleiste';
 
+export interface Mitte {
+  alle: () => Zeile[];                  // alle Einträge im Zusammenhang (Projekt, Version)
+  zeilen: () => Zeile[];                // davon, was Suche und Baum gerade zeigen
+  fest: () => Record<string, string | number | boolean | null>;
+  gewaehlt: () => string | null;
+  onWahl: (id: string | null) => void;
+  onOeffnen: () => void;                // Karte zeigen, ins erste Feld
+}
+
 export interface Anpassung {
   // --- Details (rechts) ---
   /** Weitere Abschnitte unter den Feldern der Detailkarte. */
@@ -15,6 +24,8 @@ export interface Anpassung {
   /** Andere Zeichen für die Knöpfe im Kopf der Detailkarte. */
   kartenSymbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
   // --- Inhalt (Mitte) ---
+  /** Statt der Tabelle eine eigene Darstellung in der Mitte (z. B. der Balkenplan) – Rahmen, Suche, Karte und Anlegen bleiben. */
+  mitte?: (p: Mitte) => JSX.Element;
   /** Eigene Darstellung einer Tabellenzelle; ohne Rückgabe gilt die übliche. */
   zelle?: (f: Feld, z: Zeile) => JSX.Element | undefined;
   /** Zusätzliche Punkte im Kontextmenü einer Zeile (insgesamt bleiben es höchstens 6). */

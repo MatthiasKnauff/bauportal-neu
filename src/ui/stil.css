@@ -351,3 +351,53 @@ td.herkunft-geschaetzt { color: #8a8a84; font-style: italic; }
 td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .vorschau-tabelle { margin: 12px 0; width: 100%; } .vorschau-tabelle td { font-variant-numeric: tabular-nums; }
 .vorschau-hinweise { margin: 0; padding-left: 18px; color: var(--text-still); font-size: 13px; line-height: 1.5; }
+
+/* Balkenplan (Bauzeitenplan): Tabelle links (beim waagerechten Blättern fest), Balken rechts, Kopf oben fest */
+.bzp { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--flaeche); }
+.bzp-leiste { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; border-bottom: 1px solid var(--rand); font-size: 13px; color: var(--text-still); }
+.bzp-leiste label { display: inline-flex; align-items: center; gap: 6px; }
+.bzp-leiste input[type=date], .bzp-leiste select { min-height: 28px; border: 1px solid var(--rand-stark); border-radius: 6px; padding: 0 6px; background: var(--flaeche); color: var(--text); }
+.bzp-ende strong { color: var(--text); }
+.bzp-trenner { flex: 1; }
+.bzp-flaeche { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
+.bzp-flaeche:focus-visible .bzp-zelle.zeiger { box-shadow: inset 0 0 0 2px var(--akzent); }
+.bzp-innen { position: relative; }
+.bzp-kopf { position: sticky; top: 0; z-index: 4; height: 46px; display: flex; background: #fafaf7; border-bottom: 1px solid var(--rand); }
+.bzp-links { position: sticky; left: 0; z-index: 3; display: flex; background: var(--flaeche); border-right: 1px solid var(--rand-stark); flex: none; }
+.bzp-kopfzellen { background: #fafaf7; align-items: flex-end; font-size: 12px; font-weight: 600; color: var(--text-still); }
+.bzp-zelle { flex: none; height: 30px; line-height: 30px; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border-right: 1px solid #efefea; font-size: 13px; }
+.bzp-zelle.rechts { text-align: right; }
+.bzp-zelle.zeiger { box-shadow: inset 0 0 0 1px var(--akzent); }
+.bzp-zelle.fest { color: var(--akzent); font-weight: 600; }
+.bzp-achse { flex: none; }
+.bzp-monat { font-size: 12px; font-weight: 600; fill: var(--text); }
+.bzp-woche { font-size: 11px; fill: var(--text-still); }
+.bzp-linie { stroke: var(--rand); }
+.bzp-zeilen { position: absolute; left: 0; }
+.bzp-zeile { height: 30px; border-bottom: 1px solid #f1f1ec; cursor: default; width: max-content; }
+.bzp-zeile.gewaehlt, .bzp-zeile.gewaehlt .bzp-zelle { background: var(--akzent-hell); }
+.bzp-zeile.gruppe { font-weight: 600; }
+.bzp-zeile.kritisch .bzp-zelle:first-child { box-shadow: inset 3px 0 0 #d32f2f; }
+.bzp-name { display: inline-flex; align-items: center; gap: 4px; }
+.bzp-dreieck { width: 16px; flex: none; border: 0; background: none; padding: 0; cursor: pointer; color: var(--text-still); }
+.bzp-farbe { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-right: 2px; }
+.bzp-eingabe { width: 100%; height: 26px; border: 1px solid var(--akzent); border-radius: 4px; padding: 0 4px; font-size: 13px; }
+.bzp-neu { color: var(--text-still); cursor: text; }
+.bzp-balken { position: absolute; z-index: 1; user-select: none; }
+.bzp-streifen { fill: transparent; } .bzp-streifen.gewaehlt { fill: var(--akzent-hell); opacity: .6; }
+.bzp-wochenende { fill: #f3f3ef; } .bzp-feiertag { fill: #fbe3e0; }
+.bzp-heute { stroke: #d32f2f; stroke-dasharray: 4 3; }
+.bzp-balken-teil { stroke: rgba(0,0,0,.18); cursor: grab; }
+.bzp-balken-teil.kritisch { stroke: #d32f2f; stroke-width: 2; }
+.bzp-fortschritt { fill: rgba(0,0,0,.45); pointer-events: none; }
+.bzp-pause { stroke: #8a8a85; stroke-dasharray: 3 3; }
+.bzp-meilenstein { fill: #1c1c1a; cursor: grab; }
+.bzp-gruppe { fill: #3a3a37; }
+.bzp-griff { fill: transparent; cursor: ew-resize; }
+.bzp-punkt { fill: #fff; stroke: var(--akzent); stroke-width: 1.5; cursor: crosshair; opacity: 0; }
+.bzp-vorgang:hover .bzp-punkt { opacity: 1; }
+.bzp-text { font-size: 11px; fill: var(--text-still); pointer-events: none; }
+.bzp-pfeil path { fill: none; stroke: #6b7280; stroke-width: 1.2; } .bzp-pfeil .bzp-spitze { fill: #6b7280; stroke: none; }
+.bzp-pfeil.kritisch path { stroke: #d32f2f; } .bzp-pfeil.kritisch .bzp-spitze { fill: #d32f2f; }
+.bzp-zieh { stroke: var(--akzent); stroke-dasharray: 4 3; }
+.bzp-leer { padding: 8px 12px; }

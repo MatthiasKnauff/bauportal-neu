@@ -219,11 +219,13 @@ test('Versionen: erste ist gültig, genau eine gültig, Kopie im Projekt und in 
     assert.equal((await ver(vA, 'Startversion')).werte!.gueltig, true, 'die erste Version ist gültig');
     assert.equal((await ver(vB, 'Test 2')).werte!.gueltig, false);
     await assert.rejects(ver(randomUUID(), 'x', p1, 'gibtsnicht'), Ablehnung);
-    const vorgang = (version: string, name: string, projekt = p1) => tun(db, leitung, { objekt: 'vorgang', art: 'anlegen', werte: { projekt, version, name, beginn: '2026-12-01', ende: '2026-12-12' } });
+    const vorgang = (version: string, name: string, projekt = p1) => tun(db, leitung, { objekt: 'vorgang', art: 'anlegen', werte: { projekt, version, name, anfang_nicht_vor: '2026-12-01', dauer: 5 } });
     await vorgang(vA, 'Rohbau'); await vorgang(vA, 'Dach');
+    const id = async (name: string) => (await schnappschuss(db, register, leitung)).objekte.vorgang!.find((x) => x.werte.name === name)!.id;
+    await tun(db, leitung, { objekt: 'verknuepfung', art: 'anlegen', werte: { projekt: p1, version: vA, von: await id('Rohbau'), nach: await id('Dach'), art: 'ea', abstand: 2 } });
     await assert.rejects(vorgang(randomUUID(), 'ohne Version'), Ablehnung);
     await assert.rejects(vorgang(vA, 'falsches Projekt', p2), Ablehnung);
-    await assert.rejects(tun(db, leitung, { objekt: 'vorgang', art: 'anlegen', werte: { projekt: p1, version: vA, name: 'x', beginn: '2026-02-30' } }), Eingabefehler, 'kein gültiges Datum');
+    await assert.rejects(tun(db, leitung, { objekt: 'vorgang', art: 'anlegen', werte: { projekt: p1, version: vA, name: 'x', anfang_nicht_vor: '2026-02-30' } }), Eingabefehler, 'kein gültiges Datum');
     await assert.rejects(tun(db, mit, { objekt: 'version', art: 'anlegen', werte: { projekt: p1, bereich: 'bauzeitenplan', name: 'x' } }), Ablehnung, 'Mitarbeiter:in ohne Mitgliedschaft und Recht');
 
     // B wird gültig -> A ist es nicht mehr, und das steht als Folgebefehl im Protokoll
@@ -245,6 +247,9 @@ test('Versionen: erste ist gültig, genau eine gültig, Kopie im Projekt und in 
     assert.deepEqual(in_(vC), [['Dach', p1], ['Rohbau', p1]]);
     assert.deepEqual(in_(vD), [['Dach', p2], ['Rohbau', p2]]);
     assert.equal(s.objekte.vorgang!.length, 6);
+    const kopie = s.objekte.verknuepfung!.find((x) => x.werte.version === vC)!;
+    const name = (vid: unknown) => s.objekte.vorgang!.find((x) => x.id === vid)!;
+    assert.deepEqual([name(kopie.werte.von).werte.name, name(kopie.werte.von).werte.version, name(kopie.werte.nach).werte.name, kopie.werte.abstand], ['Rohbau', vC, 'Dach', 2], 'Verknüpfungen zeigen in der Kopie auf die kopierten Leistungen');
     assert.deepEqual(await gueltig(), ['Test 2', 'aus Haus A'], 'im anderen Projekt ist die erste Version dort gültig');
   } finally { await weg(); }
 });
