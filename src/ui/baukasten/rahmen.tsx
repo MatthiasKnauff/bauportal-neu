@@ -65,7 +65,10 @@ function obenBeobachten() {
       return;
     }
     if (!r.dataset.obenZeigen) return;
-    const unten = Math.max(...[...document.querySelectorAll<HTMLElement>('.kopf, .menueleiste')].filter((x) => x.offsetParent).map((x) => x.getBoundingClientRect().bottom), 0);
+    // Eingeblendet stehen Kopf und Menüband fest (position: fixed) – offsetParent ist dann leer, deshalb nach der Größe fragen.
+    // Was aus ihnen aufklappt (Menüs, Auswahllisten), gehört dazu: darüber bleiben beide stehen.
+    if ((e.target as Element | null)?.closest?.('.kopf, .menueleiste, [role=menu], .auswahlliste-fenster')) { clearTimeout(weg); return; }
+    const unten = Math.max(...[...document.querySelectorAll<HTMLElement>('.kopf, .menueleiste')].filter((x) => x.getClientRects().length).map((x) => x.getBoundingClientRect().bottom), 0);
     if (e.clientY <= unten + 12) { clearTimeout(weg); return; }
     const tippen = (document.activeElement as HTMLElement | null)?.closest('.kopf, .menueleiste') && (document.activeElement as HTMLElement).matches('input, textarea');
     if (!tippen) { clearTimeout(weg); weg = setTimeout(() => delete r.dataset.obenZeigen, 350); }
@@ -78,7 +81,8 @@ export function Rahmen(p: {
   schluessel: string;                       // merkt sich je Ansicht, was zugeklappt ist
   abfolge?: { schritte: Schritt[]; aktiv: string; onWahl?: (id: string) => void };
   knoepfe?: Knopf[]; menueMitte?: JSX.Element;
-  unterMenue?: JSX.Element;                 // z. B. die Versionsleiste
+  unterMenue?: JSX.Element;                 // unter der Menüleiste (Dialoge, Umfang „Dieses Projekt / Alle“)
+  linksOben?: () => JSX.Element;            // oben in der Gliederung, steht still beim Rollen – z. B. die Auswahl der Version
   baum?: JSX.Element; baumTitel?: string;
   inhalt: JSX.Element;
   details?: JSX.Element; detailsTitel?: string;
@@ -119,6 +123,7 @@ export function Rahmen(p: {
   p.steuer?.({ detailsZeigen: () => { if (rechtsZu()) setRechtsSchwebt(true); }, detailsZuklappen: () => { setRechtsZu(true); setRechtsSchwebt(false); }, heftzweckeRechts: () => heftzwecke(rechtsZu, setRechtsZu, setRechtsSchwebt) });
   const linksInhalt = () => (<>
     <div class="platz-kopf nur-breit-flex"><span>{p.baumTitel ?? ''}</span>{heftzwecke(linksZu, setLinksZu, setLinksSchwebt)}</div>
+    {p.linksOben?.()}
     <div class="platz-rollen">
       <Show when={ansichten().length > 1}><Ansichtsliste reiter={ansichten()} aktiv={app!.aktiv()} onWahl={app!.onReiter} /></Show>
       {p.baum}
@@ -145,7 +150,7 @@ export function Rahmen(p: {
       {p.unterMenue}
       <div class="plaetze" classList={{ 'mit-details': !!p.details && !rechtsWeg(), 'baum-offen': baumAmHandy() }}
         style={{ '--links-breite': `${linksBreite()}px`, '--rechts-breite': `${rechtsBreite()}px` }}>
-        <Show when={p.baum || ansichten().length > 1}>
+        <Show when={p.baum || p.linksOben || ansichten().length > 1}>
           <Show when={!linksZu() || baumAmHandy()} fallback={<button class="reiter links" title="Einblenden" onMouseEnter={() => setLinksSchwebt(true)} onClick={() => setLinksSchwebt(true)}><span>{linksTitel()}</span></button>}>
             <aside class="platz-links" aria-label={p.baumTitel ?? 'Gliederung'} onClick={() => setBaumAmHandy(false)}>{linksInhalt()}</aside>
             <Griff titel={`Breite ${p.baumTitel ?? 'Gliederung'}`} wert={linksBreite()} min={160} max={520} werk={LINKS} richtung={1} onWert={setLinksBreite} onFertig={(w) => breiteMerken('links', w)} />

@@ -38,7 +38,8 @@ export function ObjektAnsicht(p: {
   linksFilter?: LinksFilter[];   // links Filter in Abschnitten statt des Baums
   suchArten?: { titel: string; felder: string[] }[];   // weitere Arten der Filterbedingung, nur über das Suchfeld
   fest?: () => Werte;            // Zusammenhang: nur Einträge mit diesen Werten (Projekt, Version); neue bekommen sie
-  unterMenue?: JSX.Element;      // z. B. die Versionsleiste
+  unterMenue?: JSX.Element;      // z. B. die Dialoge der Versionen
+  linksOben?: () => JSX.Element; // oben in der Gliederung, z. B. die Auswahl der Version
 }) {
   const m = p.modell;
   const a = p.anpassung ?? {};
@@ -255,6 +256,7 @@ export function ObjektAnsicht(p: {
           <span class="zaehler">{zeilen().length === lebend().length ? `${lebend().length} ${lebend().length === 1 ? m.titel : m.titelMehrzahl}` : `${zeilen().length} von ${lebend().length}`}</span>
         </>}
         unterMenue={<>{p.unterMenue}{a.oben?.(fest())}</>}
+        linksOben={p.linksOben}
         baumTitel={a.linksTitel ?? 'Gliederung'}
         // links über der Gliederung immer die Filterkästen: Filter links, aus dem Suchfeld und aus den Spaltenköpfen – verknüpfbar
         baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><div class="filter-dazu"><Filtersuche text={dazuText()} onText={setDazuText} arten={arten()} ids={() => lebend().map((z) => z.id)} onNehmen={nimm} onWeiter={() => undefined} platzhalter="Filter hinzufügen: Gewerk, Projekt, Ort …" name="Filter hinzufügen" /></div><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></>

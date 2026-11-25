@@ -366,10 +366,19 @@ main { flex: 1; min-height: 0; display: flex; }
 /* ---- Projektauswahl, Versionsleiste ---- */
 .projektwahl { width: 260px; flex: none; } .projektwahl .auswahlliste-knopf { min-height: 34px; }
 .kopf nav { flex: 1 1 auto; }
-.versionsleiste { flex: none; display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--still-hell); border-bottom: 1px solid var(--rand); overflow-x: auto; }
-.versions-titel { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-still); margin-right: 6px; white-space: nowrap; }
-.versionsleiste [role=tab] { min-height: 30px; padding: 0 12px; border: 1px solid var(--rand-stark); border-radius: 99px; background: var(--flaeche); cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
-.versionsleiste [role=tab].aktiv { border-color: var(--akzent); background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
+.versionswahl { position: relative; flex: none; margin: 4px 8px 8px; }
+.versionswahl-knopf { width: 100%; min-height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 6px; border: 1px solid var(--rand-stark); border-radius: calc(8px * var(--rund)); background: var(--flaeche); color: var(--text); cursor: pointer; text-align: left; }
+.versionswahl-knopf i { font-style: normal; color: var(--text-still); margin-left: auto; }
+.versions-zahl { flex: none; min-width: 24px; height: 24px; border-radius: calc(6px * var(--rund)); background: var(--gut); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+.versions-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-still); }
+.versions-name b { color: var(--text); }
+.versionswahl-fenster { display: flex; flex-direction: column; right: auto; min-width: 100%; width: max-content; max-width: 340px; }
+.versionswahl-fenster button { display: flex; gap: 6px; align-items: center; padding: 7px 10px; border: 0; background: transparent; border-radius: calc(6px * var(--rund)); text-align: left; cursor: pointer; color: var(--text); font: inherit; }
+.versionswahl-fenster button:hover:not(:disabled) { background: var(--still); }
+.versionswahl-fenster button:disabled { color: var(--text-still); cursor: default; }
+.versionswahl-fenster button.gewaehlt { color: var(--akzent); font-weight: 600; }
+.versionswahl-fenster .gefahr-text:not(:disabled) { color: var(--gefahr); }
+.versionswahl-fenster hr { border: 0; border-top: 1px solid var(--rand); margin: 4px 0; width: 100%; }
 .stern { color: var(--warn); }
 .auswahl.senkrecht { flex-direction: column; } .auswahl.senkrecht button { border-right: 0; border-bottom: 1px solid var(--rand); text-align: left; flex: none; } .auswahl.senkrecht button:last-child { border-bottom: 0; }
 .rahmen > .mitte, .platz-mitte > .mitte { flex: 1; }

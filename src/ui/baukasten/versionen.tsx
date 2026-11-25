@@ -1,7 +1,9 @@
-// Baustein „Versionsleiste“: die benannten Versionen eines Bereichs (z. B. Bauzeitenplan) – für jedes Modul gleich.
+// Baustein „Versionen“: die benannten Versionen eines Bereichs (z. B. Bauzeitenplan) – für jedes Modul gleich.
+// Wie im bisherigen Bauportal oben in der Gliederung links: „Version: Startversion ★ ▾“ – aufklappen zum Wechseln und Verwalten.
 // Zwischen Versionen wechselt man wie zwischen Dateien; genau eine ist die gültige (★).
+// Die Dialoge hängen nicht an der Auswahl: „Neue Version“ geht auch, wenn die Gliederung ausgeblendet ist (leere Seite).
 // Neue Version auf den Wegen, die das Modul erlaubt: aus der aktuellen, leer, aus einem anderen Projekt.
-import { For, Show, createSignal } from 'solid-js';
+import { For, Show, createSignal, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../../kern/befehl';
 import type { Versionsweg } from '../../kern/modul';
 import { Auswahlliste, type Option } from './auswahlliste';
@@ -10,15 +12,17 @@ import { zeigeMenue } from './kontextmenue';
 
 const WEGE: Record<Versionsweg, string> = { kopie: 'Aus der aktuellen Version', leer: 'Leer', projekt: 'Aus einem anderen Projekt' };
 
-export function Versionsleiste(p: {
+export interface VersionenEinstellung {
   titel: string;
   versionen: Zeile[]; aktiv: string | null; onWahl: (id: string) => void;
   wege: Versionsweg[]; darfAendern: boolean;
   vorlagen: () => Option[];                                    // Versionen anderer Projekte
   onNeu: (weg: Versionsweg, name: string, vorlage?: string) => void;
   onGueltig: (id: string) => void; onUmbenennen: (id: string, name: string) => void; onLoeschen: (id: string) => void;
-  steuer?: (oeffneNeu: () => void) => void;   // „Neue Version“ auch von außen öffnen (z. B. „… anlegen“ auf der leeren Seite)
-}) {
+}
+
+/** Liefert die Auswahl (für links oben) und die Dialoge (einmal einhängen) – beide teilen denselben Zustand. */
+export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Element; Dialoge: () => JSX.Element; oeffneNeu: () => void } {
   const [neu, setNeu] = createSignal(false);
   const [umbenennen, setUmbenennen] = createSignal<Zeile | null>(null);
   const [name, setName] = createSignal('');
@@ -28,7 +32,6 @@ export function Versionsleiste(p: {
   // „Aus der aktuellen“ geht nur, wenn es eine gibt; „aus anderem Projekt“ nur, wenn es Vorlagen gibt.
   const moeglich = () => p.wege.filter((w) => (w === 'kopie' ? !!p.aktiv : w === 'projekt' ? p.vorlagen().length > 0 : true));
   const oeffneNeu = () => { setName(''); setFehler(''); setVorlage(null); setWeg(moeglich()[0] ?? 'leer'); setNeu(true); };
-  p.steuer?.(oeffneNeu);
   const anlegen = () => {
     if (!name().trim()) { setFehler('Bitte einen Namen eintragen, z. B. „Startversion“ oder „nach Bauherrengespräch“'); return; }
     if (weg() === 'projekt' && !vorlage()) { setFehler('Bitte die Vorlage wählen'); return; }
@@ -43,16 +46,49 @@ export function Versionsleiste(p: {
       { titel: 'Löschen', gefahr: true, gesperrt: v.werte.gueltig === true, tun: () => p.onLoeschen(v.id) },
     ]);
   };
-  return (
-    <div class="versionsleiste" role="tablist" aria-label={`Versionen ${p.titel}`}>
-      <span class="versions-titel">{p.titel}</span>
-      <For each={p.versionen}>{(v) => (
-        <button role="tab" aria-selected={p.aktiv === v.id} classList={{ aktiv: p.aktiv === v.id }} title={v.werte.gueltig ? 'Gültige Version' : 'Rechtsklick: gültig markieren, umbenennen, löschen'}
-          onClick={() => p.onWahl(v.id)} onContextMenu={(e) => menue(e, v)}>
-          <Show when={v.werte.gueltig}><span class="stern" aria-label="gültig">★</span></Show>{String(v.werte.name)}
+  const aktiv = () => p.versionen.find((v) => v.id === p.aktiv);
+  const Wahl = () => {
+    const [offen, setOffen] = createSignal(false);
+    let wurzel!: HTMLDivElement;
+    const draussen = (e: MouseEvent) => { if (!wurzel.contains(e.target as Node)) zu(); };
+    const auf = () => { setOffen(true); document.addEventListener('mousedown', draussen); };
+    const zu = () => { setOffen(false); document.removeEventListener('mousedown', draussen); };
+    onCleanup(() => document.removeEventListener('mousedown', draussen));
+    const tun = (f: () => void) => () => { zu(); f(); };
+    return (
+      <div class="versionswahl" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && offen()) { e.stopPropagation(); zu(); } }}>
+        <button type="button" class="versionswahl-knopf" aria-haspopup="menu" aria-expanded={offen()} aria-label={`Versionen ${p.titel}: ${aktiv() ? String(aktiv()!.werte.name) : 'keine'}`}
+          onClick={() => (offen() ? zu() : auf())} onContextMenu={(e) => { const v = aktiv(); if (v) { e.preventDefault(); menue(e, v); } }}>
+          <span class="versions-zahl" title={`${p.versionen.length} ${p.versionen.length === 1 ? 'Version' : 'Versionen'}`}>{p.versionen.length}</span>
+          <span class="versions-name">Version: <b>{aktiv() ? String(aktiv()!.werte.name) : '–'}</b></span>
+          <Show when={aktiv()?.werte.gueltig}><span class="stern" aria-label="gültig">★</span></Show>
+          <i>▾</i>
         </button>
-      )}</For>
-      <Show when={p.darfAendern}><button class="knopf klein" onClick={oeffneNeu}>+ Neue Version</button></Show>
+        <Show when={offen()}>
+          <div class="auswahlliste-fenster versionswahl-fenster" role="menu" aria-label={`Versionen ${p.titel}`}>
+            <For each={p.versionen}>{(v) => (
+              <button type="button" role="menuitemradio" aria-checked={p.aktiv === v.id} classList={{ gewaehlt: p.aktiv === v.id }}
+                title={p.darfAendern ? 'Rechtsklick: gültig markieren, umbenennen, löschen' : undefined}
+                onClick={tun(() => p.onWahl(v.id))} onContextMenu={(e) => { e.preventDefault(); menue(e, v); }}>
+                <span>{String(v.werte.name)}</span><Show when={v.werte.gueltig}><span class="stern" aria-label="gültig">★</span></Show>
+              </button>
+            )}</For>
+            <Show when={p.darfAendern}>
+              <hr />
+              <button type="button" role="menuitem" onClick={tun(oeffneNeu)}>＋ Neue Version …</button>
+              <Show when={aktiv()}>{(v) => <>
+                <button type="button" role="menuitem" onClick={tun(() => { setName(String(v().werte.name)); setFehler(''); setUmbenennen(v()); })}>Umbenennen …</button>
+                <button type="button" role="menuitem" disabled={v().werte.gueltig === true} onClick={tun(() => p.onGueltig(v().id))}>Als gültig markieren</button>
+                <button type="button" role="menuitem" class="gefahr-text" disabled={v().werte.gueltig === true} onClick={tun(() => p.onLoeschen(v().id))}>Löschen</button>
+              </>}</Show>
+            </Show>
+          </div>
+        </Show>
+      </div>
+    );
+  };
+  const Dialoge = () => (
+    <>
       <Show when={neu()}>
         <Dialog titel={`Neue Version – ${p.titel}`} onAbbrechen={() => setNeu(false)}
           knoepfe={<><button class="knopf" onClick={() => setNeu(false)}>Abbrechen</button><button class="knopf haupt" onClick={anlegen}>Anlegen</button></>}>
@@ -86,6 +122,7 @@ export function Versionsleiste(p: {
           </Dialog>
         );
       }}</Show>
-    </div>
+    </>
   );
+  return { Wahl, Dialoge, oeffneNeu };
 }

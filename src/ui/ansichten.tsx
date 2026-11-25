@@ -12,7 +12,7 @@ import type { Rechtart } from '../kern/modell';
 import { ausfuehren, sicht, lebende } from './unterbau/abgleich';
 import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
-import { Versionsleiste } from './baukasten/versionsleiste';
+import { versionenBauen } from './baukasten/versionen';
 import type { Versionsweg } from '../kern/modul';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
@@ -438,21 +438,22 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
     }
     waehleVersion(pr, bereich!.bereich, id);
   };
-  const leiste = () => (
-    <Versionsleiste steuer={(f) => (neuOeffnen = f)} titel={bereich!.titel} versionen={versionen()} aktiv={aktiv()?.id ?? null} wege={bereich!.wege} darfAendern={darf('version', 'schreiben')} vorlagen={vorlagen}
-      onWahl={(id) => waehleVersion(projekt()!.id, bereich!.bereich, id)} onNeu={neu}
-      onGueltig={(id) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { gueltig: true } }, 'Version gültig machen')}
-      onUmbenennen={(id, name) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { name } }, 'Version umbenennen')}
-      onLoeschen={(id) => ausfuehren({ objekt: 'version', art: 'loeschen', objektId: id }, 'Version löschen', true)} />
-  );
+  // Versionen links oben in der Gliederung (wie im bisherigen Bauportal); die Dialoge hängen einmal an der Seite
+  const versionen_ = bereich ? versionenBauen({
+    get titel() { return bereich!.titel; }, get versionen() { return versionen(); }, get aktiv() { return aktiv()?.id ?? null; },
+    wege: bereich.wege, get darfAendern() { return darf('version', 'schreiben'); }, vorlagen,
+    onWahl: (id) => waehleVersion(projekt()!.id, bereich!.bereich, id), onNeu: neu,
+    onGueltig: (id) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { gueltig: true } }, 'Version gültig machen'),
+    onUmbenennen: (id, name) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { name } }, 'Version umbenennen'),
+    onLoeschen: (id) => ausfuehren({ objekt: 'version', art: 'loeschen', objektId: id }, 'Version löschen', true),
+  }) : null;
   const leer = (text: string) => <div class="mitte"><p class="still-text">{text}</p></div>;
-  let neuOeffnen: (() => void) | undefined;
   // Leere Seite wie im bisherigen Bauportal: großer Titel, ein Satz, ein Knopf
   const leerAnlegen = () => (
     <div class="mitte leer-seite">
       <h2>„{bereich!.titel}“ gibt es für {String(projekt()?.werte.name ?? 'dieses Projekt')} noch nicht</h2>
       <p class="still-text">Neu anlegen – leer, aus einer vorhandenen Version oder aus einem anderen Projekt.</p>
-      <Show when={darf('version', 'schreiben')}><div><button class="knopf haupt" onClick={() => neuOeffnen?.()}>{bereich!.titel} anlegen …</button></div></Show>
+      <Show when={darf('version', 'schreiben')}><div><button class="knopf haupt" onClick={() => versionen_?.oeffneNeu()}>{bereich!.titel} anlegen …</button></div></Show>
     </div>
   );
   // Listen ohne Versionen und ohne eigene Seite: auch über alle Projekte (Schalter über der Liste, gemerkt je Ansicht)
@@ -473,9 +474,9 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
       <ObjektAnsicht schluessel={`${schluessel}.alle`} modell={m} baum={[m.projektFeld!, ...(p.ansicht.baum ?? [])]} anpassung={anpassung(m.name)} unterMenue={umfangLeiste()}
         fest={() => ({ ...p.ansicht.filter })} />}>
     <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} unterMenue={umfangMoeglich ? umfangLeiste() : undefined} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
-      <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={leiste()}
+      <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={versionen_!.Dialoge()} linksOben={versionen_!.Wahl}
         inhalt={leerAnlegen()} />}>
-        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(m.name)} unterMenue={bereich ? leiste() : umfangMoeglich ? umfangLeiste() : undefined}
+        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(m.name)} unterMenue={bereich ? versionen_!.Dialoge() : umfangMoeglich ? umfangLeiste() : undefined} linksOben={versionen_?.Wahl}
           fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}), ...p.ansicht.filter })} />
       </Show>
     </Show>
