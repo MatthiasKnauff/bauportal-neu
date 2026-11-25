@@ -19,6 +19,7 @@ import { hinweis } from './baukasten/hinweise';
 import { zeigeMenue } from './baukasten/kontextmenue';
 import { PlanDrucken } from './plandruck';
 import { PlanAssistent } from './planassistent';
+import { PlanHandy } from './planhandy';
 import { csvAus, mspdiAus, planJsonAus } from '../module/bauzeitenplan/austausch';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 
@@ -113,6 +114,8 @@ export function Balkenplan(p: Mitte) {
   const schmalAbfrage = typeof matchMedia === 'function' ? matchMedia('(max-width: 760px)') : null;
   const [schmal, setSchmal] = createSignal(!!schmalAbfrage?.matches);
   schmalAbfrage?.addEventListener('change', (e) => setSchmal(e.matches));
+  const [handy, setHandy] = createSignal<'jetzt' | 'ablauf' | 'gewerke' | 'plan'>(holen('bzp.handy', 'jetzt'));
+  createEffect(() => merken('bzp.handy', handy()));
   const spalten = () => (schmal() ? SPALTEN.slice(0, 2).map((s) => (s.id === 'name' ? { ...s, breite: 150 } : s)) : SPALTEN);
 
   const sichtbar = createMemo(() => {
@@ -407,6 +410,16 @@ export function Balkenplan(p: Mitte) {
 
   return (
     <div class="bzp">
+      <Show when={schmal()}>
+        <div class="ph-umschalter" role="tablist">
+          <For each={[['jetzt', 'Jetzt'], ['ablauf', 'Ablauf'], ['gewerke', 'Gewerke'], ['plan', 'Balken']] as const}>{([k, t]) =>
+            <button role="tab" aria-selected={handy() === k} classList={{ an: handy() === k }} onClick={() => setHandy(k)}>{t}</button>}</For>
+        </div>
+      </Show>
+      <Show when={schmal() && handy() !== 'plan'}>
+        <PlanHandy plan={plan()} heute={new Date().toLocaleDateString('sv')} ansicht={handy() as 'jetzt'} onOeffnen={(id) => oeffnen(id)} />
+      </Show>
+      <Show when={!schmal() || handy() === 'plan'}>
       <div class="bzp-leiste">
         <label>Projektanfang <input type="date" value={String(zp()?.werte.anfang ?? '')} disabled={!darf('zeitplan', 'schreiben')} onChange={(e) => e.currentTarget.value && zp_('anfang', e.currentTarget.value, 'Projektanfang ändern')} /></label>
         <label>Woche <select value={String(zp()?.werte.arbeitswoche ?? '5')} disabled={!darf('zeitplan', 'schreiben')} onChange={(e) => zp_('arbeitswoche', e.currentTarget.value, 'Arbeitswoche ändern')}>
@@ -533,6 +546,7 @@ export function Balkenplan(p: Mitte) {
         <span>Feiertage {zp()?.werte.bundesland ? BUNDESLAENDER.find((b) => b.wert === zp()!.werte.bundesland)?.titel : land() ? `${BUNDESLAENDER.find((b) => b.wert === land())?.titel} (Baustelle)` : 'bundesweit'}</span>
         <Show when={schreiben()}><span>{autom() ? 'Neue Leistungen: automatisch verknüpft' : 'Neue Leistungen: ohne Verknüpfung'}</span></Show>
       </div>
+      </Show>
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>

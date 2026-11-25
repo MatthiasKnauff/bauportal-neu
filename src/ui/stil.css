@@ -454,3 +454,21 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
   .handyleiste button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: 0; background: none; font-size: 11px; color: var(--text-still); cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .handyleiste button.an { color: var(--akzent); }
 }
+/* Bauzeitenplan auf dem Handy: Jetzt / Ablauf / Gewerke */
+.ph-umschalter { display: flex; gap: 4px; margin: 8px 10px 4px; padding: 4px; border-radius: 999px; background: #efefea; }
+.ph-umschalter button { flex: 1; min-height: 36px; border: 0; border-radius: 999px; background: transparent; font-weight: 600; color: var(--text-still); }
+.ph-umschalter button.an { background: var(--akzent); color: #fff; }
+.ph { flex: 1; min-height: 0; overflow: auto; padding: 4px 10px 16px; }
+.ph-kopf { margin: 4px 2px 6px; font-size: 13px; }
+.ph h3 { margin: 14px 2px 6px; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.ph-karte { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--rand); border-left-width: 4px; border-radius: 10px; background: var(--flaeche); cursor: pointer; }
+.ph-karte.jetzt { border-color: var(--akzent); box-shadow: 0 0 0 1px var(--akzent); }
+.ph-karte strong { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.ph-karte strong i, .ph-gewerk-kopf strong i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ph-karte .still-text { font-size: 13px; }
+.ph-leiste { position: relative; height: 8px; margin-top: 4px; border-radius: 4px; background: #efefea; overflow: hidden; }
+.ph-balken { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+.ph-heute { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #d32f2f; }
+.ph-gewerk { margin-bottom: 8px; }
+.ph-gewerk-kopf { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--rand); border-radius: 10px; background: #fafaf7; cursor: pointer; margin-bottom: 6px; }
+.ph-gewerk-kopf strong { display: flex; align-items: center; gap: 8px; }
