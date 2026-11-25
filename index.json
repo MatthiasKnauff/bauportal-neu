@@ -10,6 +10,16 @@
    "quelle": "Gewerke-Liste der VOB/C, Der Senator für Wirtschaft, Arbeit und Häfen Bremen (Stand September 2016); Einteilung in Bereiche vom Bauportal",
    "datei": "gewerke/gewerke-1.json",
    "sha256": "d545e0f9f40f36bcadca901c258a546dbe8501a4b0f4d96ac5b7d135108d836d"
+  },
+  {
+   "id": "kostengruppen",
+   "titel": "Kostengruppen nach DIN 276",
+   "beschreibung": "309 Kostengruppen in drei Ebenen (100 bis 800), zum Zuordnen von Bauteilen, Kosten und Ausschreibung.",
+   "version": 1,
+   "stand": "2018-12",
+   "quelle": "DIN 276:2018-12, Gliederung nach Muster E 3.4 RLBau (Rheinland-Pfalz)",
+   "datei": "kostengruppen/kostengruppen-1.json",
+   "sha256": "d5a853d279c99d2058e500f12182e71adbc0fa1a0ed4270484ae4aff5eb3a2e3"
   }
  ]
 }

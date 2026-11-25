@@ -1,0 +1,3098 @@
+{
+ "id": "kostengruppen",
+ "version": 1,
+ "stand": "2018-12",
+ "quelle": "DIN 276:2018-12, Gliederung nach Muster E 3.4 RLBau (Rheinland-Pfalz)",
+ "eintraege": [
+  {
+   "schluessel": "kg100",
+   "werte": {
+    "nummer": "100",
+    "name": "Grundstück",
+    "bezeichnung": "100 Grundstück",
+    "ebene": 1,
+    "hauptgruppe": "100 Grundstück"
+   }
+  },
+  {
+   "schluessel": "kg110",
+   "werte": {
+    "nummer": "110",
+    "name": "Grundstückswert",
+    "bezeichnung": "110 Grundstückswert",
+    "ebene": 2,
+    "hauptgruppe": "100 Grundstück"
+   }
+  },
+  {
+   "schluessel": "kg120",
+   "werte": {
+    "nummer": "120",
+    "name": "Grundstücksnebenkosten",
+    "bezeichnung": "120 Grundstücksnebenkosten",
+    "ebene": 2,
+    "hauptgruppe": "100 Grundstück"
+   }
+  },
+  {
+   "schluessel": "kg130",
+   "werte": {
+    "nummer": "130",
+    "name": "Rechte Dritter",
+    "bezeichnung": "130 Rechte Dritter",
+    "ebene": 2,
+    "hauptgruppe": "100 Grundstück"
+   }
+  },
+  {
+   "schluessel": "kg200",
+   "werte": {
+    "nummer": "200",
+    "name": "Vorbereitende Maßnahmen",
+    "bezeichnung": "200 Vorbereitende Maßnahmen",
+    "ebene": 1,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg210",
+   "werte": {
+    "nummer": "210",
+    "name": "Herrichten",
+    "bezeichnung": "210 Herrichten",
+    "ebene": 2,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg211",
+   "werte": {
+    "nummer": "211",
+    "name": "Sicherungsmaßnahmen",
+    "bezeichnung": "211 Sicherungsmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg212",
+   "werte": {
+    "nummer": "212",
+    "name": "Abbruchmaßnahmen",
+    "bezeichnung": "212 Abbruchmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg213",
+   "werte": {
+    "nummer": "213",
+    "name": "Altlastenbeseitigung",
+    "bezeichnung": "213 Altlastenbeseitigung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg214",
+   "werte": {
+    "nummer": "214",
+    "name": "Herrichten der Geländeoberfläche",
+    "bezeichnung": "214 Herrichten der Geländeoberfläche",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg215",
+   "werte": {
+    "nummer": "215",
+    "name": "Kampfmittelräumung",
+    "bezeichnung": "215 Kampfmittelräumung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg216",
+   "werte": {
+    "nummer": "216",
+    "name": "Kulturhistorische Funde",
+    "bezeichnung": "216 Kulturhistorische Funde",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg219",
+   "werte": {
+    "nummer": "219",
+    "name": "Sonstiges zur KG 210",
+    "bezeichnung": "219 Sonstiges zur KG 210",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg220",
+   "werte": {
+    "nummer": "220",
+    "name": "Öffentliche Erschließung",
+    "bezeichnung": "220 Öffentliche Erschließung",
+    "ebene": 2,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg221",
+   "werte": {
+    "nummer": "221",
+    "name": "Abwasserentsorgung",
+    "bezeichnung": "221 Abwasserentsorgung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg222",
+   "werte": {
+    "nummer": "222",
+    "name": "Wasserversorgung",
+    "bezeichnung": "222 Wasserversorgung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg223",
+   "werte": {
+    "nummer": "223",
+    "name": "Gasversorgung",
+    "bezeichnung": "223 Gasversorgung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg224",
+   "werte": {
+    "nummer": "224",
+    "name": "Fernwärmeversorgung",
+    "bezeichnung": "224 Fernwärmeversorgung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg225",
+   "werte": {
+    "nummer": "225",
+    "name": "Stromversorgung",
+    "bezeichnung": "225 Stromversorgung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg226",
+   "werte": {
+    "nummer": "226",
+    "name": "Telekommunikation",
+    "bezeichnung": "226 Telekommunikation",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg227",
+   "werte": {
+    "nummer": "227",
+    "name": "Verkehrserschließung",
+    "bezeichnung": "227 Verkehrserschließung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg228",
+   "werte": {
+    "nummer": "228",
+    "name": "Abfallentsorgung",
+    "bezeichnung": "228 Abfallentsorgung",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg229",
+   "werte": {
+    "nummer": "229",
+    "name": "Sonstiges zur KG 220",
+    "bezeichnung": "229 Sonstiges zur KG 220",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg230",
+   "werte": {
+    "nummer": "230",
+    "name": "Nichtöffentliche Erschließung",
+    "bezeichnung": "230 Nichtöffentliche Erschließung",
+    "ebene": 2,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg240",
+   "werte": {
+    "nummer": "240",
+    "name": "Ausgleichsmaßnahmen und -abgaben",
+    "bezeichnung": "240 Ausgleichsmaßnahmen und -abgaben",
+    "ebene": 2,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg241",
+   "werte": {
+    "nummer": "241",
+    "name": "Ausgleichsmaßnahmen",
+    "bezeichnung": "241 Ausgleichsmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg242",
+   "werte": {
+    "nummer": "242",
+    "name": "Ausgleichsabgaben",
+    "bezeichnung": "242 Ausgleichsabgaben",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg249",
+   "werte": {
+    "nummer": "249",
+    "name": "Sonstiges zur KG 240",
+    "bezeichnung": "249 Sonstiges zur KG 240",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg250",
+   "werte": {
+    "nummer": "250",
+    "name": "Übergangsmaßnahmen",
+    "bezeichnung": "250 Übergangsmaßnahmen",
+    "ebene": 2,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg251",
+   "werte": {
+    "nummer": "251",
+    "name": "Bauliche Maßnahmen",
+    "bezeichnung": "251 Bauliche Maßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg252",
+   "werte": {
+    "nummer": "252",
+    "name": "Organisatorische Maßnahmen",
+    "bezeichnung": "252 Organisatorische Maßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg259",
+   "werte": {
+    "nummer": "259",
+    "name": "Sonstiges zur KG 250",
+    "bezeichnung": "259 Sonstiges zur KG 250",
+    "ebene": 3,
+    "hauptgruppe": "200 Vorbereitende Maßnahmen"
+   }
+  },
+  {
+   "schluessel": "kg300",
+   "werte": {
+    "nummer": "300",
+    "name": "Bauwerk - Baukonstruktionen",
+    "bezeichnung": "300 Bauwerk - Baukonstruktionen",
+    "ebene": 1,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg310",
+   "werte": {
+    "nummer": "310",
+    "name": "Baugrube / Erdbau",
+    "bezeichnung": "310 Baugrube / Erdbau",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg311",
+   "werte": {
+    "nummer": "311",
+    "name": "Herstellung",
+    "bezeichnung": "311 Herstellung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg312",
+   "werte": {
+    "nummer": "312",
+    "name": "Umschließung",
+    "bezeichnung": "312 Umschließung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg313",
+   "werte": {
+    "nummer": "313",
+    "name": "Wasserhaltung",
+    "bezeichnung": "313 Wasserhaltung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg314",
+   "werte": {
+    "nummer": "314",
+    "name": "Vortrieb",
+    "bezeichnung": "314 Vortrieb",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg319",
+   "werte": {
+    "nummer": "319",
+    "name": "Sonstiges zur KG 310",
+    "bezeichnung": "319 Sonstiges zur KG 310",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg320",
+   "werte": {
+    "nummer": "320",
+    "name": "Gründung, Unterbau",
+    "bezeichnung": "320 Gründung, Unterbau",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg321",
+   "werte": {
+    "nummer": "321",
+    "name": "Baugrundverbesserung",
+    "bezeichnung": "321 Baugrundverbesserung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg322",
+   "werte": {
+    "nummer": "322",
+    "name": "Flachgründungen und Bodenplatten",
+    "bezeichnung": "322 Flachgründungen und Bodenplatten",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg323",
+   "werte": {
+    "nummer": "323",
+    "name": "Tiefgründungen",
+    "bezeichnung": "323 Tiefgründungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg324",
+   "werte": {
+    "nummer": "324",
+    "name": "Gründungsbeläge",
+    "bezeichnung": "324 Gründungsbeläge",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg325",
+   "werte": {
+    "nummer": "325",
+    "name": "Abdichtungen und Bekleidungen",
+    "bezeichnung": "325 Abdichtungen und Bekleidungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg326",
+   "werte": {
+    "nummer": "326",
+    "name": "Dränagen",
+    "bezeichnung": "326 Dränagen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg329",
+   "werte": {
+    "nummer": "329",
+    "name": "Sonstiges zur KG 320",
+    "bezeichnung": "329 Sonstiges zur KG 320",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg330",
+   "werte": {
+    "nummer": "330",
+    "name": "Außenwände / Vertikale Baukonstruktionen, außen",
+    "bezeichnung": "330 Außenwände / Vertikale Baukonstruktionen, außen",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg331",
+   "werte": {
+    "nummer": "331",
+    "name": "Tragende Außenwände",
+    "bezeichnung": "331 Tragende Außenwände",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg332",
+   "werte": {
+    "nummer": "332",
+    "name": "Nichttragende Außenwände",
+    "bezeichnung": "332 Nichttragende Außenwände",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg333",
+   "werte": {
+    "nummer": "333",
+    "name": "Außenstützen",
+    "bezeichnung": "333 Außenstützen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg334",
+   "werte": {
+    "nummer": "334",
+    "name": "Außenwandöffnungen",
+    "bezeichnung": "334 Außenwandöffnungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg335",
+   "werte": {
+    "nummer": "335",
+    "name": "Außenwandbekleidungen, außen",
+    "bezeichnung": "335 Außenwandbekleidungen, außen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg336",
+   "werte": {
+    "nummer": "336",
+    "name": "Außenwandbekleidungen, innen",
+    "bezeichnung": "336 Außenwandbekleidungen, innen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg337",
+   "werte": {
+    "nummer": "337",
+    "name": "Elementierte Außenwandkonstruktionen",
+    "bezeichnung": "337 Elementierte Außenwandkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg338",
+   "werte": {
+    "nummer": "338",
+    "name": "Lichtschutz zur KG 330",
+    "bezeichnung": "338 Lichtschutz zur KG 330",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg339",
+   "werte": {
+    "nummer": "339",
+    "name": "Sonstiges zur KG 330",
+    "bezeichnung": "339 Sonstiges zur KG 330",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg340",
+   "werte": {
+    "nummer": "340",
+    "name": "Innenwände / Vertikale Baukonstruktionen, innen",
+    "bezeichnung": "340 Innenwände / Vertikale Baukonstruktionen, innen",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg341",
+   "werte": {
+    "nummer": "341",
+    "name": "Tragende Innenwände",
+    "bezeichnung": "341 Tragende Innenwände",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg342",
+   "werte": {
+    "nummer": "342",
+    "name": "Nichttragende Innenwände",
+    "bezeichnung": "342 Nichttragende Innenwände",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg343",
+   "werte": {
+    "nummer": "343",
+    "name": "Innenstützen",
+    "bezeichnung": "343 Innenstützen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg344",
+   "werte": {
+    "nummer": "344",
+    "name": "Innenwandöffnungen",
+    "bezeichnung": "344 Innenwandöffnungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg345",
+   "werte": {
+    "nummer": "345",
+    "name": "Innenwandbekleidungen",
+    "bezeichnung": "345 Innenwandbekleidungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg346",
+   "werte": {
+    "nummer": "346",
+    "name": "Elementierte Innenwandkonstruktionen",
+    "bezeichnung": "346 Elementierte Innenwandkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg347",
+   "werte": {
+    "nummer": "347",
+    "name": "Lichtschutz zur KG 340",
+    "bezeichnung": "347 Lichtschutz zur KG 340",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg349",
+   "werte": {
+    "nummer": "349",
+    "name": "Sonstiges zur KG 340",
+    "bezeichnung": "349 Sonstiges zur KG 340",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg350",
+   "werte": {
+    "nummer": "350",
+    "name": "Decken / Horizontale Baukonstruktionen",
+    "bezeichnung": "350 Decken / Horizontale Baukonstruktionen",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg351",
+   "werte": {
+    "nummer": "351",
+    "name": "Deckenkonstruktionen",
+    "bezeichnung": "351 Deckenkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg352",
+   "werte": {
+    "nummer": "352",
+    "name": "Deckenöffnungen",
+    "bezeichnung": "352 Deckenöffnungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg353",
+   "werte": {
+    "nummer": "353",
+    "name": "Deckenbeläge",
+    "bezeichnung": "353 Deckenbeläge",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg354",
+   "werte": {
+    "nummer": "354",
+    "name": "Deckenbekleidungen",
+    "bezeichnung": "354 Deckenbekleidungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg355",
+   "werte": {
+    "nummer": "355",
+    "name": "Elementierte Deckenkonstruktionen",
+    "bezeichnung": "355 Elementierte Deckenkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg359",
+   "werte": {
+    "nummer": "359",
+    "name": "Sonstiges zur KG 350",
+    "bezeichnung": "359 Sonstiges zur KG 350",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg360",
+   "werte": {
+    "nummer": "360",
+    "name": "Dächer",
+    "bezeichnung": "360 Dächer",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg361",
+   "werte": {
+    "nummer": "361",
+    "name": "Dachkonstruktionen",
+    "bezeichnung": "361 Dachkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg362",
+   "werte": {
+    "nummer": "362",
+    "name": "Dachöffnungen",
+    "bezeichnung": "362 Dachöffnungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg363",
+   "werte": {
+    "nummer": "363",
+    "name": "Dachbeläge",
+    "bezeichnung": "363 Dachbeläge",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg364",
+   "werte": {
+    "nummer": "364",
+    "name": "Dachbekleidungen",
+    "bezeichnung": "364 Dachbekleidungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg365",
+   "werte": {
+    "nummer": "365",
+    "name": "Elementierte Dachkonstruktionen",
+    "bezeichnung": "365 Elementierte Dachkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg366",
+   "werte": {
+    "nummer": "366",
+    "name": "Lichtschutz zur KG 360",
+    "bezeichnung": "366 Lichtschutz zur KG 360",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg369",
+   "werte": {
+    "nummer": "369",
+    "name": "Sonstiges zur KG 360",
+    "bezeichnung": "369 Sonstiges zur KG 360",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg370",
+   "werte": {
+    "nummer": "370",
+    "name": "Infrastrukturanlagen",
+    "bezeichnung": "370 Infrastrukturanlagen",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg371",
+   "werte": {
+    "nummer": "371",
+    "name": "Anlagen für den Straßenverkehr",
+    "bezeichnung": "371 Anlagen für den Straßenverkehr",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg372",
+   "werte": {
+    "nummer": "372",
+    "name": "Anlagen für den Schienenverkehr",
+    "bezeichnung": "372 Anlagen für den Schienenverkehr",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg373",
+   "werte": {
+    "nummer": "373",
+    "name": "Anlagen für den Flugverkehr",
+    "bezeichnung": "373 Anlagen für den Flugverkehr",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg374",
+   "werte": {
+    "nummer": "374",
+    "name": "Anlagen des Wasserbaus",
+    "bezeichnung": "374 Anlagen des Wasserbaus",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg375",
+   "werte": {
+    "nummer": "375",
+    "name": "Anlagen der Abwasserentsorgung",
+    "bezeichnung": "375 Anlagen der Abwasserentsorgung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg376",
+   "werte": {
+    "nummer": "376",
+    "name": "Anlagen der Wasserversorgung",
+    "bezeichnung": "376 Anlagen der Wasserversorgung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg377",
+   "werte": {
+    "nummer": "377",
+    "name": "Anlagen der Energie- und Informationsversorgung",
+    "bezeichnung": "377 Anlagen der Energie- und Informationsversorgung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg378",
+   "werte": {
+    "nummer": "378",
+    "name": "Anlagen der Abfallentsorgung",
+    "bezeichnung": "378 Anlagen der Abfallentsorgung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg379",
+   "werte": {
+    "nummer": "379",
+    "name": "Sonstiges zur KG 370",
+    "bezeichnung": "379 Sonstiges zur KG 370",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg380",
+   "werte": {
+    "nummer": "380",
+    "name": "Baukonstruktive Einbauten",
+    "bezeichnung": "380 Baukonstruktive Einbauten",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg381",
+   "werte": {
+    "nummer": "381",
+    "name": "Allgemeine Einbauten",
+    "bezeichnung": "381 Allgemeine Einbauten",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg382",
+   "werte": {
+    "nummer": "382",
+    "name": "Besondere Einbauten",
+    "bezeichnung": "382 Besondere Einbauten",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg383",
+   "werte": {
+    "nummer": "383",
+    "name": "Landschaftsgestalterische Einbauten",
+    "bezeichnung": "383 Landschaftsgestalterische Einbauten",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg384",
+   "werte": {
+    "nummer": "384",
+    "name": "Mechanische Einbauten",
+    "bezeichnung": "384 Mechanische Einbauten",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg385",
+   "werte": {
+    "nummer": "385",
+    "name": "Einbauten in Konstruktionen des Ingenieurbaus",
+    "bezeichnung": "385 Einbauten in Konstruktionen des Ingenieurbaus",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg386",
+   "werte": {
+    "nummer": "386",
+    "name": "Orientierungs- und Informationssysteme",
+    "bezeichnung": "386 Orientierungs- und Informationssysteme",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg387",
+   "werte": {
+    "nummer": "387",
+    "name": "Schutzeinbauten",
+    "bezeichnung": "387 Schutzeinbauten",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg389",
+   "werte": {
+    "nummer": "389",
+    "name": "Sonstiges zur KG 380",
+    "bezeichnung": "389 Sonstiges zur KG 380",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg390",
+   "werte": {
+    "nummer": "390",
+    "name": "Sonstige Maßnahmen für Baukonstruktionen",
+    "bezeichnung": "390 Sonstige Maßnahmen für Baukonstruktionen",
+    "ebene": 2,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg391",
+   "werte": {
+    "nummer": "391",
+    "name": "Baustelleneinrichtung",
+    "bezeichnung": "391 Baustelleneinrichtung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg392",
+   "werte": {
+    "nummer": "392",
+    "name": "Gerüste",
+    "bezeichnung": "392 Gerüste",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg393",
+   "werte": {
+    "nummer": "393",
+    "name": "Sicherungsmaßnahmen",
+    "bezeichnung": "393 Sicherungsmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg394",
+   "werte": {
+    "nummer": "394",
+    "name": "Abbruchmaßnahmen",
+    "bezeichnung": "394 Abbruchmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg395",
+   "werte": {
+    "nummer": "395",
+    "name": "Instandsetzungen",
+    "bezeichnung": "395 Instandsetzungen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg396",
+   "werte": {
+    "nummer": "396",
+    "name": "Materialentsorgung",
+    "bezeichnung": "396 Materialentsorgung",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg397",
+   "werte": {
+    "nummer": "397",
+    "name": "Zusätzliche Maßnahmen",
+    "bezeichnung": "397 Zusätzliche Maßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg398",
+   "werte": {
+    "nummer": "398",
+    "name": "Provisorische Baukonstruktionen",
+    "bezeichnung": "398 Provisorische Baukonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg399",
+   "werte": {
+    "nummer": "399",
+    "name": "Sonstiges zur KG 390",
+    "bezeichnung": "399 Sonstiges zur KG 390",
+    "ebene": 3,
+    "hauptgruppe": "300 Bauwerk - Baukonstruktionen"
+   }
+  },
+  {
+   "schluessel": "kg400",
+   "werte": {
+    "nummer": "400",
+    "name": "Bauwerk - Technische Anlagen",
+    "bezeichnung": "400 Bauwerk - Technische Anlagen",
+    "ebene": 1,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg410",
+   "werte": {
+    "nummer": "410",
+    "name": "Abwasser-, Wasser-, Gasanlagen",
+    "bezeichnung": "410 Abwasser-, Wasser-, Gasanlagen",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg411",
+   "werte": {
+    "nummer": "411",
+    "name": "Abwasseranlagen",
+    "bezeichnung": "411 Abwasseranlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg412",
+   "werte": {
+    "nummer": "412",
+    "name": "Wasseranlagen",
+    "bezeichnung": "412 Wasseranlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg413",
+   "werte": {
+    "nummer": "413",
+    "name": "Gasanlagen",
+    "bezeichnung": "413 Gasanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg419",
+   "werte": {
+    "nummer": "419",
+    "name": "Sonstiges zur KG 410",
+    "bezeichnung": "419 Sonstiges zur KG 410",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg420",
+   "werte": {
+    "nummer": "420",
+    "name": "Wärmeversorgungsanlagen",
+    "bezeichnung": "420 Wärmeversorgungsanlagen",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg421",
+   "werte": {
+    "nummer": "421",
+    "name": "Wärmeerzeugungsanlagen",
+    "bezeichnung": "421 Wärmeerzeugungsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg422",
+   "werte": {
+    "nummer": "422",
+    "name": "Wärmeverteilnetze",
+    "bezeichnung": "422 Wärmeverteilnetze",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg423",
+   "werte": {
+    "nummer": "423",
+    "name": "Raumheizflächen",
+    "bezeichnung": "423 Raumheizflächen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg424",
+   "werte": {
+    "nummer": "424",
+    "name": "Verkehrsheizflächen",
+    "bezeichnung": "424 Verkehrsheizflächen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg429",
+   "werte": {
+    "nummer": "429",
+    "name": "Sonstiges zur KG 420",
+    "bezeichnung": "429 Sonstiges zur KG 420",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg430",
+   "werte": {
+    "nummer": "430",
+    "name": "Raumlufttechnische Anlagen",
+    "bezeichnung": "430 Raumlufttechnische Anlagen",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg431",
+   "werte": {
+    "nummer": "431",
+    "name": "Lüftungsanlagen",
+    "bezeichnung": "431 Lüftungsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg432",
+   "werte": {
+    "nummer": "432",
+    "name": "Teilklimaanlagen",
+    "bezeichnung": "432 Teilklimaanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg433",
+   "werte": {
+    "nummer": "433",
+    "name": "Klimaanlagen",
+    "bezeichnung": "433 Klimaanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg434",
+   "werte": {
+    "nummer": "434",
+    "name": "Kälteanlagen",
+    "bezeichnung": "434 Kälteanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg439",
+   "werte": {
+    "nummer": "439",
+    "name": "Sonstiges zur KG 430",
+    "bezeichnung": "439 Sonstiges zur KG 430",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg440",
+   "werte": {
+    "nummer": "440",
+    "name": "Elektrische Anlagen",
+    "bezeichnung": "440 Elektrische Anlagen",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg441",
+   "werte": {
+    "nummer": "441",
+    "name": "Hoch- und Mittelspannungsanlagen",
+    "bezeichnung": "441 Hoch- und Mittelspannungsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg442",
+   "werte": {
+    "nummer": "442",
+    "name": "Eigenstromversorgungsanlagen",
+    "bezeichnung": "442 Eigenstromversorgungsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg443",
+   "werte": {
+    "nummer": "443",
+    "name": "Niederspannungsschaltanlagen",
+    "bezeichnung": "443 Niederspannungsschaltanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg444",
+   "werte": {
+    "nummer": "444",
+    "name": "Niederspannungsinstallationsanlagen",
+    "bezeichnung": "444 Niederspannungsinstallationsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg445",
+   "werte": {
+    "nummer": "445",
+    "name": "Beleuchtungsanlagen",
+    "bezeichnung": "445 Beleuchtungsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg446",
+   "werte": {
+    "nummer": "446",
+    "name": "Blitzschutz- und Erdungsanlagen",
+    "bezeichnung": "446 Blitzschutz- und Erdungsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg447",
+   "werte": {
+    "nummer": "447",
+    "name": "Fahrleitungssysteme",
+    "bezeichnung": "447 Fahrleitungssysteme",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg449",
+   "werte": {
+    "nummer": "449",
+    "name": "Sonstiges zur KG 440",
+    "bezeichnung": "449 Sonstiges zur KG 440",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg450",
+   "werte": {
+    "nummer": "450",
+    "name": "Kommunikations-, sicherheits- und informationstechnische Anlagen",
+    "bezeichnung": "450 Kommunikations-, sicherheits- und informationstechnische Anlagen",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg451",
+   "werte": {
+    "nummer": "451",
+    "name": "Telekommunikationsanlagen",
+    "bezeichnung": "451 Telekommunikationsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg452",
+   "werte": {
+    "nummer": "452",
+    "name": "Such- und Signalanlagen",
+    "bezeichnung": "452 Such- und Signalanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg453",
+   "werte": {
+    "nummer": "453",
+    "name": "Zeitdienstanlagen",
+    "bezeichnung": "453 Zeitdienstanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg454",
+   "werte": {
+    "nummer": "454",
+    "name": "Elektroakustische Anlagen",
+    "bezeichnung": "454 Elektroakustische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg455",
+   "werte": {
+    "nummer": "455",
+    "name": "Audiovisuelle Medien- und Antennenanlagen",
+    "bezeichnung": "455 Audiovisuelle Medien- und Antennenanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg456",
+   "werte": {
+    "nummer": "456",
+    "name": "Gefahrenmelde- und Alarmanlagen",
+    "bezeichnung": "456 Gefahrenmelde- und Alarmanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg457",
+   "werte": {
+    "nummer": "457",
+    "name": "Datenübertragungsnetze",
+    "bezeichnung": "457 Datenübertragungsnetze",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg458",
+   "werte": {
+    "nummer": "458",
+    "name": "Verkehrsbeeinflussungsanlagen",
+    "bezeichnung": "458 Verkehrsbeeinflussungsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg459",
+   "werte": {
+    "nummer": "459",
+    "name": "Sonstiges zur KG 450",
+    "bezeichnung": "459 Sonstiges zur KG 450",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg460",
+   "werte": {
+    "nummer": "460",
+    "name": "Förderanlagen",
+    "bezeichnung": "460 Förderanlagen",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg461",
+   "werte": {
+    "nummer": "461",
+    "name": "Aufzugsanlagen",
+    "bezeichnung": "461 Aufzugsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg462",
+   "werte": {
+    "nummer": "462",
+    "name": "Fahrtreppen, Fahrsteige",
+    "bezeichnung": "462 Fahrtreppen, Fahrsteige",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg463",
+   "werte": {
+    "nummer": "463",
+    "name": "Befahranlagen",
+    "bezeichnung": "463 Befahranlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg464",
+   "werte": {
+    "nummer": "464",
+    "name": "Transportanlagen",
+    "bezeichnung": "464 Transportanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg465",
+   "werte": {
+    "nummer": "465",
+    "name": "Krananlagen",
+    "bezeichnung": "465 Krananlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg466",
+   "werte": {
+    "nummer": "466",
+    "name": "Hydraulikanlagen",
+    "bezeichnung": "466 Hydraulikanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg469",
+   "werte": {
+    "nummer": "469",
+    "name": "Sonstiges zur KG 460",
+    "bezeichnung": "469 Sonstiges zur KG 460",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg470",
+   "werte": {
+    "nummer": "470",
+    "name": "Nutzungsspezifische und verfahrenstechnische Anlagen",
+    "bezeichnung": "470 Nutzungsspezifische und verfahrenstechnische Anlagen",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg471",
+   "werte": {
+    "nummer": "471",
+    "name": "Küchentechnische Anlagen",
+    "bezeichnung": "471 Küchentechnische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg472",
+   "werte": {
+    "nummer": "472",
+    "name": "Wäscherei-, Reinigungs- und badetechnische Anlagen",
+    "bezeichnung": "472 Wäscherei-, Reinigungs- und badetechnische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg473",
+   "werte": {
+    "nummer": "473",
+    "name": "Medienversorgungsanlagen, Medizin- und labortechnische Anlagen",
+    "bezeichnung": "473 Medienversorgungsanlagen, Medizin- und labortechnische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg474",
+   "werte": {
+    "nummer": "474",
+    "name": "Feuerlöschanlagen",
+    "bezeichnung": "474 Feuerlöschanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg475",
+   "werte": {
+    "nummer": "475",
+    "name": "Prozesswärme-, kälte- und -luftanlagen",
+    "bezeichnung": "475 Prozesswärme-, kälte- und -luftanlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg476",
+   "werte": {
+    "nummer": "476",
+    "name": "Weitere nutzungsspezifische Anlagen",
+    "bezeichnung": "476 Weitere nutzungsspezifische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg477",
+   "werte": {
+    "nummer": "477",
+    "name": "Verfahrenstechnische Anlagen, Wasser, Abwasser und Gase",
+    "bezeichnung": "477 Verfahrenstechnische Anlagen, Wasser, Abwasser und Gase",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg478",
+   "werte": {
+    "nummer": "478",
+    "name": "Verfahrenstechnische Anlagen, Feststoffe, Wertstoffe und Abfälle",
+    "bezeichnung": "478 Verfahrenstechnische Anlagen, Feststoffe, Wertstoffe und Abfälle",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg479",
+   "werte": {
+    "nummer": "479",
+    "name": "Sonstiges zur KG 470",
+    "bezeichnung": "479 Sonstiges zur KG 470",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg480",
+   "werte": {
+    "nummer": "480",
+    "name": "Gebäude- und Anlagenautomation",
+    "bezeichnung": "480 Gebäude- und Anlagenautomation",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg481",
+   "werte": {
+    "nummer": "481",
+    "name": "Automationseinrichtungen",
+    "bezeichnung": "481 Automationseinrichtungen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg482",
+   "werte": {
+    "nummer": "482",
+    "name": "Schaltschränke, Automationsschwerpunkte",
+    "bezeichnung": "482 Schaltschränke, Automationsschwerpunkte",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg483",
+   "werte": {
+    "nummer": "483",
+    "name": "Automationsmanagement",
+    "bezeichnung": "483 Automationsmanagement",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg484",
+   "werte": {
+    "nummer": "484",
+    "name": "Kabel, Leitungen und Verlegesysteme",
+    "bezeichnung": "484 Kabel, Leitungen und Verlegesysteme",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg485",
+   "werte": {
+    "nummer": "485",
+    "name": "Datenübertragungsnetze",
+    "bezeichnung": "485 Datenübertragungsnetze",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg489",
+   "werte": {
+    "nummer": "489",
+    "name": "Sonstiges zur KG 480",
+    "bezeichnung": "489 Sonstiges zur KG 480",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg490",
+   "werte": {
+    "nummer": "490",
+    "name": "Sonstige Maßnahmen für technische Anlagen",
+    "bezeichnung": "490 Sonstige Maßnahmen für technische Anlagen",
+    "ebene": 2,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg491",
+   "werte": {
+    "nummer": "491",
+    "name": "Baustelleneinrichtung",
+    "bezeichnung": "491 Baustelleneinrichtung",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg492",
+   "werte": {
+    "nummer": "492",
+    "name": "Gerüste",
+    "bezeichnung": "492 Gerüste",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg493",
+   "werte": {
+    "nummer": "493",
+    "name": "Sicherungsmaßnahmen",
+    "bezeichnung": "493 Sicherungsmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg494",
+   "werte": {
+    "nummer": "494",
+    "name": "Abbruchmaßnahmen",
+    "bezeichnung": "494 Abbruchmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg495",
+   "werte": {
+    "nummer": "495",
+    "name": "Instandsetzungen",
+    "bezeichnung": "495 Instandsetzungen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg496",
+   "werte": {
+    "nummer": "496",
+    "name": "Materialentsorgung",
+    "bezeichnung": "496 Materialentsorgung",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg497",
+   "werte": {
+    "nummer": "497",
+    "name": "Zusätzliche Maßnahmen",
+    "bezeichnung": "497 Zusätzliche Maßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg498",
+   "werte": {
+    "nummer": "498",
+    "name": "Provisorische technische Anlagen",
+    "bezeichnung": "498 Provisorische technische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg499",
+   "werte": {
+    "nummer": "499",
+    "name": "Sonstiges zur KG 490",
+    "bezeichnung": "499 Sonstiges zur KG 490",
+    "ebene": 3,
+    "hauptgruppe": "400 Bauwerk - Technische Anlagen"
+   }
+  },
+  {
+   "schluessel": "kg500",
+   "werte": {
+    "nummer": "500",
+    "name": "Außenanlagen und Freiflächen",
+    "bezeichnung": "500 Außenanlagen und Freiflächen",
+    "ebene": 1,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg510",
+   "werte": {
+    "nummer": "510",
+    "name": "Erdbau",
+    "bezeichnung": "510 Erdbau",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg511",
+   "werte": {
+    "nummer": "511",
+    "name": "Herstellung",
+    "bezeichnung": "511 Herstellung",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg512",
+   "werte": {
+    "nummer": "512",
+    "name": "Umschließung",
+    "bezeichnung": "512 Umschließung",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg513",
+   "werte": {
+    "nummer": "513",
+    "name": "Wasserhaltung",
+    "bezeichnung": "513 Wasserhaltung",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg514",
+   "werte": {
+    "nummer": "514",
+    "name": "Vortrieb",
+    "bezeichnung": "514 Vortrieb",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg519",
+   "werte": {
+    "nummer": "519",
+    "name": "Sonstiges zur KG 510",
+    "bezeichnung": "519 Sonstiges zur KG 510",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg520",
+   "werte": {
+    "nummer": "520",
+    "name": "Gründung, Unterbau",
+    "bezeichnung": "520 Gründung, Unterbau",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg521",
+   "werte": {
+    "nummer": "521",
+    "name": "Baugrundverbesserung",
+    "bezeichnung": "521 Baugrundverbesserung",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg522",
+   "werte": {
+    "nummer": "522",
+    "name": "Gründungen und Bodenplatten",
+    "bezeichnung": "522 Gründungen und Bodenplatten",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg523",
+   "werte": {
+    "nummer": "523",
+    "name": "Gründungsbeläge",
+    "bezeichnung": "523 Gründungsbeläge",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg524",
+   "werte": {
+    "nummer": "524",
+    "name": "Abdichtungen und Bekleidungen",
+    "bezeichnung": "524 Abdichtungen und Bekleidungen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg525",
+   "werte": {
+    "nummer": "525",
+    "name": "Dränagen",
+    "bezeichnung": "525 Dränagen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg529",
+   "werte": {
+    "nummer": "529",
+    "name": "Sonstiges zur KG 520",
+    "bezeichnung": "529 Sonstiges zur KG 520",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg530",
+   "werte": {
+    "nummer": "530",
+    "name": "Oberbau, Deckschichten",
+    "bezeichnung": "530 Oberbau, Deckschichten",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg531",
+   "werte": {
+    "nummer": "531",
+    "name": "Wege",
+    "bezeichnung": "531 Wege",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg532",
+   "werte": {
+    "nummer": "532",
+    "name": "Straßen",
+    "bezeichnung": "532 Straßen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg533",
+   "werte": {
+    "nummer": "533",
+    "name": "Plätze, Höfe, Terrassen",
+    "bezeichnung": "533 Plätze, Höfe, Terrassen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg534",
+   "werte": {
+    "nummer": "534",
+    "name": "Stellplätze",
+    "bezeichnung": "534 Stellplätze",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg535",
+   "werte": {
+    "nummer": "535",
+    "name": "Sportplatzflächen",
+    "bezeichnung": "535 Sportplatzflächen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg536",
+   "werte": {
+    "nummer": "536",
+    "name": "Spielplatzflächen",
+    "bezeichnung": "536 Spielplatzflächen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg537",
+   "werte": {
+    "nummer": "537",
+    "name": "Gleisanlagen",
+    "bezeichnung": "537 Gleisanlagen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg538",
+   "werte": {
+    "nummer": "538",
+    "name": "Flugplatzflächen",
+    "bezeichnung": "538 Flugplatzflächen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg539",
+   "werte": {
+    "nummer": "539",
+    "name": "Sonstiges zur KG 530",
+    "bezeichnung": "539 Sonstiges zur KG 530",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg540",
+   "werte": {
+    "nummer": "540",
+    "name": "Baukonstruktionen",
+    "bezeichnung": "540 Baukonstruktionen",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg541",
+   "werte": {
+    "nummer": "541",
+    "name": "Einfriedungen",
+    "bezeichnung": "541 Einfriedungen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg542",
+   "werte": {
+    "nummer": "542",
+    "name": "Schutzkonstruktionen",
+    "bezeichnung": "542 Schutzkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg543",
+   "werte": {
+    "nummer": "543",
+    "name": "Wandkonstruktionen",
+    "bezeichnung": "543 Wandkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg544",
+   "werte": {
+    "nummer": "544",
+    "name": "Rampen, Treppen, Tribünen",
+    "bezeichnung": "544 Rampen, Treppen, Tribünen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg545",
+   "werte": {
+    "nummer": "545",
+    "name": "Überdachungen",
+    "bezeichnung": "545 Überdachungen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg546",
+   "werte": {
+    "nummer": "546",
+    "name": "Stege",
+    "bezeichnung": "546 Stege",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg547",
+   "werte": {
+    "nummer": "547",
+    "name": "Kanal- und Schachtkonstruktionen",
+    "bezeichnung": "547 Kanal- und Schachtkonstruktionen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg548",
+   "werte": {
+    "nummer": "548",
+    "name": "Wasserbecken",
+    "bezeichnung": "548 Wasserbecken",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg549",
+   "werte": {
+    "nummer": "549",
+    "name": "Sonstiges zur KG 540",
+    "bezeichnung": "549 Sonstiges zur KG 540",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg550",
+   "werte": {
+    "nummer": "550",
+    "name": "Technische Anlagen",
+    "bezeichnung": "550 Technische Anlagen",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg551",
+   "werte": {
+    "nummer": "551",
+    "name": "Abwasseranlagen",
+    "bezeichnung": "551 Abwasseranlagen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg552",
+   "werte": {
+    "nummer": "552",
+    "name": "Wasseranlagen",
+    "bezeichnung": "552 Wasseranlagen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg553",
+   "werte": {
+    "nummer": "553",
+    "name": "Anlagen für Gase und Flüssigkeiten",
+    "bezeichnung": "553 Anlagen für Gase und Flüssigkeiten",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg554",
+   "werte": {
+    "nummer": "554",
+    "name": "Wärmeversorgungsanlagen",
+    "bezeichnung": "554 Wärmeversorgungsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg555",
+   "werte": {
+    "nummer": "555",
+    "name": "Raumlufttechnische Anlagen",
+    "bezeichnung": "555 Raumlufttechnische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg556",
+   "werte": {
+    "nummer": "556",
+    "name": "Elektrische Anlagen",
+    "bezeichnung": "556 Elektrische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg557",
+   "werte": {
+    "nummer": "557",
+    "name": "Kommunikations-, sicherheits- und informationstechnische Anlagen, Automation",
+    "bezeichnung": "557 Kommunikations-, sicherheits- und informationstechnische Anlagen, Automation",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg558",
+   "werte": {
+    "nummer": "558",
+    "name": "Nutzungsspezifische Anlagen",
+    "bezeichnung": "558 Nutzungsspezifische Anlagen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg559",
+   "werte": {
+    "nummer": "559",
+    "name": "Sonstiges zur KG 550",
+    "bezeichnung": "559 Sonstiges zur KG 550",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg560",
+   "werte": {
+    "nummer": "560",
+    "name": "Einbauten in Außenanlagen und Freiflächen",
+    "bezeichnung": "560 Einbauten in Außenanlagen und Freiflächen",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg561",
+   "werte": {
+    "nummer": "561",
+    "name": "Allgemeine Einbauten",
+    "bezeichnung": "561 Allgemeine Einbauten",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg562",
+   "werte": {
+    "nummer": "562",
+    "name": "Besondere Einbauten",
+    "bezeichnung": "562 Besondere Einbauten",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg563",
+   "werte": {
+    "nummer": "563",
+    "name": "Orientierungs- und Informationssysteme",
+    "bezeichnung": "563 Orientierungs- und Informationssysteme",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg569",
+   "werte": {
+    "nummer": "569",
+    "name": "Sonstiges zur KG 560",
+    "bezeichnung": "569 Sonstiges zur KG 560",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg570",
+   "werte": {
+    "nummer": "570",
+    "name": "Vegetationsflächen",
+    "bezeichnung": "570 Vegetationsflächen",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg571",
+   "werte": {
+    "nummer": "571",
+    "name": "Vegetationstechnische Bodenbearbeitung",
+    "bezeichnung": "571 Vegetationstechnische Bodenbearbeitung",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg572",
+   "werte": {
+    "nummer": "572",
+    "name": "Sicherungsbauweisen",
+    "bezeichnung": "572 Sicherungsbauweisen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg573",
+   "werte": {
+    "nummer": "573",
+    "name": "Pflanzflächen",
+    "bezeichnung": "573 Pflanzflächen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg574",
+   "werte": {
+    "nummer": "574",
+    "name": "Rasen- und Saatflächen",
+    "bezeichnung": "574 Rasen- und Saatflächen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg579",
+   "werte": {
+    "nummer": "579",
+    "name": "Sonstiges zur KG 570",
+    "bezeichnung": "579 Sonstiges zur KG 570",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg580",
+   "werte": {
+    "nummer": "580",
+    "name": "Wasserflächen",
+    "bezeichnung": "580 Wasserflächen",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg581",
+   "werte": {
+    "nummer": "581",
+    "name": "Befestigungen",
+    "bezeichnung": "581 Befestigungen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg582",
+   "werte": {
+    "nummer": "582",
+    "name": "Abdichtungen",
+    "bezeichnung": "582 Abdichtungen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg583",
+   "werte": {
+    "nummer": "583",
+    "name": "Bepflanzungen",
+    "bezeichnung": "583 Bepflanzungen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg589",
+   "werte": {
+    "nummer": "589",
+    "name": "Sonstiges zur KG 580",
+    "bezeichnung": "589 Sonstiges zur KG 580",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg590",
+   "werte": {
+    "nummer": "590",
+    "name": "Sonstige Maßnahmen für Außenanlagen und Freiflächen",
+    "bezeichnung": "590 Sonstige Maßnahmen für Außenanlagen und Freiflächen",
+    "ebene": 2,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg591",
+   "werte": {
+    "nummer": "591",
+    "name": "Baustelleneinrichtung",
+    "bezeichnung": "591 Baustelleneinrichtung",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg592",
+   "werte": {
+    "nummer": "592",
+    "name": "Gerüste",
+    "bezeichnung": "592 Gerüste",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg593",
+   "werte": {
+    "nummer": "593",
+    "name": "Sicherungsmaßnahmen",
+    "bezeichnung": "593 Sicherungsmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg594",
+   "werte": {
+    "nummer": "594",
+    "name": "Abbruchmaßnahmen",
+    "bezeichnung": "594 Abbruchmaßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg595",
+   "werte": {
+    "nummer": "595",
+    "name": "Instandsetzungen",
+    "bezeichnung": "595 Instandsetzungen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg596",
+   "werte": {
+    "nummer": "596",
+    "name": "Materialentsorgung",
+    "bezeichnung": "596 Materialentsorgung",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg597",
+   "werte": {
+    "nummer": "597",
+    "name": "Zusätzliche Maßnahmen",
+    "bezeichnung": "597 Zusätzliche Maßnahmen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg598",
+   "werte": {
+    "nummer": "598",
+    "name": "Provisorische Außenanlagen und Freiflächen",
+    "bezeichnung": "598 Provisorische Außenanlagen und Freiflächen",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg599",
+   "werte": {
+    "nummer": "599",
+    "name": "Sonstiges zur KG 590",
+    "bezeichnung": "599 Sonstiges zur KG 590",
+    "ebene": 3,
+    "hauptgruppe": "500 Außenanlagen und Freiflächen"
+   }
+  },
+  {
+   "schluessel": "kg600",
+   "werte": {
+    "nummer": "600",
+    "name": "Ausstattung und Kunstwerke",
+    "bezeichnung": "600 Ausstattung und Kunstwerke",
+    "ebene": 1,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg610",
+   "werte": {
+    "nummer": "610",
+    "name": "Allgemeine Ausstattung",
+    "bezeichnung": "610 Allgemeine Ausstattung",
+    "ebene": 2,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg620",
+   "werte": {
+    "nummer": "620",
+    "name": "Besondere Ausstattung",
+    "bezeichnung": "620 Besondere Ausstattung",
+    "ebene": 2,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg630",
+   "werte": {
+    "nummer": "630",
+    "name": "Informationstechnische Ausstattung",
+    "bezeichnung": "630 Informationstechnische Ausstattung",
+    "ebene": 2,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg640",
+   "werte": {
+    "nummer": "640",
+    "name": "Künstlerische Ausstattung",
+    "bezeichnung": "640 Künstlerische Ausstattung",
+    "ebene": 2,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg641",
+   "werte": {
+    "nummer": "641",
+    "name": "Kunstobjekte",
+    "bezeichnung": "641 Kunstobjekte",
+    "ebene": 3,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg642",
+   "werte": {
+    "nummer": "642",
+    "name": "Künstlerische Gestaltung des Bauwerks",
+    "bezeichnung": "642 Künstlerische Gestaltung des Bauwerks",
+    "ebene": 3,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg643",
+   "werte": {
+    "nummer": "643",
+    "name": "Künstlerische Gestaltung der Außenanlagen und Freiflächen",
+    "bezeichnung": "643 Künstlerische Gestaltung der Außenanlagen und Freiflächen",
+    "ebene": 3,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg649",
+   "werte": {
+    "nummer": "649",
+    "name": "Sonstiges zur KG 640",
+    "bezeichnung": "649 Sonstiges zur KG 640",
+    "ebene": 3,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg690",
+   "werte": {
+    "nummer": "690",
+    "name": "Sonstige Ausstattung",
+    "bezeichnung": "690 Sonstige Ausstattung",
+    "ebene": 2,
+    "hauptgruppe": "600 Ausstattung und Kunstwerke"
+   }
+  },
+  {
+   "schluessel": "kg700",
+   "werte": {
+    "nummer": "700",
+    "name": "Baunebenkosten",
+    "bezeichnung": "700 Baunebenkosten",
+    "ebene": 1,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg710",
+   "werte": {
+    "nummer": "710",
+    "name": "Bauherrenaufgaben",
+    "bezeichnung": "710 Bauherrenaufgaben",
+    "ebene": 2,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg711",
+   "werte": {
+    "nummer": "711",
+    "name": "Projektleitung",
+    "bezeichnung": "711 Projektleitung",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg712",
+   "werte": {
+    "nummer": "712",
+    "name": "Bedarfsplanung",
+    "bezeichnung": "712 Bedarfsplanung",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg713",
+   "werte": {
+    "nummer": "713",
+    "name": "Projektsteuerung",
+    "bezeichnung": "713 Projektsteuerung",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg714",
+   "werte": {
+    "nummer": "714",
+    "name": "Sicherheits- und Gesundheitsschutzkoordination",
+    "bezeichnung": "714 Sicherheits- und Gesundheitsschutzkoordination",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg715",
+   "werte": {
+    "nummer": "715",
+    "name": "Vergabeverfahren",
+    "bezeichnung": "715 Vergabeverfahren",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg719",
+   "werte": {
+    "nummer": "719",
+    "name": "Sonstiges zur KG 710",
+    "bezeichnung": "719 Sonstiges zur KG 710",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg720",
+   "werte": {
+    "nummer": "720",
+    "name": "Vorbereitung der Objektplanung",
+    "bezeichnung": "720 Vorbereitung der Objektplanung",
+    "ebene": 2,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg721",
+   "werte": {
+    "nummer": "721",
+    "name": "Untersuchungen",
+    "bezeichnung": "721 Untersuchungen",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg722",
+   "werte": {
+    "nummer": "722",
+    "name": "Wertermittlungen",
+    "bezeichnung": "722 Wertermittlungen",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg723",
+   "werte": {
+    "nummer": "723",
+    "name": "Städtebauliche Leistungen",
+    "bezeichnung": "723 Städtebauliche Leistungen",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg724",
+   "werte": {
+    "nummer": "724",
+    "name": "Landschaftsplanerische Leistungen",
+    "bezeichnung": "724 Landschaftsplanerische Leistungen",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg725",
+   "werte": {
+    "nummer": "725",
+    "name": "Wettbewerbe",
+    "bezeichnung": "725 Wettbewerbe",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg729",
+   "werte": {
+    "nummer": "729",
+    "name": "Sonstiges zur KG 720",
+    "bezeichnung": "729 Sonstiges zur KG 720",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg730",
+   "werte": {
+    "nummer": "730",
+    "name": "Objektplanung",
+    "bezeichnung": "730 Objektplanung",
+    "ebene": 2,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg731",
+   "werte": {
+    "nummer": "731",
+    "name": "Gebäude und Innenräume",
+    "bezeichnung": "731 Gebäude und Innenräume",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg732",
+   "werte": {
+    "nummer": "732",
+    "name": "Freianlagen",
+    "bezeichnung": "732 Freianlagen",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg733",
+   "werte": {
+    "nummer": "733",
+    "name": "Ingenieurbauwerke",
+    "bezeichnung": "733 Ingenieurbauwerke",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg734",
+   "werte": {
+    "nummer": "734",
+    "name": "Verkehrsanlagen",
+    "bezeichnung": "734 Verkehrsanlagen",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg739",
+   "werte": {
+    "nummer": "739",
+    "name": "Sonstiges zur KG 730",
+    "bezeichnung": "739 Sonstiges zur KG 730",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg740",
+   "werte": {
+    "nummer": "740",
+    "name": "Fachplanung",
+    "bezeichnung": "740 Fachplanung",
+    "ebene": 2,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg741",
+   "werte": {
+    "nummer": "741",
+    "name": "Tragwerksplanung",
+    "bezeichnung": "741 Tragwerksplanung",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg742",
+   "werte": {
+    "nummer": "742",
+    "name": "Technische Ausrüstung",
+    "bezeichnung": "742 Technische Ausrüstung",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg743",
+   "werte": {
+    "nummer": "743",
+    "name": "Bauphysik",
+    "bezeichnung": "743 Bauphysik",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg744",
+   "werte": {
+    "nummer": "744",
+    "name": "Geotechnik",
+    "bezeichnung": "744 Geotechnik",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg745",
+   "werte": {
+    "nummer": "745",
+    "name": "Ingenieurvermessung",
+    "bezeichnung": "745 Ingenieurvermessung",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg746",
+   "werte": {
+    "nummer": "746",
+    "name": "Lichttechnik, Tageslichttechnik",
+    "bezeichnung": "746 Lichttechnik, Tageslichttechnik",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg747",
+   "werte": {
+    "nummer": "747",
+    "name": "Brandschutz",
+    "bezeichnung": "747 Brandschutz",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg748",
+   "werte": {
+    "nummer": "748",
+    "name": "Altlasten, Kampfmittel, kulturhistorische Funde",
+    "bezeichnung": "748 Altlasten, Kampfmittel, kulturhistorische Funde",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg749",
+   "werte": {
+    "nummer": "749",
+    "name": "Sonstiges zur KG 740",
+    "bezeichnung": "749 Sonstiges zur KG 740",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg750",
+   "werte": {
+    "nummer": "750",
+    "name": "Künstlerische Leistungen",
+    "bezeichnung": "750 Künstlerische Leistungen",
+    "ebene": 2,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg751",
+   "werte": {
+    "nummer": "751",
+    "name": "Kunstwettbewerbe",
+    "bezeichnung": "751 Kunstwettbewerbe",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg752",
+   "werte": {
+    "nummer": "752",
+    "name": "Honorare",
+    "bezeichnung": "752 Honorare",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg759",
+   "werte": {
+    "nummer": "759",
+    "name": "Sonstiges zur KG 750",
+    "bezeichnung": "759 Sonstiges zur KG 750",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg760",
+   "werte": {
+    "nummer": "760",
+    "name": "Allgemeine Baunebenkosten",
+    "bezeichnung": "760 Allgemeine Baunebenkosten",
+    "ebene": 2,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg761",
+   "werte": {
+    "nummer": "761",
+    "name": "Gutachten und Beratung",
+    "bezeichnung": "761 Gutachten und Beratung",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg762",
+   "werte": {
+    "nummer": "762",
+    "name": "Prüfungen, Genehmigungen, Abnahmen",
+    "bezeichnung": "762 Prüfungen, Genehmigungen, Abnahmen",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg763",
+   "werte": {
+    "nummer": "763",
+    "name": "Bewirtschaftungskosten",
+    "bezeichnung": "763 Bewirtschaftungskosten",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg764",
+   "werte": {
+    "nummer": "764",
+    "name": "Bemusterungskosten",
+    "bezeichnung": "764 Bemusterungskosten",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg765",
+   "werte": {
+    "nummer": "765",
+    "name": "Betriebskosten nach der Abnahme",
+    "bezeichnung": "765 Betriebskosten nach der Abnahme",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg766",
+   "werte": {
+    "nummer": "766",
+    "name": "Versicherungen",
+    "bezeichnung": "766 Versicherungen",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg769",
+   "werte": {
+    "nummer": "769",
+    "name": "Sonstiges zur KG 760",
+    "bezeichnung": "769 Sonstiges zur KG 760",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg790",
+   "werte": {
+    "nummer": "790",
+    "name": "Sonstige Baunebenkosten",
+    "bezeichnung": "790 Sonstige Baunebenkosten",
+    "ebene": 2,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg791",
+   "werte": {
+    "nummer": "791",
+    "name": "Bestandsdokumentation",
+    "bezeichnung": "791 Bestandsdokumentation",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg799",
+   "werte": {
+    "nummer": "799",
+    "name": "Sonstiges zur KG 790",
+    "bezeichnung": "799 Sonstiges zur KG 790",
+    "ebene": 3,
+    "hauptgruppe": "700 Baunebenkosten"
+   }
+  },
+  {
+   "schluessel": "kg800",
+   "werte": {
+    "nummer": "800",
+    "name": "Finanzierung",
+    "bezeichnung": "800 Finanzierung",
+    "ebene": 1,
+    "hauptgruppe": "800 Finanzierung"
+   }
+  }
+ ]
+}
