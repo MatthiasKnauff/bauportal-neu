@@ -428,3 +428,8 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .pa-dauer { width: 56px; min-height: 26px; border: 1px solid var(--rand-stark); border-radius: 6px; padding: 0 4px; text-align: right; }
 @media (max-width: 760px) { .planassistent { flex-direction: column; } .pa-angaben { width: auto; } .pa-liste li { grid-template-columns: 1fr 70px; } .pa-liste li > .klein-text { display: none; } }
 .pa-dauerzelle { white-space: nowrap; font-size: 13px; color: var(--text-still); }
+.bzp-woche.frei { fill: #b42318; }
+.bzp-pct { font-size: 9px; fill: rgba(0,0,0,.65); pointer-events: none; }
+.bzp-status { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 5px 12px; border-top: 1px solid var(--rand); font-size: 12px; color: var(--text-still); background: #fafaf7; }
+.bzp-status strong { color: var(--text); }
+.bzp-woche-oben { font-size: 11px; font-weight: 600; fill: var(--text); }

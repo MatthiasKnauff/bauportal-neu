@@ -31,6 +31,7 @@ const SPALTEN: Spalte[] = [
 ];
 const BEARBEITBAR = new Set(['name', 'dauer', 'anfang', 'vorg', 'gewerk', 'pct']);
 const ZOOM = [3, 6, 12, 24, 40];   // Bildpunkte je Kalendertag
+const tagname = (iso: string) => (iso ? `${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][wochentag(tagAus(iso))]} ${kurz(iso)}` : '');
 const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}` : '');
 const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 const naechsterMontag = () => montag(new Date().toLocaleDateString('sv'));
@@ -140,8 +141,9 @@ export function Balkenplan(p: Mitte) {
   const breiteR = () => (achse().t1 - achse().t0 + 1) * px();
 
   // ---------- Tabelle: Zeiger, Bearbeiten ----------
-  // Markieren öffnet keine Karte (sie würde die Balken verdecken) – die Karte kommt mit Doppelklick, Umschalt+Enter oder „Informationen“
-  const [markiert, setMarkiert] = createSignal<string | null>(null);
+  // Markieren zeigt die Karte rechts (wie bisher); Doppelklick, Umschalt+Enter oder „Informationen“ springen hinein
+  const [markiert, markieren] = createSignal<string | null>(null);
+  const setMarkiert = (id: string | null) => { markieren(id); p.onWahl(id); };
   const oeffnen = (id = markiert()) => { if (id) { setMarkiert(id); p.onWahl(id); p.onOeffnen(); } };
   const [spalte, setSpalte] = createSignal<Spalte['id']>('name');
   const [edit, setEdit] = createSignal<{ id: string | 'neu'; spalte: Spalte['id']; text: string } | null>(null);
@@ -375,15 +377,20 @@ export function Balkenplan(p: Mitte) {
 
   // ---------- Kopf der Zeitachse ----------
   const kopf = createMemo(() => {
-    const { t0, t1 } = achse(), b = px(), monate: { x: number; w: number; t: string }[] = [], unten: { x: number; t: string }[] = [];
+    const { t0, t1 } = achse(), b = px(), oben: { x: number; w: number; t: string }[] = [], unten: { x: number; t: string; frei?: boolean }[] = [];
+    const tage = b >= 12;   // fein: oben die Wochen, unten jeder Tag (Mo, Di …); grob: oben die Monate, unten die Wochen
     for (let t = t0; t <= t1; t++) {
-      const d = isoAus(t);
-      if (d.endsWith('-01') || t === t0) monate.push({ x: (t - t0) * b, w: 0, t: `${MONATE[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}` });
-      if (b >= 24) unten.push({ x: (t - t0) * b, t: `${'MDMDFSS'[wochentag(t)]} ${Number(d.slice(8, 10))}` });
-      else if (wochentag(t) === 0) unten.push({ x: (t - t0) * b, t: b >= 6 ? `KW ${kw(t)} · ${d.slice(8, 10)}.${d.slice(5, 7)}.` : `${kw(t)}` });
+      const d = isoAus(t), wt = wochentag(t);
+      if (tage) {
+        if (wt === 0 || t === t0) oben.push({ x: (t - t0) * b, w: 0, t: 7 * b >= 150 ? `KW ${kw(t)} · ${Number(d.slice(8, 10))}. ${MONATE[Number(d.slice(5, 7)) - 1]} ${d.slice(2, 4)}` : `KW ${kw(t)} · ${d.slice(8, 10)}.${d.slice(5, 7)}.` });
+        unten.push({ x: (t - t0) * b, t: b >= 24 ? `${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][wt]} ${Number(d.slice(8, 10))}` : 'MDMDFSS'[wt]!, frei: !kal().arbeit(t) });
+      } else {
+        if (d.endsWith('-01') || t === t0) oben.push({ x: (t - t0) * b, w: 0, t: `${MONATE[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}` });
+        if (wt === 0) unten.push({ x: (t - t0) * b, t: b >= 6 ? `KW ${kw(t)} · ${d.slice(8, 10)}.${d.slice(5, 7)}.` : `${kw(t)}` });
+      }
     }
-    monate.forEach((m, i) => (m.w = (monate[i + 1]?.x ?? (t1 - t0 + 1) * b) - m.x));
-    return { monate, unten };
+    oben.forEach((m, i) => (m.w = (oben[i + 1]?.x ?? (t1 - t0 + 1) * b) - m.x));
+    return { monate: oben, unten, tage };
   });
   const freieTage = createMemo(() => {
     const { t0, t1 } = achse(), k = kal(), l: { x: number; feiertag: string }[] = [];
@@ -406,7 +413,6 @@ export function Balkenplan(p: Mitte) {
         <label>Feiertage <select value={String(zp()?.werte.bundesland ?? '')} disabled={!darf('zeitplan', 'schreiben')} onChange={(e) => zp_('bundesland', e.currentTarget.value, 'Feiertage ändern')}>
           <option value="">wie die Baustelle{land() ? ` (${BUNDESLAENDER.find((b) => b.wert === land())?.titel})` : ''}</option>
           <For each={BUNDESLAENDER}>{(b) => <option value={b.wert}>{b.titel}</option>}</For></select></label>
-        <span class="bzp-ende">Ende: <strong>{erg().termine.size ? kurz(erg().endeDatum) : '–'}</strong>{erg().termine.size ? ` · ${erg().ende} Arbeitstage` : ''}</span>
         <span class="bzp-trenner" />
         <label class="bzp-haken"><input type="checkbox" checked={kritisch()} onChange={(e) => setKritisch(e.currentTarget.checked)} /> Kritischer Weg</label>
         <label>Pfeile <select value={pfeile()} onChange={(e) => setPfeile(e.currentTarget.value as 'markiert')}>
@@ -427,8 +433,8 @@ export function Balkenplan(p: Mitte) {
               <For each={spalten()}>{(s) => <div class="bzp-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }}>{s.titel}</div>}</For>
             </div>
             <svg class="bzp-achse" width={breiteR()} height={KOPF}>
-              <For each={kopf().monate}>{(m) => <><line x1={m.x} x2={m.x} y1={0} y2={KOPF} class="bzp-linie" /><text x={m.x + 4} y={16} class="bzp-monat">{m.w > 50 ? m.t : ''}</text></>}</For>
-              <For each={kopf().unten}>{(u) => <><line x1={u.x} x2={u.x} y1={24} y2={KOPF} class="bzp-linie" /><text x={u.x + 3} y={39} class="bzp-woche">{u.t}</text></>}</For>
+              <For each={kopf().monate}>{(m) => <><line x1={m.x} x2={m.x} y1={0} y2={KOPF} class="bzp-linie" /><text x={m.x + 4} y={16} class={kopf().tage ? "bzp-woche-oben" : "bzp-monat"}>{m.w > 50 ? m.t : ''}</text></>}</For>
+              <For each={kopf().unten}>{(u) => <><line x1={u.x} x2={u.x} y1={24} y2={KOPF} class="bzp-linie" /><text x={kopf().tage ? u.x + px() / 2 : u.x + 3} y={39} class="bzp-woche" classList={{ frei: !!u.frei }} text-anchor={kopf().tage ? 'middle' : 'start'}>{u.t}</text></>}</For>
             </svg>
           </div>
           <svg class="bzp-balken" width={breiteR()} height={(sichtbar().length + 1) * H} style={{ left: `${breiteL()}px`, top: `${KOPF}px` }}
@@ -456,6 +462,9 @@ export function Balkenplan(p: Mitte) {
                         )}</For>
                         <Show when={Number(v.werte.fortschritt ?? 0) > 0}>
                           <rect x={x(tt().s) + verschiebung(v.id)} y={y() + 13} height={4} width={(xEnde(tt().s, tt().f) - x(tt().s)) * Math.min(100, Number(v.werte.fortschritt)) / 100} class="bzp-fortschritt" />
+                        </Show>
+                        <Show when={xEnde(tt().s, tt().f) - x(tt().s) >= 30}>
+                          <text x={x(tt().s) + verschiebung(v.id) + 3} y={y() + 19} class="bzp-pct">{Math.round(Number(v.werte.fortschritt ?? 0))} %</text>
                         </Show>
                         <rect x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) - 4} y={y() + 8} width={8} height={14} class="bzp-griff" onPointerDown={(e) => startZiehen(e, v, 'dauer', y())}><title>Ziehen ändert die Dauer</title></rect>
                       </Show>
@@ -511,6 +520,17 @@ export function Balkenplan(p: Mitte) {
             </Show>
           </div>
         </div>
+      </div>
+      <div class="bzp-status" role="status">
+        <span>{vorgaenge().length} {vorgaenge().length === 1 ? 'Leistung' : 'Leistungen'}</span>
+        <Show when={erg().termine.size}>
+          <span>Anfang {tagname(erg().termine.size ? [...erg().termine.values()].reduce((m, t) => (t.anfang < m ? t.anfang : m), '9999') : '')}</span>
+          <span>Ende <strong>{tagname(erg().endeDatum)}</strong></span>
+          <span>{erg().ende} Arbeitstage</span>
+        </Show>
+        <span>{kal().woche}-Tage-Woche</span>
+        <span>Feiertage {zp()?.werte.bundesland ? BUNDESLAENDER.find((b) => b.wert === zp()!.werte.bundesland)?.titel : land() ? `${BUNDESLAENDER.find((b) => b.wert === land())?.titel} (Baustelle)` : 'bundesweit'}</span>
+        <Show when={schreiben()}><span>{autom() ? 'Neue Leistungen: automatisch verknüpft' : 'Neue Leistungen: ohne Verknüpfung'}</span></Show>
       </div>
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
