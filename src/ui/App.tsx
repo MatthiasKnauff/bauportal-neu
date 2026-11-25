@@ -1,7 +1,8 @@
 // Das Portal: Einrichtung, Anmeldung, Startseite mit den Kacheln und der Rahmen um jedes Modul (Kopfleiste, Reiter, Rückgängig).
+import { Projektwahl } from './projektwahl';
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { MERKER, Netzfehler, Serverfehler, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
+import { MERKER, Netzfehler, Serverfehler, darf, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
 import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
 import { AnsichtZeigen, kartenZusatz, sichtbar } from './ansichten';
 import { Kontextmenue } from './baukasten/kontextmenue';
@@ -220,7 +221,7 @@ function Portal() {
     <div class="portal">
       <Kopfleiste marke="Bauportal" aktuell={modul()?.modul.name} onStart={() => { setModulId(''); setAnsichtId(''); }}
         status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
-        zusatz={<Show when={projekte().length}><div class="projektwahl"><Auswahlliste titel="Projekt" platzhalter="Projekt wählen …" optionen={projekte()} wert={projekte().some((x) => x.wert === projektId()) ? projektId() : null} onWert={setProjektId} /></div></Show>}
+        zusatz={<Show when={projekte().length || darf('projekt', 'schreiben')}><Projektwahl kartenZusatz={kartenZusatz('projekt')} /></Show>}
         onSuche={() => setSuche(true)} onHilfe={() => setHilfe(true)}
         apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name }))} onApp={(id) => oeffne(id)}
         benutzer={ich().name} menueFuss={`${z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version ${z().version}`}

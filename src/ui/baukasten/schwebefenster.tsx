@@ -2,6 +2,7 @@
 // bisherigen Bauportal öffnet der Doppelklick auf eine Zeile den Eintrag darin; die Liste bleibt dabei bedienbar.
 // Die Lage merkt sich das Fenster je Benutzer und Gerät.
 import { onCleanup, onMount, type JSX } from 'solid-js';
+import { Portal } from 'solid-js/web';
 
 const SCHLUESSEL = 'bp.schwebefenster';
 const lage = (): { x: number; y: number } => { try { return JSON.parse(localStorage.getItem(SCHLUESSEL) ?? '') as { x: number; y: number }; } catch { return { x: Math.max(20, innerWidth - 520), y: 90 }; } };
@@ -29,13 +30,14 @@ export function Schwebefenster(p: { titel: string; onZu: () => void; children: J
   const taste = (e: KeyboardEvent) => { if (e.key === 'Escape' && feld.contains(document.activeElement)) { e.stopPropagation(); p.onZu(); } };
   onMount(() => { const l = lage(); setzen(l.x, l.y); document.addEventListener('keydown', taste, true); });
   onCleanup(() => document.removeEventListener('keydown', taste, true));
+  // Im Portal: das Fenster liegt über der Seite und erbt nichts von der Stelle, an der es geöffnet wird (z. B. aus der Kopfleiste)
   return (
-    <div class="schwebefenster" ref={feld} role="dialog" aria-label={p.titel}>
+    <Portal><div class="schwebefenster" ref={feld} role="dialog" aria-label={p.titel}>
       <div class="schwebefenster-kopf" onPointerDown={ziehen} title="Am Kopf ziehen, um das Fenster zu verschieben">
         <strong>{p.titel}</strong>
         <button type="button" class="knopf still" aria-label="Fenster schließen" title="Schließen (Esc)" onClick={p.onZu}>×</button>
       </div>
       <div class="schwebefenster-inhalt">{p.children}</div>
-    </div>
+    </div></Portal>
   );
 }

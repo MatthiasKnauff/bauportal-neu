@@ -29,6 +29,23 @@ export const projekt: ObjektModell = {
   ],
 };
 
+// Favoriten und „Zuletzt benutzt“ der Projektwahl – je Benutzer, nur für ihn sichtbar
+export const projektMerker: ObjektModell = {
+  name: 'projekt_merker',
+  titel: 'Projekt-Merker',
+  titelMehrzahl: 'Projekt-Merker',
+  anzeigeFeld: 'projekt',
+  projektFeld: 'projekt',
+  eigenFeld: 'benutzer',
+  rechte: { lesen: ALLE, schreiben: ALLE, loeschen: ALLE },
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'benutzer', titel: 'Benutzer', art: 'verweis', ziel: 'benutzer', pflicht: true },
+    { name: 'favorit', titel: 'Favorit', art: 'ja_nein' },
+    { name: 'zuletzt', titel: 'Zuletzt benutzt', art: 'text' },   // Zeitpunkt (ISO) – sortiert richtig
+  ],
+};
+
 export const projektMitglied: ObjektModell = {
   name: 'projekt_mitglied',
   titel: 'Projektmitglied',
@@ -85,6 +102,6 @@ export const projekte: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Projekte und wer daran mitarbeitet. Daran hängen später Bautagebuch, Termine und Kosten.',
   braucht: ['verwaltung', 'adressen'],
-  objekte: [projekt, projektMitglied, projektKontakt, version],
+  objekte: [projekt, projektMitglied, projektKontakt, projektMerker, version],
   ansichten: [{ id: 'projekte', titel: 'Projekte', abschnitt: 'Projekte', zeichen: 'projekte', objekt: 'projekt', baum: ['status'] }],
 };

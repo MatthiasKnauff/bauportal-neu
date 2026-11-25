@@ -97,11 +97,13 @@ create or replace function bp_pruefe() returns trigger language plpgsql as $f$
 declare
   obj text := tg_argv[0];
   pf text := tg_argv[1];
+  ef text := coalesce(tg_argv[2], '');   -- Feld mit dem Benutzer, dem der Eintrag gehört (oder leer)
   p uuid;
   neu jsonb := to_jsonb(new);
 begin
   if current_setting('bp.system', true) = 'an' then return new; end if;
   if pf <> '' then p := (neu->>pf)::uuid; end if;
+  if ef <> '' and (neu->>ef)::uuid is distinct from bp_ich() then raise exception 'kein Recht' using errcode = 'BP001'; end if;
   if obj in ('benutzer', 'recht') and coalesce(bp_rolle(), '') <> 'admin' then
     raise exception 'kein Recht' using errcode = 'BP001';
   end if;
@@ -204,16 +206,17 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
     for (const m of register.alleModelle) {
       const t = tabelle(m.name);
       const p = m.projektFeld ? spalte(m.projektFeld) : 'null';
+      const eigen = m.eigenFeld ? ` and ${spalte(m.eigenFeld)} = bp_ich()` : '';   // nur die eigenen Einträge
       await c.query(`
         alter table ${t} enable row level security;
         drop policy if exists lesen on ${t};
-        create policy lesen on ${t} for select using (bp_darf('${m.name}', 'lesen', ${p}));
+        create policy lesen on ${t} for select using (bp_darf('${m.name}', 'lesen', ${p})${eigen});
         drop policy if exists anlegen on ${t};
         create policy anlegen on ${t} for insert with check (true);
         drop policy if exists aendern on ${t};
-        create policy aendern on ${t} for update using (bp_darf('${m.name}', 'lesen', ${p}));
+        create policy aendern on ${t} for update using (bp_darf('${m.name}', 'lesen', ${p})${eigen});
         drop trigger if exists pruefe on ${t};
-        create trigger pruefe before insert or update on ${t} for each row execute function bp_pruefe('${m.name}', '${m.projektFeld ?? ''}');
+        create trigger pruefe before insert or update on ${t} for each row execute function bp_pruefe('${m.name}', '${m.projektFeld ?? ''}', '${m.eigenFeld ?? ''}');
         grant select, insert, update on ${t} to bp_nutzer;
       `);
     }
@@ -222,7 +225,7 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
       create trigger admin_bleibt after insert or update on o_benutzer for each statement execute function bp_admin_bleibt();
       alter table kern_befehl enable row level security;
       drop policy if exists lesen on kern_befehl;
-      create policy lesen on kern_befehl for select using (bp_darf(objekt, 'lesen', projekt_id));
+      create policy lesen on kern_befehl for select using (bp_darf(objekt, 'lesen', projekt_id) and (objekt not in (${['', ...register.alleModelle.filter((m) => m.eigenFeld).map((m) => m.name)].map((n) => `'${n}'`).join(',')}) or benutzer_id = bp_ich()));
       drop policy if exists anlegen on kern_befehl;
       create policy anlegen on kern_befehl for insert with check (true);
       grant select, insert on kern_befehl to bp_nutzer;

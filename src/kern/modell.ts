@@ -31,6 +31,8 @@ export interface ObjektModell {
   anzeigeFeld: string;     // Feld, mit dem ein Objekt benannt wird
   /** Benennt das Objekt, solange das Anzeigefeld leer ist (z. B. Nr. und Datum beim Tagesbericht ohne Kurzbeschreibung). */
   ersatzName?: string[];
+  /** Gehört jeder Eintrag einem Benutzer (z. B. Favoriten)? Dann: Name des Verweisfelds auf den Benutzer – nur er sieht und ändert seine Einträge. */
+  eigenFeld?: string;
   /** Abschnitte der Karte, die zunächst zugeklappt sind (z. B. „Firma / Rechnung“ bei Adressen). */
   eingeklappt?: string[];
   felder: Feld[];
@@ -66,6 +68,7 @@ export function pruefeModell(m: ObjektModell): void {
   }
   for (const f of m.felder) for (const k of Object.keys(f.wenn ?? {})) if (!gesehen.has(k)) throw new Error(`Bedingung auf unbekanntes Feld: ${m.name}.${f.name} → ${k}`);
   for (const k of m.ersatzName ?? []) if (!gesehen.has(k)) throw new Error(`Ersatzname auf unbekanntes Feld: ${m.name}.${k}`);
+  if (m.eigenFeld && m.felder.find((f) => f.name === m.eigenFeld)?.ziel !== 'benutzer') throw new Error(`Eigenfeld muss auf Benutzer verweisen: ${m.name}.${m.eigenFeld}`);
   if (!gesehen.has(m.anzeigeFeld)) throw new Error(`Anzeigefeld fehlt: ${m.name}.${m.anzeigeFeld}`);
   if (m.versionsBereich && !gesehen.has('version')) throw new Error(`Versioniertes Objekt ohne Feld „version“: ${m.name}`);
   if (m.projektFeld && m.projektFeld !== 'id' && !gesehen.has(m.projektFeld)) throw new Error(`Projektfeld fehlt: ${m.name}.${m.projektFeld}`);

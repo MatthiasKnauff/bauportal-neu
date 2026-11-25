@@ -965,3 +965,21 @@ test('Name eines Eintrags: Anzeigefeld, sonst Ersatzname (Tagesbericht ohne Kurz
   assert.equal(benennen(tagesbericht, { titel: null, nummer: 3, datum: '2026-11-25' }, ohne), 'Nr. 3 · 25.11.2026');
   assert.ok(!tagesbericht.felder.find((f) => f.name === 'titel')!.pflicht, 'Kurzbeschreibung ist keine Pflicht');
 });
+
+test('Eigene Einträge: Projekt-Merker sieht und ändert nur, wem sie gehören', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung, bau } = await leute(db);
+    const p = randomUUID();
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
+    await tun(db, leitung, { objekt: 'projekt_mitglied', art: 'anlegen', objektId: randomUUID(), werte: { projekt: p, benutzer: bau.id } });
+    await tun(db, leitung, { objekt: 'projekt_merker', art: 'anlegen', objektId: randomUUID(), werte: { projekt: p, benutzer: leitung.id, favorit: true } });
+    const sieht = async (wer: Absender) => (await schnappschuss(db, register, wer)).objekte.projekt_merker?.length ?? 0;
+    assert.equal(await sieht(leitung), 1, 'sieht den eigenen Favoriten');
+    assert.equal(await sieht(bau), 0, 'die anderen sehen ihn nicht');
+    assert.equal((await befehleSeit(db, bau, 0)).filter((b) => b.objekt === 'projekt_merker').length, 0, 'auch nicht im Protokoll');
+    await assert.rejects(tun(db, bau, { objekt: 'projekt_merker', art: 'anlegen', objektId: randomUUID(), werte: { projekt: p, benutzer: leitung.id, favorit: true } }), /Recht/, 'keine Merker für andere');
+    await tun(db, bau, { objekt: 'projekt_merker', art: 'anlegen', objektId: randomUUID(), werte: { projekt: p, benutzer: bau.id, zuletzt: '2026-11-25T12:00:00Z' } });
+    assert.equal(await sieht(bau), 1);
+  } finally { await weg(); }
+});
