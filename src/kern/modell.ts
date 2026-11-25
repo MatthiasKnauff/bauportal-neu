@@ -29,6 +29,8 @@ export interface ObjektModell {
   titel: string;
   titelMehrzahl: string;
   anzeigeFeld: string;     // Feld, mit dem ein Objekt benannt wird
+  /** Benennt das Objekt, solange das Anzeigefeld leer ist (z. B. Nr. und Datum beim Tagesbericht ohne Kurzbeschreibung). */
+  ersatzName?: string[];
   felder: Feld[];
   /** Wer darf was – Vorgabe ab Werk. Das Büro kann sie in der Verwaltung ändern. Administrator:innen dürfen immer alles. */
   rechte: Record<Rechtart, string[]>;
@@ -61,6 +63,7 @@ export function pruefeModell(m: ObjektModell): void {
     if (f.art === 'verweis' && !f.ziel) throw new Error(`Verweis ohne Ziel: ${m.name}.${f.name}`);
   }
   for (const f of m.felder) for (const k of Object.keys(f.wenn ?? {})) if (!gesehen.has(k)) throw new Error(`Bedingung auf unbekanntes Feld: ${m.name}.${f.name} → ${k}`);
+  for (const k of m.ersatzName ?? []) if (!gesehen.has(k)) throw new Error(`Ersatzname auf unbekanntes Feld: ${m.name}.${k}`);
   if (!gesehen.has(m.anzeigeFeld)) throw new Error(`Anzeigefeld fehlt: ${m.name}.${m.anzeigeFeld}`);
   if (m.versionsBereich && !gesehen.has('version')) throw new Error(`Versioniertes Objekt ohne Feld „version“: ${m.name}`);
   if (m.projektFeld && m.projektFeld !== 'id' && !gesehen.has(m.projektFeld)) throw new Error(`Projektfeld fehlt: ${m.name}.${m.projektFeld}`);

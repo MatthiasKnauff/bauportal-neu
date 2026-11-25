@@ -33,6 +33,8 @@ export interface Ansicht {
   filter?: Werte;             // zeigt nur Einträge mit diesen Werten (z. B. nur die Mängel); neue Einträge bekommen sie
   nurAdmin?: boolean;
   hilfe?: string;             // Hilfe zur Ansicht (Knopf „?“ oben): was man hier tut und wie – Absätze mit Leerzeile getrennt
+  abschnitt?: string;         // Überschrift, unter der die Ansicht links steht (z. B. „Terminplan“, „Vorlagen“)
+  zeichen?: string;           // Name des Symbols (Baustein „Zeichen“ der Oberfläche)
 }
 
 export class Modulregister {

@@ -63,7 +63,7 @@ export function DateienAnsicht() {
   return (
     <Show when={projekt()} fallback={<Rahmen schluessel="dateien" inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
       <Rahmen schluessel="dateien" steuer={(s) => (rahmen = s)}
-        knoepfe={[{ titel: 'Aktualisieren', symbol: '⟳', nurSymbol: true, tun: () => void hole(pfad(), true) }]}
+        knoepfe={[{ titel: 'Aktualisieren', zeichen: 'aktualisieren', gruppe: 'Ansicht', tun: () => void hole(pfad(), true) }]}
         menueMitte={
           <nav class="krumen" aria-label="Pfad">
             <button onClick={() => gehe('')}>{String(projekt()!.werte.name)}</button>

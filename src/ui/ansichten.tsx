@@ -322,7 +322,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
   // Gebäudemodell: in jeder seiner Ansichten lässt sich der Assistent starten und eine IFC-Datei einlesen
   ...Object.fromEntries(['bauteil', 'raum', 'geschoss', 'gebaeude'].map((o) => [o, {
-    knoepfe: (z) => (darf('bauteil', 'schreiben') ? [{ titel: 'Assistent', symbol: '✦', tun: () => assistentStarten(String(z.projekt), String(z.version)) }, { titel: 'IFC einlesen', symbol: '⇪', tun: () => ifcEinlesen(String(z.projekt), String(z.version)) }] : []),
+    knoepfe: (z) => (darf('bauteil', 'schreiben') ? [{ titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => assistentStarten(String(z.projekt), String(z.version)) }, { titel: 'IFC einlesen', zeichen: 'datei_hoch', gruppe: 'Planen', tun: () => ifcEinlesen(String(z.projekt), String(z.version)) }] : []),
   } satisfies Anpassung])),
   tagesbericht: {
     // nächste Nummer im Projekt, heutiges Datum und Uhrzeit, Bauleitung: wer den Bericht anlegt
@@ -337,7 +337,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,
     kartenZusatz: (z) => <KontaktProjekte kontakt={z} />,
-    knoepfe: () => (darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', symbol: '⇄', tun: aufraeumenOeffnen }] : []),
+    knoepfe: () => (darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: aufraeumenOeffnen }] : []),
   },
   vorgang: { mitte: (m) => <Balkenplan {...m} />, kartenZusatz: (z) => <Nachfolger vorgang={z} /> },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
@@ -390,13 +390,30 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
       onLoeschen={(id) => ausfuehren({ objekt: 'version', art: 'loeschen', objektId: id }, 'Version löschen', true)} />
   );
   const leer = (text: string) => <div class="mitte"><p class="still-text">{text}</p></div>;
+  // Listen ohne Versionen und ohne eigene Seite: auch über alle Projekte (Schalter über der Liste, gemerkt je Ansicht)
+  const umfangMoeglich = !bereich && !ANPASSUNG[m.name]?.mitte;
+  const [alle, setAlle] = createSignal(umfangMoeglich && (() => { try { return localStorage.getItem(`bp.umfang.${schluessel}`) === 'alle'; } catch { return false; } })());
+  const umfang = (a: boolean) => { setAlle(a); try { localStorage.setItem(`bp.umfang.${schluessel}`, a ? 'alle' : 'projekt'); } catch { /* gesperrt */ } };
+  const umfangLeiste = () => (
+    <div class="umfang-leiste">
+      <div class="auswahl" role="radiogroup" aria-label="Umfang">
+        <button type="button" role="radio" aria-checked={!alle()} classList={{ aktiv: !alle() }} disabled={!projekt()} onClick={() => umfang(false)}>Dieses Projekt</button>
+        <button type="button" role="radio" aria-checked={alle()} classList={{ aktiv: alle() }} onClick={() => umfang(true)}>Alle Projekte</button>
+      </div>
+      <Show when={alle()}><span class="still-text klein-text">Gegliedert nach Projekt – du siehst die Projekte, in denen du mitarbeitest.</span></Show>
+    </div>
+  );
   return (
-    <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
+    <Show when={!alle()} fallback={
+      <ObjektAnsicht schluessel={`${schluessel}.alle`} modell={m} baum={[m.projektFeld!, ...(p.ansicht.baum ?? [])]} anpassung={anpassung(m.name)} unterMenue={umfangLeiste()}
+        fest={() => ({ ...p.ansicht.filter })} />}>
+    <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} unterMenue={umfangMoeglich ? umfangLeiste() : undefined} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
       <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={leiste()}
         inhalt={leer(`„${bereich!.titel}“ gibt es für dieses Projekt noch nicht.${darf('version', 'schreiben') ? ' Mit „+ Neue Version“ legst du die erste Version an.' : ''}`)} />}>
-        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} anpassung={anpassung(m.name)} unterMenue={bereich ? leiste() : undefined}
+        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} anpassung={anpassung(m.name)} unterMenue={bereich ? leiste() : umfangMoeglich ? umfangLeiste() : undefined}
           fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}), ...p.ansicht.filter })} />
       </Show>
+    </Show>
     </Show>
   );
 }

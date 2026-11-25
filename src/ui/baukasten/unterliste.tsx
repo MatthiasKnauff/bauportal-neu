@@ -5,11 +5,11 @@ import { For, Show, createMemo } from 'solid-js';
 import { listenfolge } from '../../kern/druck';
 import { gilt, leerwert, type Feld, type ObjektModell, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
-import { ausfuehren, sicht } from '../unterbau/abgleich';
+import { ausfuehren, sicht, verweisname } from '../unterbau/abgleich';
 import { darf, modell, neueKennung } from '../unterbau/api';
 import { Auswahlliste } from './auswahlliste';
 import { feldAendern } from './detailkarte';
-import { FeldEingabe, verweisname } from './feld';
+import { FeldEingabe } from './feld';
 import { kiAnbindungen, kiOeffnen } from './ki';
 
 export function Unterliste(p: {

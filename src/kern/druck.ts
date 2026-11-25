@@ -45,6 +45,14 @@ export const SCHRIFT: Record<string, { titel: string; pt: number }> = { klein: {
 /** Seitenränder in mm – in der Vorschau der Rand des Blatts, im PDF der Rand der Seite. */
 export const RAND = { oben: 18, seite: 18, unten: 20 };
 
+/** Name eines Objekts, wie er überall dasteht (Karte, Suche, Verweise, Rückgängig): das Anzeigefeld, sonst der Ersatzname. */
+export function benennen(m: ObjektModell, w: Werte, verweis: (ziel: string, id: string) => string): string {
+  const feld = (n: string) => m.felder.find((f) => f.name === n)!;
+  const haupt = feldtext(feld(m.anzeigeFeld), w[m.anzeigeFeld], verweis);
+  if (haupt || !m.ersatzName) return haupt;
+  return m.ersatzName.map((n) => { const f = feld(n), t = feldtext(f, w[n], verweis); return t && f.art !== 'datum' ? `${f.titel} ${t}` : t; }).filter(Boolean).join(' · ');
+}
+
 /** Wert so, wie er für Menschen dasteht – in Tabellen, Karten und Ausdrucken gleich. */
 export function feldtext(f: Feld, w: Wert | undefined, verweis: (ziel: string, id: string) => string): string {
   if (w === null || w === undefined) return '';

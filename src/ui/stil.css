@@ -277,7 +277,22 @@ main { flex: 1; min-height: 0; display: flex; }
 
 /* ---- Rahmen: Abfolge-Leiste · Menüleiste · Baum | Inhalt | Details ---- */
 .ansicht, .rahmen { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.menueleiste { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--flaeche); border-bottom: 1px solid var(--rand); min-height: 49px; }
+.menueleiste { flex: none; display: flex; align-items: stretch; gap: 0; padding: 4px 8px 2px; margin: 10px 12px 0; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 12px; min-height: 64px; }
+.band-gruppe { display: flex; flex-direction: column; justify-content: space-between; padding: 0 6px; border-right: 1px solid var(--rand); }
+.band-gruppe:last-of-type { border-right: 0; }
+.band-inhalt { flex: 1; display: flex; align-items: center; gap: 2px; }
+.band-titel { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-still); text-align: center; padding: 1px 0 2px; white-space: nowrap; }
+.band-knopf { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 46px; min-height: 46px; padding: 3px 6px; border: 0; border-radius: 8px; background: transparent; color: var(--text); cursor: pointer; font: inherit; }
+.band-knopf .zeichen { color: #3d4a5c; }
+.band-knopf .band-text { font-size: 12px; white-space: nowrap; }
+.band-knopf .band-zeichen-text { font-size: 18px; line-height: 20px; }
+.band-knopf:hover:not(:disabled) { background: #f1f1ec; }
+.band-knopf:disabled { opacity: .35; cursor: default; }
+.band-knopf.an { background: var(--akzent-hell); } .band-knopf.an .zeichen { color: var(--akzent); }
+.band-knopf.haupt .zeichen { color: var(--akzent); }
+.band-knopf.haupt .band-text { color: var(--akzent); font-weight: 600; }
+.band-mitte { flex: 1; min-width: 160px; } .band-mitte .menue-mitte { width: 100%; }
+.nur-schmal-flex { display: none !important; }
 /* Die Reiter machen die Seite nie breiter als den Bildschirm: Reicht der Platz nicht, lässt sich die Reihe schieben. */
 .menue-reiter { display: flex; gap: 2px; align-self: stretch; margin: -6px 8px -6px 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .menue-reiter::-webkit-scrollbar { display: none; }
@@ -297,7 +312,10 @@ main { flex: 1; min-height: 0; display: flex; }
 .baum { flex: 1; overflow: auto; padding: 6px; outline-offset: -2px; }
 .baum-zeile { display: flex; align-items: center; gap: 4px; min-height: 32px; padding-right: 8px; border-radius: 6px; cursor: pointer; }
 .baum-zeile:hover { background: #fafaf8; } .baum-zeile.gewaehlt { background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
-.baum-klappe { flex: none; width: 20px; height: 24px; border: 0; background: transparent; cursor: pointer; padding: 0; color: var(--text-still); font-style: normal; }
+.klappe { flex: none; width: 15px; height: 15px; margin: 0 4px 0 2px; border: 1px solid #b9bec7; border-radius: 3px; background: #fff; color: #5a6472; font: 600 12px/12px system-ui, sans-serif; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.klappe:hover { border-color: var(--akzent); color: var(--akzent); }
+.klappe-platz { flex: none; width: 21px; }
+.ordner { flex: none; display: inline-flex; color: #d9a21b; margin-right: 4px; } .ordner .zeichen { fill: #fbe7b0; }
 .baum-titel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .baum-anzahl { font-size: 12px; color: var(--text-still); font-weight: 400; }
 .abfolge { flex: none; list-style: none; margin: 0; padding: 8px 12px; display: flex; gap: 4px; background: var(--flaeche); border-bottom: 1px solid var(--rand); overflow-x: auto; }
@@ -317,7 +335,8 @@ main { flex: 1; min-height: 0; display: flex; }
   .plaetze { padding: 0; gap: 0; } .platz-links, .platz-mitte { border-radius: 0; border-left: 0; border-right: 0; }
   .platz-links { display: none; } .plaetze.baum-offen .platz-links { display: flex; flex: 1; width: auto; } .plaetze.baum-offen .platz-mitte { display: none; }
   .plaetze.mit-details .platz-mitte, .plaetze.mit-details .platz-links { display: none; } .platz-rechts { flex: 1; }
-  .menueleiste { flex-wrap: wrap; } .menue-reiter { margin: 0; align-self: auto; min-height: 36px; order: 9; flex: 1 1 100%; }   /* Handy: Reiter als eigene Zeile unter den Knöpfen */
+  .menueleiste { flex-wrap: wrap; margin: 0; border-radius: 0; border-width: 0 0 1px; min-height: 0; } .menue-reiter { margin: 0; align-self: auto; min-height: 36px; order: 9; flex: 1 1 100%; }   /* Handy: Reiter als eigene Zeile unter den Knöpfen */
+  .nur-schmal-flex { display: flex !important; } .band-titel, .band-knopf .band-text { display: none; } .band-knopf { min-width: 38px; min-height: 38px; } .band-gruppe { border-right: 0; padding: 0 2px; } .band-mitte { flex: 1 1 150px; }
   .menue-mitte:has(.suche) { min-width: 150px; }   /* Handy: die Suche bleibt lesbar breit – reicht der Platz nicht, rücken die Knöpfe in die nächste Zeile */
 }
 .menue-verlauf { display: flex; gap: 2px; padding-right: 8px; margin-right: 4px; border-right: 1px solid var(--rand); }
@@ -359,10 +378,6 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 
 /* Balkenplan (Bauzeitenplan): Tabelle links (beim waagerechten Blättern fest), Balken rechts, Kopf oben fest */
 .bzp { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--flaeche); }
-.bzp-leiste { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; border-bottom: 1px solid var(--rand); font-size: 13px; color: var(--text-still); }
-.bzp-leiste label { display: inline-flex; align-items: center; gap: 6px; }
-.bzp-leiste input[type=date], .bzp-leiste select { min-height: 28px; border: 1px solid var(--rand-stark); border-radius: 6px; padding: 0 6px; background: var(--flaeche); color: var(--text); }
-.bzp-trenner { flex: 1; }
 .bzp-flaeche { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
 .bzp-flaeche:focus-visible .bzp-zelle.zeiger { box-shadow: inset 0 0 0 2px var(--akzent); }
 .bzp-innen { position: relative; }
@@ -383,7 +398,6 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .bzp-zeile.gruppe { font-weight: 600; }
 .bzp-zeile.kritisch .bzp-zelle:first-child { box-shadow: inset 3px 0 0 #d32f2f; }
 .bzp-name { display: inline-flex; align-items: center; gap: 4px; }
-.bzp-dreieck { width: 16px; flex: none; border: 0; background: none; padding: 0; cursor: pointer; color: var(--text-still); }
 .bzp-farbe { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-right: 2px; }
 .bzp-eingabe { width: 100%; height: 26px; border: 1px solid var(--akzent); border-radius: 4px; padding: 0 4px; font-size: 13px; }
 .bzp-neu { color: var(--text-still); cursor: text; }
@@ -528,8 +542,6 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .doppelt-mit { flex: none; }
 .doppelt-text { display: flex; flex-direction: column; min-width: 0; }
 .doppelt-text .leise { overflow-wrap: anywhere; }
-.bzp-einstellungen { display: block; width: 100%; text-align: left; border-bottom: 1px solid var(--rand); border-radius: 0; padding: 6px 12px; }
-.bzp-leiste.zu { display: none; }
 
 /* Aufbau: Kacheln, Prüfung, Umfeld */
 .aufbau-kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin: 10px 0; }
@@ -550,14 +562,13 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .arbeitszeit { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; padding: 10px 14px; border-bottom: 1px solid var(--rand); background: var(--flaeche); }
 .arbeitszeit .feld { min-width: 200px; }
 .arbeitszeit p { flex: 1 1 100%; margin: 0; }
-.bzp-wahl { display: inline-flex; align-items: center; gap: 6px; } .bzp-wahl .auswahlliste { min-width: 150px; }
 
 /* Bautagebuch: Kalender und Abschnitte links, Bericht als Seite */
 .bt-links { display: flex; flex-direction: column; gap: 10px; padding: 8px; }
-.bt-form { align-self: stretch; } .bt-form button { flex: 1; }
-.bt-kalender { border: 1px solid var(--rand); border-radius: 10px; background: #fff; padding: 6px 8px 8px; }
+.bt-form { align-self: stretch; max-width: 252px; } .bt-form button { flex: 1; }
+.bt-kalender { border: 1px solid var(--rand); border-radius: 10px; background: #fff; padding: 6px 8px 8px; width: 100%; max-width: 252px; box-sizing: border-box; }   /* wächst nicht mit der Spalte */
 .bt-monat { display: flex; align-items: center; justify-content: space-between; font-size: 14px; margin-bottom: 4px; }
-.bt-tage { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+.bt-tage { display: grid; grid-template-columns: repeat(7, minmax(0, 32px)); justify-content: space-between; gap: 2px; text-align: center; }
 .bt-wt { font-size: 11px; color: var(--text-still); padding: 2px 0; }
 .bt-tag { position: relative; min-width: 0; padding: 0; border: 0; background: transparent; border-radius: 8px; min-height: 28px; font: inherit; font-size: 13px; color: var(--text-still); }
 .bt-tag.bericht { color: var(--text); font-weight: 700; cursor: pointer; }
@@ -574,7 +585,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .bt-abschnitte button { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; padding: 6px 8px; border-radius: 8px; font: inherit; text-align: left; cursor: pointer; }
 .bt-abschnitte button:hover { background: #f1f1ec; }
 .bt-abschnitte button span { width: 22px; text-align: center; } .bt-abschnitte button em { margin-left: auto; font-style: normal; color: var(--text-still); font-size: 12.5px; }
-.bt-seite { display: flex; flex-direction: column; gap: 14px; padding: 14px; overflow: auto; height: 100%; box-sizing: border-box; max-width: 860px; }
+.bt-seite { display: flex; flex-direction: column; gap: 14px; padding: 14px; overflow: auto; height: 100%; box-sizing: border-box; }
 .bt-karte { background: #fff; border: 1px solid var(--rand); border-radius: 14px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, .05); scroll-margin-top: 10px; }
 .bt-karte-kopf { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .bt-karte-kopf h3 { margin: 0; font-size: 16px; }
@@ -614,3 +625,32 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 
 @media (max-width: 860px) { .griff-trenner { display: none; } }
 .plaetze > .reiter.links { margin-right: 12px; } .plaetze > .reiter:not(.links) { margin-left: 12px; }
+
+/* Rahmen links: die Ansichten der App in Abschnitten */
+.ansichten-nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 8px 6px; border-bottom: 1px solid var(--rand); }
+.ansichten-nav h3 { margin: 6px 0 2px; padding: 5px 8px; font-size: 12.5px; font-weight: 700; background: #eef0f4; border-radius: 7px; }
+.ansichten-nav button { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; padding: 5px 8px; border-radius: 8px; font: inherit; text-align: left; cursor: pointer; }
+.ansichten-nav button:hover { background: #f1f1ec; }
+.ansichten-nav button.aktiv { background: var(--akzent-hell); font-weight: 600; }
+.ansichten-zeichen { width: 28px; height: 28px; flex: none; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: #3d4a5c; font-weight: 700; }
+@media (max-width: 860px) { .ansichten-nav { display: none; } }
+
+.bzp-warnung { margin: 0; padding: 4px 12px; border-bottom: 1px solid var(--rand); }
+.umfang-leiste { display: flex; align-items: center; gap: 12px; padding: 8px 12px 0; }
+/* Heftzwecke: angeheftet bleibt die Seite stehen, gelöst gleitet sie bei Bedarf über den Inhalt */
+.plaetze { position: relative; }
+.heftzwecke { border: 0; background: transparent; color: #8a93a0; padding: 4px; border-radius: 6px; cursor: pointer; display: inline-flex; }
+.heftzwecke:hover { background: #f1f1ec; color: var(--akzent); }
+.heftzwecke:not(.geloest) .zeichen { transform: rotate(35deg); }
+.platz-kopf { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 0 12px; font-size: 12.5px; font-weight: 700; }
+.nur-breit-flex { display: flex; }
+.platz-links.schwebend { position: absolute; z-index: 30; left: 12px; top: 12px; bottom: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+.platz-rechts.schwebend { position: absolute; z-index: 30; right: 12px; top: 12px; bottom: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+@media (max-width: 860px) { .nur-breit-flex { display: none; } }
+/* Baustein Schwebefenster: frei beweglich über der Seite */
+.schwebefenster { position: fixed; z-index: 70; width: 460px; max-height: 78vh; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand-stark); border-radius: 12px; box-shadow: 0 14px 40px rgba(0, 0, 0, .22); }
+.schwebefenster-kopf { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--rand); cursor: move; user-select: none; background: #f6f6f2; border-radius: 12px 12px 0 0; }
+.schwebefenster-inhalt { overflow: auto; display: flex; }
+.schwebefenster-inhalt .karte { width: 100%; border: 0; border-radius: 0 0 12px 12px; }
+.schwebefenster-inhalt .karte-kopf { display: none; }
+td.aktiv-zelle { outline: 2px solid var(--akzent); outline-offset: -2px; }

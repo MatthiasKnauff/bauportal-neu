@@ -4,8 +4,9 @@
 import { createSignal } from 'solid-js';
 import { createStore, produce, reconcile } from 'solid-js/store';
 import { anwenden, gegenbefehl, type Befehl, type Protokolliert, type Vorlage, type Zeile } from '../../kern/befehl';
-import type { Feld, ObjektModell, Wert } from '../../kern/modell';
-import { Netzfehler, Serverfehler, merkeZustand, neueKennung, ruf, type Benutzer, type Zustand } from './api';
+import type { Feld, ObjektModell, Wert, Werte } from '../../kern/modell';
+import { benennen } from '../../kern/druck';
+import { Netzfehler, Serverfehler, merkeZustand, modell, neueKennung, ruf, type Benutzer, type Zustand } from './api';
 import { hinweis } from './meldungen';
 
 const anzeige = (f: Feld, w: Wert | undefined) => f.optionen?.find((o) => o.wert === w)?.titel ?? String(w ?? '');
@@ -200,7 +201,7 @@ function loescheWartend(t: IDBTransaction, id: string): void {
 function meldeGleichzeitig(b: Protokolliert): void {
   const m = modelle.get(b.objekt);
   if (!m) return;
-  const name = String(sicht[b.objekt]?.[b.objektId]?.werte[m.anzeigeFeld] ?? m.titel);
+  const w = sicht[b.objekt]?.[b.objektId]?.werte; const name = (w && objektname(m, w)) || m.titel;
   for (const [k, u] of Object.entries(b.ueberschrieben!)) {
     const f = m.felder.find((x) => x.name === k);
     if (!f) continue;
@@ -294,3 +295,7 @@ export async function geraetLeeren(): Promise<void> {
   idb?.close();
   await new Promise<void>((ok) => { const r = indexedDB.deleteDatabase('bauportal'); r.onsuccess = r.onerror = r.onblocked = () => ok(); });
 }
+
+/** Name eines Eintrags, wie er überall dasteht – Anzeigefeld, sonst Ersatzname (kern/druck benennen). */
+export const objektname = (m: ObjektModell, w: Werte): string => benennen(m, w, verweisname);
+export const verweisname = (ziel: string, id: string): string => { const z = sicht[ziel]?.[id]; return z ? objektname(modell(ziel), z.werte) : ''; };

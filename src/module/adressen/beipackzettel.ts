@@ -43,5 +43,5 @@ export const adressen: Beipackzettel = {
   beschreibung: 'Firmen, Personen und Behörden – eine Liste für alle Module.',
   braucht: [],
   objekte: [kontakt],
-  ansichten: [{ id: 'kontakte', titel: 'Kontakte', objekt: 'kontakt', baum: ['art', 'gewerk'] }],
+  ansichten: [{ id: 'kontakte', titel: 'Kontakte', abschnitt: 'Kontakte', zeichen: 'adressen', objekt: 'kontakt', baum: ['art', 'gewerk'] }],
 };

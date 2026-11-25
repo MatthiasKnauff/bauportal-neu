@@ -119,7 +119,7 @@ export const bauzeitenplan: Beipackzettel = {
   braucht: ['projekte', 'kataloge', 'adressen'],
   objekte: [zeitplan, freierTag, vorgang, verknuepfung, leistungsvorlage, planregel],
   ansichten: [
-    { id: 'plan', titel: 'Balkenplan', objekt: 'vorgang', brauchtProjekt: true, hilfe: `Links die Leistungen, rechts die Balken. Anfang und Ende rechnet das Bauportal aus Projektanfang, Arbeitswoche, Feiertagen und den Vorgängern.
+    { id: 'plan', titel: 'Balkenplan', abschnitt: 'Terminplan', zeichen: 'plan', objekt: 'vorgang', brauchtProjekt: true, hilfe: `Links die Leistungen, rechts die Balken. Anfang und Ende rechnet das Bauportal aus Projektanfang, Arbeitswoche, Feiertagen und den Vorgängern.
 
 Eingeben wie gewohnt: Zelle anklicken und lostippen oder F2; Enter übernimmt, Tab geht zur nächsten Spalte, Esc bricht ab. Dauer „5“, „5t“, „2w“, „0“ = Meilenstein. Vorgänger „3;4AA+2t;5EE-1t“ (Zeilennummer, Art EA/AA/EE/AE, Abstand). Ein Datum bei Anfang setzt „nicht früher als“.
 
@@ -128,8 +128,8 @@ Einfg fügt über der Markierung ein, Entf löscht – mit „Autom. verknüpfen
 Mit der Maus: Balken ziehen verschiebt, rechte Kante ziehen ändert die Dauer, den Punkt am Balkenende auf eine andere Leistung ziehen verknüpft. Rechtsklick auf einen Balken: unterbrechen, Anfang wieder automatisch; auf einen Pfeil: Art ändern, löschen. Strg+Mausrad zoomt.
 
 „✦ Assistent“ macht einen Plan aus dem Gebäudemodell; „Drucken / PDF“ bis A0; „Export / Import“ für Excel, MS Project und Sicherungen.` },
-    { id: 'frei', titel: 'Arbeitszeit & Feiertage', objekt: 'freier_tag', brauchtProjekt: true },
-    { id: 'leistungen', titel: 'Leistungskatalog', objekt: 'leistungsvorlage', baum: ['abschnitt'] },
+    { id: 'frei', titel: 'Arbeitszeit & Feiertage', abschnitt: 'Terminplan', zeichen: 'arbeitszeit', objekt: 'freier_tag', brauchtProjekt: true },
+    { id: 'leistungen', titel: 'Leistungskatalog', abschnitt: 'Vorlagen', zeichen: 'katalog', objekt: 'leistungsvorlage', baum: ['abschnitt'] },
   ],
   kataloge: [{ id: 'leistungen', titel: 'Leistungen für den Bauzeitenplan', objekt: 'leistungsvorlage' }, { id: 'planregeln', titel: 'Regeln des Planungsassistenten', objekt: 'planregel' }],
   versionen: [{ bereich: 'bauzeitenplan', titel: 'Bauzeitenplan', wege: ['kopie', 'leer', 'projekt'] }],

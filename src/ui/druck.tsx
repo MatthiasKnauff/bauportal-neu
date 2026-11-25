@@ -5,10 +5,10 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount }
 import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, schriftgroesse, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
 import type { Feld, ObjektModell, Wert } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
-import { ausfuehren, sicht } from './unterbau/abgleich';
+import { ausfuehren, sicht, verweisname } from './unterbau/abgleich';
 import { darf, ladeDatei, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
-import { FeldEingabe, verweisname } from './baukasten/feld';
+import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './unterbau/meldungen';
 
 const [offen, setOffen] = createSignal<{ ausdruck: string; objekt: string } | null>(null);

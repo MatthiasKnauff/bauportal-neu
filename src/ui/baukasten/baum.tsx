@@ -1,5 +1,16 @@
-// Baustein „Baum“ (Platz links): Gliederung mit Anzahl je Knoten, auf- und zuklappbar, mit Tastatur.
+// Baustein „Baum“ (Platz links): Gliederung mit Anzahl je Knoten, auf- und zuklappbar, mit Tastatur. Aussehen wie im
+// bisherigen Bauportal: Kästchen ⊞/⊟ zum Klappen, Ordner für Knoten mit Kindern. „Klappe“ und „Ordner“ nutzt auch die
+// Gliederung im Balkenplan – überall dasselbe Bild.
 import { For, Show, createMemo, createSignal } from 'solid-js';
+import { Zeichen } from './zeichen';
+
+/** Kästchen zum Auf- und Zuklappen einer Ebene. */
+export function Klappe(p: { zu: boolean; onKlick: () => void; titel?: string; fokus?: boolean; still?: boolean /* im Baum: der Knoten selbst sagt „aufgeklappt“ */ }) {
+  return <button type="button" class="klappe" tabindex={p.fokus ? 0 : -1} aria-hidden={p.still ? 'true' : undefined} aria-label={p.still ? undefined : p.titel ?? (p.zu ? 'Aufklappen' : 'Zuklappen')} aria-expanded={p.still ? undefined : !p.zu}
+    onClick={(e) => { e.stopPropagation(); p.onKlick(); }}>{p.zu ? '+' : '−'}</button>;
+}
+/** Ordner-Symbol für eine Ebene mit Unterpunkten. */
+export const Ordner = (p: { offen?: boolean }) => <span class="ordner" classList={{ offen: p.offen }}><Zeichen name="dateien" groesse={15} /></span>;
 
 export interface Knoten { id: string; titel: string; anzahl?: number; kinder?: Knoten[]; hatKinder?: boolean /* Kinder werden erst beim Aufklappen geholt */ }
 
@@ -40,10 +51,10 @@ export function Baum(p: {
       <For each={sichtbar()}>{(x) => (
         <div role="treeitem" aria-selected={p.gewaehlt === x.k.id} aria-expanded={eltern(x.k) ? !zu().has(x.k.id) : undefined}
           class="baum-zeile" classList={{ gewaehlt: p.gewaehlt === x.k.id }} style={{ 'padding-left': `${6 + x.tiefe * 16}px` }} onClick={() => p.onWahl(x.k.id)}>
-          <Show when={eltern(x.k)} fallback={<i class="baum-klappe" />}>
-            <button class="baum-klappe" tabindex="-1" aria-hidden="true" onClick={(e) => { e.stopPropagation(); klappe(x.k.id); }}>{zu().has(x.k.id) ? '▸' : '▾'}</button>
+          <Show when={eltern(x.k)} fallback={<i class="klappe-platz" />}>
+            <Klappe still zu={zu().has(x.k.id)} onKlick={() => klappe(x.k.id)} />
           </Show>
-          <Show when={p.symbol?.(x.k)}>{(s) => <span class="baum-symbol" aria-hidden="true">{s()}</span>}</Show>
+          <Show when={p.symbol?.(x.k)} fallback={<Show when={eltern(x.k)}><Ordner offen={!zu().has(x.k.id)} /></Show>}>{(s) => <span class="baum-symbol" aria-hidden="true">{s()}</span>}</Show>
           <span class="baum-titel">{x.k.titel}</span>
           <Show when={x.k.anzahl !== undefined}><span class="baum-anzahl">{x.k.anzahl}</span></Show>
         </div>

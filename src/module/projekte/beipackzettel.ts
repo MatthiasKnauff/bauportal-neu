@@ -86,5 +86,5 @@ export const projekte: Beipackzettel = {
   beschreibung: 'Projekte und wer daran mitarbeitet. Daran hängen später Bautagebuch, Termine und Kosten.',
   braucht: ['verwaltung', 'adressen'],
   objekte: [projekt, projektMitglied, projektKontakt, version],
-  ansichten: [{ id: 'projekte', titel: 'Projekte', objekt: 'projekt', baum: ['status'] }],
+  ansichten: [{ id: 'projekte', titel: 'Projekte', abschnitt: 'Projekte', zeichen: 'projekte', objekt: 'projekt', baum: ['status'] }],
 };

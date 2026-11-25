@@ -5,10 +5,12 @@ import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
 import { leerwert, type ObjektModell, type Werte } from '../kern/modell';
 import type { Zeile } from '../kern/befehl';
-import { geaendert, sicht } from './unterbau/abgleich';
+import { geaendert, objektname, sicht } from './unterbau/abgleich';
 import { darf } from './unterbau/api';
 import type { Anpassung } from './baukasten/anpassung';
+import type { Knopf } from './baukasten/menueleiste';
 import { Baum, type Knoten } from './baukasten/baum';
+import { Schwebefenster } from './baukasten/schwebefenster';
 import { Detailkarte, NeuFenster, inEigenemFenster, loesche, feldAendern } from './baukasten/detailkarte';
 import { anzeige } from './baukasten/feld';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
@@ -31,6 +33,7 @@ export function ObjektAnsicht(p: {
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
   const [neu, setNeu] = createSignal<Werte | null>(null);
+  const [mitteKnoepfe, setMitteKnoepfe] = createSignal<Knopf[]>([]);   // Befehle einer eigenen Mitte
   const [reihe, setReihe] = createSignal<string[] | null>(null);   // Reihenfolge, die Tabelle oder eigene Mitte (Balkenplan) gerade zeigen
   // Tabelle oder Kacheln – nur, wo das Modul Kacheln einstellt; gemerkt je Objektart, am Handy zuerst Kacheln
   const FORM = `bp.form.${m.name}`;
@@ -81,6 +84,9 @@ export function ObjektAnsicht(p: {
 
   // Sprung aus der Suche über alles: den Eintrag wählen und die Karte zeigen
   createEffect(() => { const id = sprungAbholen(m.name); if (id) { setGewaehlt(id); queueMicrotask(() => rahmen.detailsZeigen()); } });
+  // Doppelklick wie im bisherigen Bauportal: der Eintrag öffnet sich im frei beweglichen Fenster
+  const [schwebend, setSchwebend] = createSignal<string | null>(null);
+  const schwebZeile = createMemo(() => { const id = schwebend(); return id ? lebend().find((z) => z.id === id) : undefined; });
   const insErsteFeld = () => { rahmen.detailsZeigen(); queueMicrotask(() => wurzel.querySelector<HTMLElement>('.karte input:not([readonly]), .karte textarea')?.focus()); };
   const duplizieren = (z: Zeile) => {
     const werte = { ...z.werte };
@@ -88,7 +94,7 @@ export function ObjektAnsicht(p: {
     werte[m.anzeigeFeld] = `${z.werte[m.anzeigeFeld]} (Kopie)`;
     neuStart(werte);
   };
-  const mitteP = { alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe };
+  const mitteP = { alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe, setKnoepfe: setMitteKnoepfe };
   // Blättern in der Karte: in der Reihenfolge, die die Mitte gerade zeigt
   const blaettern = () => {
     const ids = (!kacheln() && reihe()) || zeilen().map((z) => z.id);
@@ -102,10 +108,12 @@ export function ObjektAnsicht(p: {
     <div class="ansicht" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented && (e.target as HTMLElement).closest('.karte')) { e.preventDefault(); tabelle?.fokus(); } }}>
       <Rahmen schluessel={p.schluessel} steuer={(s) => (rahmen = s)}
         knoepfe={[
+          ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => neuStart() }] : []),
           ...(a.knoepfe?.(fest()) ?? []),
-          ...(a.kachel ? [{ titel: kacheln() ? 'Als Tabelle zeigen' : 'Als Kacheln zeigen', symbol: kacheln() ? '▤' : '▦', nurSymbol: true, tun: formWechseln }] : []),
-          ...(a.mitte || kacheln() ? [] : [{ titel: 'Spalten einstellen', symbol: '☰', nurSymbol: true, tun: () => tabelle.spaltenEinstellen() }]),
-          ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, symbol: '+', haupt: true, tun: () => neuStart() }] : []),
+          ...(a.mitte ? mitteKnoepfe() : []),
+          ...(a.kachel ? [{ titel: 'Karten', zeichen: 'kacheln', gruppe: 'Ansicht', an: kacheln(), tun: () => { if (!kacheln()) formWechseln(); } },
+            { titel: 'Tabelle', zeichen: 'tabelle', gruppe: 'Ansicht', an: !kacheln(), tun: () => { if (kacheln()) formWechseln(); } }] : []),
+          ...(a.mitte || kacheln() ? [] : [{ titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: () => tabelle.spaltenEinstellen() }]),
         ]}
         menueMitte={<>
           <input ref={suchfeld} class="suche" type="search" placeholder={`${m.titelMehrzahl} durchsuchen`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)}
@@ -120,7 +128,7 @@ export function ObjektAnsicht(p: {
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
-            onWahl={setGewaehlt} onOeffnen={insErsteFeld} onSuche={() => suchfeld.focus()}
+            onWahl={setGewaehlt} onOeffnen={insErsteFeld} onDoppelklick={a.details ? undefined : (z) => setSchwebend(z.id)} onSuche={() => suchfeld.focus()}
             onLoeschen={darfLoeschen() ? (z) => loesche(m, z) : undefined}
             zeilenMenue={(z) => [
               { titel: 'Öffnen', tun: insErsteFeld },
@@ -130,9 +138,12 @@ export function ObjektAnsicht(p: {
               ...(darfLoeschen() ? [{ titel: 'Löschen', gefahr: true, tun: () => loesche(m, z) }] : []),
             ]} />
         }
-        detailsTitel={String(karte()?.werte[m.anzeigeFeld] ?? m.titel)}
+        detailsTitel={(karte() && objektname(m, karte()!.werte)) || m.titel}
         detailsHinweis={a.detailsHinweis ?? `${a.mitte ? 'Einen Eintrag' : 'Eine Zeile'} anklicken – hier stehen dann alle Angaben, direkt änderbar.`}
         details={karte() ? (a.details ? a.details(karte()!) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
+      <Show when={schwebZeile()}>{(z) => <Schwebefenster titel={objektname(m, z().werte) || m.titel} onZu={() => { setSchwebend(null); tabelle?.fokus(); }}>
+        <Detailkarte modell={m} zeile={z()} onZu={() => setSchwebend(null)} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />
+      </Schwebefenster>}</Show>
       <Show when={neu()}>{(start) => <NeuFenster modell={m} start={start()} verborgen={Object.keys(fest())} onZu={(id) => { setNeu(null); if (id) { setGewaehlt(id); rahmen.detailsZeigen(); } }} />}</Show>
     </div>
   );

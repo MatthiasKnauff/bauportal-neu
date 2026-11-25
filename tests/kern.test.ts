@@ -956,3 +956,12 @@ test('Prüf-KI: nur mit Schlüssel, nur lesen, Ratschläge landen in der Verwalt
     assert.equal((await ruf('/api/pruefer', { schluessel })).status, 401);
   } finally { await app.close(); await weg(); }
 });
+
+test('Name eines Eintrags: Anzeigefeld, sonst Ersatzname (Tagesbericht ohne Kurzbeschreibung)', async () => {
+  const { benennen } = await import('../src/kern/druck');
+  const { tagesbericht } = await import('../src/module/bautagebuch/beipackzettel');
+  const ohne = (z: string, id: string) => `${z}:${id}`;
+  assert.equal(benennen(tagesbericht, { titel: 'Bodenplatte', nummer: 3, datum: '2026-11-25' }, ohne), 'Bodenplatte');
+  assert.equal(benennen(tagesbericht, { titel: null, nummer: 3, datum: '2026-11-25' }, ohne), 'Nr. 3 · 25.11.2026');
+  assert.ok(!tagesbericht.felder.find((f) => f.name === 'titel')!.pflicht, 'Kurzbeschreibung ist keine Pflicht');
+});

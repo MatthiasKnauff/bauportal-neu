@@ -2,7 +2,8 @@
 //   Abfolge-Leiste (nur bei Apps mit Abfolge) · Menüleiste · darunter drei Plätze: Baum | Inhalt | Details
 // Die App setzt fertige Bausteine auf die Plätze. Ein leerer Platz fehlt einfach; wer zugeklappt ist,
 // gibt seinen Platz an die Mitte ab. Am Handy stehen die Plätze nacheinander statt nebeneinander.
-import { Show, createContext, createSignal, useContext, type JSX } from 'solid-js';
+import { For, Show, createContext, createSignal, useContext, type JSX } from 'solid-js';
+import { Zeichen, istZeichen } from './zeichen';
 import { Abfolgeleiste, type Schritt } from './abfolgeleiste';
 import { Menueleiste, type Knopf, type Reiter, type Rueckgaengig } from './menueleiste';
 
@@ -35,6 +36,25 @@ function Griff(p: { titel: string; wert: number; min: number; max: number; werk:
   );
 }
 
+const FARBEN = ['#e8f0fd', '#e6f4ea', '#f1ebfa', '#fdf0e2', '#fde8e8', '#e7f6f6', '#fbf3dc'];
+/** Links oben: die Ansichten der App in Abschnitten, mit farbigem Symbol – wie im bisherigen Bauportal. */
+function Ansichtsliste(p: { reiter: Reiter[]; aktiv: string; onWahl: (id: string) => void }) {
+  const abschnitte = () => { const l: { titel: string; reiter: Reiter[] }[] = []; for (const r of p.reiter) { const t = r.abschnitt ?? ''; const x = l.find((a) => a.titel === t); if (x) x.reiter.push(r); else l.push({ titel: t, reiter: [r] }); } return l; };
+  return (
+    <nav class="ansichten-nav" aria-label="Ansichten" role="tablist" aria-orientation="vertical">
+      <For each={abschnitte()}>{(a) => (<>
+        <Show when={a.titel}><h3>{a.titel}</h3></Show>
+        <For each={a.reiter}>{(r) => (
+          <button type="button" role="tab" aria-selected={r.id === p.aktiv} classList={{ aktiv: r.id === p.aktiv }} onClick={(e) => { e.stopPropagation(); p.onWahl(r.id); }}>
+            <span class="ansichten-zeichen" style={{ background: FARBEN[p.reiter.indexOf(r) % FARBEN.length] }}>{r.zeichen && istZeichen(r.zeichen) ? <Zeichen name={r.zeichen} groesse={17} /> : r.titel.slice(0, 1)}</span>
+            {r.titel}
+          </button>
+        )}</For>
+      </>)}</For>
+    </nav>
+  );
+}
+
 export function Rahmen(p: {
   schluessel: string;                       // merkt sich je Ansicht, was zugeklappt ist
   abfolge?: { schritte: Schritt[]; aktiv: string; onWahl?: (id: string) => void };
@@ -47,6 +67,7 @@ export function Rahmen(p: {
   steuer?: (s: RahmenSteuer) => void;
 }) {
   const app = useContext(AppUmgebung);
+  const ansichten = () => app?.reiter() ?? [];
   const merk = (seite: string) => `bp_rahmen_${p.schluessel}_${seite}`;
   const lies = (seite: string) => { try { return localStorage.getItem(merk(seite)) === 'zu'; } catch { return false; } };
   const [linksZu, setLinksZuRoh] = createSignal(lies('links'));
@@ -54,19 +75,36 @@ export function Rahmen(p: {
   const [baumAmHandy, setBaumAmHandy] = createSignal(false);
   const setze = (seite: string, setter: (b: boolean) => void) => (zu: boolean) => { setter(zu); try { localStorage.setItem(merk(seite), zu ? 'zu' : 'auf'); } catch { /* gesperrt */ } };
   const setLinksZu = setze('links', setLinksZuRoh), setRechtsZu = setze('rechts', setRechtsZuRoh);
+  // Heftzwecke wie im bisherigen Bauportal: „zu“ heißt gelöst – dann blendet sich die Seite aus und gleitet bei Bedarf über den Inhalt
+  const [linksSchwebt, setLinksSchwebt] = createSignal(false), [rechtsSchwebt, setRechtsSchwebt] = createSignal(false);
   // Breite links und rechts: am Griff ⋮ zwischen den Plätzen ziehen (Doppelklick: wie ab Werk) – gemerkt je Ansicht
   const zahl = (seite: string, d: number) => { try { return Number(localStorage.getItem(merk(`breite_${seite}`))) || d; } catch { return d; } };
   const [linksBreite, setLinksBreite] = createSignal(zahl('links', LINKS));
   const [rechtsBreite, setRechtsBreite] = createSignal(zahl('rechts', RECHTS));
   const breiteMerken = (seite: string, w: number) => { try { localStorage.setItem(merk(`breite_${seite}`), String(Math.round(w))); } catch { /* gesperrt */ } };
-  p.steuer?.({ detailsZeigen: () => setRechtsZu(false), detailsZuklappen: () => setRechtsZu(true) });
+  p.steuer?.({ detailsZeigen: () => { if (rechtsZu()) setRechtsSchwebt(true); }, detailsZuklappen: () => { setRechtsZu(true); setRechtsSchwebt(false); } });
   // Am Handy stehen die Plätze nacheinander: der Baum ist dort ein eigener Schritt, unabhängig vom Zuklappen am großen Bildschirm.
   const schmal = () => matchMedia('(max-width: 860px)').matches;
   const rechtsWeg = () => rechtsZu() && !schmal();   // am Handy gibt es kein Zuklappen: Details sind dort ein eigener Schritt
   const knoepfe = (): Knopf[] => [
-    ...(p.baum ? [{ titel: p.baumTitel ?? 'Gliederung', symbol: '☷', nurSymbol: true, tun: () => (schmal() ? setBaumAmHandy(!baumAmHandy()) : setLinksZu(!linksZu())) }] : []),
     ...(p.knoepfe ?? []),
+    ...(p.baum || ansichten().length > 1 ? [{ titel: p.baumTitel ?? 'Links', zeichen: 'gliederung', gruppe: 'Ansicht', an: schmal() ? baumAmHandy() : !linksZu(), tun: () => (schmal() ? setBaumAmHandy(!baumAmHandy()) : setLinksZu(!linksZu())) }] : []),
   ];
+  const linksTitel = () => ansichten().find((a) => a.id === app?.aktiv())?.titel ?? p.baumTitel ?? 'Gliederung';
+  const heftzwecke = (zu: () => boolean, setZu: (b: boolean) => void, schwebt: (b: boolean) => void) => (
+    <button type="button" class="heftzwecke" classList={{ geloest: zu() }} aria-pressed={!zu()} aria-label={zu() ? 'Anheften' : 'Lösen – blendet sich aus'} title={zu() ? 'Anheften' : 'Lösen – blendet sich aus und erscheint, wenn die Maus an den Rand kommt'}
+      onClick={(e) => { e.stopPropagation(); setZu(!zu()); schwebt(false); }}><Zeichen name={zu() ? 'loesen' : 'anheften'} groesse={15} /></button>
+  );
+  const linksInhalt = () => (<>
+    <div class="platz-kopf nur-breit-flex"><span>{p.baumTitel ?? ''}</span>{heftzwecke(linksZu, setLinksZu, setLinksSchwebt)}</div>
+    <Show when={ansichten().length > 1}><Ansichtsliste reiter={ansichten()} aktiv={app!.aktiv()} onWahl={app!.onReiter} /></Show>
+    {p.baum}
+  </>);
+  const rechtsInhalt = () => p.details ?? (
+    <aside class="karte karte-hinweis" aria-label="Details">
+      <div class="karte-kopf"><h2>Details</h2>{heftzwecke(rechtsZu, setRechtsZu, setRechtsSchwebt)}</div>
+      <div class="karte-inhalt"><p class="still-text">{p.detailsHinweis}</p></div>
+    </aside>);
   return (
     <div class="rahmen">
       <Show when={p.abfolge}>{(a) => <Abfolgeleiste schritte={a().schritte} aktiv={a().aktiv} onWahl={a().onWahl} />}</Show>
@@ -74,21 +112,23 @@ export function Rahmen(p: {
       {p.unterMenue}
       <div class="plaetze" classList={{ 'mit-details': !!p.details && !rechtsWeg(), 'baum-offen': baumAmHandy() }}
         style={{ '--links-breite': `${linksBreite()}px`, '--rechts-breite': `${rechtsBreite()}px` }}>
-        <Show when={p.baum}>
-          <Show when={!linksZu() || baumAmHandy()} fallback={<button class="reiter links" title={`${p.baumTitel ?? 'Gliederung'} aufklappen`} onClick={() => setLinksZu(false)}><span>{p.baumTitel ?? 'Gliederung'}</span></button>}>
-            <aside class="platz-links" aria-label={p.baumTitel ?? 'Gliederung'} onClick={() => setBaumAmHandy(false)}>{p.baum}</aside>
+        <Show when={p.baum || ansichten().length > 1}>
+          <Show when={!linksZu() || baumAmHandy()} fallback={<button class="reiter links" title="Einblenden" onMouseEnter={() => setLinksSchwebt(true)} onClick={() => setLinksSchwebt(true)}><span>{linksTitel()}</span></button>}>
+            <aside class="platz-links" aria-label={p.baumTitel ?? 'Gliederung'} onClick={() => setBaumAmHandy(false)}>{linksInhalt()}</aside>
             <Griff titel={`Breite ${p.baumTitel ?? 'Gliederung'}`} wert={linksBreite()} min={160} max={520} werk={LINKS} richtung={1} onWert={setLinksBreite} onFertig={(w) => breiteMerken('links', w)} />
+          </Show>
+          <Show when={linksZu() && linksSchwebt() && !schmal()}>
+            <aside class="platz-links schwebend" aria-label={p.baumTitel ?? 'Gliederung'} onMouseLeave={() => setLinksSchwebt(false)}>{linksInhalt()}</aside>
           </Show>
         </Show>
         <section class="platz-mitte">{p.inhalt}</section>
         <Show when={p.details || (p.detailsHinweis && !schmal())}>
-          <Show when={!rechtsWeg()} fallback={<button class="reiter" title="Details aufklappen" onClick={() => setRechtsZu(false)}><span>{p.detailsTitel ?? 'Details'}</span></button>}>
+          <Show when={!rechtsWeg()} fallback={<button class="reiter" title="Einblenden" onMouseEnter={() => setRechtsSchwebt(true)} onClick={() => setRechtsSchwebt(true)}><span>{p.detailsTitel ?? 'Details'}</span></button>}>
             <Griff titel="Breite der Details" wert={rechtsBreite()} min={280} max={800} werk={RECHTS} richtung={-1} onWert={setRechtsBreite} onFertig={(w) => breiteMerken('rechts', w)} />
-            <div class="platz-rechts">{p.details ?? (
-              <aside class="karte karte-hinweis" aria-label="Details">
-                <div class="karte-kopf"><h2>Details</h2><button class="knopf still" aria-label="Details zuklappen" title="Zuklappen" onClick={() => setRechtsZu(true)}>⇥</button></div>
-                <div class="karte-inhalt"><p class="still-text">{p.detailsHinweis}</p></div>
-              </aside>)}</div>
+            <div class="platz-rechts">{rechtsInhalt()}</div>
+          </Show>
+          <Show when={rechtsWeg() && rechtsSchwebt()}>
+            <div class="platz-rechts schwebend" onMouseLeave={() => setRechtsSchwebt(false)}>{rechtsInhalt()}</div>
           </Show>
         </Show>
       </div>

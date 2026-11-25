@@ -4,7 +4,7 @@ import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Beipackzettel } from '../kern/modul';
 import type { ObjektModell } from '../kern/modell';
-import { sicht } from './unterbau/abgleich';
+import { objektname, sicht } from './unterbau/abgleich';
 import { darf, zustand } from './unterbau/api';
 import { anzeige } from './baukasten/feld';
 import { Dialog } from './baukasten/dialog';
@@ -38,7 +38,7 @@ export function Suche(p: { onTreffer: (t: Treffer) => void; onZu: () => void }) 
         if (!worte.every((w) => hay.includes(w))) continue;
         const projekt = o.m.projektFeld && o.m.projektFeld !== 'id' ? (r.werte[o.m.projektFeld] as string | null) : o.m.name === 'projekt' ? r.id : null;
         const pname = projekt && o.m.name !== 'projekt' ? String(sicht.projekt?.[projekt]?.werte.name ?? '') : '';
-        out.push({ ...o, id: r.id, titel: anzeige(o.m.felder.find((f) => f.name === o.m.anzeigeFeld)!, r.werte[o.m.anzeigeFeld]) || o.m.titel, unter: [o.m.titel, pname].filter(Boolean).join(' · '), projekt, version: (r.werte.version as string | null) ?? null });
+        out.push({ ...o, id: r.id, titel: objektname(o.m, r.werte) || o.m.titel, unter: [o.m.titel, pname].filter(Boolean).join(' · '), projekt, version: (r.werte.version as string | null) ?? null });
         if (out.length >= 60) return out;
       }
     }

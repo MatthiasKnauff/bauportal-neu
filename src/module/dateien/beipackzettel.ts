@@ -10,5 +10,5 @@ export const dateien: Beipackzettel = {
   beschreibung: 'Der Projektordner auf dem Dateiserver: durchblättern, ansehen, herunterladen.',
   braucht: ['projekte'],
   objekte: [],
-  ansichten: [{ id: 'dateien', titel: 'Dateien', brauchtProjekt: true }],
+  ansichten: [{ id: 'dateien', titel: 'Dateien', abschnitt: 'Dateien', zeichen: 'dateien', brauchtProjekt: true }],
 };

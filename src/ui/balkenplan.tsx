@@ -3,8 +3,8 @@
 // bearbeitet mit bearbeiten.ts; jede Handlung ist ein Schritt für Strg+Z.
 // Bedienung wie gewohnt: Zelle anklicken und lostippen, F2, Enter/Tab/Esc; Einfg, Entf; Alt+Umschalt+Pfeile gliedern und
 // verschieben; Balken ziehen (verschieben), rechte Kante ziehen (Dauer), Punkt am Balkenende auf einen anderen ziehen (verknüpfen).
-import { Auswahlliste } from './baukasten/auswahlliste';
 import { spaltenwahl } from './baukasten/spalten';
+import { Klappe, Ordner } from './baukasten/baum';
 import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { For, Show, createEffect, createMemo, createResource, createSignal, untrack } from 'solid-js';
 import { unwrap } from 'solid-js/store';
@@ -100,11 +100,24 @@ export function Balkenplan(p: Mitte) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   };
+  // Befehle des Balkenplans in der Menüleiste (Band) – wie im bisherigen Bauportal
+  const PFEILE = [{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }] as const;
+  createEffect(() => p.setKnoepfe([
+    ...(schreiben() ? [{ titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
+      { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
+    { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
+    { titel: `Pfeile: ${PFEILE.find((x) => x.wert === pfeile())?.titel ?? ''}`, zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
+    { titel: 'Größer', zeichen: 'groesser', gruppe: 'Ansicht', gesperrt: zoom() === ZOOM.length - 1, tun: () => setZoom(zoom() + 1) },
+    { titel: 'Kleiner', zeichen: 'kleiner', gruppe: 'Ansicht', gesperrt: zoom() === 0, tun: () => setZoom(zoom() - 1) },
+    { titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: (e) => setSpaltenFeld({ x: e.clientX, y: e.clientY + 12 }) },
+    { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: (e) => austauschMenue(e) },
+    ...(schreiben() ? [{ titel: 'Einlesen', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => dateiWahl.click() }] : []),
+    { titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => setDrucken(true) },
+  ]));
   const austauschMenue = (e: MouseEvent) => zeigeMenue(e, [
     { titel: 'Excel / CSV', tun: () => speichern(csvAus(plan()), 'csv', 'text/csv;charset=utf-8') },
     { titel: 'MS Project (XML)', tun: () => speichern(mspdiAus(plan(), titel()), 'xml', 'application/xml') },
     { titel: 'Sicherung (.gantt)', tun: () => speichern(planJsonAus(plan(), titel(), (zp()?.werte ?? {}) as Record<string, Wert>, lebend('freier_tag')), 'gantt', 'application/json') },
-    ...(schreiben() ? [{ titel: 'Plan aus Datei einlesen …', tun: () => dateiWahl.click() }] : []),
   ]);
   const einlesen = async () => {
     const d = dateiWahl.files?.[0];
@@ -117,7 +130,6 @@ export function Balkenplan(p: Mitte) {
   const schmalAbfrage = typeof matchMedia === 'function' ? matchMedia('(max-width: 760px)') : null;
   const [schmal, setSchmal] = createSignal(!!schmalAbfrage?.matches);
   schmalAbfrage?.addEventListener('change', (e) => setSchmal(e.matches));
-  const [leisteOffen, setLeisteOffen] = createSignal(false);   // Handy: Einstellungen nur auf Wunsch, damit Platz für den Plan bleibt
   const [handy, setHandy] = createSignal<'jetzt' | 'ablauf' | 'gewerke' | 'plan'>(holen('bzp.handy', 'jetzt'));
   createEffect(() => merken('bzp.handy', handy()));
   // Spalten wählen und ordnen: derselbe Baustein wie bei jeder Tabelle (Spaltenwahl, Spaltenfeld)
@@ -424,23 +436,8 @@ export function Balkenplan(p: Mitte) {
         <PlanHandy plan={plan()} heute={new Date().toLocaleDateString('sv')} ansicht={handy() as 'jetzt'} onOeffnen={(id) => oeffnen(id)} />
       </Show>
       <Show when={!schmal() || handy() === 'plan'}>
-      <Show when={schmal()}>
-        <button class="knopf klein still bzp-einstellungen" aria-expanded={leisteOffen()} onClick={() => setLeisteOffen(!leisteOffen())}>⚙ Einstellungen und Werkzeuge {leisteOffen() ? '▴' : '▾'}</button>
-      </Show>
-      <div class="bzp-leiste" classList={{ zu: schmal() && !leisteOffen() }}>
-        <span class="bzp-trenner" />
-        <label class="bzp-haken"><input type="checkbox" checked={kritisch()} onChange={(e) => setKritisch(e.currentTarget.checked)} /> Kritischer Weg</label>
-        <span class="bzp-wahl">Pfeile <Auswahlliste titel="Pfeile" wert={pfeile()} onWert={(w) => setPfeile(w as 'markiert')}
-          optionen={[{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }]} /></span>
-        <Show when={schreiben()}><label class="bzp-haken" title="Einfügen setzt die neue Leistung in die Kette, Löschen überbrückt sie"><input type="checkbox" checked={autom()} onChange={(e) => setAutom(e.currentTarget.checked)} /> Autom. verknüpfen</label></Show>
-        <Show when={schreiben()}><button class="knopf klein" onClick={() => setAssi(true)}>✦ Assistent</button></Show>
-        <button class="knopf klein" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setSpaltenFeld({ x: r.left, y: r.bottom + 4 }); }}>☰ Spalten</button>
-        <button class="knopf klein" onClick={() => setDrucken(true)}>⎙ Drucken / PDF</button>
-        <button class="knopf klein" onClick={austauschMenue}>Export / Import ▾</button>
-        <input ref={dateiWahl} type="file" accept=".gantt,.json,application/json" hidden onChange={() => void einlesen()} />
-        <span class="bzp-zoom"><button class="knopf klein still" aria-label="Verkleinern" disabled={zoom() === 0} onClick={() => setZoom(zoom() - 1)}>−</button><button class="knopf klein still" aria-label="Vergrößern" disabled={zoom() === ZOOM.length - 1} onClick={() => setZoom(zoom() + 1)}>+</button></span>
-        <Show when={erg().zyklen.length}><span class="feld-fehler">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</span></Show>
-      </div>
+      <input ref={dateiWahl} type="file" accept=".gantt,.json,application/json" hidden onChange={() => void einlesen()} />
+      <Show when={erg().zyklen.length}><p class="feld-fehler bzp-warnung">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</p></Show>
       <div class="bzp-flaeche" ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
         onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); setZoom(Math.max(0, Math.min(ZOOM.length - 1, zoom() + (e.deltaY < 0 ? 1 : -1)))); } }}>
         <div class="bzp-innen" style={{ width: `${breiteL() + breiteR()}px`, height: `${KOPF + (sichtbar().length + 1) * H}px` }}>
@@ -510,7 +507,7 @@ export function Balkenplan(p: Mitte) {
                       <Show when={edit()?.id === v.id && edit()?.spalte === s.id} fallback={
                         s.id === 'name'
                           ? <span class="bzp-name" style={{ 'padding-left': `${Number(v.werte.ebene ?? 0) * 16}px` }}>
-                              <Show when={t()?.gruppe} fallback={<span class="bzp-dreieck" />}><button class="bzp-dreieck" aria-label={eingeklappt().has(v.id) ? 'Aufklappen' : 'Zuklappen'} onClick={(e) => { e.stopPropagation(); umschalten(v.id); }}>{eingeklappt().has(v.id) ? '▸' : '▾'}</button></Show>
+                              <Show when={t()?.gruppe} fallback={<i class="klappe-platz" />}><Klappe zu={eingeklappt().has(v.id)} onKlick={() => umschalten(v.id)} /><Ordner offen={!eingeklappt().has(v.id)} /></Show>
                               <Show when={!t()?.gruppe}><i class="bzp-farbe" style={{ background: balkenFarbe(v.werte) }} /></Show>
                               {wert(v, 'name')}
                             </span>

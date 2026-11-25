@@ -49,6 +49,6 @@ export const kataloge: Beipackzettel = {
   beschreibung: 'Nachschlagelisten aus dem Katalog-Kanal, auf Knopfdruck aktualisierbar: Gewerke nach VOB/C, Kostengruppen nach DIN 276.',
   braucht: [],
   objekte: [gewerk, kostengruppe],
-  ansichten: [{ id: 'gewerke', titel: 'Gewerke', objekt: 'gewerk', baum: ['bereich'] }, { id: 'kostengruppen', titel: 'Kostengruppen', objekt: 'kostengruppe', baum: ['hauptgruppe'] }],
+  ansichten: [{ id: 'gewerke', titel: 'Gewerke', abschnitt: 'Kataloge', zeichen: 'katalog', objekt: 'gewerk', baum: ['bereich'] }, { id: 'kostengruppen', titel: 'Kostengruppen', abschnitt: 'Kataloge', zeichen: 'kataloge', objekt: 'kostengruppe', baum: ['hauptgruppe'] }],
   kataloge: [{ id: 'gewerke', titel: 'Gewerke nach VOB/C', objekt: 'gewerk' }, { id: 'kostengruppen', titel: 'Kostengruppen nach DIN 276', objekt: 'kostengruppe' }],
 };

@@ -16,6 +16,7 @@ export interface Mitte {
   onWahl: (id: string | null) => void;
   onOeffnen: () => void;                // Karte zeigen, ins erste Feld
   setReihe: (ids: string[]) => void;    // Reihenfolge, in der die Mitte die Einträge zeigt – danach blättert die Karte
+  setKnoepfe: (k: Knopf[]) => void;     // Befehle der Mitte für die Menüleiste (z. B. Kritischer Weg, Zoom im Balkenplan)
 }
 
 export interface Anpassung {

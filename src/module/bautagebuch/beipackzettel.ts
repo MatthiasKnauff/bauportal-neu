@@ -12,6 +12,7 @@ export const tagesbericht: ObjektModell = {
   titel: 'Tagesbericht',
   titelMehrzahl: 'Tagesberichte',
   anzeigeFeld: 'titel',
+  ersatzName: ['nummer', 'datum'],
   projektFeld: 'projekt',
   rechte,
   felder: [
@@ -19,7 +20,7 @@ export const tagesbericht: ObjektModell = {
     { name: 'nummer', titel: 'Nr.', art: 'zahl', inListe: true, breite: 70, gruppe: 'Bericht' },
     { name: 'datum', titel: 'Datum', art: 'datum', pflicht: true, inListe: true, breite: 120, gruppe: 'Bericht' },
     { name: 'uhrzeit', titel: 'Uhrzeit', art: 'text', inListe: true, breite: 90, gruppe: 'Bericht' },
-    { name: 'titel', titel: 'Kurzbeschreibung', art: 'text', pflicht: true, inListe: true, breite: 300, gruppe: 'Bericht' },
+    { name: 'titel', titel: 'Kurzbeschreibung', art: 'text', inListe: true, breite: 300, gruppe: 'Bericht' },
     { name: 'bauleitung', titel: 'Bauleitung', art: 'verweis', ziel: 'benutzer', inListe: true, breite: 160, gruppe: 'Bericht' },
     { name: 'wetter', titel: 'Wetter', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Wetter', optionen: [
       { wert: '', titel: 'keine Angabe' },
@@ -102,11 +103,11 @@ export const bautagebuch: Beipackzettel = {
   braucht: ['projekte', 'adressen'],
   objekte: [tagesbericht, berichtEintrag, foto],
   ansichten: [
-    { id: 'berichte', titel: 'Berichte', objekt: 'tagesbericht', brauchtProjekt: true },
-    { id: 'maengel', titel: 'Mängel', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'mangel' }, baum: ['erledigt', 'firma'] },
-    { id: 'aufgaben', titel: 'Zu erledigen', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'aufgabe' }, baum: ['erledigt'] },
-    { id: 'weisungen', titel: 'Weisungen', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'weisung' }, baum: ['firma'] },
-    { id: 'fotos', titel: 'Fotos', objekt: 'foto', brauchtProjekt: true, baum: ['bericht'] },
+    { id: 'berichte', titel: 'Berichte', abschnitt: 'Bautagebuch', zeichen: 'bericht', objekt: 'tagesbericht', brauchtProjekt: true },
+    { id: 'maengel', titel: 'Mängel', abschnitt: 'Im Projekt', zeichen: 'mangel', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'mangel' }, baum: ['erledigt', 'firma'] },
+    { id: 'aufgaben', titel: 'Zu erledigen', abschnitt: 'Im Projekt', zeichen: 'aufgabe', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'aufgabe' }, baum: ['erledigt'] },
+    { id: 'weisungen', titel: 'Weisungen', abschnitt: 'Im Projekt', zeichen: 'weisung', objekt: 'bericht_eintrag', brauchtProjekt: true, filter: { art: 'weisung' }, baum: ['firma'] },
+    { id: 'fotos', titel: 'Fotos', abschnitt: 'Im Projekt', zeichen: 'foto', objekt: 'foto', brauchtProjekt: true, baum: ['bericht'] },
   ],
   ausdrucke: [{
     id: 'bautagebuch.tagesbericht', titel: 'Tagesbericht', objekt: 'tagesbericht',

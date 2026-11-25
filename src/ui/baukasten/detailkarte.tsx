@@ -4,10 +4,11 @@ import { For, Show, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Eingabefehler, gilt, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
-import { ausfuehren, rueckgaengig } from '../unterbau/abgleich';
+import { ausfuehren, objektname, rueckgaengig } from '../unterbau/abgleich';
 import { darf, neueKennung } from '../unterbau/api';
 import { Dialog } from './dialog';
 import { FeldEingabe } from './feld';
+import { Zeichen } from './zeichen';
 import { hinweis } from '../unterbau/meldungen';
 
 export function gruppen(m: ObjektModell, werte: Werte, verborgen: string[] = []): { titel: string; felder: Feld[] }[] {
@@ -26,7 +27,7 @@ export function gruppen(m: ObjektModell, werte: Werte, verborgen: string[] = [])
 export function feldAendern(m: ObjektModell, z: Zeile, f: Feld, w: Wert, herkunft?: string): string | undefined {
   try {
     const sauber = pruefeWerte(m, { [f.name]: w }, false);
-    if (sauber[f.name] !== z.werte[f.name]) ausfuehren({ objekt: m.name, art: 'aendern', objektId: z.id, werte: sauber, ...(herkunft ? { herkunft } : {}) }, `${f.titel} von „${String(z.werte[m.anzeigeFeld] ?? '')}“ ändern`);
+    if (sauber[f.name] !== z.werte[f.name]) ausfuehren({ objekt: m.name, art: 'aendern', objektId: z.id, werte: sauber, ...(herkunft ? { herkunft } : {}) }, `${f.titel} von „${objektname(m, z.werte)}“ ändern`);
     return undefined;
   } catch (e) {
     if (e instanceof Eingabefehler) return e.felder[f.name]; throw e;
@@ -34,7 +35,7 @@ export function feldAendern(m: ObjektModell, z: Zeile, f: Feld, w: Wert, herkunf
 }
 
 export function loesche(m: ObjektModell, z: Zeile): void {
-  const name = String(z.werte[m.anzeigeFeld] ?? '');
+  const name = objektname(m, z.werte);
   ausfuehren({ objekt: m.name, art: 'loeschen', objektId: z.id }, `„${name}“ löschen`);
   hinweis(`„${name}“ gelöscht.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
 }
@@ -53,7 +54,7 @@ export function Detailkarte(p: {
 }) {
   const schreiben = () => darf(p.modell.name, 'schreiben');
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
-  const titel = () => String(p.zeile.werte[p.modell.anzeigeFeld] ?? '');
+  const titel = () => objektname(p.modell, p.zeile.werte);
   const aendern = (f: Feld, w: Wert, herkunft?: string) => setFehler(f.name, feldAendern(p.modell, p.zeile, f, w, herkunft));
   return (
     <aside class="karte" aria-label={`${p.modell.titel} ${titel()}`}>
@@ -62,7 +63,7 @@ export function Detailkarte(p: {
         <h2>{titel() || p.modell.titel}</h2>
         <Show when={p.onZuklappen}>
           <button class="knopf still nur-breit" aria-label="In eigenem Fenster öffnen" title="In eigenem Fenster öffnen" onClick={() => inEigenemFenster(p.modell, p.zeile.id)}>{p.symbole?.fenster ?? '⧉'}</button>
-          <button class="knopf still nur-breit" aria-label="Karte zuklappen" title="Zuklappen" onClick={p.onZuklappen}>{p.symbole?.zuklappen ?? '⇥'}</button>
+          <button class="heftzwecke nur-breit" aria-label="Lösen – blendet sich aus" title="Lösen – blendet sich aus und erscheint, wenn die Maus an den Rand kommt" onClick={p.onZuklappen}>{p.symbole?.zuklappen ?? <Zeichen name="anheften" groesse={15} />}</button>
         </Show>
         <Show when={p.onZu}><button class="knopf still nur-breit" aria-label="Karte schließen" title="Schließen (Esc)" onClick={p.onZu}>{p.symbole?.schliessen ?? '×'}</button></Show>
       </div>
@@ -100,7 +101,7 @@ export function NeuFenster(p: { modell: ObjektModell; start: Werte; verborgen?: 
     try {
       const sauber = pruefeWerte(p.modell, { ...werte }, true);
       const id = neueKennung();
-      ausfuehren({ objekt: p.modell.name, art: 'anlegen', objektId: id, werte: sauber }, `„${sauber[p.modell.anzeigeFeld]}“ anlegen`);
+      ausfuehren({ objekt: p.modell.name, art: 'anlegen', objektId: id, werte: sauber }, `„${objektname(p.modell, sauber) || p.modell.titel}“ anlegen`);
       p.onZu(id);
     } catch (e) {
       if (!(e instanceof Eingabefehler)) throw e;

@@ -3,7 +3,7 @@ import { For, Match, Show, Switch, createUniqueId } from 'solid-js';
 import type { Feld, Wert, Werte } from '../../kern/modell';
 import { HERKUNFT } from '../../kern/befehl';
 import { feldtext } from '../../kern/druck';
-import { sicht } from '../unterbau/abgleich';
+import { objektname, sicht, verweisname } from '../unterbau/abgleich';
 import { modell } from '../unterbau/api';
 import { Auswahlliste } from './auswahlliste';
 import { kiAnbindungen, kiOeffnen } from './ki';
@@ -74,9 +74,8 @@ function verweisziele(f: Feld, zusammenhang?: Werte): { wert: string; titel: str
   const m = modell(f.ziel!);
   const gleich = ['projekt', 'version'].filter((k) => zusammenhang?.[k] && m.felder.some((x) => x.name === k));
   return Object.values(sicht[f.ziel!] ?? {}).filter((z) => !z.geloescht && gleich.every((k) => z.werte[k] === zusammenhang![k]))
-    .map((z) => ({ wert: z.id, titel: String(z.werte[m.anzeigeFeld] ?? '') })).sort((a, b) => a.titel.localeCompare(b.titel, 'de', { numeric: true }));
+    .map((z) => ({ wert: z.id, titel: objektname(m, z.werte) })).sort((a, b) => a.titel.localeCompare(b.titel, 'de', { numeric: true }));
 }
 
 /** Wert so, wie er in einer Tabelle steht – derselbe Text wie im Ausdruck. */
 export const anzeige = (f: Feld, w: Wert | undefined): string => feldtext(f, w, verweisname);
-export const verweisname = (ziel: string, id: string): string => { const z = sicht[ziel]?.[id]; return z ? String(z.werte[modell(ziel).anzeigeFeld] ?? '') : ''; };
