@@ -13,7 +13,9 @@ export type Druckblock =
   // Tabelle der Einträge, die am Objekt hängen (z. B. die Mängel eines Berichts): objekt.ueber verweist auf das gedruckte Objekt
   | { id: string; art: 'liste'; objekt: string; ueber: string; filter?: Werte; titel: string; spalten: string[] }
   // Bilder, die am Objekt hängen – zwei nebeneinander, nie beschnitten, mit Beschriftung
-  | { id: string; art: 'bilder'; objekt: string; ueber: string; titel: string; beschriftung: string };
+  | { id: string; art: 'bilder'; objekt: string; ueber: string; titel: string; beschriftung: string }
+  // Verzeichnis: die gewählten bzw. gefilterten Einträge des Objekts selbst als Tabelle (z. B. Adressverzeichnis)
+  | { id: string; art: 'verzeichnis'; titel: string; spalten: string[] };
 
 export interface Ausdruck {
   id: string;              // eindeutig, z. B. "bautagebuch.tagesbericht"
@@ -24,6 +26,9 @@ export interface Ausdruck {
   ordner?: string;         // Unterordner im Projektordner, in dem das PDF abgelegt wird (einstellbar: Stelle „seite.ordner“)
   vermerk?: string;        // Feld des Objekts, in das nach dem PDF „Datei · Zeitpunkt“ geschrieben wird (z. B. „Als PDF exportiert“)
   bloecke: Druckblock[];
+  /** Verzeichnis statt eines einzelnen Eintrags: gedruckt werden viele Einträge (die gefilterte Liste oder die Auswahl).
+   *  Platzhalter dann: {anzahl}, {filter}, {datum}, {buero}. */
+  verzeichnis?: boolean;
 }
 
 /** Reihenfolge der Einträge einer Liste: wie eingetragen (Feld „reihe“, wenn das Objekt eins hat) – im Browser und auf dem Server gleich. */
@@ -40,6 +45,7 @@ export interface Druckdaten {
   kinder: (blockId: string) => { id: string; werte: Werte }[];   // die Einträge eines Listen- oder Bilder-Blocks, in der Reihenfolge des Ausdrucks
   bild: (id: string) => string;                    // Adresse des Vorschaubilds (im Browser ein Verweis, im PDF das Bild selbst)
   modell: (objekt: string) => ObjektModell;        // Modell der Einträge
+  extra?: Record<string, string>;                  // weitere Platzhalter (Verzeichnis: anzahl, filter, datum)
 }
 export const SCHRIFT: Record<string, { titel: string; pt: number }> = { klein: { titel: 'klein', pt: 9 }, normal: { titel: 'normal', pt: 10.5 }, gross: { titel: 'groß', pt: 12 } };
 /** Seitenränder in mm – in der Vorschau der Rand des Blatts, im PDF der Rand der Seite. */
@@ -72,6 +78,7 @@ export function einsetzen(vorlage: string, m: ObjektModell, d: Druckdaten): stri
   return vorlage.replace(/\{([a-z0-9_]+)\}/g, (_ganz, k: string) => {
     if (k === 'buero') return String(d.buero.name ?? '');
     if (k === 'projekt') return d.projekt;
+    if (d.extra && k in d.extra) return d.extra[k]!;
     const f = m.felder.find((x) => x.name === k);
     return f ? feldtext(f, d.werte[k], d.verweis) : '';
   }).replace(/\s+/g, ' ').trim();
@@ -126,7 +133,7 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
     if (b.art === 'briefkopf') {
       const anschrift = [d.buero.strasse, [d.buero.plz, d.buero.ort].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
       const draht = [d.buero.telefon, d.buero.email].filter(Boolean).join(' · ');
-      return huelle(b.id, 'briefkopf', `<div><b>${sicher(String(d.buero.name || 'Büro'))}</b><small>${sicher(anschrift)}${anschrift && draht ? '<br>' : ''}${sicher(draht)}</small></div><div class="rechts"><small>Projekt</small><b>${sicher(d.projekt)}</b></div>`);
+      return huelle(b.id, 'briefkopf', `<div><b>${sicher(String(d.buero.name || 'Büro'))}</b><small>${sicher(anschrift)}${anschrift && draht ? '<br>' : ''}${sicher(draht)}</small></div>${d.projekt ? `<div class="rechts"><small>Projekt</small><b>${sicher(d.projekt)}</b></div>` : ''}`);
     }
     if (b.art === 'titel') {
       const unter = einsetzen(e[`${b.id}.unter`] ?? b.unter ?? '', m, d);
@@ -137,8 +144,8 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       const mitWert = (n: string) => bearbeiten || feld(n).art === 'ja_nein' || (d.werte[n] !== '' && d.werte[n] != null && feldtext(feld(n), d.werte[n], d.verweis) !== '');
       return huelle(b.id, 'felder', b.felder.filter(mitWert).map((n) => huelle(`${b.id}.${n}`, 'zeile', `<dt>${sicher(e[`${b.id}.${n}.titel`] || feld(n).titel)}</dt><dd>${sicher(feld(n).art === 'ja_nein' ? (d.werte[n] ? 'Ja' : 'Nein') : feldtext(feld(n), d.werte[n], d.verweis)) || '–'}</dd>`)).join(''), 'dl');
     }
-    if (b.art === 'liste') {
-      const k = d.modell(b.objekt);
+    if (b.art === 'liste' || b.art === 'verzeichnis') {
+      const k = b.art === 'liste' ? d.modell(b.objekt) : m;
       const zeilen = d.kinder(b.id);
       if (!zeilen.length && !bearbeiten && e[`${b.id}.leer`] !== 'ja') return '';
       const spalten = b.spalten.map((n) => k.felder.find((f) => f.name === n)!).filter((f) => bearbeiten || !aus(`${b.id}.${f.name}`));

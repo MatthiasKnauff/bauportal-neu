@@ -866,10 +866,11 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .kachelliste-eintrag.mit-haken { position: relative; padding-left: 36px; } .kachelliste-eintrag > .auswahl-haken { position: absolute; left: 12px; top: 14px; }
 .kachelliste-eintrag.markiert { background: color-mix(in srgb, var(--akzent) 8%, var(--flaeche)); }
 @media (max-width: 860px) { html:not(.auswahl-an) .kachelliste-eintrag > .auswahl-haken { display: none; } html:not(.auswahl-an) .kachelliste-eintrag.mit-haken { padding-left: 14px; } }
-.auswahlleiste { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 60; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; max-width: calc(100vw - 32px);
-  background: var(--flaeche); border: 1px solid var(--akzent); border-radius: calc(12px * var(--rund)); padding: 8px 12px; box-shadow: var(--schatten); font-size: 14px; }
+.auswahlleiste { position: fixed; left: 50%; transform: translateX(-50%); bottom: 22px; z-index: 40;   /* unter den Fenstern (50) – sie verdeckt nie deren Knöpfe */ display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; width: min(1100px, calc(100vw - 48px));
+  background: var(--flaeche); border: 2px solid var(--akzent); border-radius: calc(14px * var(--rund)); padding: 14px 20px; box-shadow: 0 10px 32px rgba(0, 0, 0, .22); font-size: 15px; }
+.auswahlleiste > b { font-size: 16px; }
 .auswahlleiste-platz { flex: 1; min-width: 8px; }
-@media (max-width: 860px) { .auswahlleiste { left: 8px; right: 8px; transform: none; bottom: calc(var(--handyleiste-h, 64px) + 8px); } }
+@media (max-width: 860px) { .auswahlleiste { left: 8px; right: 8px; width: auto; padding: 10px 12px; transform: none; bottom: calc(var(--handyleiste-h, 64px) + 8px); } }
 .wahl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .wahl-chips button { border: 1px solid var(--rand-stark); background: var(--flaeche); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit; }
 .wahl-chips button.aktiv { border-color: var(--akzent); background: var(--akzent-hell); font-weight: 600; }
@@ -888,3 +889,9 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-track { background: transpar
 html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-still) 40%, transparent); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-color: var(--akzent); }
 .darstellung-wert { min-width: 46px; font-variant-numeric: tabular-nums; }
+.design-umbenennen { width: 100%; font: inherit; font-size: 13px; padding: 2px 4px; } .design-aktionen { align-items: center; margin-top: 4px; } .design-aktionen .knopf { margin-left: 6px; }
+/* Auswahl in einem Fenster direkt als Liste (statt aufklappend – das würde im Fenster abgeschnitten) */
+.wahlliste-suche { max-width: none; width: 100%; margin-bottom: 8px; }
+.wahlliste { display: flex; flex-direction: column; max-height: min(50vh, 420px); overflow-y: auto; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); padding: 4px; }
+.wahlliste button { text-align: left; border: 0; background: transparent; padding: 7px 10px; border-radius: calc(6px * var(--rund)); font: inherit; cursor: pointer; }
+.wahlliste button:hover { background: var(--still); } .wahlliste button.aktiv { background: var(--akzent-hell); font-weight: 600; }

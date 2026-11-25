@@ -10,7 +10,6 @@ import { darf, ladeDatei, modell, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
-import { Auswahlliste } from './baukasten/auswahlliste';
 import type { AuswahlBefehl } from './baukasten/auswahl';
 import { aufraeumenOeffnen } from './aufraeumen';
 
@@ -28,7 +27,7 @@ function schritt(vs: Vorlage[], titel: string) {
 }
 
 /** Die Befehle der Adressen für die Auswahl; excel kommt vom Baustein (gezeigte Spalten). */
-export function kontaktAuswahl(h: { excel: (ids: string[]) => void }): AuswahlBefehl[] {
+export function kontaktAuswahl(h: { excel: (ids: string[]) => void; drucken?: (ids: string[]) => void }): AuswahlBefehl[] {
   const schreiben = () => (darf('kontakt', 'schreiben') ? undefined : 'Dazu fehlt dir das Recht');
   return [
     { titel: '＋ Projekt', gesperrt: () => (darf('projekt_kontakt', 'schreiben') ? undefined : 'Dazu fehlt dir das Recht'), tun: (ids) => setOffen({ art: 'projekt', ids }) },
@@ -41,6 +40,7 @@ export function kontaktAuswahl(h: { excel: (ids: string[]) => void }): AuswahlBe
     ] },
     { titel: 'Ausgeben', menue: (ids) => [
       { titel: `Excel (${zahl(ids.length)})`, tun: () => h.excel(ids) },
+      ...(h.drucken ? [{ titel: 'Drucken / PDF', tun: () => h.drucken!(ids) }] : []),
       { titel: 'Visitenkarten (vCard)', tun: () => void ladeDatei('/api/kontakte.vcf', { ids }).catch((e) => hinweis((e as Error).message, { art: 'fehler' })) },
     ] },
     { titel: 'Zusammenführen', gesperrt: (ids) => (!darf('kontakt', 'loeschen') ? 'Dazu fehlt dir das Recht' : ids.length < 2 ? 'Ab zwei gewählten Kontakten' : ids.length > 8 ? 'Höchstens 8 auf einmal' : undefined),
@@ -65,6 +65,7 @@ function Aendern(p: { art: Art; ids: string[] }) {
   });
   // ---- Projekt dazu / entfernen ----
   const [projekt, setProjekt] = createSignal('');
+  const [such, setSuch] = createSignal('');
   const projektname = (id: string) => String(sicht.projekt?.[id]?.werte.name ?? '');
   const beteiligt = () => lebende('projekt_kontakt').filter((b) => p.ids.includes(String(b.werte.kontakt)));
   const projekte = () => (p.art === 'projekt_weg' ? [...new Set(beteiligt().map((b) => String(b.werte.projekt)))] : lebende('projekt').map((x) => x.id))
@@ -102,7 +103,7 @@ function Aendern(p: { art: Art; ids: string[] }) {
   const titel = { art: 'Art setzen', gewerk: 'Gewerk', stichworte: 'Stichwort', tags: 'Tag', projekt: 'Am Projekt beteiligen', projekt_weg: 'Aus einem Projekt entfernen' }[p.art];
   const bereit = () => (p.art === 'art' ? !!art() : listenFeld ? !!String(wort() ?? '').trim() : !!projekt());
   return (
-    <Dialog titel={`${titel} – ${zahl(n)}`} onAbbrechen={zu} geaendert={bereit}
+    <Dialog titel={`${titel} – ${zahl(n)}`} breit onAbbrechen={zu} geaendert={bereit}
       knoepfe={<><button class="knopf" data-abbrechen onClick={zu}>Abbrechen</button><button class="knopf haupt" disabled={!bereit()} onClick={ok}>OK</button></>}>
       <Show when={p.art === 'art'}>
         <FeldEingabe feld={{ ...modell('kontakt').felder.find((f) => f.name === 'art')!, pflicht: false }} wert={art()} objekt="kontakt" sofort onWert={setArt} />
@@ -121,7 +122,13 @@ function Aendern(p: { art: Art; ids: string[] }) {
       </>)}</Show>
       <Show when={p.art === 'projekt' || p.art === 'projekt_weg'}>
         <Show when={projekte().length} fallback={<p class="still-text">{p.art === 'projekt_weg' ? 'Die gewählten Kontakte sind in keinem Projekt beteiligt.' : 'Es gibt noch kein Projekt.'}</p>}>
-          <Auswahlliste titel="Projekt" platzhalter="Projekt wählen …" optionen={projekte()} wert={projekt() || null} onWert={setProjekt} />
+          {/* direkt im Fenster statt einer aufklappenden Liste – die würde im Fenster abgeschnitten */}
+          <input class="suche wahlliste-suche" type="search" placeholder={`Projekt suchen (${projekte().length})`} aria-label="Projekt suchen" value={such()} onInput={(e) => setSuch(e.currentTarget.value)} />
+          <div class="wahlliste" role="radiogroup" aria-label="Projekt">
+            <For each={projekte().filter((o) => o.titel.toLocaleLowerCase('de').includes(such().trim().toLocaleLowerCase('de')))}>{(o) => (
+              <button type="button" role="radio" aria-checked={projekt() === o.wert} classList={{ aktiv: projekt() === o.wert }} onClick={() => setProjekt(o.wert)} onDblClick={() => { setProjekt(o.wert); ok(); }}>{o.titel}</button>
+            )}</For>
+          </div>
         </Show>
       </Show>
     </Dialog>

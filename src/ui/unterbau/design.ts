@@ -7,7 +7,8 @@ import { ich } from './api';
 import type { Zeile } from '../../kern/befehl';
 
 const json = (w: unknown) => { try { return JSON.parse(String(w || '{}')) as Record<string, string>; } catch { return {}; } };
-export const designAus = (z: Zeile | undefined): Design | null => (z ? { hell: json(z.werte.hell), dunkel: json(z.werte.dunkel) } : null);
+// gelöschte Designs gelten nicht mehr – wer eins gewählt hatte, sieht wieder den Standard
+export const designAus = (z: Zeile | undefined): Design | null => (z && !z.geloescht ? { hell: json(z.werte.hell), dunkel: json(z.werte.dunkel) } : null);
 export const meineWahl = () => Object.values(sicht.design_wahl ?? {}).find((z) => !z.geloescht && z.werte.benutzer === ich()?.id);
 
 const [schriftStand, setSchriftStand] = createSignal(0);

@@ -401,7 +401,7 @@ const anpassung = (objekt: string): Anpassung => ({ ...ANPASSUNG[objekt], karten
 /** Unter der Karte: was das Modul dort ergänzt, und – für alles, was sich drucken lässt – der Weg zum Ausdruck. */
 export const kartenZusatz = (objekt: string) => (z: Zeile): JSX.Element => <>
   {ANPASSUNG[objekt]?.kartenZusatz?.(z)}
-  <For each={ausdrucke(objekt)}>{(a) => <div class="karte-fuss"><button class="knopf" onClick={() => druckOeffnen(a.id, z.id)}>⎙ Drucken / PDF{ausdrucke(objekt).length > 1 ? ` – ${a.titel}` : ''}</button></div>}</For>
+  <For each={ausdrucke(objekt).filter((a) => !a.verzeichnis)}>{(a) => <div class="karte-fuss"><button class="knopf" onClick={() => druckOeffnen(a.id, z.id)}>⎙ Drucken / PDF{ausdrucke(objekt).filter((a) => !a.verzeichnis).length > 1 ? ` – ${a.titel}` : ''}</button></div>}</For>
 </>;
 
 /** Alles, was ein Modul der Karte eines Objekts mitgibt – auch für die Karte im eigenen Fenster. */

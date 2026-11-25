@@ -111,7 +111,7 @@ export function Auswahlleiste(p: { auswahl: Auswahl; reihe: () => string[]; befe
         <span class="auswahlleiste-platz" />
         <For each={p.befehle.filter((b) => !b.nurMenue)}>{(b) => {
           const grund = () => b.gesperrt?.(ids());
-          return <button type="button" class="knopf klein" classList={{ gefahr: b.gefahr }} disabled={!!grund()} title={grund() ?? b.titel}
+          return <button type="button" class="knopf" classList={{ gefahr: b.gefahr }} disabled={!!grund()} title={grund() ?? b.titel}
             onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); ausfuehren(b, ids(), { clientX: r.left, clientY: r.top - 8 - (b.menue ? Math.min(6, b.menue(ids()).length) * 38 : 0) }); }}>
             {b.titel}{b.menue ? ' ▾' : ''}
           </button>;

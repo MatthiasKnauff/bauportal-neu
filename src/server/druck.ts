@@ -66,6 +66,33 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
   return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d), projekt: t.projektId, projektordner: t.projektordner, ordner: (t.e['seite.ordner'] || a.ordner || '').trim() };
 }
 
+/** Verzeichnis: viele Einträge eines Objekts als Liste – gelesen als der Benutzer, in der übergebenen Reihenfolge. */
+export async function verzeichnisBauen(db: Db, register: Modulregister, wer: Benutzer, ausdruckId: string, ids: string[], filter: string): Promise<{ html: string; name: string }> {
+  const a = register.ausdrucke.find((x) => x.id === ausdruckId && x.verzeichnis);
+  if (!a) throw new Ablehnung('Diesen Ausdruck gibt es nicht');
+  const m = register.modell(a.objekt)!;
+  const t = await alsBenutzer(db, wer, async (c) => {
+    const reihe = new Map(ids.map((id, i) => [id, i]));
+    const zeilen = (await c.query(`select * from ${tabelle(m.name)} where id = any($1) and not geloescht`, [ids])).rows
+      .map((z) => ({ id: z.id as string, werte: werteAus(m, z) })).sort((x, y) => reihe.get(x.id)! - reihe.get(y.id)!);
+    const namen = new Map<string, string>();
+    const spalten = new Set(a.bloecke.flatMap((b) => (b.art === 'verzeichnis' ? b.spalten : [])));
+    for (const f of m.felder.filter((x) => x.art === 'verweis' && spalten.has(x.name))) {
+      const ziel = register.modell(f.ziel!)!;
+      const v = [...new Set(zeilen.map((z) => z.werte[f.name]).filter(Boolean))];
+      if (v.length) for (const z of (await c.query(`select id, ${spalte(ziel.anzeigeFeld)} as name from ${tabelle(ziel.name)} where id = any($1)`, [v])).rows) namen.set(`${ziel.name}:${z.id}`, String(z.name ?? ''));
+    }
+    const buero = werteAus(register.modell('buero')!, (await c.query('select * from o_buero where id = $1', [BUERO_ID])).rows[0]);
+    const e: Einstellungen = {};
+    for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
+    return { zeilen, namen, buero, e };
+  });
+  const d: Druckdaten = { werte: {}, buero: t.buero, projekt: '', verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', modell: (o) => register.modell(o)!, bild: () => '',
+    kinder: (id) => (a.bloecke.find((b) => b.id === id)?.art === 'verzeichnis' ? t.zeilen : []),
+    extra: { anzahl: `${t.zeilen.length} ${t.zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: filter.slice(0, 500), datum: new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) } };
+  return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d) };
+}
+
 export async function pdfAus(html: string): Promise<Buffer> {
   let r: Response;
   try {
@@ -87,7 +114,14 @@ async function vermerken(db: Db, register: Modulregister, wer: Benutzer, ausdruc
 
 export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
   app.post('/api/druck/pdf', { preHandler: e.nurAngemeldet }, async (req, reply) => {
-    const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string };
+    const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string; ids?: unknown; filter?: unknown };
+    if (Array.isArray(b.ids)) {   // Verzeichnis: viele Einträge
+      const ids = b.ids.map(String).filter((x) => KENNUNG.test(x)).slice(0, 10000);
+      if (!ids.length) throw new Ablehnung('Was gedruckt werden soll, fehlt');
+      const v = await verzeichnisBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), ids, String(b.filter ?? ''));
+      const pdf = await pdfAus(v.html);
+      return reply.header('content-type', 'application/pdf').header('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(v.name)}`).send(pdf);
+    }
     if (!KENNUNG.test(b.objekt ?? '')) throw new Ablehnung('Was gedruckt werden soll, fehlt');
     const { html, name } = await seiteBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!);
     const pdf = await pdfAus(html);

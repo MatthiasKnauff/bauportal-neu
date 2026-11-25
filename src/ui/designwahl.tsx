@@ -5,8 +5,10 @@
 import { For, Show, createSignal } from 'solid-js';
 import { AKZENTE, SCHRIFTMASS, SCHRIFTWAHL, schriftmass, STANDARD, STIL, STIL_PAKETE, satzFuer, schriften, themeLesen } from '../kern/design';
 import type { Werte } from '../kern/modell';
-import { ausfuehren, sicht } from './unterbau/abgleich';
-import { ich, neueKennung, ruf } from './unterbau/api';
+import { ausfuehren, rueckgaengig, sicht } from './unterbau/abgleich';
+import { Dialog } from './baukasten/dialog';
+import { zeigeMenue } from './baukasten/kontextmenue';
+import { darf, ich, neueKennung, ruf } from './unterbau/api';
 import { designAus, meineWahl, schriftenNeu } from './unterbau/design';
 import { hinweis } from './unterbau/meldungen';
 import type { Zeile } from '../kern/befehl';
@@ -40,6 +42,27 @@ export function Darstellungsseite() {
   const gewaehlt = () => (wert('design') ? designAus(sicht.design?.[wert('design')]) : null);
   const paket = () => STIL_PAKETE.find((pk) => pk.rund === rund() && STIL.every((x) => (pk.stil[x.feld] ?? '') === wert(x.feld)))?.titel ?? '';
 
+  // ---- Design umbenennen und löschen (Designs des Büros, auch die mitgelieferten) ----
+  const [umbenennen, setUmbenennen] = createSignal<string | null>(null);
+  const [loeschen, setLoeschen] = createSignal<Zeile | null>(null);
+  const designName = (id: string) => String(sicht.design?.[id]?.werte.name ?? '');
+  const nameSetzen = (id: string, n: string) => {
+    setUmbenennen(null);
+    const t = n.replace(/\s+/g, ' ').trim();
+    if (t && t !== designName(id)) ausfuehren({ objekt: 'design', art: 'aendern', objektId: id, werte: { name: t } }, `Design „${designName(id)}“ umbenennen`);
+  };
+  const wegLegen = (z: Zeile) => {
+    setLoeschen(null);
+    const n = String(z.werte.name);
+    ausfuehren({ objekt: 'design', art: 'loeschen', objektId: z.id }, `Design „${n}“ löschen`);
+    hinweis(`Design „${n}“ gelöscht. Wer es gewählt hatte, sieht wieder den Standard.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
+  };
+  const nutzer = (id: string) => Object.values(sicht.design_wahl ?? {}).filter((x) => !x.geloescht && x.werte.design === id).length;
+  const designMenue = (e: MouseEvent, z: Zeile) => zeigeMenue(e, [
+    { titel: 'Umbenennen …', gesperrt: !darf('design', 'schreiben'), tun: () => setUmbenennen(z.id) },
+    { titel: 'Löschen …', gefahr: true, gesperrt: !darf('design', 'loeschen'), tun: () => setLoeschen(z) },
+  ]);
+
   // ---- Design einfügen ----
   const [einfuegen, setEinfuegen] = createSignal(false);
   const [css, setCss] = createSignal('');
@@ -67,15 +90,26 @@ export function Darstellungsseite() {
   // Karte wie im bisherigen Bauportal: Hintergrund, darauf eine Karte mit zwei Schriftzeilen, daneben der Akzent
   const karte = (id: string, titel: string, satz: Record<string, string>, beschreibung = '') => {
     const f = (m: string) => satz[m] ?? STANDARD_HELL[m] ?? STANDARD.hell[m];
+    const vorschau = () => (
+      <span class="design-vorschau" style={{ background: f('grund'), 'border-color': f('rand') ?? '#ddd' }}>
+        <i style={{ background: f('flaeche'), 'border-color': f('rand') ?? '#ddd' }}><em style={{ background: f('text') }} /><em style={{ background: f('text-still') ?? '#999' }} /></i>
+        <b style={{ background: f('akzent') }} />
+      </span>);
+    // Beim Umbenennen ist die Karte kein Knopf (ein Eingabefeld gehört nicht in einen Knopf)
     return (
-      <button type="button" class="design-karte" role="radio" aria-checked={wert('design') === id} classList={{ aktiv: wert('design') === id }} title={beschreibung || titel}
-        onClick={() => { if (wert('design') !== id) setzen({ design: id || null }, `Design „${titel}“ wählen`); }}>
-        <span class="design-vorschau" style={{ background: f('grund'), 'border-color': f('rand') ?? '#ddd' }}>
-          <i style={{ background: f('flaeche'), 'border-color': f('rand') ?? '#ddd' }}><em style={{ background: f('text') }} /><em style={{ background: f('text-still') ?? '#999' }} /></i>
-          <b style={{ background: f('akzent') }} />
-        </span>
-        <span class="design-name" style={{ 'font-family': satz.schrift }}>{titel}</span>
-      </button>
+      <Show when={umbenennen() === id} fallback={
+        <button type="button" class="design-karte" role="radio" aria-checked={wert('design') === id} classList={{ aktiv: wert('design') === id }} title={beschreibung || titel}
+          onClick={() => { if (wert('design') !== id) setzen({ design: id || null }, `Design „${titel}“ wählen`); }}
+          onContextMenu={(e) => { const z = id ? sicht.design?.[id] : undefined; if (z) { e.preventDefault(); designMenue(e, z); } }}>
+          {vorschau()}<span class="design-name" style={{ 'font-family': satz.schrift }}>{titel}</span>
+        </button>}>
+        <div class="design-karte aktiv">
+          {vorschau()}
+          <input class="design-umbenennen" value={titel} aria-label="Neuer Name des Designs" ref={(el) => queueMicrotask(() => { el.focus(); el.select(); })}
+            onKeyDown={(e) => { if (e.key === 'Enter') nameSetzen(id, e.currentTarget.value); else if (e.key === 'Escape') { e.stopPropagation(); setUmbenennen(null); } }}
+            onBlur={(e) => nameSetzen(id, e.currentTarget.value)} />
+        </div>
+      </Show>
     );
   };
   return (
@@ -100,6 +134,23 @@ export function Darstellungsseite() {
           <div class="design-gruppe"><h4>{g}</h4><div><For each={l}>{(z) => karte(z.id, String(z.werte.name), { ...STANDARD.hell, ...(designAus(z)?.hell ?? {}) }, String(z.werte.beschreibung ?? ''))}</For></div></div>
         )}</For>
       </div>
+      <Show when={wert('design') && sicht.design?.[wert('design')] && !sicht.design[wert('design')]!.geloescht}>
+        <div class="reihe design-aktionen">
+          <span class="still-text">Gewählt: {designName(wert('design'))}</span>
+          <span>
+            <Show when={darf('design', 'schreiben')}><button type="button" class="knopf klein" onClick={() => setUmbenennen(wert('design'))}>Umbenennen</button></Show>
+            <Show when={darf('design', 'loeschen')}><button type="button" class="knopf klein gefahr" onClick={() => setLoeschen(sicht.design![wert('design')]!)}>Löschen …</button></Show>
+          </span>
+        </div>
+      </Show>
+      <Show when={loeschen()}>{(z) => (
+        <Dialog titel="Design löschen" onAbbrechen={() => setLoeschen(null)} knoepfe={<>
+          <button class="knopf" onClick={() => setLoeschen(null)}>Abbrechen</button>
+          <button class="knopf haupt gefahr" onClick={() => wegLegen(z())}>Löschen</button></>}>
+          <p>Design „{String(z().werte.name)}“ für das ganze Büro löschen?</p>
+          <Show when={nutzer(z().id)}><p class="still-text">{nutzer(z().id)} {nutzer(z().id) === 1 ? 'Person hat' : 'Personen haben'} es gewählt – sie sehen danach den Standard.</p></Show>
+          <p class="still-text">„Zurück“ holt es wieder.</p>
+        </Dialog>)}</Show>
       <Show when={einfuegen()} fallback={<div><button type="button" class="knopf" onClick={() => setEinfuegen(true)}>＋ Design einfügen …</button></div>}>
         <div class="design-einfuegen">
           <p class="still-text klein-text">Theme im shadcn-Format einfügen („Code“ kopieren). Übernommen werden Farben, Ecken, Schatten, Buchstabenabstand und Schriften – die Schriften holt der Server einmal und liefert sie danach selbst aus. Gute Quellen:</p>

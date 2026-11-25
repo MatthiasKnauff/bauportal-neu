@@ -46,7 +46,7 @@ export interface Anpassung {
   zelle?: (f: Feld, z: Zeile) => JSX.Element | undefined;
   /** Zusätzliche Punkte im Kontextmenü einer Zeile (insgesamt bleiben es höchstens 6). */
   /** Mehrere wählen (Haken, schwebende Leiste unten): die Befehle des Moduls für die Gewählten – dazu kommen Excel und Papierkorb. */
-  auswahl?: (h: { excel: (ids: string[]) => void }) => AuswahlBefehl[];
+  auswahl?: (h: { excel: (ids: string[]) => void; drucken?: (ids: string[]) => void }) => AuswahlBefehl[];
   zeilenMenue?: (z: Zeile) => Menuepunkt[];
   // --- Links ---
   /** Statt des Baums eine eigene Darstellung links (z. B. Kalender und Abschnitte im Bautagebuch). */

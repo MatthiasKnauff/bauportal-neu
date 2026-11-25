@@ -11,8 +11,10 @@ import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './unterbau/meldungen';
 
-const [offen, setOffen] = createSignal<{ ausdruck: string; objekt: string } | null>(null);
+const [offen, setOffen] = createSignal<{ ausdruck: string; objekt: string; ids?: string[]; filter?: string } | null>(null);
 export const druckOeffnen = (ausdruck: string, objekt: string) => setOffen({ ausdruck, objekt });
+/** Verzeichnis drucken: diese Einträge in dieser Reihenfolge; filter beschreibt, welche es sind (steht im Ausdruck). */
+export const verzeichnisDrucken = (ausdruck: string, ids: string[], filter: string) => setOffen({ ausdruck, objekt: '', ids, filter });
 
 /** Die Einträge „druckeinstellung“ eines Ausdrucks, je Stelle einer (bei doppelten gilt überall die kleinste Kennung). */
 function eintraege(ausdruck: string) {
@@ -40,18 +42,18 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   if (b.art === 'text') { const f = m.felder.find((x) => x.name === b.feld)!; return { titel: f.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: f.titel }, zeigen(b.id),
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] }; }
-  if (b.art === 'liste' && rest) { const f = modell(b.objekt).felder.find((x) => x.name === rest)!; return { titel: `${b.titel} – Spalte ${f.titel}`, felder: [
+  if ((b.art === 'liste' || b.art === 'verzeichnis') && rest) { const f = (b.art === 'liste' ? modell(b.objekt) : m).felder.find((x) => x.name === rest)!; return { titel: `${b.titel} – Spalte ${f.titel}`, felder: [
     { name: 'titel', titel: 'Beschriftung der Spalte', art: 'text', stelle: `${stelle}.titel`, vorgabe: f.titel }, zeigen(stelle)] }; }
   if (b.art === 'bilder') return { titel: b.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel },
     { name: 'spalten', titel: 'Bilder je Zeile', art: 'auswahl', optionen: [{ wert: '2', titel: 'zwei nebeneinander' }, { wert: '1', titel: 'eins, groß' }], stelle: `${b.id}.spalten`, vorgabe: '2' }, zeigen(b.id)] };
-  if (b.art === 'liste') return { titel: b.titel, felder: [
+  if (b.art === 'liste' || b.art === 'verzeichnis') return { titel: b.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel }, zeigen(b.id),
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] };
   return { titel: b.art === 'briefkopf' ? 'Briefkopf' : 'Angaben', felder: [zeigen(b.id)] };
 }
 
-function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
+function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; ids?: string[]; filter?: string }) {
   const a = p.ausdruck;
   const m = modell(a.objekt);
   const einstellen = () => darf('druckeinstellung', 'schreiben');
@@ -61,6 +63,12 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
   const da = createMemo(() => eintraege(a.id));
   const e = createMemo((): Einstellungen => Object.fromEntries(Object.entries(da()).map(([k, v]) => [k, v.wert])));
   const daten = createMemo((): Druckdaten | null => {
+    if (a.verzeichnis) {   // viele Einträge: die übergebenen, in ihrer Reihenfolge
+      const zeilen = (p.ids ?? []).map((id) => sicht[a.objekt]?.[id]).filter((z) => z && !z.geloescht).map((z) => ({ id: z!.id, werte: { ...z!.werte } }));
+      return { werte: {}, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, projekt: '', verweis: verweisname, modell, bild: () => '',
+        kinder: (blockId) => (a.bloecke.find((x) => x.id === blockId)?.art === 'verzeichnis' ? zeilen : []),
+        extra: { anzahl: `${zeilen.length} ${zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: p.filter ?? '', datum: new Date().toLocaleDateString('de-DE') } };
+    }
     const z = sicht[a.objekt]?.[p.objekt];
     if (!z || z.geloescht) return null;
     const pid = m.projektFeld && m.projektFeld !== 'id' ? String(z.werte[m.projektFeld] ?? '') : '';
@@ -108,7 +116,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
 
   const pdf = async () => {
     setLaeuft(true);
-    try { await ladeDatei('/api/druck/pdf', { ausdruck: a.id, objekt: p.objekt }); }
+    try { await ladeDatei('/api/druck/pdf', a.verzeichnis ? { ausdruck: a.id, ids: p.ids, filter: p.filter ?? '' } : { ausdruck: a.id, objekt: p.objekt }); }
     catch (err) { hinweis((err as Error).message); }
     finally { setLaeuft(false); }
   };
@@ -142,5 +150,5 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string }) {
 
 export function Druck() {
   const ausdruck = () => { const o = offen(); return o ? zustand()!.module.flatMap((x) => x.ausdrucke ?? []).find((a) => a.id === o.ausdruck) : undefined; };
-  return <Show when={ausdruck()}>{(a) => <Druckfenster ausdruck={a()} objekt={offen()!.objekt} />}</Show>;
+  return <Show when={ausdruck()}>{(a) => <Druckfenster ausdruck={a()} objekt={offen()!.objekt} ids={offen()!.ids} filter={offen()!.filter} />}</Show>;
 }

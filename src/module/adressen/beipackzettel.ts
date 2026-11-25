@@ -90,6 +90,16 @@ export const adressen: Beipackzettel = {
   beschreibung: 'Firmen, Personen und Behörden – eine Liste für alle Module.',
   braucht: [],
   objekte: [kontakt, kontaktweg],
+  // Adressverzeichnis wie im bisherigen Bauportal: die gefilterte Liste oder die Auswahl, die Filterbeschreibung oben
+  ausdrucke: [{
+    id: 'adressen.verzeichnis', titel: 'Adressverzeichnis', objekt: 'kontakt', verzeichnis: true,
+    dateiname: 'Adressverzeichnis {datum}', fuss: '{buero} · Adressverzeichnis vom {datum}',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Adressverzeichnis', unter: '{anzahl} · {filter}' },
+      { id: 'liste', art: 'verzeichnis', titel: 'Kontakte', spalten: ['name', 'gewerk', 'ansprechpartner', 'telefon', 'mobil', 'email', 'strasse', 'plz', 'ort'] },
+    ],
+  }],
   ansichten: [{ id: 'kontakte', titel: 'Kontakte', abschnitt: 'Kontakte', zeichen: 'adressen', objekt: 'kontakt',
     // links wie im bisherigen Bauportal: Kontakte nach Art, Gewerke (mit Suche), Ämter der Behörden – je mit Anzahl
     linksFilter: [

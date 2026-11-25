@@ -5,12 +5,13 @@ import { Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, t
 import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
 import { leerwert, type Feld, type ObjektModell, type Werte } from '../kern/modell';
-import { LEER, artWeg, erfuellt, hat, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
+import { LEER, artWeg, erfuellt, hat, satz, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
 import { Filterkaesten, Filtersuche, type FilterArt } from './baukasten/filterkaesten';
 import type { Zeile } from '../kern/befehl';
 import { ausfuehrenMehrere, geaendert, lebende, objektname, rueckgaengig, sicht } from './unterbau/abgleich';
 import { projektId } from './projekt';
-import { darf, zustand } from './unterbau/api';
+import { ausdrucke, darf, zustand } from './unterbau/api';
+import { verzeichnisDrucken } from './druck';
 import type { Anpassung } from './baukasten/anpassung';
 import type { Knopf } from './baukasten/menueleiste';
 import { Baum, type Knoten } from './baukasten/baum';
@@ -214,7 +215,18 @@ export function ObjektAnsicht(p: {
     frei.forEach((id) => auswahl?.ids().has(id) && auswahl.umschalten(id));
     hinweis(`${frei.length} ${frei.length === 1 ? m.titel : m.titelMehrzahl} im Papierkorb.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
   };
-  const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel }), papierkorb] : []);
+  // Verzeichnis drucken (wo das Modul eins hat): die gefilterte Liste in ihrer Reihenfolge oder die Auswahl – oben steht, welche es sind
+  const verzeichnis = () => ausdrucke(m.name).find((x) => x.verzeichnis);
+  const filterText = () => {
+    const ar = arten(), teile = [
+      ...(bed().gruppen.length ? [satz(bed(), (k) => ar.find((x) => x.key === k)?.titel ?? k, (k, w) => ar.find((x) => x.key === k)?.wertTitel?.(w) ?? w)] : []),
+      ...(suche().trim() ? [`Text „${suche().trim()}“`] : []),
+      ...Object.entries(filter()).filter(([, t]) => t.trim()).map(([n, t]) => `${m.felder.find((f) => f.name === n)?.titel ?? n}: ${t.trim()}`),
+    ];
+    return teile.length ? teile.join(' · ') : `alle ${m.titelMehrzahl}`;
+  };
+  const drucken = (ids?: string[]) => { const v = verzeichnis(); if (v) verzeichnisDrucken(v.id, ids ?? reiheJetzt(), ids ? `Auswahl (${ids.length})` : filterText()); };
+  const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel, drucken: verzeichnis() ? (ids) => drucken(ids) : undefined }), papierkorb] : []);
   // Am Handy erscheinen die Haken erst, wenn etwas gewählt ist (lange tippen)
   if (auswahl) { createEffect(() => document.documentElement.classList.toggle('auswahl-an', auswahl.anzahl() > 0)); onCleanup(() => document.documentElement.classList.remove('auswahl-an')); }
   // Gelöschte fallen aus der Auswahl
@@ -232,6 +244,7 @@ export function ObjektAnsicht(p: {
             { titel: 'Tabelle', zeichen: 'tabelle', gruppe: 'Ansicht', an: !kacheln(), tun: () => { if (kacheln()) formWechseln(); } }] : []),
           ...(a.mitte || kacheln() ? [] : [{ titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: () => tabelle.spaltenEinstellen() },
             { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: () => herunterladen(tabelle.alsCsv(), `${m.titelMehrzahl} ${new Date().toLocaleDateString('sv')}.csv`, 'text/csv;charset=utf-8') }]),
+          ...(verzeichnis() ? [{ titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => drucken() }] : []),
         ]}
         menueMitte={<>
           <Show when={arten().length} fallback={
