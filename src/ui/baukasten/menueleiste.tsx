@@ -1,7 +1,7 @@
 // Baustein „Menüleiste“: ein Band wie im bisherigen Bauportal – Knöpfe mit Symbol über dem Text, in Gruppen mit kleiner
 // Überschrift. Ganz links immer RÜCKGÄNGIG, in der Mitte die Suche der Ansicht (FINDEN), rechts Ausgabe und Teilen.
 // Für jede App gleich aufgebaut. Am Handy: nur Symbole, darunter die Ansichten als Reiter (links ist dort kein Platz).
-import { For, Show, type JSX } from 'solid-js';
+import { For, Show, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { Zeichen, istZeichen } from './zeichen';
 
 export interface Reiter { id: string; titel: string; abschnitt?: string; zeichen?: string }
@@ -36,8 +36,19 @@ function Gruppe(p: { titel: string; children: JSX.Element; class?: string }) {
 
 export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[]; aktiv?: string; onReiter?: (id: string) => void; knoepfe?: Knopf[]; children?: JSX.Element }) {
   const links = () => (p.knoepfe ?? []).filter((k) => !k.rechts), rechts = () => (p.knoepfe ?? []).filter((k) => k.rechts);
+  // Reicht der Platz nicht: erst nur Symbole (Text bleibt als Hinweis), dann eine zweite Zeile – nie waagerecht rollen.
+  // Gemerkt wird, wie breit die Leiste in der größeren Form war; erst wenn wieder so viel Platz ist, kehrt sie zurück.
+  const [stufe, setStufe] = createSignal(0);
+  const bedarf: number[] = [];
+  let leiste!: HTMLDivElement;
+  const pruefen = () => {
+    const frei = leiste.clientWidth;
+    if (stufe() < 2 && leiste.scrollWidth > frei + 1) { bedarf[stufe()] = leiste.scrollWidth; setStufe(stufe() + 1); queueMicrotask(pruefen); }
+    else if (stufe() > 0 && frei >= (bedarf[stufe() - 1] ?? Infinity)) { setStufe(stufe() - 1); queueMicrotask(pruefen); }
+  };
+  onMount(() => { const ro = new ResizeObserver(pruefen); ro.observe(leiste); const mo = new MutationObserver(() => requestAnimationFrame(pruefen)); mo.observe(leiste, { childList: true, subtree: true }); onCleanup(() => { ro.disconnect(); mo.disconnect(); }); });
   return (
-    <div class="menueleiste" role="toolbar" aria-label="Menüleiste">
+    <div class="menueleiste" ref={leiste} classList={{ 'band-kompakt': stufe() >= 1, 'band-umbruch': stufe() >= 2 }} role="toolbar" aria-label="Menüleiste">
       <Show when={p.rueckgaengig}>{(r) => (
         <Gruppe titel="Rückgängig" class="band-verlauf">
           <Bandknopf k={{ titel: 'Zurück', zeichen: 'zurueck', gesperrt: !r().zurueck(), tun: r().onZurueck }} />

@@ -155,6 +155,10 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
         zeichen int not null, ersetzt int not null, tokens_ein int not null default 0, tokens_aus int not null default 0, fehler text
       );
       create table if not exists kern_katalog (id text primary key, version int not null, stand text not null, eingespielt timestamptz not null default now());
+      -- Große Kataloge zum Nachschlagen (Positionsdatenbank …): nur am Server, Volltextsuche deutsch, Gliederung als Pfad
+      create table if not exists kern_nachschlag (name text not null, schluessel text not null, reihe int not null, pfad text[] not null, werte jsonb not null, such tsvector not null, primary key (name, schluessel));
+      create index if not exists kern_nachschlag_such on kern_nachschlag using gin (such);
+      create index if not exists kern_nachschlag_pfad on kern_nachschlag (name, pfad, reihe);
       create table if not exists kern_altbild (datei text primary key, bericht text not null, beschriftung text not null default '', reihe int not null default 0, foto uuid);
       create table if not exists kern_vorschau (id uuid primary key, bild bytea not null, erstellt timestamptz not null default now());
       create table if not exists kern_schrift (familie text primary key, css text not null, geholt timestamptz not null default now());

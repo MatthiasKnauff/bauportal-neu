@@ -86,6 +86,7 @@ export const adressen: Beipackzettel = {
       { feld: 'art', titel: 'Kontakte', alle: 'Alle',
         mehrzahl: { firma: 'Firmen', bauherr: 'Bauherr:innen', person: 'Personen', behoerde: 'Behörden', baustelle: 'Baustellen', plotdienst: 'Plotdienste' },
         zeichen: { firma: 'gebaeude', bauherr: 'start', person: 'kontakt', behoerde: 'pruefung', baustelle: 'standort', plotdienst: 'drucken' } },
+      { titel: 'Projekte', beteiligt: { objekt: 'projekt_kontakt', feld: 'kontakt', titel: 'Beteiligte' } },
       { feld: 'gewerk', titel: 'Gewerke', suche: true, nur: { art: ['firma', 'plotdienst', 'person', 'bauherr'] } },
       { feld: 'gewerk', titel: 'Ämter der Behörden', nur: { art: ['behoerde'] } },
     ] }],

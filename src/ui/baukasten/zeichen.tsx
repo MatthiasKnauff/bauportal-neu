@@ -7,12 +7,12 @@ import {
   FileDown, FileText, FileUp, Flag, Folder, FolderKanban, GitBranch, Grid3x3, History, House, ImagePlus, Info, KeyRound, LayoutGrid, Library,
   List, ListPlus, ListTree, Mail, MapPin, Merge, Mic, NotebookPen, NotebookText, PanelLeft, PanelRightClose, Paintbrush, Pencil, Plus, Printer,
   Redo2, RefreshCw, Search, Send, Settings, Share2, ShieldCheck, Sparkles, StickyNote, Table, Trash2, TriangleAlert, Undo2, Upload, UserPlus,
-  Users, Workflow, X, Route, Spline, ZoomIn, ZoomOut, Pin, PinOff, type IconNode,
+  Users, Workflow, X, Route, Spline, ZoomIn, ZoomOut, Pin, PinOff, Scissors, ClipboardPaste, CopyPlus, Link, Unlink, type IconNode,
 } from 'lucide';
 
 const ZEICHEN = {
   // allgemein
-  zurueck: Undo2, wieder: Redo2, neu: Plus, loeschen: Trash2, bearbeiten: Pencil, kopieren: Copy, schliessen: X, fenster: ExternalLink,
+  zurueck: Undo2, wieder: Redo2, neu: Plus, loeschen: Trash2, bearbeiten: Pencil, kopieren: Copy, ausschneiden: Scissors, einfuegen: ClipboardPaste, duplizieren: CopyPlus, verknuepfen: Link, entkoppeln: Unlink, schliessen: X, fenster: ExternalLink,
   zuklappen: PanelRightClose, suche: Search, aktualisieren: RefreshCw, hilfe: CircleHelp, info: Info, apps: Grid3x3, einstellungen: Settings,
   links: ChevronLeft, rechts: ChevronRight, runter: ChevronDown, haken: Check, erledigt: CircleCheck, ansehen: Eye, schluessel: KeyRound,
   // Ansicht und Liste

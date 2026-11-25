@@ -2,10 +2,10 @@
 // Seite – Kopf mit Datum, Wetter und Kontrollen, darunter je Abschnitt eine Karte –, rechts das Detail des angeklickten
 // Eintrags. Die Abschnitte sind dieselben Bausteine wie in „Schritt für Schritt“ (Unterliste, Bilder, Feld).
 import { Seitenliste } from './baukasten/seitenliste';
-import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Feld } from '../kern/modell';
-import { ausfuehren, rueckgaengig, sicht } from './unterbau/abgleich';
+import { ausfuehren, rueckgaengig, sicht, lebende } from './unterbau/abgleich';
 import { ausdrucke, darf, modell, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
@@ -19,7 +19,6 @@ import { Diktieren } from './diktat';
 import { druckOeffnen } from './druck';
 import { Zeichen, type Zeichenname } from './baukasten/zeichen';
 
-const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const heute = () => new Date().toLocaleDateString('sv');
 const datumText = (d: unknown) => (d ? new Date(`${String(d)}T12:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
 const merke = (k: string, w: string) => { try { localStorage.setItem(k, w); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
@@ -40,6 +39,8 @@ const ABSCHNITTE: { id: string; titel: string; zeichen: Zeichenname; art?: strin
 ];
 const anzahl = (bericht: string, a: (typeof ABSCHNITTE)[number]) =>
   a.art ? lebende('bericht_eintrag').filter((e) => e.werte.bericht === bericht && e.werte.art === a.art).length : lebende('foto').filter((f) => f.werte.bericht === bericht).length;
+// Das „+“ jedes Abschnitts – auch aus dem Menüband erreichbar (Eintrag, Foto, Mangel)
+const neuIn = new Map<string, () => void>();
 const zumAbschnitt = (id: string) => document.getElementById(`abschnitt-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
 // ---------- links: Kalender oder Liste, darunter die Abschnitte ----------
@@ -198,7 +199,8 @@ function Abschnitt(p: { a: (typeof ABSCHNITTE)[number]; bericht: Zeile; inhalt: 
   const schluessel = `bp.bautagebuch.zu.${p.a.id}`;
   const [zu, setZu] = createSignal(hole(schluessel, '') === 'zu');
   let karte!: HTMLElement;
-  const neu = () => { setZu(false); merke(schluessel, ''); queueMicrotask(() => karte.querySelector<HTMLElement>('.unterliste-neu, .unterliste .auswahlliste-knopf, .bilder input[type=file], .bilder button')?.focus()); };
+  const neu = () => { setZu(false); merke(schluessel, ''); queueMicrotask(() => { karte.scrollIntoView({ behavior: 'smooth', block: 'start' }); karte.querySelector<HTMLElement>('.unterliste-neu, .unterliste .auswahlliste-knopf, .bilder input[type=file], .bilder button')?.focus(); }); };
+  neuIn.set(p.a.id, neu); onCleanup(() => { if (neuIn.get(p.a.id) === neu) neuIn.delete(p.a.id); });
   return (
     <section class={`bt-karte bt-${p.a.id}`} id={`abschnitt-${p.a.id}`} ref={karte} aria-label={p.a.titel}>
       <div class="bt-karte-kopf">
@@ -222,11 +224,14 @@ export function Berichtsseite(p: Mitte) {
   createEffect(on(() => p.gewaehlt(), () => { setEintrag(null); setBearbeiten(false); }, { defer: true }));
   const bericht = () => (p.gewaehlt() ? sicht.tagesbericht?.[p.gewaehlt()!] : undefined);
   const werkzeuge: Werkzeuge = {};
-  // Menüleiste wie im bisherigen Bauportal: NEU Diktieren · BERICHT Schritt für Schritt, Löschen · AUSGABE PDF
+  // Menüleiste wie im bisherigen Bauportal: NEU Eintrag, Foto, Mangel, Diktieren · BERICHT Schritt für Schritt, Löschen · AUSGABE PDF
   createEffect(() => {
     const b = bericht();
     p.setKnoepfe(b ? [
-      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Diktieren', zeichen: 'diktieren', gruppe: 'Neu', tun: () => werkzeuge.diktat?.() },
+      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Eintrag', zeichen: 'notiz', gruppe: 'Neu', tun: () => neuIn.get('notiz')?.() }] : []),
+      ...(darf('foto', 'schreiben') ? [{ titel: 'Foto', zeichen: 'foto', gruppe: 'Neu', tun: () => neuIn.get('fotos')?.() }] : []),
+      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Mangel', zeichen: 'mangel', gruppe: 'Neu', tun: () => neuIn.get('mangel')?.() },
+        { titel: 'Diktieren', zeichen: 'diktieren', gruppe: 'Neu', tun: () => werkzeuge.diktat?.() },
         { titel: 'Schritt für Schritt', zeichen: 'schrittweise', gruppe: 'Bericht', tun: () => werkzeuge.schritte?.() }] : []),
       ...(darf('tagesbericht', 'loeschen') ? [{ titel: 'Löschen', zeichen: 'loeschen', gruppe: 'Bericht', tun: () => loesche(modell('tagesbericht'), b) }] : []),
       ...ausdrucke('tagesbericht').map((a) => ({ titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => druckOeffnen(a.id, b.id) })),

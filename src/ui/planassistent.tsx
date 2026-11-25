@@ -3,16 +3,13 @@
 // über die gemeinsame Vorschau – der Server rechnet mit denselben Bausteinen (module/bauzeitenplan/assistent.ts).
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { For, Show, createMemo, createSignal } from 'solid-js';
-import { unwrap } from 'solid-js/store';
-import type { Zeile } from '../kern/befehl';
 import { angabenAusGebaeude, assistent, katalogAus, type Angaben } from '../module/bauzeitenplan/assistent';
-import { geaendert, sicht } from './unterbau/abgleich';
+import { lebende } from './unterbau/abgleich';
 import { istAdmin, ruf } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
 import { GebaeudeAssistent } from './gebaeudeschritte';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 
-const lebende = (o: string): Zeile[] => { geaendert(o); return Object.values(sicht[o] ?? {}).map((z) => unwrap(z)).filter((z) => !z.geloescht); };
 
 export function PlanAssistent(p: { projekt: string; version: string; gespeichert: string; onZu: () => void }) {
   const katalog = createMemo(() => katalogAus(lebende('leistungsvorlage'), lebende('planregel')));

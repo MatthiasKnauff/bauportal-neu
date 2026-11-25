@@ -1,5 +1,6 @@
 // Austausch des Bauzeitenplans mit Dateien und Programmen: Pläne der bisherigen Gantt-App (und eigene Sicherungen im
 // selben Format) lesen, als Excel/CSV und als MS-Project-XML ausgeben. Aus dem alten Programm stammt nur das Datenformat.
+import { csv } from '../../kern/csv';
 import type { Wert } from '../../kern/modell';
 import { abschnitteSchreiben, type Art } from './rechnung';
 import { isoAus, tagAus } from './kalender';
@@ -93,10 +94,9 @@ export function planJsonAus(plan: Plan, name: string, zeitplan: W, frei: { werte
 const de = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : '');
 /** Excel/CSV (Semikolon, UTF-8 mit BOM – so öffnet Excel Umlaute richtig). */
 export function csvAus(plan: Plan): string {
-  const zelle = (w: unknown) => { const t = String(w ?? ''); return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const kopf = ['Nr.', 'Gliederung', 'Leistung', 'Dauer (Arbeitstage)', 'Anfang', 'Ende', 'Vorgänger', 'Gewerk', 'Unternehmer', '% abgeschlossen', 'kritisch', 'Puffer (Arbeitstage)'];
   const zeilen = plan.zeilen.map((z) => [z.nr, z.ebene, `${'  '.repeat(z.ebene)}${z.name}`, z.termin.gruppe ? z.termin.f - z.termin.s : z.dauer, de(z.termin.anfang), de(z.termin.ende), z.vorg, z.gewerk, z.unternehmer, z.fortschritt || '', z.termin.kritisch ? 'ja' : '', z.termin.gruppe ? '' : z.termin.puffer]);
-  return '﻿' + [kopf, ...zeilen].map((r) => r.map(zelle).join(';')).join('\r\n') + '\r\n';
+  return csv([kopf, ...zeilen]);
 }
 
 /** MS-Project-XML (MSPDI): öffnet sich in MS Project und anderer Projektsoftware. */

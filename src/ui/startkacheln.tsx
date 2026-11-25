@@ -1,15 +1,12 @@
 // Startseite: unter den Apps der Stand des oben gewählten Projekts – was im Bauzeitenplan gerade läuft und als Nächstes
 // kommt, der letzte Tagesbericht, offene Mängel und Aufgaben mit Frist. Ein Klick öffnet die App. Gelesen wird im Gerät.
 import { For, Show, createMemo, type JSX } from 'solid-js';
-import { unwrap } from 'solid-js/store';
-import type { Zeile } from '../kern/befehl';
 import { planAus } from '../module/bauzeitenplan/plan';
 import { isoAus, tagAus } from '../module/bauzeitenplan/kalender';
-import { geaendert, sicht } from './unterbau/abgleich';
+import { sicht, lebende } from './unterbau/abgleich';
 import { darf } from './unterbau/api';
 import { gewaehlteVersion } from './projekt';
 
-const lebende = (o: string): Zeile[] => { geaendert(o); return Object.values(sicht[o] ?? {}).map((z) => unwrap(z)).filter((z) => !z.geloescht); };
 const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.` : '');
 
 export function Projektkacheln(p: { projekt: string; onApp: (modul: string, ansicht?: string) => void }) {

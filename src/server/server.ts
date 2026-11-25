@@ -21,6 +21,7 @@ import { druckRouten } from './druck';
 import { assistentRouten as planAssistentRouten, bauzeitenplanRouten, planEinlesenRouten } from './bauzeitenplan';
 import { kiRouten } from './ki';
 import { updateRouten } from './updates';
+import { nachschlagRouten } from './nachschlagen';
 import { wetterRouten } from './wetter';
 import { diktatRouten } from './diktat';
 import { adressenRouten } from './adressen';
@@ -215,6 +216,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   prueferRouten(app, { db, register, routen, version: e.version, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   altdatenRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   updateRouten(app, { db, register, version: e.version, umgebung: e.umgebung, nurAngemeldet });
+  nachschlagRouten(app, { db, register, nurAngemeldet });
   uebernahmeRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
 
   app.get('/api/strom', { preHandler: nurAngemeldet }, async (req, reply) => {

@@ -58,4 +58,6 @@ export interface Anpassung {
   // --- Menüleiste ---
   /** Zusätzliche Knöpfe in der Menüleiste dieser Ansicht. Bekommt den Zusammenhang (Projekt, Version). */
   knoepfe?: (zusammenhang: Record<string, string | number | boolean | null>) => Knopf[];
+  /** Seite statt der leeren Liste (wie im bisherigen Bauportal: großer Titel, ein Satz, Knöpfe); neu = „von Hand anlegen“. */
+  leer?: (zusammenhang: Record<string, string | number | boolean | null>, neu: () => void) => JSX.Element;
 }

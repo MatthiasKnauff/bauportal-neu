@@ -1,12 +1,15 @@
 // Baustein „Schwebefenster“: ein frei bewegliches Fenster über der Seite – am Kopf ziehen, an der Ecke unten rechts
 // die Größe ändern, × oder Esc schließt. Wie im bisherigen Bauportal öffnet der Doppelklick auf eine Zeile den Eintrag
-// darin; die Liste bleibt dabei bedienbar. Lage und Größe merkt sich das Fenster je Art (schluessel), Benutzer und Gerät.
+// darin; die Liste bleibt dabei bedienbar. Lage und Größe merkt sich das Fenster je Art (schluessel), Benutzer und Gerät;
+// mit „unter“ öffnet es sich stattdessen immer unter dem Element, zu dem es gehört (wie eine Auswahlliste).
 import { onCleanup, onMount, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 
 interface Lage { x: number; y: number; b?: number; h?: number }
 
-export function Schwebefenster(p: { titel: string; onZu: () => void; children: JSX.Element; schluessel?: string; breite?: number; hoehe?: number; kopfZusatz?: JSX.Element }) {
+export function Schwebefenster(p: { titel: string; onZu: () => void; children: JSX.Element; schluessel?: string; breite?: number; hoehe?: number; kopfZusatz?: JSX.Element;
+  unter?: HTMLElement;   // öffnet sich direkt unter diesem Element (z. B. unter dem Projektnamen) – die Größe bleibt gemerkt
+}) {
   let feld!: HTMLDivElement;
   const merk = `bp.schwebefenster${p.schluessel ? '.' + p.schluessel : ''}`;
   const gemerkt = (): Lage => {
@@ -34,7 +37,8 @@ export function Schwebefenster(p: { titel: string; onZu: () => void; children: J
     const l = gemerkt();
     feld.style.width = `${Math.min(innerWidth - 20, l.b ?? p.breite ?? 460)}px`;
     if (l.h ?? p.hoehe) feld.style.height = `${Math.min(innerHeight - 20, (l.h ?? p.hoehe)!)}px`;
-    setzen(Math.min(l.x, innerWidth - 140), l.y);
+    if (p.unter) { const r = p.unter.getBoundingClientRect(); setzen(Math.min(r.left, innerWidth - feld.offsetWidth - 10), r.bottom + 4); }
+    else setzen(Math.min(l.x, innerWidth - 140), l.y);
     document.addEventListener('keydown', taste, true);
     // Größe an der Ecke geändert (CSS resize): merken
     const ro = new ResizeObserver(() => { if (feld.isConnected) speichern(); });

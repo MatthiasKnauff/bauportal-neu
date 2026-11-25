@@ -22,7 +22,7 @@ export function Kopfleiste(p: {
   return (
     <header class="kopf">
       <nav aria-label="Wo bin ich">
-        <button class="marke" title="Zur Startseite" onClick={p.onStart}><Zeichen name="start" groesse={18} />{p.marke}</button>
+        <button class="marke" title="Zur Startseite" onClick={p.onStart}><Zeichen name="start" groesse={18} /><span class="marke-text">{p.marke}</span></button>
         <span class="trenner" aria-hidden="true">/</span><span class="modulname" aria-current="page">{p.aktuell ?? 'Startseite'}</span>
         {p.projekt}
       </nav>
@@ -44,7 +44,7 @@ export function Kopfleiste(p: {
         </div>
       </Show>
       <div class="menue">
-        <button class="knopf still kopf-person" aria-label={p.benutzer} aria-haspopup="menu" aria-expanded={menue()} onClick={() => setMenue(!menue())}><span class="kopf-kreis" aria-hidden="true">{p.benutzer.slice(0, 1).toUpperCase()}</span>{p.benutzer}</button>
+        <button class="knopf still kopf-person" aria-label={p.benutzer} aria-haspopup="menu" aria-expanded={menue()} onClick={() => setMenue(!menue())}><span class="kopf-kreis" aria-hidden="true">{p.benutzer.slice(0, 1).toUpperCase()}</span><span class="kopf-name">{p.benutzer}</span></button>
         <Show when={menue()}>
           <div class="menue-liste" role="menu" onClick={() => setMenue(false)}>
             <For each={p.benutzerMenue}>{(m) => <button role="menuitem" onClick={m.tun}>{m.titel}</button>}</For>

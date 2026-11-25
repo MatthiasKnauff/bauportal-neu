@@ -3,11 +3,13 @@
 import { meineWahl } from './unterbau/design';
 import { Designwahl } from './designwahl';
 import { GebaeudeAssistent, GebaeudeTeile } from './gebaeudeschritte';
+import { Kostenrahmen } from './kostenrahmen';
+import { Nachschlagen } from './baukasten/nachschlagen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
-import { ausfuehren, sicht } from './unterbau/abgleich';
+import { ausfuehren, sicht, lebende } from './unterbau/abgleich';
 import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { Versionsleiste } from './baukasten/versionsleiste';
@@ -36,7 +38,6 @@ import { BerichtDetails, BerichtLinks, Berichtsseite, berichtDetailsDa } from '.
 import { aufraeumenOeffnen } from './aufraeumen';
 import { PruefSchluessel } from './pruefki';
 
-const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
 
 // ---------- Projekte: wer arbeitet mit ----------
@@ -349,6 +350,22 @@ const ANPASSUNG: Record<string, Anpassung> = {
   // Gebäudemodell: in jeder seiner Ansichten lässt sich der Assistent starten und eine IFC-Datei einlesen
   ...Object.fromEntries(['bauteil', 'raum', 'geschoss', 'gebaeude'].map((o) => [o, {
     knoepfe: (z) => (darf('bauteil', 'schreiben') ? [{ titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => assistentStarten(String(z.projekt), String(z.version)) }, { titel: 'IFC einlesen', zeichen: 'datei_hoch', gruppe: 'Planen', tun: () => ifcEinlesen(String(z.projekt), String(z.version)) }] : []),
+    // die Gebäudekarte: Assistent, Kostenrahmen und weitere Gebäudeteile
+    ...(o === 'gebaeude' ? {
+      kartenZusatz: (z: Zeile) => <><GebaeudeAssistent gebaeude={z.id} /><Kostenrahmen gebaeude={z} /><GebaeudeTeile gebaeude={z} /></>,
+      // ohne Gebäude: wie im bisherigen Bauportal fragen, wie man beginnen will
+      leer: (z: Record<string, string | number | boolean | null>, neu: () => void) => (
+        <div class="mitte leer-seite">
+          <h2>Noch kein Gebäude in diesem Projekt</h2>
+          <p class="still-text">Wie willst du beginnen? Am genauesten mit dem Plan aus dem CAD-Programm (IFC). Ohne Plan schätzt der Assistent aus wenigen Angaben ein erstes Modell – der Plan ersetzt es später.</p>
+          <Show when={darf('bauteil', 'schreiben')}><div class="reihe">
+            <button class="knopf haupt" onClick={() => ifcEinlesen(String(z.projekt), String(z.version))}>Plan einlesen (IFC) …</button>
+            <button class="knopf" onClick={() => assistentStarten(String(z.projekt), String(z.version))}>Mit dem Assistenten …</button>
+            <button class="knopf" onClick={neu}>Von Hand anlegen</button>
+          </div></Show>
+        </div>
+      ),
+    } : {}),
   } satisfies Anpassung])),
   tagesbericht: {
     // nächste Nummer im Projekt, heutiges Datum und Uhrzeit, Bauleitung: wer den Bericht anlegt
@@ -360,7 +377,6 @@ const ANPASSUNG: Record<string, Anpassung> = {
     details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
-  gebaeude: { kartenZusatz: (z) => <><GebaeudeAssistent gebaeude={z.id} /><GebaeudeTeile gebaeude={z} /></> },
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,
     kartenZusatz: (z) => <Unterliste titel="Weitere Nummern, E-Mails, Anschriften, Ansprechpartner:innen" objekt="kontaktweg" fest={{ kontakt: z.id }} haupt="wert" neben={['art', 'bezeichnung']} platzhalter="Nummer, E-Mail … eingeben und Enter" />,
@@ -459,5 +475,6 @@ export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   const eigene = EIGENE[`${p.modul.id}.${p.ansicht.id}`];
   if (eigene) return eigene();
   if (p.ansicht.brauchtProjekt) return <ProjektAnsicht modul={p.modul} ansicht={p.ansicht} />;
+  if (p.ansicht.nachschlag) return <Nachschlagen schluessel={`${p.modul.id}.${p.ansicht.id}`} nachschlag={p.modul.nachschlagen!.find((n) => n.name === p.ansicht.nachschlag)!} />;
   return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} anpassung={anpassung(p.ansicht.objekt!)} fest={p.ansicht.filter ? () => p.ansicht.filter! : undefined} />;
 }

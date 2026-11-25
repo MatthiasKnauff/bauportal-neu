@@ -1,6 +1,6 @@
 // Modul Baudaten (früher „Kataloge“, wie im bisherigen Bauportal): Nachschlagelisten aus dem Katalog-Kanal –
 // Gewerke nach VOB/C, Kostengruppen nach DIN 276, später die Positionsdatenbank.
-import type { Beipackzettel } from '../../kern/modul';
+import type { Beipackzettel, Nachschlag } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';
 
@@ -84,6 +84,39 @@ export const baupreisindex: ObjektModell = {
   ],
 };
 
+// Positionsdatenbank: Leistungspositionen mit Kurz- und Langtext, Einheit, Kostengruppe und Preisspanne – für Kostenschätzung und
+// Ausschreibung. Gegliedert nach Sammlung → Leistungsbereich → Gruppe. Liegt nur am Server und wird seitenweise gesucht.
+const preis = (name: string, titel: string) => ({ name, titel, art: 'zahl' as const, inListe: true, breite: 72, gruppe: 'Preis (netto, je Einheit)' });
+export const position: Nachschlag = {
+  name: 'position',
+  titel: 'Position',
+  titelMehrzahl: 'Positionen',
+  anzeigeFeld: 'kurz',
+  gliederung: ['sammlung', 'bereich', 'gruppe'],
+  suche: ['code', 'kurz', 'grundtext', 'langtext', 'stichworte'],
+  felder: [
+    { name: 'sammlung', titel: 'Sammlung', art: 'text', gruppe: 'Gliederung' },
+    { name: 'bereich', titel: 'Leistungsbereich', art: 'text', gruppe: 'Gliederung' },
+    { name: 'gruppe', titel: 'Gruppe', art: 'text', gruppe: 'Gliederung' },
+    { name: 'code', titel: 'Nr.', art: 'text', inListe: true, breite: 165, gruppe: 'Position' },
+    { name: 'kurz', titel: 'Kurztext', art: 'text', inListe: true, breite: 460, gruppe: 'Position' },
+    { name: 'einheit', titel: 'Einheit', art: 'text', inListe: true, breite: 64, gruppe: 'Position' },
+    { name: 'kg', titel: 'KG', art: 'text', inListe: true, breite: 60, gruppe: 'Position' },
+    { name: 'grundtext', titel: 'Grundtext', art: 'langtext', gruppe: 'Langtext' },
+    { name: 'langtext', titel: 'Folgetext', art: 'langtext', gruppe: 'Langtext' },
+    preis('ep_von', 'von'), preis('ep_mittel', 'Mittel'), preis('ep_bis', 'bis'),
+    { name: 'genauigkeit', titel: 'Genauigkeit', art: 'auswahl', gruppe: 'Preis (netto, je Einheit)', optionen: [
+      { wert: 'A', titel: 'A – Standard' }, { wert: 'B', titel: 'B – üblich' }, { wert: 'C', titel: 'C – stark abhängig' }] },
+    { name: 'preisstand', titel: 'Preisstand', art: 'text', gruppe: 'Preis (netto, je Einheit)' },
+    { name: 'stunden', titel: 'Zeitansatz (h je Einheit)', art: 'zahl', gruppe: 'Kalkulation' },
+    { name: 'stoff', titel: 'Stoffkosten (€ je Einheit)', art: 'zahl', gruppe: 'Kalkulation' },
+    { name: 'geraet', titel: 'Geräte und Fremdleistung (€ je Einheit)', art: 'zahl', gruppe: 'Kalkulation' },
+    { name: 'gewerk', titel: 'Gewerk (Verrechnungslohn)', art: 'text', gruppe: 'Kalkulation' },
+    { name: 'stichworte', titel: 'Stichworte', art: 'text', gruppe: 'Hinweise' },
+    { name: 'hinweis', titel: 'Hinweis für die Planung', art: 'langtext', gruppe: 'Hinweise' },
+  ],
+};
+
 const KENNWERT_HILFE = `Gebäudekennwerte sind Kosten je m² Brutto-Grundfläche (BGF) für eine Gebäudeart. Sie sind die Grundlage der Kostenschätzung in frühen Leistungsphasen: BGF × Kennwert ergibt die Kosten der Kostengruppen 300 und 400 (Bauwerk), hier einschließlich Baunebenkosten und Umsatzsteuer.
 
 Der erste Stand sind die Normalherstellungskosten 2010 (NHK 2010) aus der Wertermittlung (ImmoWertV, Anlage 4). Sie sind öffentlich, decken fast alle Gebäudearten ab und unterscheiden fünf Standardstufen: Stufe 1 und 2 einfach (Ein- und Zweifamilienhäuser, älterer Standard), Stufe 3 mittel (heutiger Normalfall), Stufe 4 gehoben, Stufe 5 stark gehoben. Für andere Gebäudearten als Ein- und Zweifamilienhäuser gibt es nur die Stufen 3 bis 5.
@@ -104,8 +137,10 @@ export const kataloge: Beipackzettel = {
   beschreibung: 'Gewerke nach VOB/C, Kostengruppen nach DIN 276, Gebäudekennwerte mit Baupreisindex und später die Positionsdatenbank – Nachschlagelisten für alle Apps, auf Knopfdruck aktualisierbar.',
   braucht: [],
   objekte: [gewerk, kostengruppe, gebaeudekennwert, baupreisindex],
+  nachschlagen: [position],
   ansichten: [{ id: 'gewerke', titel: 'Gewerke', abschnitt: 'Kataloge', zeichen: 'katalog', objekt: 'gewerk', baum: ['bereich'] }, { id: 'kostengruppen', titel: 'Kostengruppen', abschnitt: 'Kataloge', zeichen: 'kataloge', objekt: 'kostengruppe', baum: ['hauptgruppe'] },
+    { id: 'positionen', titel: 'Positionen', abschnitt: 'Kosten', zeichen: 'liste', nachschlag: 'position', hilfe: 'Die Positionsdatenbank des Bauportals: rund 70.000 Leistungspositionen mit Kurz- und Langtext, Einheit, Kostengruppe nach DIN 276 und Preisspanne (netto, Preisstand siehe Position). Links nach Sammlung, Leistungsbereich und Gruppe, oben die Suche über Nummer und Texte. Die Positionen kommen über den Katalog-Kanal (Verwaltung → Updates) und lassen sich hier nur lesen.' },
     { id: 'kennwerte', titel: 'Gebäudekennwerte', abschnitt: 'Kosten', zeichen: 'baudaten', objekt: 'gebaeudekennwert', baum: ['hauptgruppe'], hilfe: KENNWERT_HILFE },
     { id: 'baupreisindex', titel: 'Baupreisindex', abschnitt: 'Kosten', zeichen: 'baudaten', objekt: 'baupreisindex', hilfe: 'Baupreisindex des Statistischen Bundesamts für den Neubau (einschließlich Umsatzsteuer), Basis 2021 = 100. Damit rechnet das Bauportal Kennwerte von ihrem Kostenstand auf heute hoch: Kennwert × Index heute ÷ Index im Jahr des Kostenstands. Neue Quartalswerte kommen über den Katalog-Kanal; ein Büro kann sie auch selbst eintragen.' }],
-  kataloge: [{ id: 'gewerke', titel: 'Gewerke nach VOB/C', objekt: 'gewerk' }, { id: 'kostengruppen', titel: 'Kostengruppen nach DIN 276', objekt: 'kostengruppe' }, { id: 'gebaeudekennwerte', titel: 'Gebäudekennwerte (NHK 2010)', objekt: 'gebaeudekennwert' }, { id: 'baupreisindex', titel: 'Baupreisindex', objekt: 'baupreisindex' }],
+  kataloge: [{ id: 'gewerke', titel: 'Gewerke nach VOB/C', objekt: 'gewerk' }, { id: 'kostengruppen', titel: 'Kostengruppen nach DIN 276', objekt: 'kostengruppe' }, { id: 'gebaeudekennwerte', titel: 'Gebäudekennwerte (NHK 2010)', objekt: 'gebaeudekennwert' }, { id: 'baupreisindex', titel: 'Baupreisindex', objekt: 'baupreisindex' }, { id: 'positionen', titel: 'Positionsdatenbank', nachschlag: 'position' }],
 };

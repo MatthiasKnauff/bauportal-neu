@@ -1,11 +1,13 @@
 // Die übliche Ansicht eines Objekts: Sie baut nichts selbst, sondern setzt die fertigen Bausteine
 // in den Rahmen – Baum links, Tabelle in die Mitte, Detailkarte rechts – und verbindet sie.
+import { herunterladen } from './baukasten/herunterladen';
 import { Show, createEffect, createMemo, createSignal, untrack, type JSX } from 'solid-js';
 import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
 import { leerwert, type ObjektModell, type Werte } from '../kern/modell';
 import type { Zeile } from '../kern/befehl';
-import { geaendert, objektname, sicht } from './unterbau/abgleich';
+import { geaendert, lebende, objektname, sicht } from './unterbau/abgleich';
+import { projektId } from './projekt';
 import { darf } from './unterbau/api';
 import type { Anpassung } from './baukasten/anpassung';
 import type { Knopf } from './baukasten/menueleiste';
@@ -70,22 +72,34 @@ export function ObjektAnsicht(p: {
     return [{ id: '', titel: `Alle ${m.titelMehrzahl}`, anzahl: lebend().length, kinder: ebene(lebend(), 0, '') }];
   });
   // Filter links in Abschnitten: je Wert die Anzahl der Einträge
-  const linksAbschnitte = createMemo((): SeitenAbschnitt[] => (p.linksFilter ?? []).map((lf, nr) => {
+  // Beteiligte des gewählten Projekts: die Einträge, auf die dort ein anderes Objekt verweist
+  const beteiligte = (b: NonNullable<LinksFilter['beteiligt']>) => {
+    const pid = projektId();
+    return new Set(pid ? lebende(b.objekt).filter((x) => x.werte.projekt === pid).map((x) => String(x.werte[b.feld] ?? '')) : []);
+  };
+  const linksAbschnitte = createMemo((): SeitenAbschnitt[] => (p.linksFilter ?? []).flatMap((lf, nr): SeitenAbschnitt[] => {
+    if (lf.beteiligt) {
+      const pr = projektId() ? sicht.projekt?.[projektId()!] : undefined;
+      if (!pr || pr.geloescht) return [];
+      const ids = beteiligte(lf.beteiligt);
+      return [{ titel: lf.titel, eintraege: [{ id: `${nr}:`, titel: `${lf.beteiligt.titel} ${String(pr.werte.name ?? '')}`, anzahl: lebend().filter((z) => ids.has(z.id)).length, zeichen: 'projekte' }] }];
+    }
     const f = m.felder.find((x) => x.name === lf.feld)!;
     const passt = (z: Zeile) => Object.entries(lf.nur ?? {}).every(([k, ws]) => ws.includes(String(roh(z).werte[k] ?? '')));
     const zahl = new Map<string, number>();
-    for (const z of lebend()) if (passt(z)) { const w = String(roh(z).werte[lf.feld] ?? ''); zahl.set(w, (zahl.get(w) ?? 0) + 1); }
+    for (const z of lebend()) if (passt(z)) { const w = String(roh(z).werte[lf.feld!] ?? ''); zahl.set(w, (zahl.get(w) ?? 0) + 1); }
     const werte = f.art === 'auswahl' ? f.optionen!.map((o) => o.wert).filter((w) => w !== '') : [...zahl.keys()].filter((w) => w !== '').sort((x, y) => vergleich.compare(x, y));
-    return { titel: lf.titel, suche: lf.suche, eintraege: [
+    return [{ titel: lf.titel, suche: lf.suche, eintraege: [
       ...(lf.alle !== undefined ? [{ id: '', titel: lf.alle, anzahl: lebend().length, zeichen: 'personen' }] : []),
       ...werte.map((w) => ({ id: `${nr}:${w}`, titel: lf.mehrzahl?.[w] ?? (anzeige(f, w) || w), anzahl: zahl.get(w) ?? 0, zeichen: lf.zeichen?.[w] ?? (f.art === 'auswahl' ? undefined : 'liste') })),
-    ] };
+    ] }];
   }));
   const zeilen = createMemo(() => {
     let l = lebend();
     if (linksWahl()) {   // „Abschnitt:Wert“
       const k = linksWahl().indexOf(':'), lf = p.linksFilter![Number(linksWahl().slice(0, k))]!, wert = linksWahl().slice(k + 1);
-      l = l.filter((z) => String(roh(z).werte[lf.feld] ?? '') === wert && Object.entries(lf.nur ?? {}).every(([f, ws]) => ws.includes(String(roh(z).werte[f] ?? ''))));
+      const ids = lf.beteiligt ? beteiligte(lf.beteiligt) : undefined;
+      l = ids ? l.filter((z) => ids.has(z.id)) : l.filter((z) => String(roh(z).werte[lf.feld!] ?? '') === wert && Object.entries(lf.nur ?? {}).every(([f, ws]) => ws.includes(String(roh(z).werte[f] ?? ''))));
     }
     if (ast()) { const soll = ast().slice(2); const tiefe = soll.split(TRENNER).length; l = l.filter((z) => pfad(z, tiefe) === soll); }
     const worte = suche().toLowerCase().split(/\s+/).filter(Boolean);
@@ -134,7 +148,8 @@ export function ObjektAnsicht(p: {
           ...(a.mitte ? mitteKnoepfe() : []),
           ...(a.kachel ? [{ titel: 'Karten', zeichen: 'kacheln', gruppe: 'Ansicht', an: kacheln(), tun: () => { if (!kacheln()) formWechseln(); } },
             { titel: 'Tabelle', zeichen: 'tabelle', gruppe: 'Ansicht', an: !kacheln(), tun: () => { if (kacheln()) formWechseln(); } }] : []),
-          ...(a.mitte || kacheln() ? [] : [{ titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: () => tabelle.spaltenEinstellen() }]),
+          ...(a.mitte || kacheln() ? [] : [{ titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: () => tabelle.spaltenEinstellen() },
+            { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: () => herunterladen(tabelle.alsCsv(), `${m.titelMehrzahl} ${new Date().toLocaleDateString('sv')}.csv`, 'text/csv;charset=utf-8') }]),
         ]}
         menueMitte={<>
           <input ref={suchfeld} class="suche" type="search" placeholder={`${m.titelMehrzahl} durchsuchen`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)}
@@ -145,7 +160,7 @@ export function ObjektAnsicht(p: {
           <Show when={!a.mitte && !kacheln() && darf(m.name, 'schreiben')}><p class="ansicht-hinweis nur-breit">Zelle anklicken und tippen – gespeichert wird beim Verlassen des Feldes · Doppelklick: im eigenen Fenster öffnen</p></Show></>}
         baumTitel={a.linksTitel ?? 'Gliederung'}
         baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksWahl()} onWahl={(id) => setLinksWahl(id === linksWahl() ? '' : id)} /> : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
-        inhalt={a.mitte ? a.mitte(mitteP) : kacheln() && a.kachel ?
+        inhalt={a.mitte ? a.mitte(mitteP) : a.leer && !lebend().length ? a.leer(fest(), () => neuStart()) : kacheln() && a.kachel ?
           <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))}

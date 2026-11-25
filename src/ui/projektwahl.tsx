@@ -4,20 +4,19 @@
 // lassen sich beim Suchen direkt als Projekt anlegen. Favoriten und Zuletzt merkt sich der Server je Benutzer (projekt_merker).
 import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { ausfuehren, sicht } from './unterbau/abgleich';
+import { ausfuehren, sicht, lebende } from './unterbau/abgleich';
 import { darf, ich, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { Detailkarte, NeuFenster } from './baukasten/detailkarte';
 import { Schwebefenster } from './baukasten/schwebefenster';
 import { projektId, setProjektId } from './projekt';
 
 type Filter = 'meine' | 'alle' | 'archiv';
-const lebend = (o: string): Zeile[] => Object.values(sicht[o] ?? {}).filter((z) => !z.geloescht);
 const adresse = (p: Zeile) => [p.werte.strasse, [p.werte.plz, p.werte.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 const titel = (p: Zeile) => [p.werte.nummer, p.werte.name].filter(Boolean).join(' · ');
 const natur = (a: Zeile, b: Zeile) => titel(a).localeCompare(titel(b), 'de', { numeric: true });
 
 /** Merker (Favorit, zuletzt) des angemeldeten Benutzers zu einem Projekt. */
-const merker = (pid: string) => lebend('projekt_merker').find((m) => m.werte.projekt === pid && m.werte.benutzer === ich().id);
+const merker = (pid: string) => lebende('projekt_merker').find((m) => m.werte.projekt === pid && m.werte.benutzer === ich().id);
 function merken(pid: string, werte: { favorit?: boolean; zuletzt?: string }) {
   const m = merker(pid);
   if (m) ausfuehren({ objekt: 'projekt_merker', art: 'aendern', objektId: m.id, werte }, '', true);
@@ -32,18 +31,19 @@ export function projektWaehlen(pid: string) {
 
 export function Projektwahl(p: { kartenZusatz: (z: Zeile) => JSX.Element }) {
   const [offen, setOffen] = createSignal(false);
+  let knopf!: HTMLButtonElement;
   const [neu, setNeu] = createSignal<Record<string, string> | null>(null);
   const aktuell = () => (projektId() ? sicht.projekt?.[projektId()!] : undefined);
   return (
     <>
       <div class="projektwahl">
-        <button type="button" class="auswahlliste-knopf" aria-haspopup="dialog" aria-label={`Projekt: ${aktuell() ? titel(aktuell()!) : 'keine Auswahl'}`} onClick={() => setOffen(!offen())}>
+        <button type="button" ref={knopf} class="auswahlliste-knopf" aria-haspopup="dialog" aria-label={`Projekt: ${aktuell() ? titel(aktuell()!) : 'keine Auswahl'}`} onClick={() => setOffen(!offen())}>
           <span class="pw-titel"><b>{aktuell() && !aktuell()!.geloescht ? titel(aktuell()!) : 'Projekt wählen …'}</b>
             <Show when={aktuell() && !aktuell()!.geloescht && adresse(aktuell()!)}><small>{adresse(aktuell()!)}</small></Show></span><span aria-hidden="true">▾</span>
         </button>
       </div>
       <Show when={offen()}>
-        <WahlFenster kartenZusatz={p.kartenZusatz} onZu={() => setOffen(false)} onNeu={(werte) => { setOffen(false); setNeu(werte); }} />
+        <WahlFenster unter={knopf} kartenZusatz={p.kartenZusatz} onZu={() => setOffen(false)} onNeu={(werte) => { setOffen(false); setNeu(werte); }} />
       </Show>
       <Show when={neu()}>{(start) => <NeuFenster modell={modell('projekt')} start={start()} onZu={(id) => { setNeu(null); if (id) projektWaehlen(id); }} />}</Show>
     </>
@@ -52,11 +52,11 @@ export function Projektwahl(p: { kartenZusatz: (z: Zeile) => JSX.Element }) {
 
 // Projektwahl und Projekteinstellungen in EINEM verschiebbaren, in der Größe änderbaren Fenster: links die Projekte,
 // rechts die Vorschau – oder, mit ✎ / F2, die Einstellungen des Projekts (Projektkarte mit Ordner, Beteiligten, Mitgliedern).
-function WahlFenster(p: { kartenZusatz: (z: Zeile) => JSX.Element; onZu: () => void; onNeu: (werte: Record<string, string>) => void }) {
+function WahlFenster(p: { unter?: HTMLElement; kartenZusatz: (z: Zeile) => JSX.Element; onZu: () => void; onNeu: (werte: Record<string, string>) => void }) {
   const [bearbeiten, setBearbeiten] = createSignal<string | null>(null);
   const bearbeitet = () => (bearbeiten() ? sicht.projekt?.[bearbeiten()!] : undefined);
-  const projekte = () => lebend('projekt');
-  const mein = (id: string) => lebend('projekt_mitglied').some((m) => m.werte.projekt === id && m.werte.benutzer === ich().id);
+  const projekte = () => lebende('projekt');
+  const mein = (id: string) => lebende('projekt_mitglied').some((m) => m.werte.projekt === id && m.werte.benutzer === ich().id);
   const [q, setQ] = createSignal('');
   const [filter, setFilter] = createSignal<Filter>(projekte().some((x) => mein(x.id) && x.werte.status !== 'archiviert') ? 'meine' : 'alle');
   const [sel, setSel] = createSignal(0);
@@ -109,12 +109,12 @@ function WahlFenster(p: { kartenZusatz: (z: Zeile) => JSX.Element; onZu: () => v
   };
   let liste!: HTMLDivElement;
   const rollen = () => queueMicrotask(() => liste.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }));
-  const bauleitung = (id: string) => lebend('projekt_mitglied').filter((m) => m.werte.projekt === id).map((m) => sicht.benutzer?.[String(m.werte.benutzer)])
+  const bauleitung = (id: string) => lebende('projekt_mitglied').filter((m) => m.werte.projekt === id).map((m) => sicht.benutzer?.[String(m.werte.benutzer)])
     .filter((b) => b && b.werte.rolle === 'bauleitung').map((b) => String(b!.werte.name)).join(', ');
   const karte = (x: Zeile) => `https://www.google.com/maps?q=${encodeURIComponent(adresse(x) || String(x.werte.name))}&hl=de&z=14&output=embed`;
 
   return (
-    <Schwebefenster titel="Projekt wählen" schluessel="projektwahl" breite={960} hoehe={600} onZu={p.onZu}
+    <Schwebefenster titel="Projekt wählen" schluessel="projektwahl" breite={960} hoehe={600} unter={p.unter} onZu={p.onZu}
       kopfZusatz={<Show when={anlegen}><button type="button" class="knopf klein haupt" onClick={() => p.onNeu({ name: q().trim() })}>＋ Neues Projekt</button></Show>}>
       <div class="pw" ref={rahmen} onKeyDown={taste}>
         <div class="pw-links" hidden={!breit() && !!bearbeitet()}>

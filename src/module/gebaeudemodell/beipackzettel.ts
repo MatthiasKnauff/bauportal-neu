@@ -195,12 +195,12 @@ export const gebaeudemodell: Beipackzettel = {
   braucht: ['projekte', 'kataloge'],
   objekte: [gebaeude, gebaeudeteil, geschoss, raum, aufbau, aufbauSchicht, bauteil],
   ansichten: [
+    { id: 'gebaeude', titel: 'Gebäude', abschnitt: 'Gebäude', zeichen: 'gebaeude', objekt: 'gebaeude', brauchtProjekt: true },
+    { id: 'geschosse', titel: 'Geschosse', abschnitt: 'Gebäude', zeichen: 'liste', objekt: 'geschoss', baum: ['gebaeude'], brauchtProjekt: true },
+    { id: 'raeume', titel: 'Räume', abschnitt: 'Gebäude', zeichen: 'kacheln', objekt: 'raum', baum: ['geschoss'], brauchtProjekt: true },
     { id: 'bauteile', titel: 'Bauteile', abschnitt: 'Modell', zeichen: 'bausteine', objekt: 'bauteil', baum: ['art', 'geschoss'], brauchtProjekt: true },
     { id: 'kosten', titel: 'nach Kostengruppen', abschnitt: 'Modell', zeichen: 'liste_aufgaben', objekt: 'bauteil', baum: ['kostengruppe'], brauchtProjekt: true },
     { id: 'aufbauten', titel: 'Aufbauten', abschnitt: 'Modell', zeichen: 'baum', objekt: 'aufbau', baum: ['art'], brauchtProjekt: true },
-    { id: 'raeume', titel: 'Räume', abschnitt: 'Gebäude', zeichen: 'kacheln', objekt: 'raum', baum: ['geschoss'], brauchtProjekt: true },
-    { id: 'geschosse', titel: 'Geschosse', abschnitt: 'Gebäude', zeichen: 'liste', objekt: 'geschoss', baum: ['gebaeude'], brauchtProjekt: true },
-    { id: 'gebaeude', titel: 'Gebäude', abschnitt: 'Gebäude', zeichen: 'gebaeude', objekt: 'gebaeude', brauchtProjekt: true },
   ],
   versionen: [{ bereich: 'gebaeudemodell', titel: 'Gebäudemodell', wege: ['kopie', 'leer', 'projekt'] }],
 };

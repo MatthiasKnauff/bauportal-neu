@@ -3,7 +3,7 @@
 // mit Prüfsumme, erst Vorschau, dann Übernahme. Der Kanal ist eine Adresse mit „index.json“ und den Katalogdateien.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createHash } from 'node:crypto';
-import type { Modulregister } from '../kern/modul';
+import type { Modulregister, Nachschlag } from '../kern/modul';
 import type { Befehl } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
@@ -15,7 +15,9 @@ const kanal = () => (process.env.KATALOG_KANAL ?? 'https://raw.githubusercontent
 const programm = () => process.env.PROGRAMM_REPO ?? 'MatthiasKnauff/bauportal-neu';
 const GRENZE = 20 * 1024 * 1024;
 
-interface Angebot { id: string; titel: string; beschreibung: string; version: number; stand: string; quelle: string; datei: string; sha256: string }
+interface Teil { datei: string; sha256: string }
+// Ein Katalog ist eine Datei – große Kataloge (Nachschläge) bestehen aus mehreren Teilen
+interface Angebot { id: string; titel: string; beschreibung: string; version: number; stand: string; quelle: string; datei?: string; sha256?: string; teile?: Teil[] }
 interface Katalogdatei { id: string; version: number; stand: string; eintraege: { schluessel: string; werte: Werte }[] }
 
 async function holen(adresse: string): Promise<Buffer> {
@@ -32,30 +34,66 @@ async function holen(adresse: string): Promise<Buffer> {
 export async function angebote(register: Modulregister): Promise<Angebot[]> {
   let roh: { kataloge?: Angebot[] };
   try { roh = JSON.parse((await holen(`${kanal()}/index.json`)).toString('utf8')); } catch (e) { if (e instanceof Ablehnung) throw e; throw new Ablehnung('Das Verzeichnis des Katalog-Kanals ist nicht lesbar'); }
-  return (roh.kataloge ?? []).filter((a) => register.kataloge.some((k) => k.id === a.id) && /^[\w./-]+$/.test(a.datei) && !a.datei.includes('..'));
+  const sicher = (d: unknown) => typeof d === 'string' && /^[\w./-]+$/.test(d) && !d.includes('..');
+  return (roh.kataloge ?? []).filter((a) => register.kataloge.some((k) => k.id === a.id) && (a.teile ? a.teile.length > 0 && a.teile.every((t) => sicher(t.datei)) : sicher(a.datei)));
+}
+
+/** Eine Katalogdatei holen, Prüfsumme prüfen, lesen. */
+async function datei(t: Teil, id: string, version: number): Promise<Katalogdatei> {
+  const roh = await holen(`${kanal()}/${t.datei}`);
+  if (createHash('sha256').update(roh).digest('hex') !== t.sha256) throw new Ablehnung('Die Prüfsumme des Katalogs stimmt nicht – er wird nicht eingespielt');
+  let d: Katalogdatei;
+  try { d = JSON.parse(roh.toString('utf8')); } catch { throw new Ablehnung('Die Katalogdatei ist nicht lesbar'); }
+  if (d.id !== id || d.version !== version || !Array.isArray(d.eintraege) || d.eintraege.some((e) => typeof e?.schluessel !== 'string' || !e.schluessel || typeof e.werte !== 'object')) throw new Ablehnung('Die Katalogdatei passt nicht zum Verzeichnis');
+  return d;
+}
+
+/** Nachschlag einspielen: ersetzt den ganzen bisherigen Stand (er kommt nur aus dem Kanal und wird nicht bearbeitet). */
+async function nachschlagEinspielen(db: Db, n: Nachschlag, eintraege: { schluessel: string; werte: Werte }[]): Promise<void> {
+  const c = await db.connect();
+  try {
+    await c.query('begin');
+    await c.query('delete from kern_nachschlag where name = $1', [n.name]);
+    for (let i = 0; i < eintraege.length; i += 2000) {
+      const teil = eintraege.slice(i, i + 2000).map((e, j) => ({
+        s: e.schluessel, r: i + j, p: n.gliederung.map((g) => String(e.werte[g] ?? '')),
+        w: Object.fromEntries(n.felder.map((f) => [f.name, e.werte[f.name] ?? null])),
+        t: n.suche.map((f) => String(e.werte[f] ?? '')).join(' '),
+      }));
+      await c.query(`insert into kern_nachschlag (name, schluessel, reihe, pfad, werte, such)
+        select $1, x->>'s', (x->>'r')::int, array(select jsonb_array_elements_text(x->'p')), x->'w', to_tsvector('german', x->>'t') from jsonb_array_elements($2::jsonb) x`, [n.name, JSON.stringify(teil)]);
+    }
+    await c.query('commit');
+  } catch (e) { await c.query('rollback'); throw e; } finally { c.release(); }
 }
 
 /** Holt einen Katalog, prüft die Prüfsumme und vergleicht ihn mit dem, was da ist. */
-export async function katalogPlanen(db: Db, register: Modulregister, wer: Benutzer, id: string): Promise<{ je: Record<string, Zahl>; hinweise: string[]; liste: Befehl[]; angebot: Angebot }> {
+export async function katalogPlanen(db: Db, register: Modulregister, wer: Benutzer, id: string): Promise<{ je: Record<string, Zahl>; hinweise: string[]; liste: Befehl[]; eintraege?: number; angebot: Angebot; einspielen?: () => Promise<void> }> {
   const k = register.kataloge.find((x) => x.id === id);
   const a = (await angebote(register)).find((x) => x.id === id);
   if (!k || !a) throw new Ablehnung('Diesen Katalog bietet der Kanal nicht an');
-  const roh = await holen(`${kanal()}/${a.datei}`);
-  if (createHash('sha256').update(roh).digest('hex') !== a.sha256) throw new Ablehnung('Die Prüfsumme des Katalogs stimmt nicht – er wird nicht eingespielt');
-  let d: Katalogdatei;
-  try { d = JSON.parse(roh.toString('utf8')); } catch { throw new Ablehnung('Die Katalogdatei ist nicht lesbar'); }
-  if (d.id !== id || d.version !== a.version || !Array.isArray(d.eintraege) || d.eintraege.some((e) => typeof e?.schluessel !== 'string' || !e.schluessel || typeof e.werte !== 'object')) throw new Ablehnung('Die Katalogdatei passt nicht zum Verzeichnis');
+  const teile = a.teile ?? (a.datei && a.sha256 ? [{ datei: a.datei, sha256: a.sha256 }] : []);
+  const eintraege = (await Promise.all(teile.map((t) => datei(t, id, a.version)))).flatMap((d) => d.eintraege);
+  const quelle = `Stand des Katalogs: ${a.stand}, Fassung ${a.version}. Quelle: ${a.quelle}`;
+  if (k.nachschlag) {
+    const n = register.nachschlag(k.nachschlag)!;
+    const da = (await db.query('select version from kern_katalog where id = $1', [id])).rows[0] as { version: number } | undefined;
+    if (da?.version === a.version) return { je: {}, hinweise: ['Der Katalog im Bauportal entspricht schon diesem Stand – es gibt nichts zu übernehmen.', quelle], liste: [], angebot: a };
+    return { je: {}, liste: [], eintraege: eintraege.length, angebot: a, einspielen: () => nachschlagEinspielen(db, n, eintraege),
+      hinweise: [`${eintraege.length.toLocaleString('de-DE')} ${n.titelMehrzahl} werden eingespielt und ersetzen den bisherigen Stand. Sie liegen nur am Server und lassen sich in ${n.titelMehrzahl} suchen.`, quelle] };
+  }
+  const objekt = k.objekt!;
   return alsBenutzer(db, wer, async (c) => {
     const { liste, je, abgleichen } = abgleicher(c, register, {}, 'katalog', ['katalog']);
     // Zum Katalog gehört, was eine Kennung hat; eigene Einträge des Büros (ohne Kennung) bleiben unberührt.
-    await abgleichen(k.objekt, d.eintraege.map((e) => ({ kennung: e.schluessel, werte: e.werte })), () => true);
-    const z = je[k.objekt]!;
+    await abgleichen(objekt, eintraege.map((e) => ({ kennung: e.schluessel, werte: e.werte })), () => true);
+    const z = je[objekt]!;
     const hinweise = [
       !liste.length && 'Der Katalog im Bauportal entspricht schon diesem Stand – es gibt nichts zu übernehmen.',
       z.behalten && `${z.behalten} ${z.behalten === 1 ? 'Eintrag hat' : 'Einträge haben'} vom Büro geänderte Werte. Sie bleiben, wie sie eingetragen sind.`,
       z.entfernt && `${z.entfernt} ${z.entfernt === 1 ? 'Eintrag steht' : 'Einträge stehen'} nicht mehr im Katalog und ${z.entfernt === 1 ? 'entfällt' : 'entfallen'} (lässt sich zurückholen).`,
       'Eigene Einträge des Büros bleiben unberührt.',
-      `Stand des Katalogs: ${a.stand}, Fassung ${a.version}. Quelle: ${a.quelle}`,
+      quelle,
     ].filter((x): x is string => typeof x === 'string');
     return { je, hinweise, liste, angebot: a };
   });
@@ -88,11 +126,11 @@ export function updateRouten(app: FastifyInstance, e: { db: Db; register: Modulr
 
   app.post('/api/updates/katalog/vorschau', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
     admin(req);
-    const { angebot, ...plan } = await katalogPlanen(e.db, e.register, req.benutzer!, String(((req.body ?? {}) as { katalog?: string }).katalog ?? ''));
+    const { angebot, einspielen, ...plan } = await katalogPlanen(e.db, e.register, req.benutzer!, String(((req.body ?? {}) as { katalog?: string }).katalog ?? ''));
     const festhalten = async () => {
       await e.db.query('insert into kern_katalog (id, version, stand) values ($1,$2,$3) on conflict (id) do update set version = excluded.version, stand = excluded.stand, eingespielt = now()', [angebot.id, angebot.version, angebot.stand]);
     };
-    if (!plan.liste.length) await festhalten();   // nichts zu ändern: der Stand gilt als eingespielt
-    return merken(req.benutzer!.id, plan, festhalten);
+    if (!plan.liste.length && !einspielen) await festhalten();   // nichts zu ändern: der Stand gilt als eingespielt
+    return merken(req.benutzer!.id, plan, async () => { await einspielen?.(); await festhalten(); });
   });
 }

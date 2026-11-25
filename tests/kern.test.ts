@@ -998,3 +998,32 @@ test('Design: Theme im shadcn-Format wird übersetzt, Gefährliches bleibt drau�
   assert.equal(satzFuer(d, true, 0).rund, '0', 'eigene Rundung gewinnt');
   assert.throws(() => themeLesen('nur Text'));
 });
+
+test('Kostenrahmen: passende NHK-Zeile, Hochrechnung mit dem Baupreisindex, Grenzen', async () => {
+  const { kostenrahmen, nhkNummer } = await import('../src/module/gebaeudemodell/kosten');
+  const kw = [{ nummer: '1.11', gebaeudeart: 'freistehendes EFH', ausfuehrung: 'KG+EG+OG; DG ausgebaut', stufen: [655, 725, 835, 1005, 1260], kostenstand: 2010, index: 'wohn' },
+    { nummer: '4.2', gebaeudeart: 'MFH 7–20 WE', ausfuehrung: '', stufen: [null, null, 765, 915, 1105], kostenstand: 2010, index: 'wohn' }];
+  const ix = [{ jahr: 2010, quartal: '', wohn: 70.8, buero: 70.2, gewerbe: 70 }, { jahr: 2026, quartal: 'II', wohn: 140.3, buero: 142.7, gewerbe: 141.4 }, { jahr: 2026, quartal: 'III', wohn: 141.7, buero: 144.2, gewerbe: 142.9 }];
+  assert.equal(nhkNummer({ nutzung: 'efh', keller: 'wu', geschosszahl: 2, dach_oben: 'ausgebaut' }), '1.11');
+  assert.equal(nhkNummer({ nutzung: 'efh', keller: 'ohne', geschosszahl: 1, dach_oben: 'nichts' }), '1.23');
+  assert.equal(nhkNummer({ nutzung: 'mfh', einheiten: 12 }), '4.2');
+  const r = kostenrahmen({ nutzung: 'efh', massnahme: 'neubau', keller: 'wu', geschosszahl: 2, dach_oben: 'ausgebaut' }, 200, kw, ix);
+  assert.ok('von' in r);
+  assert.equal(r.von, Math.round(835 * 141.7 / 70.8));   // Beispiel aus der Hilfe: ≈ 1.671 €/m²
+  assert.equal(r.stand, '3. Quartal 2026');
+  assert.equal(r.summeVon, Math.round(r.von * 200 / 1000) * 1000);
+  assert.ok('fehlt' in kostenrahmen({ nutzung: 'efh', massnahme: 'kernsanierung' }, 200, kw, ix), 'nur für Neubau');
+  assert.ok('fehlt' in kostenrahmen({ nutzung: 'efh' }, 0, kw, ix), 'ohne BGF kein Rahmen');
+  assert.ok('fehlt' in kostenrahmen({ nutzung: 'efh' }, 200, kw, ix.slice(1)), 'ohne Index 2010 kein Rahmen');
+});
+
+test('Nachschlagen: Suche nach Nummer oder Wortanfängen, Beipackzettel geprüft', async () => {
+  const { suchbedingung } = await import('../src/server/nachschlagen');
+  assert.deepEqual(suchbedingung('012.02'), { art: 'code', wert: '012.02' });
+  assert.deepEqual(suchbedingung('  Mauerw  KS-Stein '), { art: 'text', wert: 'mauerw:* & ks:* & stein:*' });
+  assert.equal(suchbedingung('   '), null);
+  assert.ok(!/[';]/.test(JSON.stringify(suchbedingung("a'b;c"))), 'nur Buchstaben und Ziffern kommen in die Abfrage');
+  const n = register.nachschlag('position');
+  assert.ok(n && n.gliederung.length === 3);
+  assert.ok(register.kataloge.some((k) => k.nachschlag === 'position'));
+});

@@ -2,11 +2,12 @@
 // Bearbeiten direkt in der Zelle wie im bisherigen Bauportal: Zelle anklicken und tippen (oder F2); Doppelklick öffnet den
 // Eintrag (onDoppelklick, z. B. im Schwebefenster). Tastatur, Kontextmenü.
 // Im Dokument stehen nur die sichtbaren Zeilen – die Tabelle bleibt auch mit tausenden Einträgen schnell.
-import { For, Show, createEffect, createMemo, createSelector, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSelector, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Feld, ObjektModell, Wert } from '../../kern/modell';
 import { HERKUNFT, type Zeile } from '../../kern/befehl';
 import { anzeige } from './feld';
+import { csv } from '../../kern/csv';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
 import { spaltenFuer } from './spalten';
 import { Spaltenfeld } from './spaltenfeld';
@@ -16,7 +17,14 @@ const ZEILENHOEHE = 37;
 /** Diese Feldarten lassen sich in der Zelle schreiben; Ja/Nein schaltet der Doppelklick um. Alles andere öffnet die Karte. */
 const IN_ZELLE = ['text', 'zahl', 'datum', 'email', 'telefon'];
 
-export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void }
+// ☎ und ✉ hinter Telefonnummern und E-Mail-Adressen – direkt anrufen oder schreiben (wie im bisherigen Bauportal)
+function Verbinden(p: { f: Feld; w: Wert | undefined }) {
+  const ziel = () => (!p.w ? '' : p.f.art === 'telefon' ? `tel:${String(p.w).replace(/[^\d+]/g, '')}` : p.f.art === 'email' ? `mailto:${String(p.w)}` : '');
+  return <Show when={ziel()}><a class="zelle-verbinden" href={ziel()} title={p.f.art === 'telefon' ? 'Anrufen' : 'E-Mail schreiben'} aria-label={p.f.art === 'telefon' ? `${String(p.w)} anrufen` : `E-Mail an ${String(p.w)}`}
+    onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()}>{p.f.art === 'telefon' ? '☎' : '✉'}</a></Show>;
+}
+
+export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void; alsCsv: () => string }
 
 export function Tabelle(p: {
   modell: ObjektModell;
@@ -36,6 +44,8 @@ export function Tabelle(p: {
   leer: string;
   fuss?: JSX.Element;                           // z. B. Summenzeile
   steuer?: (s: TabellenSteuer) => void;
+  reihenfolgeFest?: boolean;                    // Zeilen bleiben in der gegebenen Reihenfolge (z. B. vom Server sortiert und seitenweise geladen)
+  onEnde?: () => void;                          // die letzten Zeilen kommen in Sicht – z. B. um die nächste Seite zu holen
 }) {
   const m = p.modell;
   const spalten = spaltenFuer(m);
@@ -52,6 +62,7 @@ export function Tabelle(p: {
   let kasten!: HTMLDivElement;
 
   const sortiert = createMemo(() => {
+    if (p.reihenfolgeFest) return p.zeilen;
     const s = sort();
     const f = m.felder.find((x) => x.name === s.feld)!;
     // ohne Abhören lesen: p.zeilen kommt bei jeder Änderung neu, das genügt als Auslöser
@@ -64,6 +75,7 @@ export function Tabelle(p: {
     const bis = Math.min(sortiert().length, Math.ceil((rollen().oben + rollen().hoehe) / ZEILENHOEHE) + 8);
     return { von, bis, teil: sortiert().slice(von, bis) };
   });
+  createEffect(() => { const f = fenster(); if (p.onEnde && sortiert().length && f.bis >= sortiert().length - 20) untrack(() => p.onEnde!()); });
   const summe = createMemo(() => spalten.sichtbare().reduce((s, f) => s + spalten.breite(f), 0));
   // Passen die Spalten nicht hinein, werden alle im selben Verhältnis schmaler (wie im bisherigen Bauportal)
   const faktor = () => (platz() && summe() > platz() ? platz() / summe() : 1);
@@ -85,6 +97,8 @@ export function Tabelle(p: {
       spaltenEinstellen: () => spaltenAuf(),
       fokus: () => kasten.focus(),
       ersteWaehlen: () => { kasten.scrollTop = 0; if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); },
+      // so, wie die Tabelle gerade aussieht: gezeigte Spalten in ihrer Reihenfolge, gefilterte Zeilen in ihrer Sortierung
+      alsCsv: () => csv([spalten.sichtbare().map((f) => f.titel), ...sortiert().map((z) => spalten.sichtbare().map((f) => anzeige(f, z.werte[f.name])))]),
     });
   });
 
@@ -146,11 +160,11 @@ export function Tabelle(p: {
           <colgroup><For each={spalten.sichtbare()}>{(f) => <col style={{ width: `${spaltenbreite(f)}px` }} />}</For></colgroup>
           <thead><tr onContextMenu={(e) => { e.preventDefault(); spaltenAuf(e); }}>
             <For each={spalten.sichtbare()}>{(f) => (
-              <th aria-sort={sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} draggable={true}
+              <th aria-sort={!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} draggable={true}
                 onDragStart={(e) => { gezogen = f.name; e.dataTransfer!.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); if (gezogen) spalten.schieben(gezogen, f.name); gezogen = ''; }}>
-                <button onClick={() => setSort((s) => ({ feld: f.name, ab: s.feld === f.name ? !s.ab : false }))}>
-                  <span>{f.titel}</span><span class="pfeil">{sort().feld === f.name ? (sort().ab ? '▼' : '▲') : ''}</span>
+                <button onClick={() => { if (!p.reihenfolgeFest) setSort((s) => ({ feld: f.name, ab: s.feld === f.name ? !s.ab : false })); }}>
+                  <span>{f.titel}</span><span class="pfeil">{!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? '▼' : '▲') : ''}</span>
                 </button>
                 <i class="griff" aria-hidden="true" onPointerDown={(e) => breiteZiehen(e, f)} onClick={(e) => e.stopPropagation()} />
               </th>
@@ -174,7 +188,7 @@ export function Tabelle(p: {
                   <td class={z.herkunft?.[f.name] ? `herkunft-${z.herkunft[f.name]}` : undefined} classList={{ 'in-arbeit': inArbeit()?.id === z.id && inArbeit()?.feld === f.name, 'aktiv-zelle': zelle()?.id === z.id && zelle()?.feld === f.name && istGewaehlt(z.id) && !inArbeit() }}
                     title={z.herkunft?.[f.name] ? HERKUNFT[z.herkunft[f.name]!] : undefined}
                     onClick={() => setZelle({ id: z.id, feld: f.name })} onDblClick={() => doppelklick(z)}>
-                    <Show when={inArbeit()?.id === z.id && inArbeit()?.feld === f.name} fallback={p.zelle?.(f, z) ?? anzeige(f, z.werte[f.name])}>
+                    <Show when={inArbeit()?.id === z.id && inArbeit()?.feld === f.name} fallback={p.zelle?.(f, z) ?? <>{anzeige(f, z.werte[f.name])}<Verbinden f={f} w={z.werte[f.name]} /></>}>
                       <input ref={(el) => queueMicrotask(() => { el.focus(); if (inArbeit()?.start === undefined) el.select?.(); })} type={f.art === 'datum' ? 'date' : 'text'} inputMode={f.art === 'zahl' ? 'decimal' : undefined} value={inArbeit()?.start ?? zeigen(f, z.werte[f.name])}
                         aria-label={f.titel} aria-invalid={!!inArbeit()?.fehler} title={inArbeit()?.fehler} classList={{ falsch: !!inArbeit()?.fehler }}
                         onKeyDown={(e) => eingabeTaste(e, z, f)} onBlur={(e) => fertig(z, f, e.currentTarget)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()} />

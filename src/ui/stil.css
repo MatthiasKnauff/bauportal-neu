@@ -202,7 +202,6 @@ main { flex: 1; min-height: 0; display: flex; }
 .hinweis .knopf:hover { background: rgba(255,255,255,.12); }
 
 @media (max-width: 860px) {
-  .kopf { flex-wrap: wrap; }
   .liste-rahmen { padding: 0; } .liste, .karte { border-radius: 0; border-left: 0; border-right: 0; }
   .liste-rahmen.mit-karte .liste { display: none; }
   .karte { width: auto; flex: 1; }
@@ -298,6 +297,8 @@ main { flex: 1; min-height: 0; display: flex; }
 .band-knopf.haupt .zeichen { color: var(--akzent); }
 .band-knopf.haupt .band-text { color: var(--akzent); font-weight: 600; }
 .band-mitte { flex: 1; min-width: 160px; } .band-mitte .menue-mitte { width: 100%; }
+.band-kompakt .band-knopf .band-text { display: none; } .band-kompakt .band-knopf { min-width: 38px; } .band-kompakt .band-gruppe { padding: 0 3px; }
+.band-umbruch { flex-wrap: wrap; row-gap: 2px; }
 .nur-schmal-flex { display: none !important; }
 /* Die Reiter machen die Seite nie breiter als den Bildschirm: Reicht der Platz nicht, lässt sich die Reihe schieben. */
 .menue-reiter { display: flex; gap: 2px; align-self: stretch; margin: -6px 8px -6px 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -357,7 +358,6 @@ main { flex: 1; min-height: 0; display: flex; }
 .stern { color: var(--warn); }
 .auswahl.senkrecht { flex-direction: column; } .auswahl.senkrecht button { border-right: 0; border-bottom: 1px solid var(--rand); text-align: left; flex: none; } .auswahl.senkrecht button:last-child { border-bottom: 0; }
 .rahmen > .mitte, .platz-mitte > .mitte { flex: 1; }
-@media (max-width: 860px) { .projektwahl { order: 8; width: 100%; } }
 .auswahlliste-knopf span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* ---- Ablage und Dateien ---- */
@@ -459,7 +459,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 /* Kopf: Suche über alles, runde Knöpfe (Hilfe, Apps) */
 .kopf-suche { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px; border: 1px solid rgba(255,255,255,.2); border-radius: calc(8px * var(--rund)); background: rgba(255,255,255,.08); color: var(--auf-kopf-still); cursor: pointer; font-size: 14px; }
 .kopf-suche kbd { font: 11px/1 inherit; padding: 3px 5px; border: 1px solid rgba(255,255,255,.3); border-radius: calc(4px * var(--rund)); color: var(--auf-kopf-still); }
-.kopf-rund { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); background: transparent; color: var(--auf-kopf); cursor: pointer; font-weight: 700; }
+.kopf-rund { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); background: transparent; color: var(--auf-kopf); cursor: pointer; font-weight: 700; }
 .apps-liste { right: 0; min-width: 220px; max-height: 70vh; overflow: auto; }
 .suche-alles { max-width: none; width: 100%; font-size: 16px; min-height: 42px; }
 .suche-treffer { list-style: none; margin: 10px 0 0; padding: 0; max-height: 55vh; overflow: auto; }
@@ -509,7 +509,6 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .pk-zeile em { margin-left: auto; font-style: normal; color: var(--text-still); white-space: nowrap; padding-left: 8px; }
 .pk-zeile.ueberfaellig em { color: var(--gefahr); font-weight: 600; }
 .pk-hinweis { color: var(--warn); font-weight: 600; }
-.kopf-rund { display: inline-flex; align-items: center; justify-content: center; }
 
 /* Diktieren im Tagesbericht */
 .diktat-knopf { margin: 0 0 8px; }
@@ -633,7 +632,9 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .plaetze > .reiter.links { margin-right: 12px; } .plaetze > .reiter:not(.links) { margin-left: 12px; }
 
 /* Rahmen links: die Ansichten der App in Abschnitten */
-.ansichten-nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 8px 6px; border-bottom: 1px solid var(--rand); }
+.ansichten-nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 8px 6px; border-bottom: 1px solid var(--rand); flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+.ansichten-nav > * { flex: none; }
+.ansichten-nav:not(:last-child) { max-height: 55%; }   /* mit Baum darunter: beide bekommen Platz, jede Liste rollt für sich */
 .ansichten-nav h3 { margin: 6px 0 2px; padding: 5px 8px; font-size: 12.5px; font-weight: 700; background: var(--still); border-radius: calc(7px * var(--rund)); }
 .ansichten-nav button { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; padding: 5px 8px; border-radius: calc(8px * var(--rund)); font: inherit; text-align: left; cursor: pointer; }
 .ansichten-nav button:hover { background: var(--still); }
@@ -742,7 +743,15 @@ details.feldgruppe > summary { cursor: pointer; font-weight: 600; padding: 6px 0
 /* Speicherstand in der Kopfleiste: nur ein Punkt, die Erklärung beim Darüberfahren (und für Vorleseprogramme) */
 .nur-vorlesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .kopf-status { position: relative; padding: 6px; cursor: help; }
+@media (max-width: 860px) { .kopf { padding: 4px 8px; gap: 4px; } .kopf-name, .marke-text { display: none; } .kopf .modulname { flex: none; padding: 0 4px; } .kopf .projektwahl { margin-left: 4px; } .kopf .projektwahl .auswahlliste-knopf { padding: 2px 4px; } }
 .kopf-status i { width: 13px; height: 13px; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 0%, transparent); }
 .ansicht-hinweis { margin: -4px 14px 6px; font-size: 12.5px; color: var(--text-still); }
 .leer-seite { padding: 28px 24px; display: flex; flex-direction: column; gap: 8px; } .leer-seite h2 { margin: 0; font-size: 24px; color: var(--akzent); }
 .bzp-zoom { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--text-still); } .bzp-zoom input { width: 110px; }
+
+/* Kostenrahmen in der Gebäudekarte */
+.kostenrahmen { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); background: var(--flaeche); }
+.kostenrahmen h4 { margin: 0 0 4px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.kostenrahmen p { margin: 2px 0; }
+.kostenrahmen-summe { font-size: 18px; font-weight: 700; }
+.zelle-verbinden { margin-left: 6px; text-decoration: none; color: var(--akzent); opacity: .7; } .zelle-verbinden:hover { opacity: 1; }

@@ -11,7 +11,7 @@ import { spalte, tabelle, type Db } from './db';
 import { Ablehnung, vorgangAusfuehren } from './protokoll';
 
 export type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
-export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number }
+export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number; eintraege: number /* ohne Befehle eingespielt (Nachschlag) */ }
 /** werte als Funktion: wird erst ausgewertet, wenn alle Einträge derselben Art ihre Kennung haben (Bauteil verweist auf Bauteil). */
 export interface Eintrag { kennung: string; werte: Werte | (() => Werte) }
 type Vorhanden = Record<string, unknown>;
@@ -97,11 +97,11 @@ export async function versionPruefen(c: PoolClient, projekt: string, version: st
 // Vorschauen warten 30 Minuten auf die Bestätigung
 const plaene = new Map<string, { wer: string; befehle: Befehl[]; bis: number; danach?: () => Promise<void> }>();
 /** danach: läuft nach der Übernahme (z. B. den eingespielten Katalogstand festhalten). */
-export function merken(wer: string, plan: { je: Record<string, Zahl>; hinweise: string[]; liste: Befehl[] }, danach?: () => Promise<void>): Vorschau {
+export function merken(wer: string, plan: { je: Record<string, Zahl>; hinweise: string[]; liste: Befehl[]; eintraege?: number }, danach?: () => Promise<void>): Vorschau {
   const token = randomUUID();
   for (const [k, p] of plaene) if (p.bis < Date.now()) plaene.delete(k);
   plaene.set(token, { wer, befehle: plan.liste, bis: Date.now() + 30 * 60000, danach });
-  return { token, je: plan.je, hinweise: plan.hinweise, befehle: plan.liste.length };
+  return { token, je: plan.je, hinweise: plan.hinweise, befehle: plan.liste.length, eintraege: plan.eintraege ?? 0 };
 }
 
 export function uebernahmeRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {

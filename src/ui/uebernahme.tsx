@@ -12,7 +12,7 @@ import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './unterbau/meldungen';
 
 type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
-export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number }
+export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number; eintraege: number /* ohne Befehle eingespielt (Nachschlag) */ }
 
 interface Quelle { titel: string; wartetext: string; fertig: string; zurueck?: () => void; danach?: () => void }
 type Lage = { art: 'liest' } | { art: 'vorschau'; v: Vorschau } | { art: 'uebernimmt' } | { art: 'fehler'; text: string };
@@ -104,7 +104,7 @@ export function Uebernahmefenster() {
     <Show when={stand()}>{(s) => (
       <Dialog titel={s().titel} breit onAbbrechen={s().lage.art === 'liest' || s().lage.art === 'uebernimmt' ? undefined : zu}
         knoepfe={(() => { const x = s(); const l = x.lage; return l.art === 'vorschau'
-          ? <><button class="knopf" onClick={zu}>Abbrechen</button><Show when={x.zurueck}><button class="knopf" onClick={() => { zu(); x.zurueck!(); }}>Zurück zu den Angaben</button></Show><button class="knopf haupt" disabled={!l.v.befehle} onClick={() => uebernehmen(x, l.v)}>Übernehmen</button></>
+          ? <><button class="knopf" onClick={zu}>Abbrechen</button><Show when={x.zurueck}><button class="knopf" onClick={() => { zu(); x.zurueck!(); }}>Zurück zu den Angaben</button></Show><button class="knopf haupt" disabled={!l.v.befehle && !l.v.eintraege} onClick={() => uebernehmen(x, l.v)}>Übernehmen</button></>
           : <><Show when={l.art === 'fehler' && x.zurueck}><button class="knopf" onClick={() => { zu(); x.zurueck!(); }}>Zurück zu den Angaben</button></Show><button class="knopf" disabled={l.art !== 'fehler'} onClick={zu}>Schließen</button></>; })()}>
         {(() => { const x = s(); const l = x.lage;
           if (l.art === 'liest') return <p class="still-text">{x.wartetext}</p>;

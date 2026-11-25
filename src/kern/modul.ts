@@ -1,7 +1,7 @@
 // Modulgerüst: Jedes Modul bringt einen Beipackzettel mit.
 // Der Kern liest daraus, welche Objekte es gibt und was das Modul braucht.
 
-import { pruefeModell, type ObjektModell, type Werte } from './modell';
+import { pruefeModell, type Feld, type ObjektModell, type Werte } from './modell';
 import type { Ausdruck } from './druck';
 
 export interface Beipackzettel {
@@ -14,12 +14,23 @@ export interface Beipackzettel {
   objekte: ObjektModell[];    // Objekte, die das Modul mitbringt
   ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
   kataloge?: Katalog[];       // Kataloge, die über den Katalog-Kanal kommen und sich auf Knopfdruck aktualisieren lassen
+  nachschlagen?: Nachschlag[];   // große Kataloge, die nur am Server liegen und seitenweise gesucht werden
   ausdrucke?: Ausdruck[];     // was das Modul drucken kann (Druckwerk)
   versionen?: Versionsbereich[];   // Bereiche mit benannten Versionen (z. B. der Bauzeitenplan eines Projekts)
 }
 
-/** Ein Katalog füllt ein Objekt; seine Einträge erkennt man an der Kennung (Feld „kennung“). */
-export interface Katalog { id: string; titel: string; objekt: string }
+/** Ein Katalog füllt ein Objekt (seine Einträge erkennt man an der Kennung, Feld „kennung“) – oder einen Nachschlag. */
+export interface Katalog { id: string; titel: string; objekt?: string; nachschlag?: string }
+
+/** Großer Katalog zum Nachschlagen (z. B. 70.000 Positionen): liegt nur am Server, nicht im lokalen Stand der Geräte;
+ *  gesucht und geblättert wird seitenweise. Kommt ganz aus dem Katalog-Kanal und wird nur gelesen. */
+export interface Nachschlag {
+  name: string; titel: string; titelMehrzahl: string;
+  anzeigeFeld: string;
+  felder: Feld[];
+  gliederung: string[];       // Felder für den Baum links (z. B. Leistungsbereich, Gruppe)
+  suche: string[];            // Felder, in denen die Suche sucht (Volltext, deutsch)
+}
 
 /** Wege, eine neue Version anzulegen: aus der aktuellen, leer, aus einem anderen Projekt. */
 export type Versionsweg = 'kopie' | 'leer' | 'projekt';
@@ -38,10 +49,13 @@ export interface Ansicht {
   zeichen?: string;           // Name des Symbols (Baustein „Zeichen“ der Oberfläche)
   /** Links statt des Baums: Filter in Abschnitten (wie im bisherigen Bauportal, z. B. Kontakte nach Art, Gewerke, Ämter). */
   linksFilter?: LinksFilter[];
+  nachschlag?: string;        // statt eines Objekts: einen großen Katalog seitenweise durchsuchen (Baustein Nachschlagen)
 }
 
 export interface LinksFilter {
-  feld: string;                          // nach diesem Feld
+  feld?: string;                         // nach diesem Feld (je Wert ein Eintrag) …
+  /** … oder: die Einträge, auf die im gewählten Projekt ein anderes Objekt verweist (z. B. Kontakte → „Beteiligte <Projekt>“). */
+  beteiligt?: { objekt: string; feld: string; titel: string };
   titel: string;                         // Überschrift des Abschnitts
   alle?: string;                         // erster Eintrag ohne Filter (z. B. „Alle“)
   suche?: boolean;                       // eigenes Suchfeld im Abschnitt
@@ -53,6 +67,7 @@ export interface LinksFilter {
 export class Modulregister {
   private zettel = new Map<string, Beipackzettel>();
   private modelle = new Map<string, ObjektModell>();
+  private nachschlaege = new Map<string, Nachschlag>();
 
   constructor(module: Beipackzettel[]) {
     for (const z of module) {
@@ -63,7 +78,18 @@ export class Modulregister {
         if (this.modelle.has(m.name)) throw new Error(`Objekt doppelt: ${m.name}`);
         this.modelle.set(m.name, m);
       }
+      for (const n of z.nachschlagen ?? []) {
+        if (this.modelle.has(n.name) || this.nachschlaege.has(n.name)) throw new Error(`Nachschlag doppelt: ${n.name}`);
+        for (const f of [n.anzeigeFeld, ...n.gliederung, ...n.suche]) if (!n.felder.some((x) => x.name === f)) throw new Error(`Nachschlag „${n.name}“: Feld „${f}“ fehlt`);
+        this.nachschlaege.set(n.name, n);
+      }
     }
+    for (const k of this.kataloge) {
+      if (!!k.objekt === !!k.nachschlag) throw new Error(`Katalog „${k.id}“: genau eins von Objekt oder Nachschlag angeben`);
+      if (k.objekt && !this.modelle.has(k.objekt)) throw new Error(`Katalog „${k.id}“: Objekt „${k.objekt}“ fehlt`);
+      if (k.nachschlag && !this.nachschlaege.has(k.nachschlag)) throw new Error(`Katalog „${k.id}“: Nachschlag „${k.nachschlag}“ fehlt`);
+    }
+    for (const z of module) for (const a of z.ansichten) if (a.nachschlag && !this.nachschlaege.has(a.nachschlag)) throw new Error(`Ansicht „${a.id}“: Nachschlag „${a.nachschlag}“ fehlt`);
     for (const z of module) for (const b of z.braucht) {
       if (!this.zettel.has(b)) throw new Error(`Modul „${z.id}“ braucht „${b}“, das fehlt`);
     }
@@ -86,4 +112,6 @@ export class Modulregister {
   get ausdrucke(): Ausdruck[] { return this.module.flatMap((m) => m.ausdrucke ?? []); }
   get versionsbereiche(): Versionsbereich[] { return this.module.flatMap((m) => m.versionen ?? []); }
   modell(name: string): ObjektModell | undefined { return this.modelle.get(name); }
+  nachschlag(name: string): Nachschlag | undefined { return this.nachschlaege.get(name); }
+  get alleNachschlaege(): Nachschlag[] { return [...this.nachschlaege.values()]; }
 }

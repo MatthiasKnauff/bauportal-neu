@@ -24,6 +24,7 @@ import { zeigeMenue } from './baukasten/kontextmenue';
 import { PlanDrucken } from './plandruck';
 import { PlanAssistent } from './planassistent';
 import { PlanHandy } from './planhandy';
+import { herunterladen } from './baukasten/herunterladen';
 import { csvAus, mspdiAus, planJsonAus } from '../module/bauzeitenplan/austausch';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 
@@ -94,13 +95,7 @@ export function Balkenplan(p: Mitte) {
   // Export als Datei (im Browser erzeugt) und Plan aus einer Datei einlesen (Vorschau wie jede Übernahme)
   let dateiWahl!: HTMLInputElement;
   const titel = () => { const pr = sicht.projekt?.[z().projekt]?.werte; return `Bauzeitenplan ${[pr?.nummer, pr?.name].filter(Boolean).join(' ')} ${sicht.version?.[z().version]?.werte.name ?? ''}`.trim(); };
-  const speichern = (inhalt: string, endung: string, typ: string) => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([inhalt], { type: typ }));
-    a.download = `${titel()} ${new Date().toLocaleDateString('sv')}.${endung}`.replace(/[\\/:*?"<>|]+/g, '-');
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  };
+  const speichern = (inhalt: string, endung: string, typ: string) => herunterladen(inhalt, `${titel()} ${new Date().toLocaleDateString('sv')}.${endung}`, typ);
   // Befehle des Balkenplans in der Menüleiste (Band) – wie im bisherigen Bauportal
   const PFEILE = [{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }] as const;
   p.setNeu(() => neuDarunter());
@@ -112,13 +107,19 @@ export function Balkenplan(p: Mitte) {
   };
   createEffect(() => p.setKnoepfe([
     ...(schreiben() ? [
+      { titel: 'Kopieren', zeichen: 'kopieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: kopieren },
+      { titel: 'Ausschneiden', zeichen: 'ausschneiden', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: ausschneiden },
+      { titel: 'Einfügen', zeichen: 'einfuegen', gruppe: 'Bearbeiten', gesperrt: !ablage(), tun: ablageEinfuegen },
+      { titel: 'Duplizieren', zeichen: 'duplizieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: duplizieren },
       { titel: 'Löschen', zeichen: 'loeschen', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: () => entfernen() },
       { titel: 'Höher', zeichen: 'ausruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('aus') },
       { titel: 'Tiefer', zeichen: 'einruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('ein') },
       { titel: 'Nach oben', zeichen: 'nach_oben', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('hoch') },
       { titel: 'Nach unten', zeichen: 'nach_unten', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('runter') },
     ] : []),
-    ...(schreiben() ? [{ titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
+    ...(schreiben() ? [{ titel: 'Verknüpfen', zeichen: 'verknuepfen', gruppe: 'Planen', gesperrt: !markiert() || vorgaenge()[0]?.id === markiert(), tun: mitVorigerVerknuepfen },
+      { titel: 'Lösen', zeichen: 'entkoppeln', gruppe: 'Planen', gesperrt: !links().some((l) => l.werte.von === markiert() || l.werte.nach === markiert()), tun: verknuepfungenLoesen },
+      { titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
     { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
     { titel: `Pfeile: ${PFEILE.find((x) => x.wert === pfeile())?.titel ?? ''}`, zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
@@ -276,6 +277,30 @@ export function Balkenplan(p: Mitte) {
     tun(r.befehle, 'Leistung einfügen');
     setMarkiert(r.id);
     queueMicrotask(() => bearbeiten(r.id, 'name'));
+  };
+  // Zwischenablage für Leistungen (Kopieren/Ausschneiden → Einfügen unterhalb der markierten), wie im bisherigen Bauportal
+  const KOPIERT = ['name', 'dauer', 'anfang_nicht_vor', 'unterbrechung', 'gewerk', 'vob', 'unternehmer', 'firma', 'farbe', 'notiz'];
+  const [ablage, setAblage] = createSignal<Record<string, Wert> | null>(null);
+  const werteVon = (id = markiert()) => { const v = vorgaenge().find((x) => x.id === id); return v ? Object.fromEntries(KOPIERT.map((k) => [k, v.werte[k] ?? null])) : null; };
+  const kopieEinfuegen = (werte: Record<string, Wert>, titel: string) => {
+    if (!schreiben()) return;
+    const i = markiert() ? vorgaenge().findIndex((v) => v.id === markiert()) + 1 : vorgaenge().length;
+    const r = einfuegen(V_(), L_(), i, werte, zu(), neueKennung, autom());
+    tun(r.befehle, titel); setMarkiert(r.id);
+  };
+  const kopieren = () => setAblage(werteVon());
+  const ausschneiden = () => { const w = werteVon(); if (w) { setAblage(w); entfernen(); } };
+  const ablageEinfuegen = () => { const w = ablage(); if (w) kopieEinfuegen(w, `„${String(w.name ?? '')}“ einfügen`); };
+  const duplizieren = () => { const w = werteVon(); if (w) kopieEinfuegen(w, `„${String(w.name ?? '')}“ duplizieren`); };
+  // Verknüpfen: die markierte Leistung folgt der darüber (Ende–Anfang); Lösen: alle Verknüpfungen der markierten entfernen
+  const mitVorigerVerknuepfen = () => {
+    const i = vorgaenge().findIndex((v) => v.id === markiert()); const vor = vorgaenge()[i - 1], v = vorgaenge()[i];
+    if (!v || !vor || links().some((l) => l.werte.von === vor.id && l.werte.nach === v.id)) return;
+    ausfuehren({ objekt: 'verknuepfung', art: 'anlegen', objektId: neueKennung(), werte: { ...zu(), von: vor.id, nach: v.id, art: 'ea', abstand: 0, von_abschnitt: null, nach_abschnitt: null, kennung: '' } }, `„${String(vor.werte.name ?? '')}“ mit „${String(v.werte.name ?? '')}“ verknüpfen`);
+  };
+  const verknuepfungenLoesen = () => {
+    const id = markiert(); const weg = links().filter((l) => l.werte.von === id || l.werte.nach === id);
+    if (weg.length) ausfuehrenMehrere(weg.map((l) => ({ objekt: 'verknuepfung', art: 'loeschen' as const, objektId: l.id })), 'Verknüpfungen lösen');
   };
   const entfernen = (id = markiert()) => {
     if (!id || !darf('vorgang', 'loeschen')) return;

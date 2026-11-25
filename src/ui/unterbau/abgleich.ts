@@ -1,7 +1,7 @@
 // Abgleich: Die Daten liegen im Gerät (IndexedDB) und werden von dort angezeigt – jeder Klick wirkt sofort.
 // Änderungen gehen als Befehle an den Server; ohne Netz warten sie in einer Schlange.
 // Was andere ändern, kommt über den Live-Strom und wird in derselben Reihenfolge angewendet wie auf dem Server.
-import { createSignal } from 'solid-js';
+import { createSignal, untrack } from 'solid-js';
 import { createStore, produce, reconcile } from 'solid-js/store';
 import { anwenden, gegenbefehl, type Befehl, type Protokolliert, type Vorlage, type Zeile } from '../../kern/befehl';
 import type { Feld, ObjektModell, Wert, Werte } from '../../kern/modell';
@@ -25,6 +25,8 @@ export { sicht, lage, wartendAnzahl, verlauf, abgelaufen };
 const zaehler = new Map<string, ReturnType<typeof createSignal<number>>>();
 const zaehlerFuer = (objekt: string) => { let z = zaehler.get(objekt); if (!z) zaehler.set(objekt, (z = createSignal(0))); return z; };
 export const geaendert = (objekt: string): number => zaehlerFuer(objekt)[0]();
+/** Die nicht gelöschten Einträge eines Objekts – folgt jeder Änderung daran über den Zähler je Objekt (nicht über jede Zeile). */
+export const lebende = (objekt: string): Zeile[] => { geaendert(objekt); return untrack(() => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht)); };
 const melde = (objekt: string) => zaehlerFuer(objekt)[1]((n) => n + 1);
 
 interface Schritt { gegen: Vorlage[]; wieder: Vorlage[]; titel: string }
