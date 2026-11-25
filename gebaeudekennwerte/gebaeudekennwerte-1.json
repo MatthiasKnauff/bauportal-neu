@@ -1,0 +1,1317 @@
+{
+ "id": "gebaeudekennwerte",
+ "version": 1,
+ "stand": "2010",
+ "quelle": "NHK 2010 (Sachwertrichtlinie 2012, heute ImmoWertV 2021 Anlage 4); €/m² BGF, Kostenstand 2010, KG 300+400 einschl. Baunebenkosten und USt",
+ "eintraege": [
+  {
+   "schluessel": "nhk2010-1.01",
+   "werte": {
+    "nummer": "1.01",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "KG+EG; DG ausgebaut",
+    "stufe1": 655,
+    "stufe2": 725,
+    "stufe3": 835,
+    "stufe4": 1005,
+    "stufe5": 1260,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.01",
+   "werte": {
+    "nummer": "2.01",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "KG+EG; DG ausgebaut",
+    "stufe1": 615,
+    "stufe2": 685,
+    "stufe3": 785,
+    "stufe4": 945,
+    "stufe5": 1180,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.01",
+   "werte": {
+    "nummer": "3.01",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "KG+EG; DG ausgebaut",
+    "stufe1": 575,
+    "stufe2": 640,
+    "stufe3": 735,
+    "stufe4": 885,
+    "stufe5": 1105,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.02",
+   "werte": {
+    "nummer": "1.02",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "KG+EG; DG nicht ausgebaut",
+    "stufe1": 545,
+    "stufe2": 605,
+    "stufe3": 695,
+    "stufe4": 840,
+    "stufe5": 1050,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.02",
+   "werte": {
+    "nummer": "2.02",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "KG+EG; DG nicht ausgebaut",
+    "stufe1": 515,
+    "stufe2": 570,
+    "stufe3": 655,
+    "stufe4": 790,
+    "stufe5": 985,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.02",
+   "werte": {
+    "nummer": "3.02",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "KG+EG; DG nicht ausgebaut",
+    "stufe1": 480,
+    "stufe2": 535,
+    "stufe3": 615,
+    "stufe4": 740,
+    "stufe5": 925,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.03",
+   "werte": {
+    "nummer": "1.03",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "KG+EG; Flachdach",
+    "stufe1": 705,
+    "stufe2": 785,
+    "stufe3": 900,
+    "stufe4": 1085,
+    "stufe5": 1360,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.03",
+   "werte": {
+    "nummer": "2.03",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "KG+EG; Flachdach",
+    "stufe1": 665,
+    "stufe2": 735,
+    "stufe3": 845,
+    "stufe4": 1020,
+    "stufe5": 1275,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.03",
+   "werte": {
+    "nummer": "3.03",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "KG+EG; Flachdach",
+    "stufe1": 620,
+    "stufe2": 690,
+    "stufe3": 795,
+    "stufe4": 955,
+    "stufe5": 1195,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.11",
+   "werte": {
+    "nummer": "1.11",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "KG+EG+OG; DG ausgebaut",
+    "stufe1": 655,
+    "stufe2": 725,
+    "stufe3": 835,
+    "stufe4": 1005,
+    "stufe5": 1260,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.11",
+   "werte": {
+    "nummer": "2.11",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "KG+EG+OG; DG ausgebaut",
+    "stufe1": 615,
+    "stufe2": 685,
+    "stufe3": 785,
+    "stufe4": 945,
+    "stufe5": 1180,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.11",
+   "werte": {
+    "nummer": "3.11",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "KG+EG+OG; DG ausgebaut",
+    "stufe1": 575,
+    "stufe2": 640,
+    "stufe3": 735,
+    "stufe4": 885,
+    "stufe5": 1105,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.12",
+   "werte": {
+    "nummer": "1.12",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "KG+EG+OG; DG nicht ausgebaut",
+    "stufe1": 570,
+    "stufe2": 635,
+    "stufe3": 730,
+    "stufe4": 880,
+    "stufe5": 1100,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.12",
+   "werte": {
+    "nummer": "2.12",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "KG+EG+OG; DG nicht ausgebaut",
+    "stufe1": 535,
+    "stufe2": 595,
+    "stufe3": 685,
+    "stufe4": 825,
+    "stufe5": 1035,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.12",
+   "werte": {
+    "nummer": "3.12",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "KG+EG+OG; DG nicht ausgebaut",
+    "stufe1": 505,
+    "stufe2": 560,
+    "stufe3": 640,
+    "stufe4": 775,
+    "stufe5": 965,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.13",
+   "werte": {
+    "nummer": "1.13",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "KG+EG+OG; Flachdach",
+    "stufe1": 665,
+    "stufe2": 740,
+    "stufe3": 850,
+    "stufe4": 1025,
+    "stufe5": 1285,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.13",
+   "werte": {
+    "nummer": "2.13",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "KG+EG+OG; Flachdach",
+    "stufe1": 625,
+    "stufe2": 695,
+    "stufe3": 800,
+    "stufe4": 965,
+    "stufe5": 1205,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.13",
+   "werte": {
+    "nummer": "3.13",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "KG+EG+OG; Flachdach",
+    "stufe1": 585,
+    "stufe2": 650,
+    "stufe3": 750,
+    "stufe4": 905,
+    "stufe5": 1130,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.21",
+   "werte": {
+    "nummer": "1.21",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "EG ohne KG; DG ausgebaut",
+    "stufe1": 790,
+    "stufe2": 875,
+    "stufe3": 1005,
+    "stufe4": 1215,
+    "stufe5": 1515,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.21",
+   "werte": {
+    "nummer": "2.21",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "EG ohne KG; DG ausgebaut",
+    "stufe1": 740,
+    "stufe2": 825,
+    "stufe3": 945,
+    "stufe4": 1140,
+    "stufe5": 1425,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.21",
+   "werte": {
+    "nummer": "3.21",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "EG ohne KG; DG ausgebaut",
+    "stufe1": 695,
+    "stufe2": 770,
+    "stufe3": 885,
+    "stufe4": 1065,
+    "stufe5": 1335,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.22",
+   "werte": {
+    "nummer": "1.22",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "EG ohne KG; DG nicht ausgebaut",
+    "stufe1": 585,
+    "stufe2": 650,
+    "stufe3": 745,
+    "stufe4": 900,
+    "stufe5": 1125,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.22",
+   "werte": {
+    "nummer": "2.22",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "EG ohne KG; DG nicht ausgebaut",
+    "stufe1": 550,
+    "stufe2": 610,
+    "stufe3": 700,
+    "stufe4": 845,
+    "stufe5": 1055,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.22",
+   "werte": {
+    "nummer": "3.22",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "EG ohne KG; DG nicht ausgebaut",
+    "stufe1": 515,
+    "stufe2": 570,
+    "stufe3": 655,
+    "stufe4": 790,
+    "stufe5": 990,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.23",
+   "werte": {
+    "nummer": "1.23",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "EG ohne KG; Flachdach",
+    "stufe1": 920,
+    "stufe2": 1025,
+    "stufe3": 1180,
+    "stufe4": 1420,
+    "stufe5": 1775,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.23",
+   "werte": {
+    "nummer": "2.23",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "EG ohne KG; Flachdach",
+    "stufe1": 865,
+    "stufe2": 965,
+    "stufe3": 1105,
+    "stufe4": 1335,
+    "stufe5": 1670,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.23",
+   "werte": {
+    "nummer": "3.23",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "EG ohne KG; Flachdach",
+    "stufe1": 810,
+    "stufe2": 900,
+    "stufe3": 1035,
+    "stufe4": 1250,
+    "stufe5": 1560,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.31",
+   "werte": {
+    "nummer": "1.31",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "EG+OG ohne KG; DG ausgebaut",
+    "stufe1": 720,
+    "stufe2": 800,
+    "stufe3": 920,
+    "stufe4": 1105,
+    "stufe5": 1385,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.31",
+   "werte": {
+    "nummer": "2.31",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "EG+OG ohne KG; DG ausgebaut",
+    "stufe1": 675,
+    "stufe2": 750,
+    "stufe3": 865,
+    "stufe4": 1040,
+    "stufe5": 1300,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.31",
+   "werte": {
+    "nummer": "3.31",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "EG+OG ohne KG; DG ausgebaut",
+    "stufe1": 635,
+    "stufe2": 705,
+    "stufe3": 810,
+    "stufe4": 975,
+    "stufe5": 1215,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.32",
+   "werte": {
+    "nummer": "1.32",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "EG+OG ohne KG; DG nicht ausgebaut",
+    "stufe1": 620,
+    "stufe2": 690,
+    "stufe3": 790,
+    "stufe4": 955,
+    "stufe5": 1190,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.32",
+   "werte": {
+    "nummer": "2.32",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "EG+OG ohne KG; DG nicht ausgebaut",
+    "stufe1": 580,
+    "stufe2": 645,
+    "stufe3": 745,
+    "stufe4": 895,
+    "stufe5": 1120,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.32",
+   "werte": {
+    "nummer": "3.32",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "EG+OG ohne KG; DG nicht ausgebaut",
+    "stufe1": 545,
+    "stufe2": 605,
+    "stufe3": 695,
+    "stufe4": 840,
+    "stufe5": 1050,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-1.33",
+   "werte": {
+    "nummer": "1.33",
+    "gebaeudeart": "freistehendes EFH",
+    "ausfuehrung": "EG+OG ohne KG; Flachdach",
+    "stufe1": 785,
+    "stufe2": 870,
+    "stufe3": 1000,
+    "stufe4": 1205,
+    "stufe5": 1510,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-2.33",
+   "werte": {
+    "nummer": "2.33",
+    "gebaeudeart": "DHH/REH",
+    "ausfuehrung": "EG+OG ohne KG; Flachdach",
+    "stufe1": 735,
+    "stufe2": 820,
+    "stufe3": 940,
+    "stufe4": 1135,
+    "stufe5": 1415,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-3.33",
+   "werte": {
+    "nummer": "3.33",
+    "gebaeudeart": "RMH",
+    "ausfuehrung": "EG+OG ohne KG; Flachdach",
+    "stufe1": 690,
+    "stufe2": 765,
+    "stufe3": 880,
+    "stufe4": 1060,
+    "stufe5": 1325,
+    "hauptgruppe": "Ein- und Zweifamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-4.1",
+   "werte": {
+    "nummer": "4.1",
+    "gebaeudeart": "MFH bis 6 WE",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 825,
+    "stufe4": 985,
+    "stufe5": 1190,
+    "hauptgruppe": "Mehrfamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-4.2",
+   "werte": {
+    "nummer": "4.2",
+    "gebaeudeart": "MFH 7–20 WE",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 765,
+    "stufe4": 915,
+    "stufe5": 1105,
+    "hauptgruppe": "Mehrfamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-4.3",
+   "werte": {
+    "nummer": "4.3",
+    "gebaeudeart": "MFH über 20 WE",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 755,
+    "stufe4": 900,
+    "stufe5": 1090,
+    "hauptgruppe": "Mehrfamilienhäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-5.1",
+   "werte": {
+    "nummer": "5.1",
+    "gebaeudeart": "Wohnhäuser mit Mischnutzung",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 860,
+    "stufe4": 1085,
+    "stufe5": 1375,
+    "hauptgruppe": "Wohnhäuser mit Mischnutzung, Geschäftshäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-5.2",
+   "werte": {
+    "nummer": "5.2",
+    "gebaeudeart": "Banken/Geschäftshäuser mit Wohnungen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 890,
+    "stufe4": 1375,
+    "stufe5": 1720,
+    "hauptgruppe": "Wohnhäuser mit Mischnutzung, Geschäftshäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-5.3",
+   "werte": {
+    "nummer": "5.3",
+    "gebaeudeart": "Banken/Geschäftshäuser ohne Wohnungen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 930,
+    "stufe4": 1520,
+    "stufe5": 1900,
+    "hauptgruppe": "Wohnhäuser mit Mischnutzung, Geschäftshäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-6.1",
+   "werte": {
+    "nummer": "6.1",
+    "gebaeudeart": "Bürogebäude Massivbau",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1040,
+    "stufe4": 1685,
+    "stufe5": 1900,
+    "hauptgruppe": "Bürogebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-6.2",
+   "werte": {
+    "nummer": "6.2",
+    "gebaeudeart": "Bürogebäude Stahlbetonskelettbau",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1175,
+    "stufe4": 1840,
+    "stufe5": 2090,
+    "hauptgruppe": "Bürogebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-7.1",
+   "werte": {
+    "nummer": "7.1",
+    "gebaeudeart": "Gemeindezentren",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1130,
+    "stufe4": 1425,
+    "stufe5": 1905,
+    "hauptgruppe": "Gemeindezentren, Saalbauten",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-7.2",
+   "werte": {
+    "nummer": "7.2",
+    "gebaeudeart": "Saalbauten/Veranstaltungsgebäude",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1355,
+    "stufe4": 1595,
+    "stufe5": 2085,
+    "hauptgruppe": "Gemeindezentren, Saalbauten",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-8.1",
+   "werte": {
+    "nummer": "8.1",
+    "gebaeudeart": "Kindergärten",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1300,
+    "stufe4": 1495,
+    "stufe5": 1900,
+    "hauptgruppe": "Kindergärten, Schulen",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-8.2",
+   "werte": {
+    "nummer": "8.2",
+    "gebaeudeart": "Allgemeinbildende/Berufsbildende Schulen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1450,
+    "stufe4": 1670,
+    "stufe5": 2120,
+    "hauptgruppe": "Kindergärten, Schulen",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-8.3",
+   "werte": {
+    "nummer": "8.3",
+    "gebaeudeart": "Sonderschulen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1585,
+    "stufe4": 1820,
+    "stufe5": 2315,
+    "hauptgruppe": "Kindergärten, Schulen",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-9.1",
+   "werte": {
+    "nummer": "9.1",
+    "gebaeudeart": "Wohnheime/Internate",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1000,
+    "stufe4": 1225,
+    "stufe5": 1425,
+    "hauptgruppe": "Wohnheime, Alten- und Pflegeheime",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-9.2",
+   "werte": {
+    "nummer": "9.2",
+    "gebaeudeart": "Alten-/Pflegeheime",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1170,
+    "stufe4": 1435,
+    "stufe5": 1665,
+    "hauptgruppe": "Wohnheime, Alten- und Pflegeheime",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "wohn"
+   }
+  },
+  {
+   "schluessel": "nhk2010-10.1",
+   "werte": {
+    "nummer": "10.1",
+    "gebaeudeart": "Krankenhäuser/Kliniken",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1720,
+    "stufe4": 2080,
+    "stufe5": 2765,
+    "hauptgruppe": "Krankenhäuser, Tageskliniken",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-10.2",
+   "werte": {
+    "nummer": "10.2",
+    "gebaeudeart": "Tageskliniken/Ärztehäuser",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1585,
+    "stufe4": 1945,
+    "stufe5": 2255,
+    "hauptgruppe": "Krankenhäuser, Tageskliniken",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-11.1",
+   "werte": {
+    "nummer": "11.1",
+    "gebaeudeart": "Hotels",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1385,
+    "stufe4": 1805,
+    "stufe5": 2595,
+    "hauptgruppe": "Beherbergungsstätten",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-12.1",
+   "werte": {
+    "nummer": "12.1",
+    "gebaeudeart": "Sporthallen Einfeld",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1320,
+    "stufe4": 1670,
+    "stufe5": 1955,
+    "hauptgruppe": "Sporthallen, Freizeitbäder",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-12.2",
+   "werte": {
+    "nummer": "12.2",
+    "gebaeudeart": "Sporthallen Dreifeld/Mehrzweck",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1490,
+    "stufe4": 1775,
+    "stufe5": 2070,
+    "hauptgruppe": "Sporthallen, Freizeitbäder",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-12.3",
+   "werte": {
+    "nummer": "12.3",
+    "gebaeudeart": "Tennishallen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1010,
+    "stufe4": 1190,
+    "stufe5": 1555,
+    "hauptgruppe": "Sporthallen, Freizeitbäder",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-12.4",
+   "werte": {
+    "nummer": "12.4",
+    "gebaeudeart": "Freizeitbäder/Heilbäder",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 2450,
+    "stufe4": 2985,
+    "stufe5": 3840,
+    "hauptgruppe": "Sporthallen, Freizeitbäder",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-13.1",
+   "werte": {
+    "nummer": "13.1",
+    "gebaeudeart": "Verbrauchermärkte",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 720,
+    "stufe4": 870,
+    "stufe5": 1020,
+    "hauptgruppe": "Verbrauchermärkte, Kauf- und Autohäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-13.2",
+   "werte": {
+    "nummer": "13.2",
+    "gebaeudeart": "Kauf-/Warenhäuser",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1320,
+    "stufe4": 1585,
+    "stufe5": 1850,
+    "hauptgruppe": "Verbrauchermärkte, Kauf- und Autohäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-13.3",
+   "werte": {
+    "nummer": "13.3",
+    "gebaeudeart": "Autohäuser ohne Werkstatt",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 940,
+    "stufe4": 1240,
+    "stufe5": 1480,
+    "hauptgruppe": "Verbrauchermärkte, Kauf- und Autohäuser",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-14.1",
+   "werte": {
+    "nummer": "14.1",
+    "gebaeudeart": "Einzel-/Mehrfachgaragen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 245,
+    "stufe4": 485,
+    "stufe5": 780,
+    "hauptgruppe": "Garagen",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-14.2",
+   "werte": {
+    "nummer": "14.2",
+    "gebaeudeart": "Hochgaragen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 480,
+    "stufe4": 655,
+    "stufe5": 780,
+    "hauptgruppe": "Garagen",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-14.3",
+   "werte": {
+    "nummer": "14.3",
+    "gebaeudeart": "Tiefgaragen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 560,
+    "stufe4": 715,
+    "stufe5": 850,
+    "hauptgruppe": "Garagen",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-14.4",
+   "werte": {
+    "nummer": "14.4",
+    "gebaeudeart": "Nutzfahrzeuggaragen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 530,
+    "stufe4": 680,
+    "stufe5": 810,
+    "hauptgruppe": "Garagen",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-15.1",
+   "werte": {
+    "nummer": "15.1",
+    "gebaeudeart": "Betriebs-/Werkstätten eingeschossig",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 970,
+    "stufe4": 1165,
+    "stufe5": 1430,
+    "hauptgruppe": "Betriebs- und Werkstätten, Produktion",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-15.2",
+   "werte": {
+    "nummer": "15.2",
+    "gebaeudeart": "Betriebs-/Werkstätten mehrgeschossig ohne Hallenanteil",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 910,
+    "stufe4": 1090,
+    "stufe5": 1340,
+    "hauptgruppe": "Betriebs- und Werkstätten, Produktion",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-15.3",
+   "werte": {
+    "nummer": "15.3",
+    "gebaeudeart": "Betriebs-/Werkstätten mehrgeschossig hoher Hallenanteil",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 620,
+    "stufe4": 860,
+    "stufe5": 1070,
+    "hauptgruppe": "Betriebs- und Werkstätten, Produktion",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-15.4",
+   "werte": {
+    "nummer": "15.4",
+    "gebaeudeart": "Industrielle Produktionsgebäude Massivbau",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 950,
+    "stufe4": 1155,
+    "stufe5": 1440,
+    "hauptgruppe": "Betriebs- und Werkstätten, Produktion",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-15.5",
+   "werte": {
+    "nummer": "15.5",
+    "gebaeudeart": "Industrielle Produktionsgebäude Skelettbau",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 700,
+    "stufe4": 965,
+    "stufe5": 1260,
+    "hauptgruppe": "Betriebs- und Werkstätten, Produktion",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-16.1",
+   "werte": {
+    "nummer": "16.1",
+    "gebaeudeart": "Lagergebäude Kaltlager",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 350,
+    "stufe4": 490,
+    "stufe5": 640,
+    "hauptgruppe": "Lagergebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-16.2",
+   "werte": {
+    "nummer": "16.2",
+    "gebaeudeart": "Lagergebäude bis 25 % Mischnutzung",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 550,
+    "stufe4": 690,
+    "stufe5": 880,
+    "hauptgruppe": "Lagergebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-16.3",
+   "werte": {
+    "nummer": "16.3",
+    "gebaeudeart": "Lagergebäude über 25 % Mischnutzung",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 890,
+    "stufe4": 1095,
+    "stufe5": 1340,
+    "hauptgruppe": "Lagergebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "gewerbe"
+   }
+  },
+  {
+   "schluessel": "nhk2010-17.1",
+   "werte": {
+    "nummer": "17.1",
+    "gebaeudeart": "Museen",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1880,
+    "stufe4": 2295,
+    "stufe5": 2670,
+    "hauptgruppe": "Sonstige Gebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-17.2",
+   "werte": {
+    "nummer": "17.2",
+    "gebaeudeart": "Theater",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 2070,
+    "stufe4": 2625,
+    "stufe5": 3680,
+    "hauptgruppe": "Sonstige Gebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-17.3",
+   "werte": {
+    "nummer": "17.3",
+    "gebaeudeart": "Sakralbauten",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1510,
+    "stufe4": 2060,
+    "stufe5": 2335,
+    "hauptgruppe": "Sonstige Gebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  },
+  {
+   "schluessel": "nhk2010-17.4",
+   "werte": {
+    "nummer": "17.4",
+    "gebaeudeart": "Friedhofsgebäude",
+    "ausfuehrung": "",
+    "stufe1": null,
+    "stufe2": null,
+    "stufe3": 1320,
+    "stufe4": 1490,
+    "stufe5": 1720,
+    "hauptgruppe": "Sonstige Gebäude",
+    "bezug": "BGF",
+    "kostenstand": 2010,
+    "index": "buero"
+   }
+  }
+ ]
+}

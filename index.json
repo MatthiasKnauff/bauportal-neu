@@ -40,6 +40,26 @@
    "quelle": "Leistungskatalog des bisherigen Bauportals (Planungsassistent der Gantt-App, Stand 25.11.2026); Richtwerte, im Plan änderbar",
    "datei": "planregeln/planregeln-1.json",
    "sha256": "ffc7b63518ef86efc9ea66e06ef748d3cd4c732acfe519cc4c8c5d587b987207"
+  },
+  {
+   "id": "gebaeudekennwerte",
+   "titel": "Gebäudekennwerte (NHK 2010)",
+   "beschreibung": "77 Normalherstellungskosten in €/m² BGF je Gebäudeart und Standardstufe – Grundlage der Kostenschätzung, mit dem Baupreisindex auf heute hochgerechnet.",
+   "version": 1,
+   "stand": "2010",
+   "quelle": "NHK 2010 (Sachwertrichtlinie 2012, heute ImmoWertV 2021 Anlage 4); €/m² BGF, Kostenstand 2010, KG 300+400 einschl. Baunebenkosten und USt",
+   "datei": "gebaeudekennwerte/gebaeudekennwerte-1.json",
+   "sha256": "ce3664869c0c33b0b801d46cb08a3a2e617b1cce29f19e8dace24d22b297ce46"
+  },
+  {
+   "id": "baupreisindex",
+   "titel": "Baupreisindex",
+   "beschreibung": "24 Werte für Wohn-, Büro- und gewerbliche Betriebsgebäude (2021 = 100) – zum Hochrechnen von Kennwerten auf den heutigen Stand.",
+   "version": 1,
+   "stand": "2026-III",
+   "quelle": "Statistisches Bundesamt, Baupreisindizes für den Neubau in konventioneller Bauart einschl. USt (GENESIS 61261), Basis 2021 = 100; 2010 = Jahresdurchschnitt derselben Reihe (Verkettung auf die NHK 2010)",
+   "datei": "baupreisindex/baupreisindex-1.json",
+   "sha256": "962f75b95c6e6d366c0066dbad2f58a40383137a246b4bee6dad6e06381de5f5"
   }
  ]
 }

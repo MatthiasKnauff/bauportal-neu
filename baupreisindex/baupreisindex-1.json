@@ -1,0 +1,272 @@
+{
+ "id": "baupreisindex",
+ "version": 1,
+ "stand": "2026-III",
+ "quelle": "Statistisches Bundesamt, Baupreisindizes für den Neubau in konventioneller Bauart einschl. USt (GENESIS 61261), Basis 2021 = 100; 2010 = Jahresdurchschnitt derselben Reihe (Verkettung auf die NHK 2010)",
+ "eintraege": [
+  {
+   "schluessel": "2010",
+   "werte": {
+    "zeitraum": "2010 (Jahresdurchschnitt)",
+    "jahr": 2010,
+    "quartal": "",
+    "wohn": 70.8,
+    "buero": 70.2,
+    "gewerbe": 70.0
+   }
+  },
+  {
+   "schluessel": "2021-I",
+   "werte": {
+    "zeitraum": "2021, I. Quartal",
+    "jahr": 2021,
+    "quartal": "I",
+    "wohn": 95.0,
+    "buero": 94.7,
+    "gewerbe": 94.8
+   }
+  },
+  {
+   "schluessel": "2021-II",
+   "werte": {
+    "zeitraum": "2021, II. Quartal",
+    "jahr": 2021,
+    "quartal": "II",
+    "wohn": 98.7,
+    "buero": 98.5,
+    "gewerbe": 98.5
+   }
+  },
+  {
+   "schluessel": "2021-III",
+   "werte": {
+    "zeitraum": "2021, III. Quartal",
+    "jahr": 2021,
+    "quartal": "III",
+    "wohn": 102.1,
+    "buero": 102.2,
+    "gewerbe": 102.2
+   }
+  },
+  {
+   "schluessel": "2021-IV",
+   "werte": {
+    "zeitraum": "2021, IV. Quartal",
+    "jahr": 2021,
+    "quartal": "IV",
+    "wohn": 104.2,
+    "buero": 104.6,
+    "gewerbe": 104.5
+   }
+  },
+  {
+   "schluessel": "2022-I",
+   "werte": {
+    "zeitraum": "2022, I. Quartal",
+    "jahr": 2022,
+    "quartal": "I",
+    "wohn": 108.8,
+    "buero": 109.4,
+    "gewerbe": 109.1
+   }
+  },
+  {
+   "schluessel": "2022-II",
+   "werte": {
+    "zeitraum": "2022, II. Quartal",
+    "jahr": 2022,
+    "quartal": "II",
+    "wohn": 115.9,
+    "buero": 116.7,
+    "gewerbe": 117.0
+   }
+  },
+  {
+   "schluessel": "2022-III",
+   "werte": {
+    "zeitraum": "2022, III. Quartal",
+    "jahr": 2022,
+    "quartal": "III",
+    "wohn": 118.9,
+    "buero": 119.9,
+    "gewerbe": 120.0
+   }
+  },
+  {
+   "schluessel": "2022-IV",
+   "werte": {
+    "zeitraum": "2022, IV. Quartal",
+    "jahr": 2022,
+    "quartal": "IV",
+    "wohn": 121.7,
+    "buero": 122.8,
+    "gewerbe": 122.8
+   }
+  },
+  {
+   "schluessel": "2023-I",
+   "werte": {
+    "zeitraum": "2023, I. Quartal",
+    "jahr": 2023,
+    "quartal": "I",
+    "wohn": 125.0,
+    "buero": 126.0,
+    "gewerbe": 125.9
+   }
+  },
+  {
+   "schluessel": "2023-II",
+   "werte": {
+    "zeitraum": "2023, II. Quartal",
+    "jahr": 2023,
+    "quartal": "II",
+    "wohn": 126.0,
+    "buero": 127.1,
+    "gewerbe": 126.8
+   }
+  },
+  {
+   "schluessel": "2023-III",
+   "werte": {
+    "zeitraum": "2023, III. Quartal",
+    "jahr": 2023,
+    "quartal": "III",
+    "wohn": 126.4,
+    "buero": 127.6,
+    "gewerbe": 127.3
+   }
+  },
+  {
+   "schluessel": "2023-IV",
+   "werte": {
+    "zeitraum": "2023, IV. Quartal",
+    "jahr": 2023,
+    "quartal": "IV",
+    "wohn": 126.9,
+    "buero": 128.2,
+    "gewerbe": 127.8
+   }
+  },
+  {
+   "schluessel": "2024-I",
+   "werte": {
+    "zeitraum": "2024, I. Quartal",
+    "jahr": 2024,
+    "quartal": "I",
+    "wohn": 128.5,
+    "buero": 130.0,
+    "gewerbe": 129.5
+   }
+  },
+  {
+   "schluessel": "2024-II",
+   "werte": {
+    "zeitraum": "2024, II. Quartal",
+    "jahr": 2024,
+    "quartal": "II",
+    "wohn": 129.4,
+    "buero": 131.0,
+    "gewerbe": 130.3
+   }
+  },
+  {
+   "schluessel": "2024-III",
+   "werte": {
+    "zeitraum": "2024, III. Quartal",
+    "jahr": 2024,
+    "quartal": "III",
+    "wohn": 130.3,
+    "buero": 132.0,
+    "gewerbe": 131.2
+   }
+  },
+  {
+   "schluessel": "2024-IV",
+   "werte": {
+    "zeitraum": "2024, IV. Quartal",
+    "jahr": 2024,
+    "quartal": "IV",
+    "wohn": 130.8,
+    "buero": 132.6,
+    "gewerbe": 131.8
+   }
+  },
+  {
+   "schluessel": "2025-I",
+   "werte": {
+    "zeitraum": "2025, I. Quartal",
+    "jahr": 2025,
+    "quartal": "I",
+    "wohn": 132.6,
+    "buero": 134.5,
+    "gewerbe": 133.6
+   }
+  },
+  {
+   "schluessel": "2025-II",
+   "werte": {
+    "zeitraum": "2025, II. Quartal",
+    "jahr": 2025,
+    "quartal": "II",
+    "wohn": 133.6,
+    "buero": 135.6,
+    "gewerbe": 134.7
+   }
+  },
+  {
+   "schluessel": "2025-III",
+   "werte": {
+    "zeitraum": "2025, III. Quartal",
+    "jahr": 2025,
+    "quartal": "III",
+    "wohn": 134.3,
+    "buero": 136.4,
+    "gewerbe": 135.5
+   }
+  },
+  {
+   "schluessel": "2025-IV",
+   "werte": {
+    "zeitraum": "2025, IV. Quartal",
+    "jahr": 2025,
+    "quartal": "IV",
+    "wohn": 135.0,
+    "buero": 137.3,
+    "gewerbe": 136.1
+   }
+  },
+  {
+   "schluessel": "2026-I",
+   "werte": {
+    "zeitraum": "2026, I. Quartal",
+    "jahr": 2026,
+    "quartal": "I",
+    "wohn": 137.0,
+    "buero": 139.4,
+    "gewerbe": 138.1
+   }
+  },
+  {
+   "schluessel": "2026-II",
+   "werte": {
+    "zeitraum": "2026, II. Quartal",
+    "jahr": 2026,
+    "quartal": "II",
+    "wohn": 140.3,
+    "buero": 142.7,
+    "gewerbe": 141.4
+   }
+  },
+  {
+   "schluessel": "2026-III",
+   "werte": {
+    "zeitraum": "2026, III. Quartal",
+    "jahr": 2026,
+    "quartal": "III",
+    "wohn": 141.7,
+    "buero": 144.2,
+    "gewerbe": 142.9
+   }
+  }
+ ]
+}
