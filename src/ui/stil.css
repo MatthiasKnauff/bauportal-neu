@@ -654,7 +654,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .umfang-leiste { display: flex; align-items: center; gap: 12px; padding: 8px 12px 0; }
 /* Heftzwecke: angeheftet bleibt die Seite stehen, gelöst gleitet sie bei Bedarf über den Inhalt */
 .plaetze { position: relative; }
-.heftzwecke { border: 0; background: transparent; color: var(--text-still); padding: 4px; border-radius: calc(6px * var(--rund)); cursor: pointer; display: inline-flex; }
+.heftzwecke { border: 0; background: transparent; color: var(--text-still); width: 30px; height: 28px; padding: 0; align-items: center; justify-content: center; flex: none; border-radius: calc(6px * var(--rund)); cursor: pointer; display: inline-flex; }
 .heftzwecke:hover { background: var(--still); color: var(--akzent); }
 .heftzwecke:not(.geloest) .zeichen { transform: rotate(35deg); }
 .platz-kopf { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 0 12px; font-size: 12.5px; font-weight: 700; }
@@ -784,8 +784,9 @@ details.feldgruppe > summary { cursor: pointer; font-weight: 600; padding: 6px 0
 
 /* Kopf und Menüband ausblenden (Heftzwecke oben rechts) – erscheinen an der Oberkante über dem Inhalt */
 .platz-mitte { position: relative; }
-.oben-heftzwecke { position: absolute; top: 9px; right: 20px; z-index: 5; width: 30px; height: 28px; align-items: center; justify-content: center; border: 0; border-radius: calc(6px * var(--rund)); background: transparent; color: var(--text-still); cursor: pointer; opacity: .55; }
-.oben-heftzwecke:hover, .oben-heftzwecke:not(.an) { opacity: 1; } .oben-heftzwecke:not(.an) { color: var(--akzent); }
+/* Heftzwecke für Kopf und Menüleiste: ganz rechts in der Menüleiste, oben wie die Heftzwecken der Bereiche */
+.oben-heftzwecke { align-self: flex-start; margin-left: auto; }
+.oben-heftzwecke.geloest { color: var(--akzent); }
 html[data-oben] .kopf { display: none; }
 html[data-oben="2"] .menueleiste { display: none; }
 html[data-oben][data-oben-zeigen] .kopf { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 70; box-shadow: var(--schatten); }
@@ -834,3 +835,26 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .foto-streifen button { width: 72px; height: 54px; padding: 0; border: 2px solid transparent; border-radius: calc(6px * var(--rund)); overflow: hidden; cursor: pointer; background: var(--still); }
 .foto-streifen button.an { border-color: var(--akzent); } .foto-streifen img { width: 100%; height: 100%; object-fit: cover; }
 .bilder-raster a.an img { outline: 3px solid var(--akzent); outline-offset: 1px; }
+/* Filterbedingung (Baustein Filterkästen): je Art ein Kasten in ihrer Farbe, UND/ODER zum Anklicken, NICHT durchgestrichen rot */
+.filterkaesten { display: flex; flex-direction: column; gap: 4px; padding: 8px 8px 4px; }
+.filterkasten { border: 1px solid color-mix(in srgb, var(--f) 45%, transparent); background: color-mix(in srgb, var(--f) 10%, var(--flaeche)); border-radius: calc(10px * var(--rund)); padding: 3px 6px 6px; }
+.filterkasten-kopf { display: flex; align-items: center; font-size: 11px; color: var(--text-still); letter-spacing: .03em; } .filterkasten-kopf span { flex: 1; }
+.filterkasten-werte { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.filterwert { display: inline-flex; align-items: center; max-width: 100%; background: var(--flaeche); border: 1px solid color-mix(in srgb, var(--f) 35%, transparent); border-radius: 999px; padding: 0 2px 0 0; font-size: 13px; }
+.filterwert-text { border: 0; background: none; font: inherit; color: inherit; padding: 1px 4px 1px 9px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filterwert.nicht .filterwert-text { color: var(--gefahr); text-decoration: line-through; }
+.filter-x { border: 0; background: none; color: var(--text-still); cursor: pointer; font-size: 10px; width: 18px; height: 18px; border-radius: 50%; padding: 0; flex: none; }
+.filter-x:hover { background: var(--gefahr); color: #fff; }
+.filter-op { border: 0; background: none; font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--f, var(--text-still)); cursor: pointer; padding: 0 2px; }
+.filter-zwischen { align-self: flex-start; padding-left: 10px; color: var(--text-still); }
+.filtersatz { margin: 2px 2px 0; font-size: 11px; color: var(--text-still); line-height: 1.35; }
+.ansichten-nav button.nicht .seitenliste-titel { color: var(--gefahr); text-decoration: line-through; }
+.seitenliste-nach { padding: 0 8px 4px 44px; font-size: 12px; color: var(--text-still); }
+.seitenliste-schalter { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.filtersuche { position: relative; flex: 1 1 240px; min-width: 160px; max-width: 420px; display: flex; } .filtersuche .suche { flex: 1; width: 100%; }
+.filtersuche-liste { max-width: 380px; min-width: 260px; max-height: 60vh; }
+.filtersuche-liste h5 { margin: 6px 8px 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-still); display: flex; align-items: center; gap: 6px; }
+.filtersuche-liste h5 i { width: 8px; height: 8px; border-radius: 50%; background: var(--f, var(--text-still)); }
+.filtersuche-liste div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border-radius: calc(6px * var(--rund)); cursor: pointer; white-space: nowrap; }
+.filtersuche-liste div:hover, .filtersuche-liste div.markiert { background: var(--akzent-hell); }
+.textvorschlag > input { width: 100%; box-sizing: border-box; }

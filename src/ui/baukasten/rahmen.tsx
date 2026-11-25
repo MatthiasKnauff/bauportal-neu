@@ -72,6 +72,8 @@ function obenBeobachten() {
   });
 }
 
+const HEFT_GROESSE = 18;   // eine Größe für alle Heftzwecken
+
 export function Rahmen(p: {
   schluessel: string;                       // merkt sich je Ansicht, was zugeklappt ist
   abfolge?: { schritte: Schritt[]; aktiv: string; onWahl?: (id: string) => void };
@@ -109,9 +111,10 @@ export function Rahmen(p: {
     ...(p.baum || ansichten().length > 1 ? [{ titel: p.baumTitel ?? 'Links', zeichen: 'gliederung', gruppe: 'Ansicht', an: schmal() ? baumAmHandy() : !linksZu(), tun: () => (schmal() ? setBaumAmHandy(!baumAmHandy()) : setLinksZu(!linksZu())) }] : []),
   ];
   const linksTitel = () => ansichten().find((a) => a.id === app?.aktiv())?.titel ?? p.baumTitel ?? 'Gliederung';
+  // Alle Heftzwecken gleich groß (Bereiche links und rechts, Kopf und Menüleiste)
   const heftzwecke = (zu: () => boolean, setZu: (b: boolean) => void, schwebt: (b: boolean) => void) => (
     <button type="button" class="heftzwecke" classList={{ geloest: zu() }} aria-pressed={!zu()} aria-label={zu() ? 'Anheften' : 'Lösen – blendet sich aus'} title={zu() ? 'Anheften' : 'Lösen – blendet sich aus und erscheint, wenn die Maus an den Rand kommt'}
-      onClick={(e) => { e.stopPropagation(); setZu(!zu()); schwebt(false); }}><Zeichen name={zu() ? 'loesen' : 'anheften'} groesse={15} /></button>
+      onClick={(e) => { e.stopPropagation(); setZu(!zu()); schwebt(false); }}><Zeichen name={zu() ? 'loesen' : 'anheften'} groesse={HEFT_GROESSE} /></button>
   );
   p.steuer?.({ detailsZeigen: () => { if (rechtsZu()) setRechtsSchwebt(true); }, detailsZuklappen: () => { setRechtsZu(true); setRechtsSchwebt(false); }, heftzweckeRechts: () => heftzwecke(rechtsZu, setRechtsZu, setRechtsSchwebt) });
   const linksInhalt = () => (<>
@@ -133,7 +136,10 @@ export function Rahmen(p: {
   return (
     <div class="rahmen">
       <Show when={p.abfolge}>{(a) => <Abfolgeleiste schritte={a().schritte} aktiv={a().aktiv} onWahl={a().onWahl} />}</Show>
-      <Menueleiste rueckgaengig={app?.rueckgaengig} reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}>{p.menueMitte}</Menueleiste>
+      <Menueleiste rueckgaengig={app?.rueckgaengig} reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}
+        ende={<button type="button" class="heftzwecke oben-heftzwecke nur-breit-flex" classList={{ geloest: oben() !== 0 }} aria-label={OBEN_TEXT[oben()]} title={OBEN_TEXT[oben()]} onClick={obenWeiter}>
+          <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={HEFT_GROESSE} />
+        </button>}>{p.menueMitte}</Menueleiste>
       {p.unterMenue}
       <div class="plaetze" classList={{ 'mit-details': !!p.details && !rechtsWeg(), 'baum-offen': baumAmHandy() }}
         style={{ '--links-breite': `${linksBreite()}px`, '--rechts-breite': `${rechtsBreite()}px` }}>
@@ -146,11 +152,7 @@ export function Rahmen(p: {
             <aside class="platz-links schwebend" aria-label={p.baumTitel ?? 'Gliederung'} onMouseLeave={() => setLinksSchwebt(false)}>{linksInhalt()}</aside>
           </Show>
         </Show>
-        <section class="platz-mitte">{p.inhalt}
-          <button type="button" class="oben-heftzwecke nur-breit-flex" classList={{ an: oben() === 0 }} aria-label={OBEN_TEXT[oben()]} title={OBEN_TEXT[oben()]} onClick={obenWeiter}>
-            <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={19} />
-          </button>
-        </section>
+        <section class="platz-mitte">{p.inhalt}</section>
         <Show when={p.details || (p.detailsHinweis && !schmal())}>
           <Show when={!rechtsWeg()} fallback={<button class="reiter" title="Einblenden" onMouseEnter={() => setRechtsSchwebt(true)} onClick={() => setRechtsSchwebt(true)}><span>{p.detailsTitel ?? 'Details'}</span></button>}>
             <Griff titel="Breite der Details" wert={rechtsBreite()} min={280} max={800} werk={RECHTS} richtung={-1} onWert={setRechtsBreite} onFertig={(w) => breiteMerken('rechts', w)} />

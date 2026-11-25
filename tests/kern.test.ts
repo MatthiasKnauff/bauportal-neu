@@ -1044,3 +1044,26 @@ test('Visitenkarte: Firma mit Ansprechpartner:in, weitere Wege, Sonderzeichen', 
   const p = vcard({ name: 'Familie Kestner', art: 'bauherr', ist_firma: false });
   assert.ok(!/ORG:/.test(p) && /FN:Familie Kestner/.test(p), 'Bauherr:in als Person: keine Firma');
 });
+
+test('Filterbedingung: UND, ODER, NICHT wie im bisherigen Bauportal', async () => {
+  const f = await import('../src/kern/filterbedingung');
+  const k = (art: string, gewerk: string[], ort: string) => (a: string) => (a === 'art' ? [art] : a === 'gewerk' ? gewerk : a === 'ort' ? [ort] : []);
+  const dach = k('firma', ['Dachdecker', 'Zimmerer'], 'Essen'), maler = k('firma', ['Maler'], 'Bochum'), amt = k('behoerde', [], 'Essen');
+  let b = f.umschalten(f.LEER, 'gewerk', 'Dachdecker');
+  b = f.umschalten(b, 'gewerk', 'maler');   // Groß/klein egal
+  assert.deepEqual([dach, maler, amt].map((x) => f.erfuellt(b, x)), [true, true, false], 'innerhalb ODER');
+  b = f.umschalten(b, 'ort', 'Essen');
+  assert.deepEqual([dach, maler, amt].map((x) => f.erfuellt(b, x)), [true, false, false], 'zwischen UND');
+  b = f.zwischenWechseln(b, 0);
+  assert.deepEqual([dach, maler, amt].map((x) => f.erfuellt(b, x)), [true, true, true], 'zwischen ODER');
+  b = f.nichtWechseln(f.zwischenWechseln(b, 0), 1, 0);   // NICHT Essen
+  assert.deepEqual([dach, maler, amt].map((x) => f.erfuellt(b, x)), [false, true, false], 'NICHT');
+  assert.equal(f.satz(b, (a) => ({ gewerk: 'Gewerk', ort: 'Ort' })[a]!), 'Gewerk: (Dachdecker ODER maler) UND Ort: NICHT Essen');
+  b = f.opWechseln(b, 0);
+  assert.ok(!f.erfuellt(b, dach) && !f.erfuellt(b, maler), 'innerhalb UND');
+  b = f.umschalten(b, 'gewerk', 'Dachdecker');   // zweiter Klick nimmt heraus
+  assert.deepEqual(f.werteIn(b, 'gewerk'), ['maler']);
+  b = f.wertWeg(b, 0, 0);
+  assert.equal(b.gruppen.length, 1); assert.equal(b.gruppen[0]!.art, 'ort'); assert.deepEqual(b.zwischen, []);
+  assert.ok(f.erfuellt(f.LEER, amt), 'ohne Filter passt alles');
+});

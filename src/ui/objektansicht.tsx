@@ -1,10 +1,12 @@
 // Die übliche Ansicht eines Objekts: Sie baut nichts selbst, sondern setzt die fertigen Bausteine
 // in den Rahmen – Baum links, Tabelle in die Mitte, Detailkarte rechts – und verbindet sie.
 import { herunterladen } from './baukasten/herunterladen';
-import { Show, createEffect, createMemo, createSignal, untrack, type JSX } from 'solid-js';
+import { Show, createEffect, createMemo, createSignal, on, untrack, type JSX } from 'solid-js';
 import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
-import { leerwert, type ObjektModell, type Werte } from '../kern/modell';
+import { leerwert, type Feld, type ObjektModell, type Werte } from '../kern/modell';
+import { LEER, artWeg, erfuellt, hat, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
+import { Filterkaesten, Filtersuche, type FilterArt } from './baukasten/filterkaesten';
 import type { Zeile } from '../kern/befehl';
 import { geaendert, lebende, objektname, sicht } from './unterbau/abgleich';
 import { projektId } from './projekt';
@@ -27,6 +29,7 @@ const TRENNER = '\u0001';
 export function ObjektAnsicht(p: {
   schluessel: string; modell: ObjektModell; baum?: string[]; anpassung?: Anpassung;
   linksFilter?: LinksFilter[];   // links Filter in Abschnitten statt des Baums
+  suchArten?: { titel: string; felder: string[] }[];   // weitere Arten der Filterbedingung, nur über das Suchfeld
   fest?: () => Werte;            // Zusammenhang: nur Einträge mit diesen Werten (Projekt, Version); neue bekommen sie
   unterMenue?: JSX.Element;      // z. B. die Versionsleiste
 }) {
@@ -37,7 +40,7 @@ export function ObjektAnsicht(p: {
   const [filter, setFilter] = createSignal<Record<string, string>>({});   // Filterzeile der Tabelle: Text je Spalte
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
-  const [linksWahl, setLinksWahl] = createSignal('');   // gewählter Filter links: „feld=wert“ ('' = alle)
+  const [bed, setBed] = createSignal<Bedingung>(LEER);   // Filterbedingung (links und Vorschläge im Suchfeld): UND, ODER, NICHT
   const [neu, setNeu] = createSignal<Werte | null>(null);
   const [mitteKnoepfe, setMitteKnoepfe] = createSignal<Knopf[]>([]);   // Befehle einer eigenen Mitte
   const [reihe, setReihe] = createSignal<string[] | null>(null);   // Reihenfolge, die Tabelle oder eigene Mitte (Balkenplan) gerade zeigen
@@ -71,40 +74,84 @@ export function ObjektAnsicht(p: {
     };
     return [{ id: '', titel: `Alle ${m.titelMehrzahl}`, anzahl: lebend().length, kinder: ebene(lebend(), 0, '') }];
   });
-  // Filter links in Abschnitten: je Wert die Anzahl der Einträge
-  // Beteiligte des gewählten Projekts: die Einträge, auf die dort ein anderes Objekt verweist
-  const beteiligte = (b: NonNullable<LinksFilter['beteiligt']>) => {
-    const pid = projektId();
-    return new Set(pid ? lebende(b.objekt).filter((x) => x.werte.projekt === pid).map((x) => String(x.werte[b.feld] ?? '')) : []);
+  // ---------- Filterbedingung: Arten aus den Abschnitten links und den Arten des Suchfelds ----------
+  // Werte eines Felds als Liste: Auswahl wie gespeichert, Text und Stichwörter einzeln („Dachdecker, Zimmerer“ → zwei)
+  const liste = (f: Feld, w: Werte[string] | undefined): string[] => {
+    if (w === null || w === undefined || w === '') return [];
+    if (f.art === 'auswahl' || f.art === 'ja_nein' || f.art === 'verweis') return [String(w)];
+    return anzeige(f, w).split(/\s*[,;]\s*/).map((x) => x.trim()).filter(Boolean);
   };
+  const feld = (name: string) => m.felder.find((x) => x.name === name)!;
+  // „nur“: nur Einträge mit diesen Werten zählen; „eigen“ steht für die eigenen Werte einer Auswahl
+  const nurPasst = (lf: LinksFilter, w: Werte) => Object.entries(lf.nur ?? {}).every(([k, ws]) => {
+    const v = String(w[k] ?? ''), f = feld(k);
+    return ws.includes(v) || (ws.includes('eigen') && !!f.eigeneWerte && v !== '' && !f.optionen!.some((o) => o.wert === v));
+  });
+  // Beteiligte: je Eintrag die Projekte, in denen ein anderes Objekt auf ihn verweist (z. B. Kontakt → Projekt)
+  const bet = p.linksFilter?.find((lf) => lf.beteiligt)?.beteiligt;
+  const projekteVon = createMemo(() => {
+    const k = new Map<string, string[]>();
+    if (bet) { geaendert(bet.objekt); for (const x of lebende(bet.objekt)) { const id = String(x.werte[bet.feld] ?? ''), pr = String(x.werte.projekt ?? ''); if (id && pr) (k.get(id) ?? k.set(id, []).get(id)!).push(pr); } }
+    return k;
+  });
+  const projektName = (id: string) => String(sicht.projekt?.[id]?.werte.name ?? '(Projekt nicht sichtbar)');
+  const werteVon = (id: string) => roh(sicht[m.name]![id]!).werte;
+  const arten = createMemo((): FilterArt[] => [
+    ...(p.linksFilter ?? []).map((lf, nr): FilterArt => {
+      if (lf.beteiligt) return { key: `l${nr}`, titel: lf.art ?? lf.titel, werte: (id) => projekteVon().get(id) ?? [], wertTitel: projektName };
+      const f = feld(lf.feld!);
+      return { key: `l${nr}`, titel: lf.art ?? lf.titel, werte: (id) => { const w = werteVon(id); return nurPasst(lf, w) ? liste(f, w[lf.feld!]) : []; }, wertTitel: f.art === 'auswahl' ? (w) => anzeige(f, w) || w : undefined };
+    }),
+    ...(p.suchArten ?? []).map((sa, i): FilterArt => ({ key: `s${i}`, titel: sa.titel, werte: (id) => { const w = werteVon(id); return sa.felder.flatMap((n) => liste(feld(n), w[n])); } })),
+  ]);
+  const art = (key: string) => arten().find((a) => a.key === key)!;
+  const nimm = (key: string, w: string, nicht = false) => setBed(umschalten(bed(), key, w, nicht));
+  // Start wie im bisherigen Bauportal: mit den Beteiligten des gewählten Projekts – außer die Person will es ohne
+  const betNr = (p.linksFilter ?? []).findIndex((lf) => lf.beteiligt), betKey = `l${betNr}`;
+  const OHNE = `bp.ohneProjekt.${p.schluessel}`;
+  const [ohneProjekt, setOhneProjekt] = createSignal((() => { try { return localStorage.getItem(OHNE) === 'ja'; } catch { return false; } })());
+  const ohneMerken = (an: boolean) => { setOhneProjekt(an); try { localStorage.setItem(OHNE, an ? 'ja' : 'nein'); } catch { /* gilt dann bis zum Neuladen */ } };
+  if (betNr >= 0) createEffect(on(projektId, (pid, alt) => untrack(() => {
+    const drin = werteIn(bed(), betKey);
+    const ohne = artWeg(bed(), betKey);
+    const hatBeteiligte = !!pid && [...projekteVon().values()].some((l) => l.includes(pid));
+    if (alt === undefined) { if (pid && hatBeteiligte && !ohneProjekt()) setBed(umschalten(ohne, betKey, pid)); return; }
+    if (drin.length === 1 && drin[0] === alt) setBed(pid && hatBeteiligte ? umschalten(ohne, betKey, pid) : ohne);   // Projekt gewechselt: der Filter zieht mit
+  })));
+  // Abschnitte links: je Wert die Anzahl; gewählt ist, was in der Bedingung steht
   const linksAbschnitte = createMemo((): SeitenAbschnitt[] => (p.linksFilter ?? []).flatMap((lf, nr): SeitenAbschnitt[] => {
-    if (lf.beteiligt) {
-      const pr = projektId() ? sicht.projekt?.[projektId()!] : undefined;
-      if (!pr || pr.geloescht) return [];
-      const ids = beteiligte(lf.beteiligt);
-      return [{ titel: lf.titel, eintraege: [{ id: `${nr}:`, titel: `${lf.beteiligt.titel} ${String(pr.werte.name ?? '')}`, anzahl: lebend().filter((z) => ids.has(z.id)).length, zeichen: 'projekte' }] }];
-    }
-    const f = m.felder.find((x) => x.name === lf.feld)!;
-    const passt = (z: Zeile) => Object.entries(lf.nur ?? {}).every(([k, ws]) => ws.includes(String(roh(z).werte[k] ?? '')));
+    const key = `l${nr}`, a = art(key);
     const zahl = new Map<string, number>();
-    for (const z of lebend()) if (passt(z)) { const w = String(roh(z).werte[lf.feld!] ?? ''); zahl.set(w, (zahl.get(w) ?? 0) + 1); }
+    for (const z of lebend()) for (const w of new Set(a.werte(z.id))) zahl.set(w, (zahl.get(w) ?? 0) + 1);
+    if (lf.beteiligt) {
+      const pid = projektId() && sicht.projekt?.[projektId()!] && !sicht.projekt[projektId()!]!.geloescht ? projektId()! : '';
+      const andere = [...zahl.keys()].filter((x) => x !== pid).sort((x, y) => vergleich.compare(projektName(x), projektName(y)));
+      return [{ titel: lf.titel, suche: lf.suche && andere.length > 6, eintraege: [
+        ...(pid ? [{ id: `${nr}:${pid}`, titel: `${lf.beteiligt.titel} ${projektName(pid)}`, anzahl: zahl.get(pid) ?? 0, zeichen: 'projekte',
+          nach: <label class="seitenliste-schalter"><input type="checkbox" checked={ohneProjekt()} onChange={(e) => ohneMerken(e.currentTarget.checked)} /> immer ohne Projekt beginnen</label> }] : []),
+        ...andere.map((x) => ({ id: `${nr}:${x}`, titel: projektName(x), anzahl: zahl.get(x) ?? 0, zeichen: 'projekte' })),
+      ] }];
+    }
+    const f = feld(lf.feld!);
     const eigene = f.eigeneWerte ? [...zahl.keys()].filter((w) => w && !f.optionen!.some((o) => o.wert === w)).sort((x, y) => vergleich.compare(x, y)) : [];
-    const werte = f.art === 'auswahl' ? [...f.optionen!.map((o) => o.wert).filter((w) => w !== ''), ...eigene] : [...zahl.keys()].filter((w) => w !== '').sort((x, y) => vergleich.compare(x, y));
+    const werte = f.art === 'auswahl' ? [...f.optionen!.map((o) => o.wert).filter((w) => w !== ''), ...eigene] : [...zahl.keys()].sort((x, y) => vergleich.compare(x, y));
     return [{ titel: lf.titel, suche: lf.suche, eintraege: [
-      ...(lf.alle !== undefined ? [{ id: '', titel: lf.alle, anzahl: lebend().length, zeichen: 'personen' }] : []),
+      ...(lf.alle !== undefined ? [{ id: `${nr}:*`, titel: lf.alle, anzahl: lebend().length, zeichen: 'personen' }] : []),
       ...werte.map((w) => ({ id: `${nr}:${w}`, titel: lf.mehrzahl?.[w] ?? (anzeige(f, w) || w), anzahl: zahl.get(w) ?? 0, zeichen: lf.zeichen?.[w] ?? (f.art === 'auswahl' ? undefined : 'liste') })),
     ] }];
   }));
+  const linksTeile = (id: string) => { const k = id.indexOf(':'); return { key: `l${id.slice(0, k)}`, w: id.slice(k + 1) }; };
+  const linksAn = (id: string) => { const { key, w } = linksTeile(id); return w === '*' ? !bed().gruppen.some((g) => g.art === key) : werteIn(bed(), key).includes(w); };
+  const linksNicht = (id: string) => { const { key, w } = linksTeile(id); return w !== '*' && hat(bed(), key, w) && !werteIn(bed(), key).includes(w); };
+  const linksWahl = (id: string) => { const { key, w } = linksTeile(id); if (w === '*') setBed(artWeg(bed(), key)); else nimm(key, w); };
   const zeilen = createMemo(() => {
     let l = lebend();
-    if (linksWahl()) {   // „Abschnitt:Wert“
-      const k = linksWahl().indexOf(':'), lf = p.linksFilter![Number(linksWahl().slice(0, k))]!, wert = linksWahl().slice(k + 1);
-      const ids = lf.beteiligt ? beteiligte(lf.beteiligt) : undefined;
-      l = ids ? l.filter((z) => ids.has(z.id)) : l.filter((z) => String(roh(z).werte[lf.feld!] ?? '') === wert && Object.entries(lf.nur ?? {}).every(([f, ws]) => ws.includes(String(roh(z).werte[f] ?? ''))));
-    }
+    const b = bed();
+    if (b.gruppen.length) { const a = new Map(arten().map((x) => [x.key, x])); l = l.filter((z) => erfuellt(b, (k) => a.get(k)?.werte(z.id) ?? [])); }
     if (ast()) { const soll = ast().slice(2); const tiefe = soll.split(TRENNER).length; l = l.filter((z) => pfad(z, tiefe) === soll); }
     const worte = suche().toLowerCase().split(/\s+/).filter(Boolean);
-    if (worte.length) l = l.filter((z) => { const t = suchtext(z).toLowerCase(); return worte.every((w) => t.includes(w)); });
+    // „-wort“ schließt aus (wie im bisherigen Bauportal)
+    if (worte.length) l = l.filter((z) => { const t = suchtext(z).toLowerCase(); return worte.every((w) => (w.startsWith('-') && w.length > 1 ? !t.includes(w.slice(1)) : t.includes(w))); });
     for (const [name, text] of Object.entries(filter())) {
       const f = m.felder.find((x) => x.name === name), t = text.trim().toLowerCase();
       if (f && t) l = l.filter((z) => anzeige(f, roh(z).werte[name]).toLowerCase().includes(t));
@@ -153,14 +200,18 @@ export function ObjektAnsicht(p: {
             { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: () => herunterladen(tabelle.alsCsv(), `${m.titelMehrzahl} ${new Date().toLocaleDateString('sv')}.csv`, 'text/csv;charset=utf-8') }]),
         ]}
         menueMitte={<>
-          <input ref={suchfeld} class="suche" type="search" placeholder={`${m.titelMehrzahl} durchsuchen`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)}
-            onKeyDown={(e) => { if ((e.key === 'ArrowDown' || e.key === 'Enter') && tabelle && !kacheln()) { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />
+          <Show when={arten().length} fallback={
+            <input ref={suchfeld} class="suche" type="search" placeholder={`${m.titelMehrzahl} durchsuchen`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)}
+              onKeyDown={(e) => { if ((e.key === 'ArrowDown' || e.key === 'Enter') && tabelle && !kacheln()) { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />}>
+            <Filtersuche ref={(el) => (suchfeld = el)} text={suche()} onText={setSuche} arten={arten()} ids={() => lebend().map((z) => z.id)} onNehmen={nimm} platzhalter={`${m.titelMehrzahl} durchsuchen und filtern`}
+              onWeiter={() => { if (tabelle && !kacheln()) { tabelle.fokus(); tabelle.ersteWaehlen(); } }} />
+          </Show>
           <span class="zaehler">{zeilen().length === lebend().length ? `${lebend().length} ${lebend().length === 1 ? m.titel : m.titelMehrzahl}` : `${zeilen().length} von ${lebend().length}`}</span>
         </>}
         unterMenue={<>{p.unterMenue}{a.oben?.(fest())}
           <Show when={!a.mitte && !kacheln() && darf(m.name, 'schreiben')}><p class="ansicht-hinweis nur-breit">Zelle anklicken und tippen – gespeichert wird beim Verlassen des Feldes · Doppelklick: im eigenen Fenster öffnen</p></Show></>}
         baumTitel={a.linksTitel ?? 'Gliederung'}
-        baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksWahl()} onWahl={(id) => setLinksWahl(id === linksWahl() ? '' : id)} /> : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
+        baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></> : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
         inhalt={a.mitte ? a.mitte(mitteP) : a.leer && !lebend().length ? a.leer(fest(), () => neuStart()) : kacheln() && a.kachel ?
           <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}

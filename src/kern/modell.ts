@@ -14,6 +14,7 @@ export interface Feld {
   optionen?: { wert: string; titel: string }[];   // bei art = auswahl (eine) und mehrfach (mehrere, gespeichert als „a,b“ in der Reihenfolge der Optionen)
   wenn?: Record<string, string[]>;   // Feld gilt nur, wenn ein anderes Feld (auswahl, mehrfach) einen dieser Werte hat – „eigen“ steht für eigene Werte (s. eigeneWerte)
   eigeneWerte?: boolean;   // bei art = auswahl: außer den Optionen auch eigene Werte (z. B. eigene Kontaktarten) – sie erscheinen danach in der Auswahl
+  vorschlagen?: boolean;   // bei Text: beim Tippen schlägt das Feld vor, was an anderen Einträgen schon steht (bei Listen „a, b“ je Teil)
   gruppe?: string;         // Abschnitt in der Detailkarte
   inListe?: boolean;       // Spalte in der Tabelle
   breite?: number;         // Spaltenbreite in px

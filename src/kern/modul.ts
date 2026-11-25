@@ -49,14 +49,18 @@ export interface Ansicht {
   zeichen?: string;           // Name des Symbols (Baustein „Zeichen“ der Oberfläche)
   /** Links statt des Baums: Filter in Abschnitten (wie im bisherigen Bauportal, z. B. Kontakte nach Art, Gewerke, Ämter). */
   linksFilter?: LinksFilter[];
+  /** Weitere Arten für die Filterbedingung, die nur über das Suchfeld kommen (Vorschläge nach Art), z. B. Ort, Funktion, Tag. */
+  suchArten?: { titel: string; felder: string[] }[];
   nachschlag?: string;        // statt eines Objekts: einen großen Katalog seitenweise durchsuchen (Baustein Nachschlagen)
 }
 
 export interface LinksFilter {
   feld?: string;                         // nach diesem Feld (je Wert ein Eintrag) …
-  /** … oder: die Einträge, auf die im gewählten Projekt ein anderes Objekt verweist (z. B. Kontakte → „Beteiligte <Projekt>“). */
+  /** … oder: die Einträge, auf die in einem Projekt ein anderes Objekt verweist (z. B. Kontakte → „Beteiligte <Projekt>“);
+   *  der Abschnitt zeigt das gewählte Projekt zuerst, darunter alle Projekte mit ihrer Anzahl. */
   beteiligt?: { objekt: string; feld: string; titel: string };
   titel: string;                         // Überschrift des Abschnitts
+  art?: string;                          // Name der Art in der Filterbedingung (z. B. „Gewerk“ unter „Gewerke“) – sonst der Titel
   alle?: string;                         // erster Eintrag ohne Filter (z. B. „Alle“)
   suche?: boolean;                       // eigenes Suchfeld im Abschnitt
   nur?: Record<string, string[]>;        // nur Einträge mit diesen Werten zählen (z. B. Ämter: nur Behörden)
@@ -90,6 +94,12 @@ export class Modulregister {
       if (k.nachschlag && !this.nachschlaege.has(k.nachschlag)) throw new Error(`Katalog „${k.id}“: Nachschlag „${k.nachschlag}“ fehlt`);
     }
     for (const z of module) for (const a of z.ansichten) if (a.nachschlag && !this.nachschlaege.has(a.nachschlag)) throw new Error(`Ansicht „${a.id}“: Nachschlag „${a.nachschlag}“ fehlt`);
+    // Filter links und Arten im Suchfeld: die Felder muss es am Objekt geben
+    for (const z of module) for (const a of z.ansichten) {
+      const m = a.objekt ? this.modelle.get(a.objekt) : undefined;
+      const felder = [...(a.linksFilter ?? []).flatMap((l) => (l.feld ? [l.feld] : [])), ...(a.suchArten ?? []).flatMap((x) => x.felder)];
+      for (const f of felder) if (!m?.felder.some((x) => x.name === f)) throw new Error(`Ansicht „${a.id}“: Feld „${f}“ für den Filter fehlt`);
+    }
     for (const z of module) for (const b of z.braucht) {
       if (!this.zettel.has(b)) throw new Error(`Modul „${z.id}“ braucht „${b}“, das fehlt`);
     }

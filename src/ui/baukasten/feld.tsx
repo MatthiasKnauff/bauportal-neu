@@ -1,6 +1,6 @@
 // Baustein „Feld“: ein Eingabefeld, erzeugt aus der Feldbeschreibung im Datenmodell.
 import { Schlagworte, vorkommen } from './schlagworte';
-import { For, Match, Show, Switch, createSignal, createUniqueId } from 'solid-js';
+import { For, Match, Show, Switch, createMemo, createSignal, createUniqueId } from 'solid-js';
 import type { Feld, Wert, Werte } from '../../kern/modell';
 import { HERKUNFT } from '../../kern/befehl';
 import { feldtext } from '../../kern/druck';
@@ -35,6 +35,62 @@ function EigeneAuswahl(p: { id: string; feld: Feld; wert: string; objekt?: strin
   );
 }
 
+// Text mit Wortvervollständigung (Feld „vorschlagen“): beim Tippen die Werte, die an anderen Einträgen schon stehen –
+// die häufigsten zuerst, passende Anfänge vorn; bei Listen („Dachdecker, Zimmerer“) für den Teil nach dem letzten Komma.
+// Gesammelt wird erst, wenn das Feld den Fokus hat (sonst kostet jede Karte Zeit).
+const TRENN = /\s*[,;]\s*/;
+function TextVorschlag(p: { id: string; feld: Feld; wert: string; objekt: string; gesperrt?: boolean; sofort?: boolean; onWert: (w: Wert) => void }) {
+  const [text, setText] = createSignal(p.wert);
+  const [offen, setOffen] = createSignal(false);
+  const [markiert, setMarkiert] = createSignal(-1);
+  let feld!: HTMLInputElement;
+  const alle = () => gemerkt(p.objekt, `vorschlag:${p.feld.name}`, () => {
+    const z = new Map<string, { wort: string; anzahl: number }>();
+    for (const r of lebende(p.objekt)) for (const w of new Set(String(r.werte[p.feld.name] ?? '').split(TRENN).map((x) => x.trim()).filter(Boolean))) {
+      const k = w.toLocaleLowerCase('de'), e = z.get(k); if (e) e.anzahl++; else z.set(k, { wort: w, anzahl: 1 });
+    }
+    return [...z.values()].sort((a, b) => b.anzahl - a.anzahl || a.wort.localeCompare(b.wort, 'de'));
+  });
+  const teile = () => text().split(TRENN);
+  const vorschlaege = createMemo(() => {
+    if (!offen()) return [];
+    const t = teile(), q = (t[t.length - 1] ?? '').trim().toLocaleLowerCase('de'), schon = new Set(t.slice(0, -1).map((x) => x.trim().toLocaleLowerCase('de')));
+    return alle().filter((x) => { const k = x.wort.toLocaleLowerCase('de'); return k !== q && !schon.has(k) && k.includes(q); })
+      .sort((a, b) => Number(!a.wort.toLocaleLowerCase('de').startsWith(q)) - Number(!b.wort.toLocaleLowerCase('de').startsWith(q))).slice(0, 8);
+  });
+  const nehmen = (w: string) => {
+    const t = text(), k = Math.max(t.lastIndexOf(','), t.lastIndexOf(';'));
+    const neu = (k >= 0 ? t.slice(0, k + 1) + ' ' : '') + w;
+    setText(neu); feld.value = neu; setOffen(false); setMarkiert(-1);
+    if (neu !== p.wert) p.onWert(neu);
+  };
+  return (
+    <div class="filterfeld textvorschlag">
+      <input ref={feld} id={p.id} type="text" value={p.wert} autocomplete="off" readOnly={p.gesperrt} role="combobox" aria-expanded={offen() && vorschlaege().length > 0}
+        onFocus={(e) => { setText(e.currentTarget.value); if (!p.gesperrt) setOffen(true); }} onBlur={() => setTimeout(() => setOffen(false), 150)}
+        onInput={(e) => { setText(e.currentTarget.value); setOffen(true); setMarkiert(-1); if (p.sofort) p.onWert(e.currentTarget.value); }}
+        onChange={(e) => { if (!p.sofort && e.currentTarget.value !== p.wert) p.onWert(e.currentTarget.value); }}
+        onKeyDown={(e) => {
+          const l = vorschlaege();
+          if (e.key === 'ArrowDown' && l.length) { e.preventDefault(); setMarkiert(Math.min(l.length - 1, markiert() + 1)); }
+          else if (e.key === 'ArrowUp' && markiert() >= 0) { e.preventDefault(); setMarkiert(markiert() - 1); }
+          else if (e.key === 'Enter' && markiert() >= 0 && l[markiert()]) { e.preventDefault(); nehmen(l[markiert()]!.wort); }
+          else if (e.key === 'Enter') e.currentTarget.blur();
+          else if (e.key === 'Escape' && offen() && l.length) { e.preventDefault(); e.stopPropagation(); setOffen(false); }
+        }} />
+      <Show when={offen() && vorschlaege().length > 0}>
+        <ul class="filter-vorschlaege" role="listbox" aria-label={`Vorschläge für ${p.feld.titel}`}>
+          <For each={vorschlaege()}>{(x, i) => (
+            <li role="option" aria-selected={markiert() === i()} classList={{ markiert: markiert() === i() }} onMouseDown={(e) => { e.preventDefault(); nehmen(x.wort); }}>
+              <span>{x.wort}</span><span class="anzahl">{x.anzahl}</span>
+            </li>
+          )}</For>
+        </ul>
+      </Show>
+    </div>
+  );
+}
+
 export function FeldEingabe(p: {
   feld: Feld; wert: Wert; fehler?: string; onWert: (w: Wert, herkunft?: string) => void; sofort?: boolean; gesperrt?: boolean;
   herkunft?: string;     // woher der Wert stammt, wenn nicht von Hand
@@ -62,6 +118,9 @@ export function FeldEingabe(p: {
         <input id={id} type={typ()} inputMode={p.feld.art === 'zahl' ? 'decimal' : undefined} value={text()} autocomplete="off" readOnly={p.gesperrt}
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />
       }>
+        <Match when={p.feld.art === 'text' && p.feld.vorschlagen && p.objekt}>
+          <TextVorschlag id={id} feld={p.feld} wert={text()} objekt={p.objekt!} gesperrt={p.gesperrt} sofort={p.sofort} onWert={p.onWert} />
+        </Match>
         <Match when={p.feld.art === 'langtext'}>
           <textarea id={id} rows={5} value={text()} readOnly={p.gesperrt} {...ereignis()} />
         </Match>

@@ -34,7 +34,7 @@ function Gruppe(p: { titel: string; children: JSX.Element; class?: string }) {
   return <div class={`band-gruppe ${p.class ?? ''}`} role="group" aria-label={p.titel || undefined}><div class="band-inhalt">{p.children}</div><Show when={p.titel}><div class="band-titel">{p.titel}</div></Show></div>;
 }
 
-export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[]; aktiv?: string; onReiter?: (id: string) => void; knoepfe?: Knopf[]; children?: JSX.Element }) {
+export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[]; aktiv?: string; onReiter?: (id: string) => void; knoepfe?: Knopf[]; children?: JSX.Element; ende?: JSX.Element }) {   // ende: ganz rechts (Heftzwecke)
   const links = () => (p.knoepfe ?? []).filter((k) => !k.rechts), rechts = () => (p.knoepfe ?? []).filter((k) => k.rechts);
   // Reicht der Platz nicht: erst nur Symbole (Text bleibt als Hinweis), dann eine zweite Zeile – nie waagerecht rollen.
   // Gemerkt wird, wie breit die Leiste in der größeren Form war; erst wenn wieder so viel Platz ist, kehrt sie zurück.
@@ -63,6 +63,7 @@ export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[];
           <For each={p.reiter}>{(r) => <button role="tab" aria-selected={p.aktiv === r.id} classList={{ aktiv: p.aktiv === r.id }} onClick={() => p.onReiter?.(r.id)}>{r.titel}</button>}</For>
         </div>
       </Show>
+      {p.ende}
     </div>
   );
 }
