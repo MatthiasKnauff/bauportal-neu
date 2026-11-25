@@ -109,3 +109,27 @@ export function satzFuer(design: Design | null, dunkel: boolean, rund?: number |
   }
   return s;
 }
+
+// ---------- Schrift und Stil je Person (wie im bisherigen Bauportal unter „Darstellung“, gebündelt) ----------
+/** Schriften zur Wahl – '' = wie das Design. */
+export const SCHRIFTWAHL: [string, string, string][] = [
+  ['', 'wie das Design', ''], ['system', 'Systemschrift', 'system-ui, "Segoe UI", -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif'],
+  ['arial', 'Arial', 'Arial, Helvetica, sans-serif'], ['verdana', 'Verdana', 'Verdana, Geneva, sans-serif'],
+  ['calibri', 'Calibri', 'Calibri, Carlito, "Segoe UI", system-ui, sans-serif'], ['georgia', 'Georgia', 'Georgia, "Times New Roman", serif'],
+];
+/** Schriftgröße: Maßstab der ganzen Oberfläche. */
+export const GROESSEN: [string, string, number][] = [['klein', 'klein', 0.92], ['', 'normal', 1], ['gross', 'groß', 1.1]];
+/** Feinheiten des Stils (Feld der Design-Wahl → Werte); '' = Vorgabe. */
+export const STIL: { feld: string; titel: string; werte: [string, string][] }[] = [
+  { feld: 'schatten', titel: 'Schatten', werte: [['', 'an'], ['aus', 'aus']] },
+  { feld: 'scrollbalken', titel: 'Rollbalken', werte: [['', 'wie das Gerät'], ['faden', 'Faden'], ['pille', 'Pille']] },
+  { feld: 'bewegung', titel: 'Bewegung', werte: [['', 'an'], ['aus', 'aus – für langsame Rechner']] },
+];
+/** Fertige Zusammenstellungen: Rundung und Stil – Farben und Schrift bleiben, wie gewählt. */
+export const STIL_PAKETE: { titel: string; rund: number | null; stil: Record<string, string> }[] = [
+  { titel: 'Standard', rund: null, stil: {} },
+  { titel: 'Ruhig', rund: 0.5, stil: { schatten: 'aus', scrollbalken: 'faden' } },
+  { titel: 'Technisch', rund: 0, stil: { scrollbalken: 'faden' } },
+  { titel: 'Kacheln', rund: 1.5, stil: { scrollbalken: 'pille' } },
+  { titel: 'Schnell', rund: 0.5, stil: { schatten: 'aus', scrollbalken: 'faden', bewegung: 'aus' } },
+];

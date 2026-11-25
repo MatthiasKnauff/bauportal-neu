@@ -1,7 +1,7 @@
 // Wendet das Design des angemeldeten Benutzers an: Standard, darüber das gewählte Design (hell/dunkel/wie das Gerät),
 // darüber eigene Rundung und Akzentfarbe. Schriften kommen vom eigenen Server (/api/schriften.css).
 import { createEffect, createSignal, onCleanup } from 'solid-js';
-import { helligkeit, satzFuer, VARIABLEN, type Design } from '../../kern/design';
+import { GROESSEN, SCHRIFTWAHL, STIL, helligkeit, satzFuer, VARIABLEN, type Design } from '../../kern/design';
 import { sicht } from './abgleich';
 import { ich } from './api';
 import type { Zeile } from '../../kern/befehl';
@@ -31,6 +31,7 @@ export function designBeobachten() {
     const dunkel = modus === 'dunkel' || (modus === 'system' && dunkelGeraet());
     const d = w?.werte.design ? designAus(sicht.design?.[String(w.werte.design)]) : null;
     anwenden(satzFuer(d, dunkel, w?.werte.rund === null || w?.werte.rund === undefined ? null : Number(w.werte.rund), w?.werte.akzent ? String(w.werte.akzent) : null), dunkel);
+    schriftUndStil(w?.werte ?? {});
   });
   createEffect(() => {
     const n = schriftStand();
@@ -38,4 +39,12 @@ export function designBeobachten() {
     if (!l) { l = document.createElement('link'); l.id = 'bp-schriften'; l.rel = 'stylesheet'; document.head.appendChild(l); }
     l.href = `/api/schriften.css?${n}`;
   });
+}
+
+/** Schrift, Schriftgröße und Stil der Person: Schrift über --schrift, Größe als Maßstab der Oberfläche, Stil als data-Attribute am <html> (Regeln in stil.css). */
+export function schriftUndStil(w: Record<string, unknown>, ziel: HTMLElement = document.documentElement) {
+  const s = SCHRIFTWAHL.find(([k]) => k && k === w.schrift);
+  if (s) ziel.style.setProperty('--schrift', s[2]);
+  ziel.style.zoom = String(GROESSEN.find(([k]) => k === (w.groesse ?? ''))?.[2] ?? 1);
+  for (const x of STIL) { const v = String(w[x.feld] ?? ''); if (v) ziel.dataset[x.feld] = v; else delete ziel.dataset[x.feld]; }
 }

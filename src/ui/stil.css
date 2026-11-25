@@ -873,3 +873,17 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .wahl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .wahl-chips button { border: 1px solid var(--rand-stark); background: var(--flaeche); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit; }
 .wahl-chips button.aktiv { border-color: var(--akzent); background: var(--akzent-hell); font-weight: 600; }
+/* Darstellung direkt auf der Seite: Abschnitte Farben, Schrift, Stil – je Zeile Bezeichnung links, Wahl rechts */
+.darstellung { max-width: 980px; } .darstellung h3 { margin: 18px 0 4px; font-size: 15px; border-bottom: 1px solid var(--rand); padding-bottom: 4px; }
+.darstellung-reihe { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; align-items: center; }
+@media (max-width: 860px) { .darstellung-reihe { grid-template-columns: 1fr; gap: 4px; } }
+.design-raster.offen { max-height: none; overflow: visible; }
+/* Stil je Person (Verwaltung → Darstellung) */
+html[data-schatten="aus"] { --schatten: none !important; }
+html[data-schatten="aus"] * { box-shadow: none !important; }
+html[data-bewegung="aus"] *, html[data-bewegung="aus"] *::before, html[data-bewegung="aus"] *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+html[data-scrollbalken="faden"] * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-still) 45%, transparent) transparent; }
+html[data-scrollbalken="pille"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+html[data-scrollbalken="pille"] ::-webkit-scrollbar-track { background: transparent; }
+html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-still) 40%, transparent); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-color: var(--akzent); }

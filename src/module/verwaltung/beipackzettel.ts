@@ -168,6 +168,12 @@ export const designWahl: ObjektModell = {
     { name: 'modus', titel: 'Hell oder dunkel', art: 'auswahl', optionen: [{ wert: 'system', titel: 'Wie das Gerät' }, { wert: 'hell', titel: 'Hell' }, { wert: 'dunkel', titel: 'Dunkel' }] },
     { name: 'rund', titel: 'Rundung der Ecken', art: 'zahl' },   // leer = wie das Design
     { name: 'akzent', titel: 'Akzentfarbe', art: 'text' },   // leer = wie das Design, sonst #rrggbb
+    // Schrift und Stil wie im bisherigen Bauportal (Werte: kern/design SCHRIFTWAHL, GROESSEN, STIL) – leer = Vorgabe
+    { name: 'schrift', titel: 'Schrift', art: 'auswahl', optionen: [{ wert: '', titel: 'wie das Design' }, { wert: 'system', titel: 'Systemschrift' }, { wert: 'arial', titel: 'Arial' }, { wert: 'verdana', titel: 'Verdana' }, { wert: 'calibri', titel: 'Calibri' }, { wert: 'georgia', titel: 'Georgia' }] },
+    { name: 'groesse', titel: 'Schriftgröße', art: 'auswahl', optionen: [{ wert: 'klein', titel: 'klein' }, { wert: '', titel: 'normal' }, { wert: 'gross', titel: 'groß' }] },
+    { name: 'schatten', titel: 'Schatten', art: 'auswahl', optionen: [{ wert: '', titel: 'an' }, { wert: 'aus', titel: 'aus' }] },
+    { name: 'scrollbalken', titel: 'Rollbalken', art: 'auswahl', optionen: [{ wert: '', titel: 'wie das Gerät' }, { wert: 'faden', titel: 'Faden' }, { wert: 'pille', titel: 'Pille' }] },
+    { name: 'bewegung', titel: 'Bewegung', art: 'auswahl', optionen: [{ wert: '', titel: 'an' }, { wert: 'aus', titel: 'aus' }] },
   ],
 };
 

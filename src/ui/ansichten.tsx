@@ -1,7 +1,6 @@
 // Ansichten der Module. Die Ansicht eines Objekts kommt von selbst (ObjektAnsicht: Baum, Tabelle, Detailkarte im Rahmen).
 // Hier steht nur, was ein Modul darüber hinaus zeigt – und was es an den Bausteinen über die Stellschrauben einstellt.
-import { meineWahl } from './unterbau/design';
-import { Designwahl } from './designwahl';
+import { Darstellungsseite } from './designwahl';
 import { GebaeudeAssistent, GebaeudeTeile } from './gebaeudeschritte';
 import { Kostenrahmen } from './kostenrahmen';
 import { KontaktOben, Kontaktwege } from './kontaktwege';
@@ -333,13 +332,7 @@ function MeinKonto() {
   </section>} />;
 }
 function Darstellung() {
-  const [offen, setOffen] = createSignal(false);
-  const name = () => { const w = meineWahl(); const d = w?.werte.design ? sicht.design?.[String(w.werte.design)] : undefined; return `${d ? String(d.werte.name) : 'Standard'} · ${({ hell: 'hell', dunkel: 'dunkel', system: 'wie das Gerät' } as Record<string, string>)[String(w?.werte.modus ?? 'hell')]}`; };
-  return <Rahmen schluessel="verwaltung.darstellung" inhalt={<section class="blatt schmal">
-    <h2>Darstellung</h2><p class="still-text">Gerade: {name()}</p>
-    <div><button class="knopf haupt" onClick={() => setOffen(true)}>Design wählen …</button></div>
-    <Show when={offen()}><Designwahl onZu={() => setOffen(false)} /></Show>
-  </section>} />;
+  return <Rahmen schluessel="verwaltung.darstellung" inhalt={<Darstellungsseite />} />;
 }
 
 const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht };
