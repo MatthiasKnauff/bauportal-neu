@@ -115,6 +115,8 @@ main { flex: 1; min-height: 0; display: flex; }
   .karte fieldset, .karte details.feldgruppe[open] { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; align-items: end; }
   .karte fieldset > .feld, .karte details.feldgruppe > .feld { grid-column: span var(--karten-breite, 3); }
   .karte fieldset > legend, .karte details.feldgruppe > summary, .karte fieldset > .feld.breit, .karte details.feldgruppe > .feld.breit { grid-column: 1 / -1; }
+  /* alles, was kein Eingabefeld ist (Erklärtext, Listen, Knöpfe), steht über die ganze Breite – sonst fiele es in eine Sechstelspalte */
+  .karte fieldset > :not(.feld), .karte details.feldgruppe > :not(.feld) { grid-column: 1 / -1; }
 }
 .karte legend, .schritt-inhalt legend { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-still); padding: 0; margin-bottom: 8px; }
 .karte-fuss { margin-top: 22px; }
