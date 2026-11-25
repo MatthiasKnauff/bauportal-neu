@@ -983,3 +983,18 @@ test('Eigene Einträge: Projekt-Merker sieht und ändert nur, wem sie gehören',
     assert.equal(await sieht(bau), 1);
   } finally { await weg(); }
 });
+
+test('Design: Theme im shadcn-Format wird übersetzt, Gefährliches bleibt draußen', async () => {
+  const { themeLesen, schriften, satzFuer } = await import('../src/kern/design');
+  const d = themeLesen(`:root { --background: oklch(0.98 0 0); --primary: #e11d48; --radius: 1rem; --font-sans: "Space Grotesk", sans-serif; --card: 0 0% 100%; --muted: url(javascript:alert(1)); }
+    .dark { --background: #111; --primary: #fb7185; }`);
+  assert.equal(d.hell.grund, 'oklch(0.98 0 0)');
+  assert.equal(d.hell.akzent, '#e11d48');
+  assert.equal(d.hell.rund, '2', '1rem = doppelt so rund wie Standard');
+  assert.equal(d.hell.flaeche, 'hsl(0 0% 100%)', 'ältere shadcn-Werte bekommen hsl()');
+  assert.equal(d.hell.still, undefined, 'url(…) wird nicht übernommen');
+  assert.equal(d.dunkel.akzent, '#fb7185');
+  assert.deepEqual(schriften(d), ['Space Grotesk']);
+  assert.equal(satzFuer(d, true, 0).rund, '0', 'eigene Rundung gewinnt');
+  assert.throws(() => themeLesen('nur Text'));
+});

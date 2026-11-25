@@ -1,4 +1,6 @@
 // Das Portal: Einrichtung, Anmeldung, Startseite mit den Kacheln und der Rahmen um jedes Modul (Kopfleiste, Reiter, Rückgängig).
+import { Designwahl } from './designwahl';
+import { designBeobachten } from './unterbau/design';
 import { Projektwahl } from './projektwahl';
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { createStore } from 'solid-js/store';
@@ -183,6 +185,8 @@ function Portal() {
     .map((x) => ({ wert: x.id, titel: [x.werte.nummer, x.werte.name].filter(Boolean).join(' · ') })).sort((x, y) => x.titel.localeCompare(y.titel, 'de', { numeric: true })));
   const schluessel = createMemo(() => (ansicht() ? `${modul()!.modul.id}.${ansicht()!.id}` : undefined));
   const [kennwortFenster, setKennwortFenster] = createSignal(false);
+  const [designFenster, setDesignFenster] = createSignal(false);
+  designBeobachten();
   const [suche, setSuche] = createSignal(false);
   const [hilfe, setHilfe] = createSignal(false);
   const oeffne = (id: string, ansichtId = '') => { setModulId(id); setAnsichtId(ansichtId); };
@@ -225,7 +229,7 @@ function Portal() {
         onSuche={() => setSuche(true)} onHilfe={() => setHilfe(true)}
         apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name }))} onApp={(id) => oeffne(id)}
         benutzer={ich().name} menueFuss={`${z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version ${z().version}`}
-        benutzerMenue={[{ titel: 'Hilfe zu dieser Seite', tun: () => setHilfe(true) }, { titel: 'Kennwort ändern …', tun: () => setKennwortFenster(true) }, { titel: 'Abmelden', tun: abmelden }]} />
+        benutzerMenue={[{ titel: 'Hilfe zu dieser Seite', tun: () => setHilfe(true) }, { titel: 'Kennwort ändern …', tun: () => setKennwortFenster(true) }, { titel: 'Design …', tun: () => setDesignFenster(true) }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
         <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.map((a) => ({ id: a.id, titel: a.titel, abschnitt: a.abschnitt, zeichen: a.zeichen })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId,
@@ -254,6 +258,7 @@ function Portal() {
       </nav>
       <Show when={suche()}><Suche onTreffer={springe} onZu={() => setSuche(false)} /></Show>
       <Show when={hilfe()}><Hilfe modul={modul()?.modul} ansicht={ansicht()} onZu={() => setHilfe(false)} /></Show>
+      <Show when={designFenster()}><Designwahl onZu={() => setDesignFenster(false)} /></Show>
       <Show when={kennwortFenster()}>
         <Dialog titel="Kennwort ändern" onAbbrechen={() => setKennwortFenster(false)} knoepfe={<button class="knopf" onClick={() => setKennwortFenster(false)}>Abbrechen</button>}>
           <Formular knopf="Kennwort ändern" pfad="/api/kennwort" text="Auf anderen Geräten wirst du dabei abgemeldet."

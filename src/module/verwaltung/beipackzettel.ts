@@ -145,13 +145,36 @@ export const pruefrat: ObjektModell = {
   ],
 };
 
+// Designs des Büros (eingefügt im shadcn-Format, übersetzt in kern/design) und die Wahl je Benutzer
+export const design: ObjektModell = {
+  name: 'design', titel: 'Design', titelMehrzahl: 'Designs', anzeigeFeld: 'name',
+  rechte: { lesen: ALLE, schreiben: ALLE, loeschen: ['bueroleitung'] },
+  felder: [
+    { name: 'name', titel: 'Name', art: 'text', pflicht: true, inListe: true, breite: 220 },
+    { name: 'hell', titel: 'Variablen hell (JSON)', art: 'langtext' },
+    { name: 'dunkel', titel: 'Variablen dunkel (JSON)', art: 'langtext' },
+    { name: 'quelle', titel: 'Herkunft', art: 'text', inListe: true, breite: 220 },
+  ],
+};
+
+export const designWahl: ObjektModell = {
+  name: 'design_wahl', titel: 'Design-Wahl', titelMehrzahl: 'Design-Wahlen', anzeigeFeld: 'benutzer', eigenFeld: 'benutzer',
+  rechte: { lesen: ALLE, schreiben: ALLE, loeschen: ALLE },
+  felder: [
+    { name: 'benutzer', titel: 'Benutzer', art: 'verweis', ziel: 'benutzer', pflicht: true },
+    { name: 'design', titel: 'Design', art: 'verweis', ziel: 'design' },   // leer = Standard
+    { name: 'modus', titel: 'Hell oder dunkel', art: 'auswahl', optionen: [{ wert: 'system', titel: 'Wie das Gerät' }, { wert: 'hell', titel: 'Hell' }, { wert: 'dunkel', titel: 'Dunkel' }] },
+    { name: 'rund', titel: 'Rundung der Ecken', art: 'zahl' },   // leer = wie das Design
+  ],
+};
+
 export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
   name: 'Verwaltung',
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',
   braucht: [],
-  objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung, pruefzugang, pruefrat],
+  objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
   ansichten: [
     { id: 'benutzer', titel: 'Benutzer', abschnitt: 'Zugang', zeichen: 'personen', objekt: 'benutzer', baum: ['rolle'] },
     { id: 'rechte', titel: 'Rechte', abschnitt: 'Zugang', zeichen: 'schluessel', nurAdmin: true },

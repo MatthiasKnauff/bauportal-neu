@@ -119,8 +119,8 @@ export function NeuFenster(p: { modell: ObjektModell; start: Werte; verborgen?: 
     }
   };
   return (
-    <Dialog titel={`${p.modell.titel} anlegen`} breit onAbbrechen={() => p.onZu()}
-      knoepfe={<><button class="knopf" onClick={() => p.onZu()}>Abbrechen</button><button class="knopf haupt" onClick={ok}>Anlegen</button></>}>
+    <Dialog titel={`${p.modell.titel} anlegen`} breit onAbbrechen={() => p.onZu()} geaendert={() => p.modell.felder.some((f) => werte[f.name] !== start[f.name])}
+      knoepfe={<><button class="knopf" data-abbrechen onClick={() => p.onZu()}>Abbrechen</button><button class="knopf haupt" onClick={ok}>Anlegen</button></>}>
       <form class="raster" onSubmit={(e) => { e.preventDefault(); ok(); }}>
         <For each={p.modell.felder.filter((f) => (f.art !== 'langtext' || f.name === p.modell.anzeigeFeld) && !f.verborgen && !p.verborgen?.includes(f.name) && gilt(f, werte))}>{(f) => (
           <FeldEingabe feld={f} wert={werte[f.name] ?? null} fehler={fehler[f.name]} sofort objekt={p.modell.name} zusammenhang={werte} onWert={(w) => setWerte(f.name, w)} />
