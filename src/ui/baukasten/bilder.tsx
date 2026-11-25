@@ -5,10 +5,10 @@ import { For, Show, createMemo, createSignal } from 'solid-js';
 import { listenfolge } from '../../kern/druck';
 import type { Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
-import { ausfuehren, rueckgaengig, sicht } from '../abgleich';
-import { darf, modell, ruf } from '../api';
+import { ausfuehren, rueckgaengig, sicht } from '../unterbau/abgleich';
+import { darf, modell, ruf } from '../unterbau/api';
 import { feldAendern } from './detailkarte';
-import { hinweis } from './hinweise';
+import { hinweis } from '../unterbau/meldungen';
 
 const KANTE = 800;   // längste Kante des Vorschaubilds in Pixeln – reicht für Karte und Ausdruck (zwei Bilder je Zeile)
 

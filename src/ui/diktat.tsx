@@ -2,7 +2,7 @@
 // Bericht. Übernommen wird erst nach der Vorschau (Baustein Übernahme). Es wird kein Ton aufgenommen.
 import { Show, createSignal } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { ruf } from './api';
+import { ruf } from './unterbau/api';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { kiAnbindungen } from './baukasten/ki';

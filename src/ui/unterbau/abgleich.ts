@@ -3,10 +3,10 @@
 // Was andere ändern, kommt über den Live-Strom und wird in derselben Reihenfolge angewendet wie auf dem Server.
 import { createSignal } from 'solid-js';
 import { createStore, produce, reconcile } from 'solid-js/store';
-import { anwenden, gegenbefehl, type Befehl, type Protokolliert, type Vorlage, type Zeile } from '../kern/befehl';
-import type { Feld, ObjektModell, Wert } from '../kern/modell';
+import { anwenden, gegenbefehl, type Befehl, type Protokolliert, type Vorlage, type Zeile } from '../../kern/befehl';
+import type { Feld, ObjektModell, Wert } from '../../kern/modell';
 import { Netzfehler, Serverfehler, merkeZustand, neueKennung, ruf, type Benutzer, type Zustand } from './api';
-import { hinweis } from './baukasten/hinweise';
+import { hinweis } from './meldungen';
 
 const anzeige = (f: Feld, w: Wert | undefined) => f.optionen?.find((o) => o.wert === w)?.titel ?? String(w ?? '');
 

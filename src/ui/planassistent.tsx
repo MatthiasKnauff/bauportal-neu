@@ -5,8 +5,8 @@ import { For, Show, createMemo, createSignal } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
 import { angabenAusGebaeude, assistent, katalogAus, type Angaben } from '../module/bauzeitenplan/assistent';
-import { geaendert, sicht } from './abgleich';
-import { istAdmin, ruf } from './api';
+import { geaendert, sicht } from './unterbau/abgleich';
+import { istAdmin, ruf } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 

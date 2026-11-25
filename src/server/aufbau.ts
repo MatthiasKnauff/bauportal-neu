@@ -6,11 +6,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Modulregister } from '../kern/modul';
+import type { Quelltext } from '../kern/aufbaunetz';
 import type { Db } from './db';
 import { Ablehnung } from './protokoll';
 
-export interface Baustein { pfad: string; bereich: string; zeilen: number; beschreibung: string; bindetEin: string[]; stelltBereit: string[] }
-export interface Quelltext { erzeugt: string; bereiche: { id: string; titel: string; text: string }[]; bausteine: Baustein[] }
 const DIENSTE = [
   { name: 'Dateidienst', env: 'DATEIDIENST_URL', vorgabe: 'http://dateidienst:8000', zweck: 'spricht mit dem Dateiserver (SMB): lesen, ablegen' },
   { name: 'IFC-Dienst', env: 'IFCDIENST_URL', vorgabe: 'http://ifcdienst:8000', zweck: 'liest IFC-Dateien fürs Gebäudemodell' },
@@ -18,12 +17,27 @@ const DIENSTE = [
   { name: 'KI-Ausgang', env: 'KIDIENST_URL', vorgabe: 'http://kidienst:8000', zweck: 'die eine Stelle, die mit einer KI spricht' },
 ];
 
+// Beides schreibt tools/aufbau.mjs beim Bauen neben das Programm
+const neben = (name: string) => [process.env.AUFBAU_DATEI && path.join(path.dirname(process.env.AUFBAU_DATEI), name), path.join(path.dirname(fileURLToPath(import.meta.url)), name)].find((p) => p && existsSync(p));
 let quelltext: Quelltext | null | undefined;
-function lies(): Quelltext | null {
+export function lies(): Quelltext | null {
   if (quelltext !== undefined) return quelltext;
-  const datei = [process.env.AUFBAU_DATEI, path.join(path.dirname(fileURLToPath(import.meta.url)), 'aufbau.json')].find((p) => p && existsSync(p));
+  const datei = neben('aufbau.json');
   return (quelltext = datei ? (JSON.parse(readFileSync(datei, 'utf8')) as Quelltext) : null);
 }
+let texte: Record<string, string> | null | undefined;
+/** Text einer Datei des Programms (nur der Dateien, die der Aufbau kennt). */
+export function dateiText(pfad: string): string | null {
+  if (texte === undefined) { const d = neben('quelltext.json'); texte = d ? (JSON.parse(readFileSync(d, 'utf8')) as Record<string, string>) : null; }
+  return texte?.[pfad] ?? null;
+}
+/** Zustand der Hilfsdienste – ohne Inhalte. */
+export const diensteZustand = () => Promise.all(DIENSTE.map(async (d) => {
+  try {
+    const r = await fetch(`${process.env[d.env] ?? d.vorgabe}/health`, { signal: AbortSignal.timeout(3000) });
+    return { name: d.name, zweck: d.zweck, erreichbar: r.ok, version: r.ok ? String(((await r.json()) as { version?: string }).version ?? '') : '' };
+  } catch { return { name: d.name, zweck: d.zweck, erreichbar: false, version: '' }; }
+}));
 
 /** Der Aufbau als Text – zum Weitergeben an Entwickler:innen oder an eine KI. */
 export function aufbauText(register: Modulregister, q: Quelltext | null, routen: string[]): string {
@@ -53,12 +67,7 @@ export function aufbauRouten(app: FastifyInstance, e: { db: Db; register: Modulr
 
   app.get('/api/aufbau', { preHandler: e.nurAngemeldet }, async (req) => {
     admin(req);
-    const dienste = await Promise.all(DIENSTE.map(async (d) => {
-      try {
-        const r = await fetch(`${process.env[d.env] ?? d.vorgabe}/health`, { signal: AbortSignal.timeout(3000) });
-        return { name: d.name, zweck: d.zweck, erreichbar: r.ok, version: r.ok ? String(((await r.json()) as { version?: string }).version ?? '') : '' };
-      } catch { return { name: d.name, zweck: d.zweck, erreichbar: false, version: '' }; }
-    }));
+    const dienste = await diensteZustand();
     const tabellen = (await e.db.query("select c.relname as name, greatest(c.reltuples, 0)::bigint as zeilen from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and (c.relname like 'kern\\_%' or c.relname like 'o\\_%') order by 1")).rows;
     return { quelltext: lies(), routen: e.routen, dienste, tabellen };
   });

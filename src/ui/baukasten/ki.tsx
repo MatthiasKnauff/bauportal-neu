@@ -2,11 +2,11 @@
 // einer Anbindung in der Verwaltung. Die KI schlägt nur vor – übernommen wird erst nach Bestätigung.
 import { For, Show, createResource, createSignal } from 'solid-js';
 import type { Zeile } from '../../kern/befehl';
-import { ausfuehren, sicht } from '../abgleich';
-import { ruf } from '../api';
+import { ausfuehren, sicht } from '../unterbau/abgleich';
+import { ruf } from '../unterbau/api';
 import { Dialog } from './dialog';
 import { Formular } from './formular';
-import { hinweis } from './hinweise';
+import { hinweis } from '../unterbau/meldungen';
 
 /** Eingeschaltete Anbindungen, die der Benutzer sehen darf – die KI im Büro zuerst. */
 export const kiAnbindungen = (): Zeile[] => Object.values(sicht.ki_anbindung ?? {}).filter((z) => !z.geloescht && z.werte.aktiv === true && z.werte.modell)

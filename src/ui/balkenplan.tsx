@@ -12,10 +12,10 @@ import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../
 import { balkenFarbe, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
 import { einfuegen, gliedern, loeschen, verschieben, vorgaengerSetzen, type L, type V, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
-import { ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './abgleich';
-import { darf, neueKennung, ruf } from './api';
+import { ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
+import { darf, neueKennung, ruf } from './unterbau/api';
 import type { Mitte } from './baukasten/anpassung';
-import { hinweis } from './baukasten/hinweise';
+import { hinweis } from './unterbau/meldungen';
 import { zeigeMenue } from './baukasten/kontextmenue';
 import { PlanDrucken } from './plandruck';
 import { PlanAssistent } from './planassistent';

@@ -3,10 +3,10 @@
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
 import { DRUCKSPALTEN, FORMATE, STANDARD, planDruck, type Druckoptionen } from '../module/bauzeitenplan/druck';
 import type { Plan } from '../module/bauzeitenplan/plan';
-import { sicht } from './abgleich';
-import { ladeDatei, ruf, zustand } from './api';
+import { sicht } from './unterbau/abgleich';
+import { ladeDatei, ruf, zustand } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
-import { hinweis } from './baukasten/hinweise';
+import { hinweis } from './unterbau/meldungen';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 
 const MERKER = 'bzp.druck';

@@ -3,13 +3,13 @@
 import { For, Show, createSignal } from 'solid-js';
 import { createStore, unwrap } from 'solid-js/store';
 import { Eingabefehler, gilt, leerwert, pruefeWerte, type Werte } from '../kern/modell';
-import { sicht } from './abgleich';
-import { modell, ruf } from './api';
+import { sicht } from './unterbau/abgleich';
+import { modell, ruf } from './unterbau/api';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { gruppen } from './baukasten/detailkarte';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
-import { hinweis } from './baukasten/hinweise';
+import { hinweis } from './unterbau/meldungen';
 
 type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
 export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number }

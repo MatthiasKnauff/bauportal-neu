@@ -4,11 +4,11 @@ import { For, Show, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Eingabefehler, gilt, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
-import { ausfuehren, rueckgaengig } from '../abgleich';
-import { darf, neueKennung } from '../api';
+import { ausfuehren, rueckgaengig } from '../unterbau/abgleich';
+import { darf, neueKennung } from '../unterbau/api';
 import { Dialog } from './dialog';
 import { FeldEingabe } from './feld';
-import { hinweis } from './hinweise';
+import { hinweis } from '../unterbau/meldungen';
 
 export function gruppen(m: ObjektModell, werte: Werte, verborgen: string[] = []): { titel: string; felder: Feld[] }[] {
   const aus: { titel: string; felder: Feld[] }[] = [];

@@ -1,7 +1,7 @@
 // Verwaltung → Updates: welche Programmversion läuft und was die neueste Freigabe ist; darunter die Kataloge aus dem
 // Katalog-Kanal – aktualisieren auf Knopfdruck, mit derselben Vorschau wie bei IFC und Assistent.
 import { For, Show, createResource } from 'solid-js';
-import { ruf } from './api';
+import { ruf } from './unterbau/api';
 import { Rahmen } from './baukasten/rahmen';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 

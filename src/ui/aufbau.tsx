@@ -1,48 +1,88 @@
 // Verwaltung → Aufbau (Punkt 31): der Aufbau des Programms als Bild – erzeugt aus dem laufenden Programm, nicht von
 // Hand gepflegt. Drei Sichten: „Daten“ (Module, Objekte und ihre Verweise), „Code“ (jede Datei ein Baustein, Linien =
-// bindet ein) und „Betrieb“ (Server-Stellen, Hilfsdienste, Tabellen). Rechts steht, was der gewählte Baustein ist.
+// bindet ein) und „Betrieb“ (Server-Stellen, Hilfsdienste, Tabellen). Ohne Auswahl stehen Module bzw. Bereiche als
+// Kacheln da; das Gewählte steht in der Mitte, links seine Herkunft, rechts sein Ziel – eine oder zwei Stufen tief.
+// Rechts in der Karte steht, was der gewählte Baustein ist.
 import { For, Show, createMemo, createResource, createSignal, type JSX } from 'solid-js';
 import type { ObjektModell } from '../kern/modell';
-import { ruf, zustand } from './api';
+import { REGELN, codeNetz, datenNetz, pruefen, umfeld, type Datei, type Netz, type Quelltext } from '../kern/aufbaunetz';
+import { sicht as daten } from './unterbau/abgleich';
+import { ruf, zustand } from './unterbau/api';
 import { Rahmen } from './baukasten/rahmen';
 
-interface Baustein { pfad: string; bereich: string; zeilen: number; beschreibung: string; bindetEin: string[]; stelltBereit: string[] }
 interface Aufbau {
-  quelltext: { erzeugt: string; bereiche: { id: string; titel: string; text: string }[]; bausteine: Baustein[] } | null;
+  quelltext: Quelltext | null;
   routen: string[]; dienste: { name: string; zweck: string; erreichbar: boolean; version: string }[]; tabellen: { name: string; zeilen: string }[];
 }
-interface Knoten { id: string; titel: string; spalte: number; zeile: number; unter?: string }
-const B = 196, H = 26, LUECKE = 5, ABSTAND = 62, KOPF = 44;   // Maße des Bildes
 
-/** Zeichnet Spalten mit Knoten und die Linien dazwischen; der gewählte Knoten hebt seine Linien hervor. */
-function Bild(p: { spalten: { titel: string; unter?: string }[]; knoten: Knoten[]; kanten: [string, string][]; gewaehlt: string; onWahl: (id: string) => void; hin: string; her: string }) {
-  const ort = createMemo(() => new Map(p.knoten.map((k) => [k.id, { x: k.spalte * (B + ABSTAND) + 8, y: KOPF + k.zeile * (H + LUECKE) }])));
-  const hoehe = () => KOPF + (Math.max(0, ...p.knoten.map((k) => k.zeile)) + 1) * (H + LUECKE) + 12;
-  const linie = ([von, nach]: [string, string]) => {
-    const a = ort().get(von), b = ort().get(nach);
-    if (!a || !b) return '';
-    if (a.x === b.x) { const x = a.x + B, r = 16 + Math.min(40, Math.abs(a.y - b.y) / 8); return `M${x},${a.y + H / 2} C${x + r},${a.y + H / 2} ${x + r},${b.y + H / 2} ${x},${b.y + H / 2}`; }   // gleiche Spalte: Bogen rechts herum
-    const [x1, x2] = a.x < b.x ? [a.x + B, b.x] : [a.x, b.x + B];
-    const m = (x1 + x2) / 2;
-    return `M${x1},${a.y + H / 2} C${m},${a.y + H / 2} ${m},${b.y + H / 2} ${x2},${b.y + H / 2}`;
+/** Ohne Auswahl: je Modul bzw. Bereich eine Kachel mit seinen Bausteinen. */
+function Uebersicht(p: { netz: Netz; onWahl: (id: string) => void }) {
+  return (
+    <div class="aufbau-kacheln">
+      <For each={p.netz.gruppen}>{(g) => { const k = () => p.netz.knoten.filter((x) => x.gruppe === g.id); return (
+        <section class="aufbau-kachel" aria-label={g.titel}>
+          <h3>{g.titel} <span class="leise">{k().length}</span></h3>
+          <Show when={g.text}><p class="still-text klein-text">{g.text}</p></Show>
+          <div class="aufbau-chips"><For each={k()}>{(x) => <button type="button" title={x.lang} onClick={() => p.onWahl(x.id)}>{x.titel}<span class="leise"> {x.unter}</span></button>}</For></div>
+        </section>); }}</For>
+    </div>
+  );
+}
+
+const B = 172, H = 36, LUECKE = 6, ABSTAND = 54, KOPF = 46;   // Maße des Bildes
+/** Mit Auswahl: das Gewählte in der Mitte, links was darauf zeigt (Herkunft), rechts worauf es zeigt (Ziel). */
+function Fokus(p: { netz: Netz; wahl: string; tiefe: 1 | 2; onWahl: (id: string) => void }) {
+  const knoten = createMemo(() => new Map(p.netz.knoten.map((k) => [k.id, k])));
+  const gruppe = createMemo(() => new Map(p.netz.gruppen.map((g) => [g.id, g])));
+  const aus = createMemo(() => { const m = new Map<string, Set<string>>(); for (const [v, n] of p.netz.kanten) (m.get(v) ?? m.set(v, new Set()).get(v)!).add(n); return m; });
+  // Spalten von links nach rechts: [Herkunft 2], Herkunft, Mitte, Ziel, [Ziel 2] – derselbe Baustein wie die Prüf-Schnittstelle
+  const spalten = createMemo(() => umfeld(p.netz, p.wahl, p.tiefe));
+  const zeilenMax = () => Math.max(1, ...spalten().map((s) => s.ids.length));
+  const hoehe = () => KOPF + zeilenMax() * (H + LUECKE) + 10;
+  // Ort eines Knotens je Spalte (derselbe Baustein kann links und rechts stehen). Kurze Spalten stehen mittig zueinander;
+  // bei langen bleibt alles oben, damit das Gewählte im Blick ist.
+  const ort = (si: number, zi: number) => {
+    const n = spalten()[si]!.ids.length;
+    const versatz = zeilenMax() > 10 ? 0 : (zeilenMax() - n) / 2;
+    return { x: si * (B + ABSTAND) + 8, y: KOPF + (versatz + zi) * (H + LUECKE) };
   };
-  const art = (k: [string, string]) => (p.gewaehlt && k[0] === p.gewaehlt ? 'hin' : p.gewaehlt && k[1] === p.gewaehlt ? 'her' : '');
-  const nachbar = createMemo(() => new Set(p.kanten.filter((k) => k[0] === p.gewaehlt || k[1] === p.gewaehlt).flat()));
+  const linien = createMemo(() => {
+    const l: { d: string; seite: 'l' | 'r' }[] = [];
+    const s = spalten();
+    for (let si = 0; si < s.length - 1; si++) {
+      const a = s[si]!, b = s[si + 1]!;
+      a.ids.forEach((va, ia) => b.ids.forEach((vb, ib) => {
+        if (!aus().get(va)?.has(vb)) return;
+        const o1 = ort(si, ia), o2 = ort(si + 1, ib), x1 = o1.x + B, x2 = o2.x, m = (x1 + x2) / 2;
+        l.push({ d: `M${x1},${o1.y + H / 2} C${m},${o1.y + H / 2} ${m},${o2.y + H / 2} ${x2},${o2.y + H / 2}`, seite: b.seite === 'ziel' ? 'r' : 'l' });
+      }));
+    }
+    return l;
+  });
+  const kurz = (t: string) => (t.length > 22 ? t.slice(0, 21) + '…' : t);
   return (
     <div class="aufbau-bild">
-      <svg width={p.spalten.length * (B + ABSTAND)} height={hoehe()} role="img" aria-label="Aufbau des Programms">
-        <For each={p.spalten}>{(s, i) => <text x={i() * (B + ABSTAND) + 8} y={18} class="spalte">{s.titel}<Show when={s.unter}><tspan class="unter" dx="6">{s.unter}</tspan></Show></text>}</For>
-        <g class="linien"><For each={p.kanten.filter((k) => !art(k))}>{(k) => <path d={linie(k)} />}</For></g>
-        <g class="linien stark"><For each={p.kanten.filter((k) => art(k))}>{(k) => <path d={linie(k)} class={art(k)} />}</For></g>
-        <For each={p.knoten}>{(k) => { const o = () => ort().get(k.id)!; return (
-          <g class="knoten" classList={{ gewaehlt: p.gewaehlt === k.id, nachbar: nachbar().has(k.id) && p.gewaehlt !== k.id, blass: !!p.gewaehlt && !nachbar().has(k.id) && p.gewaehlt !== k.id }}
-            tabindex="0" role="button" aria-label={k.titel} onClick={() => p.onWahl(p.gewaehlt === k.id ? '' : k.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); p.onWahl(k.id); } }}>
-            <rect x={o().x} y={o().y} width={B} height={H} rx="6" />
-            <text x={o().x + 9} y={o().y + 17}>{k.titel.length > 23 ? k.titel.slice(0, 22) + '…' : k.titel}</text>
-            <Show when={k.unter}><text x={o().x + B - 8} y={o().y + 17} class="unter" text-anchor="end">{k.unter}</text></Show>
-          </g>); }}</For>
+      <svg width={spalten().length * (B + ABSTAND) - ABSTAND + 16} height={hoehe()} role="img" aria-label={`Aufbau um ${knoten().get(p.wahl)?.titel ?? ''}`}>
+        <defs><marker id="aufbau-pfeil" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" /></marker></defs>
+        <For each={spalten()}>{(s, i) => <>
+          <text x={i() * (B + ABSTAND) + 8} y={16} class="spalte" classList={{ mitte: s.seite === 'mitte' }}>{s.titel}</text>
+          <text x={i() * (B + ABSTAND) + 8} y={32} class="unter">{s.seite === 'mitte' ? '' : `${s.seite === 'herkunft' ? p.netz.herkunft : p.netz.ziel} · ${s.ids.length}`}</text>
+        </>}</For>
+        <g class="linien"><For each={linien()}>{(x) => <path d={x.d} class={x.seite === 'l' ? 'her' : 'hin'} marker-end="url(#aufbau-pfeil)" />}</For></g>
+        <For each={spalten()}>{(s, si) => (
+          <Show when={s.ids.length} fallback={<text x={si() * (B + ABSTAND) + 14} y={KOPF + (zeilenMax() > 10 ? 0 : (zeilenMax() - 1) / 2) * (H + LUECKE) + 22} class="unter">– nichts –</text>}>
+            <For each={s.ids}>{(id, zi) => { const k = () => knoten().get(id)!; const o = () => ort(si(), zi()); return (
+              <g class="knoten" classList={{ gewaehlt: s.seite === 'mitte' }} tabindex="0" role="button" aria-label={k().titel}
+                onClick={() => s.seite !== 'mitte' && p.onWahl(id)} onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && s.seite !== 'mitte') { e.preventDefault(); p.onWahl(id); } }}>
+                <title>{k().lang}</title>
+                <rect x={o().x} y={o().y} width={B} height={H} rx="6" />
+                <text x={o().x + 9} y={o().y + 15}>{kurz(k().titel)}</text>
+                <text x={o().x + 9} y={o().y + 29} class="unter">{gruppe().get(k().gruppe)?.titel}</text>
+              </g>); }}</For>
+          </Show>
+        )}</For>
       </svg>
-      <p class="still-text klein-text aufbau-legende"><i class="hin" /> {p.hin} <i class="her" /> {p.her} – Baustein anklicken.</p>
+      <p class="still-text klein-text aufbau-legende"><i class="her" /> {p.netz.herkunft} <i class="hin" /> {p.netz.ziel} – Baustein anklicken, um ihn in die Mitte zu holen.</p>
     </div>
   );
 }
@@ -51,50 +91,39 @@ export function AufbauAnsicht() {
   const [a] = createResource(() => ruf<Aufbau>('/api/aufbau'));
   const [sicht, setSicht] = createSignal<'daten' | 'code' | 'betrieb'>('daten');
   const [wahl, setWahl] = createSignal('');
+  const [tiefe, setTiefe] = createSignal<1 | 2>(1);
   const module = () => zustand()!.module;
   const objekte = createMemo(() => new Map(module().flatMap((m) => m.objekte.map((o) => [o.name, { o, modul: m }] as const))));
   const wechsel = (s: 'daten' | 'code' | 'betrieb') => { setSicht(s); setWahl(''); };
-
-  // Sicht „Daten“: je Modul eine Spalte, darin seine Objekte; Linien sind Verweise
-  const daten = createMemo(() => ({
-    spalten: module().map((m) => ({ titel: m.name, unter: `${m.objekte.length}` })),
-    knoten: module().flatMap((m, s) => m.objekte.map((o, z): Knoten => ({ id: o.name, titel: o.titel, spalte: s, zeile: z, unter: `${o.felder.length} Felder` }))),
-    kanten: [...objekte().values()].flatMap(({ o }) => [...new Set(o.felder.filter((f) => f.art === 'verweis' && f.ziel !== o.name).map((f) => f.ziel!))].map((ziel): [string, string] => [o.name, ziel])),
-  }));
-  // Sicht „Code“: je Bereich eine Spalte, darin die Dateien; Linien sind „bindet ein“
-  const code = createMemo(() => {
-    const q = a()?.quelltext;
-    if (!q) return null;
-    const bereiche = q.bereiche.filter((b) => b.id !== 'betrieb');
-    const knoten = bereiche.flatMap((b, s) => q.bausteine.filter((d) => d.bereich === b.id).map((d, z): Knoten => ({ id: d.pfad, titel: d.pfad.replace(/^src\/(kern|server|ui\/baukasten|ui|module)\//, '').replace(/^dienste\//, '').replace('/beipackzettel.ts', ''), spalte: s, zeile: z, unter: String(d.zeilen) })));
-    const da = new Set(knoten.map((k) => k.id));
-    return { spalten: bereiche.map((b) => ({ titel: b.titel, unter: `${knoten.filter((k) => k.spalte === bereiche.indexOf(b)).length}` })), knoten, kanten: q.bausteine.flatMap((d) => d.bindetEin.filter((z) => da.has(d.pfad) && da.has(z)).map((z): [string, string] => [d.pfad, z])) };
-  });
+  const datenNetzM = createMemo(() => datenNetz(module()));
+  const codeNetzM = createMemo(() => (a()?.quelltext ? codeNetz(a()!.quelltext!) : null));
+  const befunde = createMemo(() => pruefen(a()?.quelltext ?? null, module()));
+  const offeneRat = () => Object.values(daten.pruefrat ?? {}).filter((z) => !z.geloescht && z.werte.stand === 'offen').length;
 
   const liste = (titel: string, eintraege: string[], waehlen = true): JSX.Element => (
     <Show when={eintraege.length}><fieldset><legend>{titel}<span class="anzahl">{eintraege.length}</span></legend>
       <ul class="aufbau-liste"><For each={eintraege}>{(e) => <li>{waehlen ? <button class="verweis" onClick={() => setWahl(e)}>{e}</button> : <code>{e}</code>}</li>}</For></ul></fieldset></Show>
   );
+  const befundListe = (id: string) => liste('Prüfung', befunde().filter((b) => b.baustein === id).map((b) => `${b.stufe === 'fehler' ? 'Fehler' : 'Hinweis'}: ${b.text}`), false);
   const objektKarte = (o: ObjektModell, modul: string) => (
     <aside class="karte" aria-label={o.titel}><div class="karte-kopf"><h2>{o.titel}</h2></div><div class="karte-inhalt">
       <p class="still-text">Objekt <code>{o.name}</code> im Modul {modul}{o.projektFeld ? ' · gehört zu einem Projekt' : ''}{o.versionsBereich ? ` · in Versionen (${o.versionsBereich})` : ''}{o.einzeln ? ' · gibt es genau einmal' : ''}</p>
       <p class="still-text klein-text">Sehen: {o.rechte.lesen.join(', ') || 'nur Admin'} · Ändern: {o.rechte.schreiben.join(', ') || 'nur Admin'} · Löschen: {o.rechte.loeschen.join(', ') || 'nur Admin'} (ab Werk)</p>
+      {befundListe(o.name)}
       <table class="matrix aufbau-felder"><thead><tr><th>Feld</th><th>Art</th><th>Beschriftung</th></tr></thead><tbody>
         <For each={o.felder}>{(f) => <tr><td><code>{f.name}</code>{f.pflicht ? ' *' : ''}</td><td>{f.art === 'verweis' ? <button class="verweis" onClick={() => setWahl(f.ziel!)}>→ {f.ziel}</button> : f.art}</td><td>{f.titel}{f.wenn ? ' (bedingt)' : ''}</td></tr>}</For>
       </tbody></table>
-      {liste('Wird verwiesen von', [...objekte().values()].filter(({ o: x }) => x.name !== o.name && x.felder.some((f) => f.ziel === o.name)).map(({ o: x }) => x.name))}
       {liste('Ansichten', module().flatMap((m) => m.ansichten.filter((x) => x.objekt === o.name).map((x) => `${m.name} → ${x.titel}`)), false)}
       {liste('Ausdrucke', module().flatMap((m) => (m.ausdrucke ?? []).filter((x) => x.objekt === o.name).map((x) => x.titel)), false)}
       {liste('Kataloge', module().flatMap((m) => (m.kataloge ?? []).filter((x) => x.objekt === o.name).map((x) => x.titel)), false)}
     </div></aside>
   );
-  const dateiKarte = (d: Baustein, alle: Baustein[]) => (
+  const dateiKarte = (d: Datei) => (
     <aside class="karte" aria-label={d.pfad}><div class="karte-kopf"><h2>{d.pfad.split('/').pop()}</h2></div><div class="karte-inhalt">
       <p class="still-text"><code>{d.pfad}</code> · {d.zeilen} Zeilen</p>
       <p class="aufbau-text">{d.beschreibung || 'Diese Datei hat noch keine Beschreibung am Anfang.'}</p>
+      {befundListe(d.pfad)}
       {liste('Stellt bereit', d.stelltBereit, false)}
-      {liste('Bindet ein', d.bindetEin)}
-      {liste('Wird gebraucht von', alle.filter((x) => x.bindetEin.includes(d.pfad)).map((x) => x.pfad))}
     </div></aside>
   );
   const details = () => {
@@ -103,31 +132,50 @@ export function AufbauAnsicht() {
     const o = objekte().get(w);
     if (o) return objektKarte(o.o, o.modul.name);
     const d = a()?.quelltext?.bausteine.find((x) => x.pfad === w);
-    return d ? dateiKarte(d, a()!.quelltext!.bausteine) : undefined;
+    return d ? dateiKarte(d) : undefined;
   };
   // Klick auf einen Verweis in der Karte kann die Sicht wechseln (Objekt ↔ Datei)
-  const gewaehlt = () => wahl();
   const passendeSicht = () => (objekte().has(wahl()) ? 'daten' : wahl() ? 'code' : sicht());
+  const netz = () => (passendeSicht() === 'daten' ? datenNetzM() : codeNetzM());
+  const pruefung = (art: 'daten' | 'code') => {
+    const l = befunde().filter((b) => (art === 'daten' ? objekte().has(b.baustein) : !objekte().has(b.baustein)));
+    return (
+      <div class="aufbau-pruefung" classList={{ gut: !l.some((b) => b.stufe === 'fehler') }}>
+        <strong>Prüfung: {l.filter((b) => b.stufe === 'fehler').length} Fehler, {l.filter((b) => b.stufe === 'hinweis').length} Hinweise</strong>
+        <Show when={offeneRat()}><span> · {offeneRat()} offene Ratschläge der Prüf-KI (Verwaltung → Ratschläge)</span></Show>
+        <Show when={l.length}><ul class="aufbau-liste"><For each={l}>{(b) => <li><span classList={{ 'feld-fehler': b.stufe === 'fehler' }}>{b.stufe === 'fehler' ? 'Fehler' : 'Hinweis'}</span> <button class="verweis" onClick={() => setWahl(b.baustein)}>{b.baustein}</button> – {b.text}</li>}</For></ul></Show>
+        <details class="klein-text"><summary>Regeln</summary><ul class="aufbau-liste"><For each={Object.values(REGELN)}>{(r) => <li>{r}</li>}</For></ul></details>
+      </div>
+    );
+  };
 
   return (
     <Rahmen schluessel="verwaltung.aufbau" detailsTitel="Baustein" details={details()}
       menueMitte={<>
+        <Show when={wahl()}><button class="knopf still" onClick={() => setWahl('')}>‹ Übersicht</button></Show>
         <div class="auswahl aufbau-wahl" role="radiogroup" aria-label="Sicht">
           <For each={[['daten', 'Daten'], ['code', 'Code'], ['betrieb', 'Betrieb']] as const}>{([id, titel]) => <button type="button" role="radio" aria-checked={passendeSicht() === id} classList={{ aktiv: passendeSicht() === id }} onClick={() => wechsel(id)}>{titel}</button>}</For>
         </div>
-        <a class="knopf" href="/api/aufbau/text" download="Bauportal-Aufbau.md">Als Text für Entwickler:innen und KI</a>
+        <Show when={passendeSicht() !== 'betrieb'}>
+          <div class="auswahl aufbau-wahl" role="radiogroup" aria-label="Tiefe">
+            <For each={[1, 2] as const}>{(t) => <button type="button" role="radio" aria-checked={tiefe() === t} classList={{ aktiv: tiefe() === t }} onClick={() => setTiefe(t)}>Tiefe {t}</button>}</For>
+          </div>
+        </Show>
+        <a class="knopf" href="/api/aufbau/text" download="Bauportal-Aufbau.md">Als Text</a>
       </>}
       inhalt={<section class="blatt aufbau">
-        <Show when={passendeSicht() === 'daten'}>
-          <p class="still-text">Was es im Bauportal gibt: {module().length} Module mit {objekte().size} Objekten. Jedes Objekt ist einmal beschrieben (Beipackzettel) – Tabelle, Prüfung, Masken, Rechte und Ausdrucke entstehen daraus.</p>
-          <Bild {...daten()} gewaehlt={gewaehlt()} onWahl={setWahl} hin="verweist auf" her="wird verwiesen von" />
-        </Show>
-        <Show when={passendeSicht() === 'code'}>
-          <Show when={code()} fallback={<p class="still-text">{a.loading ? 'Der Aufbau wird gelesen …' : a.error ? (a.error as Error).message : 'Der Quelltext-Aufbau liegt nur im gebauten Programm vor (npm run build).'}</p>}>{(c) => (<>
-            <p class="still-text">Jede Datei ist ein Baustein; die Zahl ist ihre Länge in Zeilen. Von links nach rechts baut eins aufs andere auf: Der Kern kennt niemanden, die Module nur den Kern.</p>
-            <Bild {...c()} gewaehlt={gewaehlt()} onWahl={setWahl} hin="bindet ein" her="wird gebraucht von" />
-            <For each={a()!.quelltext!.bereiche}>{(b) => <p class="still-text klein-text"><strong>{b.titel}:</strong> {b.text}</p>}</For>
-          </>)}</Show>
+        <Show when={passendeSicht() !== 'betrieb'}>
+          <Show when={netz()} fallback={<p class="still-text">{a.loading ? 'Der Aufbau wird gelesen …' : a.error ? (a.error as Error).message : 'Der Quelltext-Aufbau liegt nur im gebauten Programm vor (npm run build).'}</p>}>{(n) => (
+            <Show when={wahl() && n().knoten.some((k) => k.id === wahl())} fallback={<>
+              <p class="still-text">{passendeSicht() === 'daten'
+                ? `Was es im Bauportal gibt: ${module().length} Module mit ${objekte().size} Objekten. Jedes Objekt ist einmal beschrieben (Beipackzettel) – Tabelle, Prüfung, Masken, Rechte und Ausdrucke entstehen daraus. Ein Objekt anklicken: Es kommt in die Mitte, links steht, was darauf verweist, rechts, worauf es verweist.`
+                : 'Jede Datei ist ein Baustein, die Zahl ihre Länge in Zeilen. Eine Datei anklicken: Sie kommt in die Mitte, links steht, wer sie braucht, rechts, was sie einbindet.'}</p>
+              {pruefung(passendeSicht() as 'daten' | 'code')}
+              <Uebersicht netz={n()} onWahl={setWahl} />
+            </>}>
+              <Fokus netz={n()} wahl={wahl()} tiefe={tiefe()} onWahl={setWahl} />
+            </Show>
+          )}</Show>
         </Show>
         <Show when={passendeSicht() === 'betrieb'}>
           <Show when={a()} fallback={<p class="still-text">{a.error ? (a.error as Error).message : 'Wird abgefragt …'}</p>}>{(x) => (<>

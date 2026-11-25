@@ -528,3 +528,18 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .doppelt-text .leise { overflow-wrap: anywhere; }
 .bzp-einstellungen { display: block; width: 100%; text-align: left; border-bottom: 1px solid var(--rand); border-radius: 0; padding: 6px 12px; }
 .bzp-leiste.zu { display: none; }
+
+/* Aufbau: Kacheln, Prüfung, Umfeld */
+.aufbau-kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin: 10px 0; }
+.aufbau-kachel { background: #fff; border: 1px solid var(--rand); border-radius: 12px; padding: 12px 14px; }
+.aufbau-kachel h3 { margin: 0 0 4px; font-size: 15px; }
+.aufbau-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.aufbau-chips button { border: 1px solid var(--rand); background: #f6f6f2; border-radius: 99px; padding: 3px 10px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.aufbau-chips button:hover, .aufbau-chips button:focus-visible { border-color: var(--akzent); background: var(--akzent-hell); outline: none; }
+.aufbau-pruefung { border: 1px solid #f0c7c7; background: #fdf3f3; border-radius: 10px; padding: 8px 12px; margin: 10px 0; font-size: 13px; }
+.aufbau-pruefung.gut { border-color: #cfe3cf; background: #f3f9f3; }
+.aufbau-pruefung ul { margin-top: 6px; }
+.aufbau-bild .spalte.mitte { fill: var(--akzent); }
+.aufbau-bild .linien path { opacity: .9; stroke-width: 1.4; }
+.aufbau-bild marker path { fill: #9aa3ad; }
+.pruef-schluessel { white-space: pre-wrap; overflow-wrap: anywhere; background: #f6f6f2; border: 1px solid var(--rand); border-radius: 8px; padding: 10px; font-size: 12.5px; }

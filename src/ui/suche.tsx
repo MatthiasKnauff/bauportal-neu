@@ -4,8 +4,8 @@ import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Beipackzettel } from '../kern/modul';
 import type { ObjektModell } from '../kern/modell';
-import { sicht } from './abgleich';
-import { darf, zustand } from './api';
+import { sicht } from './unterbau/abgleich';
+import { darf, zustand } from './unterbau/api';
 import { anzeige } from './baukasten/feld';
 import { Dialog } from './baukasten/dialog';
 

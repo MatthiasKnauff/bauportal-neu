@@ -1,6 +1,7 @@
 // Liest den Quelltext und schreibt den Aufbau des Programms als Daten: jede Datei ein Baustein mit seiner
 // Beschreibung (der Kommentar am Dateianfang), seiner Größe, dem, was er bereitstellt, und dem, was er einbindet.
 // Daraus zeichnet die Verwaltung den Aufbau (Punkt 31 der Anforderungen) – immer passend zum gebauten Stand.
+// Daneben quelltext.json mit dem Text jeder dieser Dateien – zum Lesen für die Prüf-KI (der Quelltext ist ohnehin öffentlich).
 // Aufruf beim Bauen: node tools/aufbau.mjs dist/aufbau.json
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -13,6 +14,7 @@ export const BEREICHE = [
   { id: 'module', titel: 'Module', ordner: 'src/module', text: 'Je Modul ein Beipackzettel: Objekte, Ansichten, Ausdrucke, Kataloge. Hier steht, WAS es gibt – nicht, wie es gezeigt oder gespeichert wird.' },
   { id: 'server', titel: 'Server', ordner: 'src/server', text: 'Datenbank, Befehlsprotokoll, Rechte, Anmeldung und die Wege nach außen (Ablage, IFC, Druck, KI, Wetter, Updates).' },
   { id: 'oberflaeche', titel: 'Oberfläche', ordner: 'src/ui', text: 'Portal, Abgleich mit dem Server (local-first) und die Ansichten, die über die Bausteine hinausgehen.' },
+  { id: 'unterbau', titel: 'Unterbau', ordner: 'src/ui/unterbau', text: 'Das Fundament der Oberfläche: Verbindung zum Server, lokale Daten und Befehle (Abgleich), Meldungen. Kennt nur den Kern – darauf bauen Baukasten und Ansichten.' },
   { id: 'baukasten', titel: 'Baukasten', ordner: 'src/ui/baukasten', text: 'Die fertigen Bausteine der Oberfläche. Module stellen nur an den vorgesehenen Stellschrauben (anpassung.ts).' },
   { id: 'dienste', titel: 'Hilfsdienste', ordner: 'dienste', text: 'Eigene kleine Container in Python für das, was besondere Programme braucht: Dateiserver, IFC, PDF, KI. Nur für das Bauportal erreichbar, merken sich nichts.' },
   { id: 'betrieb', titel: 'Betrieb und Tests', ordner: '', text: 'Bauen, Ausliefern, Prüfen: Pipeline, Container, Tests, Werkzeuge.' },
@@ -50,7 +52,7 @@ export function aufbauLesen() {
     // was die Datei einbindet (nur eigene Dateien) und was sie bereitstellt
     const bindetEin = [...text.matchAll(/(?:^|\n)\s*(?:import|export)\s[^'"\n]*?from\s+['"](\.[^'"]+)['"]/g)].map((m) => {
       const ziel = path.posix.normalize(path.posix.join(path.posix.dirname(pfad), m[1]));
-      return alle.find((p) => p === ziel || p === ziel + '.ts' || p === ziel + '.tsx' || p === ziel + '.mjs');
+      return alle.find((p) => p === ziel || p === ziel + '.ts' || p === ziel + '.tsx' || p === ziel + '.mjs' || p === ziel + '/index.ts');
     }).filter(Boolean);
     const stelltBereit = [...text.matchAll(/(?:^|\n)export\s+(?:async\s+)?(?:function|const|class|interface|type)\s+(\w+)/g)].map((m) => m[1]);
     return { pfad, bereich, zeilen: text.split('\n').length, beschreibung: beschreibung(text, pfad), bindetEin: [...new Set(bindetEin)], stelltBereit };
@@ -63,5 +65,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const a = aufbauLesen();
   mkdirSync(path.dirname(ziel), { recursive: true });
   writeFileSync(ziel, JSON.stringify(a));
+  writeFileSync(path.join(path.dirname(ziel), 'quelltext.json'), JSON.stringify(Object.fromEntries(a.bausteine.map((b) => [b.pfad, readFileSync(path.join(WURZEL, b.pfad), 'utf8')]))));
   console.log(`Aufbau: ${a.bausteine.length} Bausteine, ${a.bausteine.reduce((s, b) => s + b.zeilen, 0)} Zeilen, ${a.bausteine.filter((b) => !b.beschreibung && /\.(ts|tsx|py)$/.test(b.pfad)).length} ohne Beschreibung → ${ziel}`);
 }

@@ -2,8 +2,8 @@
 // Übernommen wird erst nach der Vorschau (Baustein Übernahme).
 import { For, Show, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { sicht } from './abgleich';
-import { ruf } from './api';
+import { sicht } from './unterbau/abgleich';
+import { ruf } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 

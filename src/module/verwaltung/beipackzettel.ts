@@ -110,13 +110,48 @@ export const ki_anbindung: ObjektModell = {
   ],
 };
 
+// Prüf-KI: eine andere KI kontrolliert und berät – sie liest Aufbau, Prüfung, Quelltext und Betrieb (nie Projektdaten)
+// und schickt Ratschläge zurück. Zugang nur mit eigenem Schlüssel, den die Verwaltung erzeugt und widerrufen kann.
+export const pruefzugang: ObjektModell = {
+  name: 'pruefzugang',
+  titel: 'Prüf-Zugang',
+  titelMehrzahl: 'Prüf-Zugänge',
+  anzeigeFeld: 'name',
+  rechte: { lesen: [], schreiben: [], loeschen: [] },
+  felder: [
+    { name: 'name', titel: 'Bezeichnung, z. B. „Prüf-KI Gemini“', art: 'text', pflicht: true, inListe: true, breite: 260, gruppe: 'Zugang' },
+    { name: 'aktiv', titel: 'Eingeschaltet', art: 'ja_nein', inListe: true, breite: 120, gruppe: 'Zugang' },
+    { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Zugang' },
+  ],
+};
+export const RAT_STAENDE = [
+  { wert: 'offen', titel: 'Offen' }, { wert: 'angenommen', titel: 'Angenommen' }, { wert: 'umgesetzt', titel: 'Umgesetzt' }, { wert: 'abgelehnt', titel: 'Abgelehnt' },
+];
+export const pruefrat: ObjektModell = {
+  name: 'pruefrat',
+  titel: 'Ratschlag',
+  titelMehrzahl: 'Ratschläge',
+  anzeigeFeld: 'titel',
+  rechte: { lesen: [], schreiben: [], loeschen: [] },
+  felder: [
+    { name: 'titel', titel: 'Ratschlag', art: 'text', pflicht: true, inListe: true, breite: 360, gruppe: 'Ratschlag' },
+    { name: 'stand', titel: 'Stand', art: 'auswahl', optionen: RAT_STAENDE, inListe: true, breite: 130, gruppe: 'Ratschlag' },
+    { name: 'baustein', titel: 'Betrifft (Datei oder Objekt)', art: 'text', inListe: true, breite: 240, gruppe: 'Ratschlag' },
+    { name: 'regel', titel: 'Regel', art: 'text', gruppe: 'Ratschlag' },
+    { name: 'text', titel: 'Begründung der Prüf-KI', art: 'langtext', gruppe: 'Ratschlag' },
+    { name: 'antwort', titel: 'Unsere Antwort (liest die Prüf-KI mit)', art: 'langtext', gruppe: 'Antwort' },
+    { name: 'eingang', titel: 'Eingegangen', art: 'datum', inListe: true, breite: 120, gruppe: 'Herkunft' },
+    { name: 'zugang', titel: 'Von', art: 'verweis', ziel: 'pruefzugang', inListe: true, breite: 180, gruppe: 'Herkunft' },
+  ],
+};
+
 export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
   name: 'Verwaltung',
   version: '0.1.0',
-  beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI und Updates.',
+  beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',
   braucht: [],
-  objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung],
+  objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung, pruefzugang, pruefrat],
   ansichten: [
     { id: 'benutzer', titel: 'Benutzer', objekt: 'benutzer', baum: ['rolle'] },
     { id: 'rechte', titel: 'Rechte', nurAdmin: true },
@@ -125,6 +160,8 @@ export const verwaltung: Beipackzettel = {
     { id: 'ki', titel: 'KI', objekt: 'ki_anbindung', nurAdmin: true },
     { id: 'updates', titel: 'Updates', nurAdmin: true },
     { id: 'aufbau', titel: 'Aufbau', nurAdmin: true },
+    { id: 'ratschlaege', titel: 'Ratschläge', objekt: 'pruefrat', nurAdmin: true, baum: ['stand'] },
+    { id: 'pruefki', titel: 'Prüf-KI', objekt: 'pruefzugang', nurAdmin: true },
     { id: 'uebernahme', titel: 'Übernahme', nurAdmin: true },
   ],
 };

@@ -4,9 +4,9 @@
 import { For, Show, createResource, createSignal, onCleanup } from 'solid-js';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
-import { ruf } from './api';
+import { ruf } from './unterbau/api';
 import { vorschaubild, base64 } from './baukasten/bilder';
-import { hinweis } from './baukasten/hinweise';
+import { hinweis } from './unterbau/meldungen';
 import { Rahmen } from './baukasten/rahmen';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 

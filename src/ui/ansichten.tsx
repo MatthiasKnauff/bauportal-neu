@@ -4,15 +4,15 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
-import { ausfuehren, rueckgaengig, sicht } from './abgleich';
-import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './api';
+import { ausfuehren, rueckgaengig, sicht } from './unterbau/abgleich';
+import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { Versionsleiste } from './baukasten/versionsleiste';
 import type { Versionsweg } from '../kern/modul';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
-import { hinweis } from './baukasten/hinweise';
+import { hinweis } from './unterbau/meldungen';
 import type { Anpassung } from './baukasten/anpassung';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
@@ -29,7 +29,8 @@ import { Unterliste } from './baukasten/unterliste';
 import { Balkenplan } from './balkenplan';
 import { Bilder } from './baukasten/bilder';
 import { Diktieren } from './diktat';
-import { Aufraeumen, aufraeumenOeffnen } from './aufraeumen';
+import { aufraeumenOeffnen } from './aufraeumen';
+import { PruefSchluessel } from './pruefki';
 import { Schrittweise } from './baukasten/schrittweise';
 import { FeldEingabe } from './baukasten/feld';
 import { feldAendern } from './baukasten/detailkarte';
@@ -366,6 +367,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
   vorgang: { mitte: (m) => <Balkenplan {...m} /> },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
+  pruefzugang: { kartenZusatz: (z) => <PruefSchluessel zugang={z} /> },
   benutzer: {
     kartenZusatz: (z) => <KennwortSetzen benutzer={z} />,
     zelle: (f, z) => (f.name === 'gesperrt' && z.werte.gesperrt ? <span class="marke-gesperrt">gesperrt</span> : undefined),

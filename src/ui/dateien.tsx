@@ -5,8 +5,8 @@ import { For, Show, createEffect, createMemo, createSignal, on } from 'solid-js'
 import { createStore } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
 import type { ObjektModell } from '../kern/modell';
-import { sicht } from './abgleich';
-import { ruf } from './api';
+import { sicht } from './unterbau/abgleich';
+import { ruf } from './unterbau/api';
 import { Baum, type Knoten } from './baukasten/baum';
 import { Dialog } from './baukasten/dialog';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';

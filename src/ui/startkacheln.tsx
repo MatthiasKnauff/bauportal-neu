@@ -5,8 +5,8 @@ import { unwrap } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
 import { planAus } from '../module/bauzeitenplan/plan';
 import { isoAus, tagAus } from '../module/bauzeitenplan/kalender';
-import { geaendert, sicht } from './abgleich';
-import { darf } from './api';
+import { geaendert, sicht } from './unterbau/abgleich';
+import { darf } from './unterbau/api';
 import { gewaehlteVersion } from './projekt';
 
 const lebende = (o: string): Zeile[] => { geaendert(o); return Object.values(sicht[o] ?? {}).map((z) => unwrap(z)).filter((z) => !z.geloescht); };

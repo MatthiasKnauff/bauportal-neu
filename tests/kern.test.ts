@@ -630,17 +630,22 @@ test('Fotos: Vorschaubild im Bauportal, Original abgelegt, im Ausdruck eingebett
   } finally { await weg(); }
 });
 
-test('Aufbau: jede Datei ist ein Baustein mit Beschreibung, der Kern kennt niemanden', () => {
-  const q = aufbauLesen() as import('../src/server/aufbau').Quelltext;
-  const ohne = q.bausteine.filter((b) => /\.(ts|tsx|mjs|py)$/.test(b.pfad) && !b.beschreibung).map((b) => b.pfad);
-  assert.deepEqual(ohne, [], 'jede Quelldatei beginnt mit einem Kommentar, der sagt, wofür sie da ist');
+test('Aufbau: jede Datei ist ein Baustein mit Beschreibung, die Prüfregeln finden keinen Fehler', async () => {
+  const { pruefen, umfeld, codeNetz, datenNetz } = await import('../src/kern/aufbaunetz');
+  const q = aufbauLesen() as import('../src/kern/aufbaunetz').Quelltext;
   const d = q.bausteine.find((b) => b.pfad === 'src/server/druck.ts')!;
   assert.ok(d.bereich === 'server' && d.bindetEin.includes('src/kern/druck.ts') && d.stelltBereit.includes('seiteBauen'));
-  // Die Schichten: Der Kern bindet nur Kern ein, die Module nur Kern und Module, der Baukasten nichts aus den Modul-Ansichten
-  const bereich = new Map(q.bausteine.map((b) => [b.pfad, b.bereich]));
-  const verstoesse = q.bausteine.flatMap((b) => b.bindetEin.filter((z) =>
-    (b.bereich === 'kern' && bereich.get(z) !== 'kern') || (b.bereich === 'module' && !['kern', 'module'].includes(bereich.get(z)!)) || (b.bereich === 'server' && ['oberflaeche', 'baukasten'].includes(bereich.get(z)!))).map((z) => `${b.pfad} → ${z}`));
-  assert.deepEqual(verstoesse, [], 'kein Baustein greift in eine Schicht über sich');
+  // Die Prüfregeln (Schichten, Verweise, Beschreibung …) sind eine feste Grenze: kein Befund der Stufe „fehler“
+  assert.deepEqual(pruefen(q, register.module).filter((b) => b.stufe === 'fehler').map((b) => `${b.baustein}: ${b.text}`), []);
+  // Fremde Schicht wird erkannt
+  const kaputt = { ...q, bausteine: q.bausteine.map((b) => (b.pfad === 'src/kern/modell.ts' ? { ...b, bindetEin: [...b.bindetEin, 'src/server/db.ts'] } : b)) };
+  assert.ok(pruefen(kaputt, register.module).some((b) => b.regel === 'schicht' && b.baustein === 'src/kern/modell.ts'));
+  // Umfeld: links, wer auf den Bericht verweist, rechts, worauf er verweist; Stufe 2 schließt an
+  const u = umfeld(datenNetz(register.module), 'tagesbericht', 2);
+  assert.deepEqual(u.map((s) => s.seite), ['herkunft', 'herkunft', 'mitte', 'ziel', 'ziel']);
+  assert.ok(u[1]!.ids.includes('bericht_eintrag') && u[3]!.ids.includes('projekt') && !u[3]!.ids.includes('tagesbericht'));
+  const c = umfeld(codeNetz(q), 'src/kern/modell.ts', 1);
+  assert.ok(c[0]!.ids.length > 10 && c[2]!.ids.length === 0, 'modell.ts wird viel gebraucht und bindet nichts ein');
   const text = aufbauText(register, q, ['POST /api/befehle']);
   for (const t of ['### Bautagebuch (`bautagebuch`', '- `firma` verweis → kontakt', '### `src/kern/modell.ts`', 'POST /api/befehle', 'KI-Ausgang']) assert.ok(text.includes(t), t);
 });
@@ -904,5 +909,50 @@ test('Adressen aufräumen: Doppelte finden, zusammenführen, Verweise wandern mi
     assert.equal(s.bericht_eintrag.find((x: any) => x.id === e1).werte.firma, k1, 'Mangel zeigt auf den behaltenen');
     assert.deepEqual(s.projekt_kontakt.filter((x: any) => !x.geloescht && x.werte.projekt === p && x.werte.kontakt === k1).map((x: any) => x.id), [b1], 'Beteiligt nur einmal');
     assert.equal((await ruf('/api/adressen/doppelte', { cookie })).daten.length, 0);
+  } finally { await app.close(); await weg(); }
+});
+
+test('Prüf-KI: nur mit Schlüssel, nur lesen, Ratschläge landen in der Verwaltung, Ausschalten sperrt', async () => {
+  const { db, weg } = await frischeDb();
+  const app = await baueServer({ db, register, version: 'v-test', umgebung: 'test' });
+  try {
+    const adresse = await app.listen({ host: '127.0.0.1', port: 0 });
+    const ruf = async (pfad: string, o: { body?: unknown; cookie?: string; schluessel?: string } = {}) => {
+      const r = await fetch(adresse + pfad, { method: o.body ? 'POST' : 'GET', headers: { ...(o.body ? { 'content-type': 'application/json' } : {}), ...(o.cookie ? { cookie: o.cookie } : {}), ...(o.schluessel ? { authorization: `Bearer ${o.schluessel}` } : {}) }, body: o.body ? JSON.stringify(o.body) : undefined });
+      const t = await r.text();
+      let daten: any = t; try { daten = JSON.parse(t); } catch { /* Text */ }
+      return { status: r.status, daten, cookie: r.headers.get('set-cookie')?.split(';')[0] };
+    };
+    await ruf('/api/einrichtung', { body: { name: 'Matthias', anmeldename: 'mk', kennwort: 'ein-langes-kennwort', bueroname: 'GK3', musterprojekt: true } });
+    const cookie = (await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } })).cookie!;
+    const z = randomUUID();
+    await ruf('/api/befehle', { cookie, body: { befehle: [bef({ objekt: 'pruefzugang', art: 'anlegen', objektId: z, werte: { name: 'Prüf-KI', aktiv: true } })] } });
+    const schluessel = (await ruf('/api/pruefer/schluessel', { cookie, body: { zugang: z } })).daten.schluessel as string;
+    assert.match(schluessel, /^bpp_/);
+    assert.equal((await ruf('/api/pruefer')).status, 401, 'ohne Schlüssel nichts');
+    assert.equal((await ruf('/api/pruefer', { schluessel: schluessel.slice(0, -2) + 'xx' })).status, 401, 'falscher Schlüssel');
+    const start = await ruf('/api/pruefer', { schluessel });
+    assert.equal(start.status, 200);
+    assert.ok(start.daten.wege['POST /api/pruefer/ratschlag'] && start.daten.regeln.schicht);
+    assert.ok((await ruf('/api/pruefer/aufbau', { schluessel })).daten.includes('# Bauportal – Aufbau'));
+    const u = (await ruf('/api/pruefer/umfeld?sicht=daten&wahl=bericht_eintrag&tiefe=1', { schluessel })).daten;
+    assert.ok(u.spalten[2].ids.includes('kontakt'), 'Ziel des Eintrags: Kontakt');
+    assert.ok(Array.isArray((await ruf('/api/pruefer/pruefung', { schluessel })).daten.befunde));
+    assert.ok((await ruf('/api/pruefer/betrieb', { schluessel })).daten.tabellen.includes('o_kontakt'));
+    // Projektdaten und Befehle gibt es mit dem Schlüssel nicht
+    assert.equal((await ruf('/api/schnappschuss', { schluessel })).status, 401);
+    assert.equal((await ruf('/api/befehle', { schluessel, body: { befehle: [] } })).status, 401);
+    // Ratschlag schicken, in der Verwaltung sehen, Antwort zurücklesen
+    const r = await ruf('/api/pruefer/ratschlag', { schluessel, body: { titel: 'abgleich.ts in einen Ordner „Unterbau“', text: 'Dann braucht die Schichtregel keine Ausnahme.', baustein: 'src/ui/abgleich.ts', regel: 'schicht' } });
+    assert.equal(r.status, 200, JSON.stringify(r.daten));
+    const s = (await ruf('/api/schnappschuss', { cookie })).daten.objekte.pruefrat;
+    assert.equal(s[0].werte.stand, 'offen');
+    assert.equal(s[0].werte.zugang, z);
+    await ruf('/api/befehle', { cookie, body: { befehle: [bef({ objekt: 'pruefrat', objektId: r.daten.id, werte: { stand: 'angenommen', antwort: 'Machen wir.' } })] } });
+    const liste = (await ruf('/api/pruefer/ratschlaege', { schluessel })).daten;
+    assert.deepEqual([liste[0].stand, liste[0].antwort], ['angenommen', 'Machen wir.']);
+    // Ausschalten sperrt sofort
+    await ruf('/api/befehle', { cookie, body: { befehle: [bef({ objekt: 'pruefzugang', objektId: z, werte: { aktiv: false } })] } });
+    assert.equal((await ruf('/api/pruefer', { schluessel })).status, 401);
   } finally { await app.close(); await weg(); }
 });

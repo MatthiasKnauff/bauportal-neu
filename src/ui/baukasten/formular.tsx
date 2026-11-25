@@ -1,7 +1,7 @@
 // Baustein „Formular“: Felder, die in einem Stück an den Server gehen (Anmeldung, Kennwort).
 import { For, Show, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { Serverfehler, ruf } from '../api';
+import { Serverfehler, ruf } from '../unterbau/api';
 
 export interface Formularfeld { name: string; titel: string; typ?: string; auto?: string }
 

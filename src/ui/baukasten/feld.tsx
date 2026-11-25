@@ -3,8 +3,8 @@ import { For, Match, Show, Switch, createUniqueId } from 'solid-js';
 import type { Feld, Wert, Werte } from '../../kern/modell';
 import { HERKUNFT } from '../../kern/befehl';
 import { feldtext } from '../../kern/druck';
-import { sicht } from '../abgleich';
-import { modell } from '../api';
+import { sicht } from '../unterbau/abgleich';
+import { modell } from '../unterbau/api';
 import { Auswahlliste } from './auswahlliste';
 import { kiAnbindungen, kiOeffnen } from './ki';
 
