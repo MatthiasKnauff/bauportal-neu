@@ -148,7 +148,7 @@ export function Rahmen(p: {
         </Show>
         <section class="platz-mitte">{p.inhalt}
           <button type="button" class="oben-heftzwecke nur-breit-flex" classList={{ an: oben() === 0 }} aria-label={OBEN_TEXT[oben()]} title={OBEN_TEXT[oben()]} onClick={obenWeiter}>
-            <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={15} />
+            <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={19} />
           </button>
         </section>
         <Show when={p.details || (p.detailsHinweis && !schmal())}>
