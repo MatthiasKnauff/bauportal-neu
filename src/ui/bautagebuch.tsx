@@ -9,7 +9,7 @@ import { ausfuehren, rueckgaengig, sicht, lebende, gemerkt } from './unterbau/ab
 import { ausdrucke, darf, modell, neueKennung, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
-import { Bilder } from './baukasten/bilder';
+import { Bilder, FotoGross } from './baukasten/bilder';
 import { Detailkarte, feldAendern, inEigenemFenster, loesche } from './baukasten/detailkarte';
 import { FeldEingabe, anzeige } from './baukasten/feld';
 import { Schrittweise } from './baukasten/schrittweise';
@@ -29,6 +29,7 @@ const hole = (k: string, d: string) => { try { return localStorage.getItem(k) ??
 // Was rechts steht: ein Eintrag des Berichts, der Bericht selbst zum Bearbeiten – oder nichts
 const [eintrag, setEintrag] = createSignal<string | null>(null);
 const [bearbeiten, setBearbeiten] = createSignal(false);
+const [foto, setFoto] = createSignal<string | null>(null);   // rechts groß gezeigtes Foto des Berichts
 
 /** Die Abschnitte eines Berichts – Reihenfolge wie im alten Bautagebuch. */
 const ABSCHNITTE: { id: string; titel: string; zeichen: Zeichenname; art?: string }[] = [
@@ -146,11 +147,12 @@ const personen = (bericht: string) => lebende('bericht_eintrag').filter((e) => e
 /** Die Listen eines Berichts – dieselben in der Seite und im Ablauf „Schritt für Schritt“. */
 function listen(bericht: Zeile, seite: boolean): Record<string, () => JSX.Element> {
   const fest = (art: string) => ({ projekt: bericht.werte.projekt ?? null, bericht: bericht.id, art });
-  const wahl = seite ? { ohneTitel: true, onWahl: (id: string) => { setBearbeiten(false); setEintrag(id); } } : {};
+  const wahl = seite ? { ohneTitel: true, onWahl: (id: string) => { setBearbeiten(false); setFoto(null); setEintrag(id); } } : {};
   return {
     anwesend: () => <Anwesende bericht={bericht} />,
     notiz: () => <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
-    fotos: () => <Show when={darf('foto', 'lesen')}><Bilder titel="Bilder" ohneTitel={seite} objekt="foto" fest={{ projekt: bericht.werte.projekt ?? null, bericht: bericht.id }} beschriftung="beschriftung" hochladen="/api/foto" /></Show>,
+    fotos: () => <Show when={darf('foto', 'lesen')}><Bilder titel="Bilder" ohneTitel={seite} objekt="foto" fest={{ projekt: bericht.werte.projekt ?? null, bericht: bericht.id }} beschriftung="beschriftung" hochladen="/api/foto"
+      {...(seite ? { gewaehlt: foto(), onWahl: (id: string) => { setEintrag(null); setBearbeiten(false); setFoto(id); } } : {})} /></Show>,
     mangel: () => <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
     aufgabe: () => <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
     weisung: () => <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
@@ -212,7 +214,7 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
           </p>
           <p class="still-text">{[String(w().titel ?? ''), bauleitung()].filter(Boolean).join(' · ')}</p>
         </div>
-        <Show when={schreiben()}><button class="knopf still" aria-label="Bericht bearbeiten" title="Bericht bearbeiten" onClick={() => { setEintrag(null); setBearbeiten(true); }}>✎</button></Show>
+        <Show when={schreiben()}><button class="knopf still" aria-label="Bericht bearbeiten" title="Bericht bearbeiten" onClick={() => { setEintrag(null); setFoto(null); setBearbeiten(true); }}>✎</button></Show>
       </div>
       <div class="bt-kopf-zeile bt-wetter">
         <span>☁ {wetter().join(' · ') || 'kein Wetter eingetragen'}</span>
@@ -264,7 +266,7 @@ export function Berichtsseite(p: Mitte) {
     const neu = [...p.alle()].sort((a, b) => String(b.werte.datum ?? '').localeCompare(String(a.werte.datum ?? '')) || Number(b.werte.nummer ?? 0) - Number(a.werte.nummer ?? 0))[0];
     if (neu) p.onWahl(neu.id);
   });
-  createEffect(on(() => p.gewaehlt(), () => { setEintrag(null); setBearbeiten(false); }, { defer: true }));
+  createEffect(on(() => p.gewaehlt(), () => { setEintrag(null); setBearbeiten(false); setFoto(null); }, { defer: true }));
   const bericht = () => (p.gewaehlt() ? sicht.tagesbericht?.[p.gewaehlt()!] : undefined);
   const werkzeuge: Werkzeuge = {};
   // Menüleiste wie im bisherigen Bauportal: NEU Eintrag, Foto, Mangel, Diktieren · BERICHT Schritt für Schritt, Löschen · AUSGABE PDF
@@ -297,12 +299,15 @@ export function Berichtsseite(p: Mitte) {
 
 // ---------- rechts: das Detail des angeklickten Eintrags oder der Bericht zum Bearbeiten ----------
 export function BerichtDetails(z: Zeile): JSX.Element | undefined {
+  const fotos = () => lebende('foto').filter((f) => f.werte.bericht === z.id).sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0) || String(a.werte.name).localeCompare(String(b.werte.name)));
   return (
+    <Show when={!(foto() && fotos().some((f) => f.id === foto()))} fallback={<FotoGross objekt="foto" id={foto()!} alle={fotos()} beschriftung="beschriftung" onWahl={setFoto} onZu={() => setFoto(null)} />}>
     <Show when={eintrag() && sicht.bericht_eintrag?.[eintrag()!] && !sicht.bericht_eintrag[eintrag()!]!.geloescht ? sicht.bericht_eintrag[eintrag()!] : undefined}
       fallback={<Show when={bearbeiten()}><Detailkarte modell={modell('tagesbericht')} zeile={z} onZu={() => setBearbeiten(false)} verborgen={['projekt']} /></Show>}>
       {(e) => <Detailkarte modell={modell('bericht_eintrag')} zeile={e()} onZu={() => setEintrag(null)} verborgen={['projekt', 'bericht', 'reihe']} />}
     </Show>
+    </Show>
   );
 }
 /** Rechts ist nur etwas, wenn ein Eintrag gewählt ist oder der Bericht bearbeitet wird – sonst bekommt die Seite den Platz. */
-export const berichtDetailsDa = () => !!eintrag() || bearbeiten();
+export const berichtDetailsDa = () => !!eintrag() || bearbeiten() || !!foto();

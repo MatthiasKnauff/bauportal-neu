@@ -32,6 +32,7 @@ export function Bilder(p: {
   fest: Werte;                 // woran sie hängen (Projekt, Bericht) – geht beim Hochladen mit
   beschriftung: string;        // Feld für die Bildunterschrift
   hochladen: string;           // Adresse, die Original und Vorschaubild annimmt
+  gewaehlt?: string | null; onWahl?: (id: string) => void;   // mit Auswahl: Klick zeigt das Foto groß (z. B. rechts), statt das Original zu öffnen
 }) {
   const m = () => modell(p.objekt);
   const schreiben = () => darf(p.objekt, 'schreiben');
@@ -59,7 +60,8 @@ export function Bilder(p: {
       <div class="bilder-raster">
         <For each={bilder()}>{(z) => (
           <figure>
-            <a href={`/api/foto/original/${z.id}`} target="_blank" rel="noopener" title={`${z.werte.name} – Original öffnen (${z.werte.ort === 'ablage' ? 'liegt im Projektordner' : 'liegt im Bauportal'})`}><img src={`/api/foto/vorschau/${z.id}`} alt={String(z.werte[p.beschriftung] || z.werte.name)} loading="lazy" /></a>
+            <a href={`/api/foto/original/${z.id}`} target="_blank" rel="noopener" classList={{ an: p.gewaehlt === z.id }} title={p.onWahl ? `${z.werte.name} – groß zeigen` : `${z.werte.name} – Original öffnen (${z.werte.ort === 'ablage' ? 'liegt im Projektordner' : 'liegt im Bauportal'})`}
+              onClick={(e) => { if (p.onWahl && !e.ctrlKey && !e.metaKey) { e.preventDefault(); p.onWahl(z.id); } }}><img src={`/api/foto/vorschau/${z.id}`} alt={String(z.werte[p.beschriftung] || z.werte.name)} loading="lazy" /></a>
             <figcaption>
               <input aria-label={`Beschriftung: ${z.werte.name}`} placeholder="Beschriftung" value={String(z.werte[p.beschriftung] ?? '')} readOnly={!schreiben()}
                 onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} onChange={(e) => feldAendern(m(), z, m().felder.find((f) => f.name === p.beschriftung)!, e.currentTarget.value)} />
@@ -73,5 +75,35 @@ export function Bilder(p: {
         <button class="knopf" disabled={!!lage()} onClick={() => wahl.click()}>{lage() || '+ Fotos hinzufügen'}</button>
       </Show>
     </fieldset>
+  );
+}
+
+/** Ein Foto groß – wie rechts im bisherigen Bautagebuch: Bild (Klick öffnet das Original), ‹ 1 von n ›, Beschriftung, darunter alle als Streifen. */
+export function FotoGross(p: { objekt: string; id: string; alle: Zeile[]; beschriftung: string; onWahl: (id: string) => void; onZu: () => void }) {
+  const m = () => modell(p.objekt);
+  const z = () => p.alle.find((x) => x.id === p.id);
+  const i = () => p.alle.findIndex((x) => x.id === p.id);
+  const schritt = (d: -1 | 1) => { const n = p.alle[i() + d]; if (n) p.onWahl(n.id); };
+  return (
+    <Show when={z()}>{(f) => (
+      <aside class="karte foto-ansicht" aria-label={`Foto ${String(f().werte.name)}`} tabindex="-1"
+        onKeyDown={(e) => { if (e.key === 'ArrowLeft') schritt(-1); if (e.key === 'ArrowRight') schritt(1); if (e.key === 'Escape') p.onZu(); }}>
+        <div class="karte-kopf">
+          <button class="knopf klein still" aria-label="Voriges Foto" disabled={i() <= 0} onClick={() => schritt(-1)}>‹</button>
+          <span>{i() + 1} von {p.alle.length}</span>
+          <button class="knopf klein still" aria-label="Nächstes Foto" disabled={i() >= p.alle.length - 1} onClick={() => schritt(1)}>›</button>
+          <span class="still-text klein-text foto-name">{String(f().werte.name)}</span>
+          <button class="knopf still" aria-label="Foto schließen" title="Schließen (Esc)" onClick={p.onZu}>×</button>
+        </div>
+        <a class="foto-gross" href={`/api/foto/original/${f().id}`} target="_blank" rel="noopener" title="Original öffnen"><img src={`/api/foto/original/${f().id}`} alt={String(f().werte[p.beschriftung] || f().werte.name)} /></a>
+        <label class="foto-beschriftung">Beschreibung
+          <input value={String(f().werte[p.beschriftung] ?? '')} readOnly={!darf(p.objekt, 'schreiben')} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+            onChange={(e) => feldAendern(m(), f(), m().felder.find((x) => x.name === p.beschriftung)!, e.currentTarget.value)} />
+        </label>
+        <div class="foto-streifen">
+          <For each={p.alle}>{(x) => <button type="button" classList={{ an: x.id === p.id }} aria-label={String(x.werte[p.beschriftung] || x.werte.name)} onClick={() => p.onWahl(x.id)}><img src={`/api/foto/vorschau/${x.id}`} alt="" loading="lazy" /></button>}</For>
+        </div>
+      </aside>
+    )}</Show>
   );
 }

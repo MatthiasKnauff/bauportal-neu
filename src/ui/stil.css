@@ -164,10 +164,12 @@ main { flex: 1; min-height: 0; display: flex; }
 .unterliste-neu { width: 100%; min-height: 34px; padding: 0 10px; border: 1px dashed var(--rand-stark); border-radius: calc(9px * var(--rund)); background: transparent; font: inherit; }
 .unterliste .anzahl { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--akzent-hell); color: var(--akzent); font-size: 11px; }
 /* Bilder eines Objekts in dessen Karte */
-.bilder-raster { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.bilder-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-bottom: 8px; }
 .bilder-raster:empty { display: none; }
-.bilder-raster figure { margin: 0; border: 1px solid var(--rand); border-radius: calc(9px * var(--rund)); overflow: hidden; background: var(--flaeche); }
-.bilder-raster img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: var(--still); }
+.bilder-raster figure { position: relative; margin: 0; border: 1px solid var(--rand); border-radius: calc(9px * var(--rund)); overflow: hidden; background: var(--flaeche); }
+.bilder-raster img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--still); }
+/* ✕ oben rechts auf dem Bild wie im bisherigen Bautagebuch */
+.bilder-raster figcaption .knopf { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; min-height: 0; padding: 0; border-radius: 50%; background: rgba(0, 0, 0, .6); color: #fff; line-height: 1; }
 .bilder-raster figcaption { display: flex; align-items: center; gap: 4px; padding: 2px 4px; }
 .bilder-raster figcaption input { flex: 1; min-width: 0; min-height: 28px; border: 0; background: transparent; padding: 0 4px; font: inherit; font-size: 13px; }
 .bilder .anzahl { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--akzent-hell); color: var(--akzent); font-size: 11px; }
@@ -822,3 +824,13 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .verweis-knopf { border: 0; background: transparent; padding: 0; color: var(--text); cursor: pointer; font: inherit; font-weight: 600; text-decoration: underline; text-decoration-color: var(--rand-stark); text-underline-offset: 3px; }
 .verweis-knopf:hover { color: var(--akzent); }
 .aw-taetigkeit { width: 100%; box-sizing: border-box; min-height: 32px; resize: vertical; padding: 6px 8px; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); background: var(--flaeche); color: var(--text); font: inherit; }
+
+/* Foto groß rechts (Bautagebuch) */
+.foto-ansicht .karte-kopf { gap: 6px; } .foto-ansicht .foto-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.foto-ansicht .foto-gross { margin: 8px 12px; }
+.foto-beschriftung { display: flex; flex-direction: column; gap: 4px; margin: 0 12px 10px; font-size: 13px; color: var(--text-still); }
+.foto-beschriftung input { height: 34px; padding: 0 10px; border: 1px solid var(--rand-stark); border-radius: calc(8px * var(--rund)); background: var(--flaeche); color: var(--text); font: inherit; }
+.foto-streifen { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 12px 12px; }
+.foto-streifen button { width: 72px; height: 54px; padding: 0; border: 2px solid transparent; border-radius: calc(6px * var(--rund)); overflow: hidden; cursor: pointer; background: var(--still); }
+.foto-streifen button.an { border-color: var(--akzent); } .foto-streifen img { width: 100%; height: 100%; object-fit: cover; }
+.bilder-raster a.an img { outline: 3px solid var(--akzent); outline-offset: 1px; }
