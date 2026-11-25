@@ -63,7 +63,7 @@ function AssistentFenster(p: { projekt: string; version: string }) {
       const werte = pruefeWerte(m, Object.fromEntries(Object.entries(antworten.werte).filter(([k]) => gilt(m.felder.find((f) => f.name === k)!, antworten.werte))), false);
       const zu = fragen()!;   // vor dem Schließen merken: danach gibt es dieses Fenster nicht mehr
       setFragen(null);
-      void vorschauZeigen({ titel: 'Assistent – Vorschau', wartetext: 'Das Gebäudemodell wird aus den Angaben geschätzt …', fertig: 'Die Angaben sind ins Gebäudemodell übernommen.', zurueck: () => { setStand(null); setFragen(zu); } },
+      void vorschauZeigen({ titel: 'Assistent – Vorschau', wartetext: 'Das Gebäudemodell wird aus den Angaben geschätzt …', fertig: 'Die Angaben sind ins Gebäudemodell übernommen.', zurueck: () => setFragen(zu) },
         () => ruf<Vorschau>('/api/gebaeudemodell/assistent/vorschau', { ...zu, gebaeude: antworten.gebaeude || null, antworten: werte }));
     } catch (e) {
       if (!(e instanceof Eingabefehler)) throw e;
@@ -104,8 +104,8 @@ export function Uebernahmefenster() {
     <Show when={stand()}>{(s) => (
       <Dialog titel={s().titel} breit onAbbrechen={s().lage.art === 'liest' || s().lage.art === 'uebernimmt' ? undefined : zu}
         knoepfe={(() => { const x = s(); const l = x.lage; return l.art === 'vorschau'
-          ? <><button class="knopf" onClick={zu}>Abbrechen</button><Show when={x.zurueck}><button class="knopf" onClick={x.zurueck}>Zurück zu den Angaben</button></Show><button class="knopf haupt" disabled={!l.v.befehle} onClick={() => uebernehmen(x, l.v)}>Übernehmen</button></>
-          : <><Show when={l.art === 'fehler' && x.zurueck}><button class="knopf" onClick={x.zurueck}>Zurück zu den Angaben</button></Show><button class="knopf" disabled={l.art !== 'fehler'} onClick={zu}>Schließen</button></>; })()}>
+          ? <><button class="knopf" onClick={zu}>Abbrechen</button><Show when={x.zurueck}><button class="knopf" onClick={() => { zu(); x.zurueck!(); }}>Zurück zu den Angaben</button></Show><button class="knopf haupt" disabled={!l.v.befehle} onClick={() => uebernehmen(x, l.v)}>Übernehmen</button></>
+          : <><Show when={l.art === 'fehler' && x.zurueck}><button class="knopf" onClick={() => { zu(); x.zurueck!(); }}>Zurück zu den Angaben</button></Show><button class="knopf" disabled={l.art !== 'fehler'} onClick={zu}>Schließen</button></>; })()}>
         {(() => { const x = s(); const l = x.lage;
           if (l.art === 'liest') return <p class="still-text">{x.wartetext}</p>;
           if (l.art === 'uebernimmt') return <p class="still-text">Die Änderungen werden übernommen …</p>;

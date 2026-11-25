@@ -1,0 +1,43 @@
+// Diktieren im Tagesbericht: frei erzählen mit dem Mikrofon der Handytastatur, die KI verteilt den Text auf den
+// Bericht. Übernommen wird erst nach der Vorschau (Baustein Übernahme). Es wird kein Ton aufgenommen.
+import { For, Show, createSignal } from 'solid-js';
+import type { Zeile } from '../kern/befehl';
+import { ruf } from './api';
+import { Dialog } from './baukasten/dialog';
+import { kiAnbindungen } from './baukasten/ki';
+import { vorschauZeigen, type Vorschau } from './uebernahme';
+
+export function Diktieren(p: { bericht: Zeile }) {
+  const [offen, setOffen] = createSignal(false);
+  const [text, setText] = createSignal('');
+  const [anbindung, setAnbindung] = createSignal(kiAnbindungen()[0]?.id ?? '');
+  const weiter = () => {
+    const t = text().trim();
+    if (!t) return;
+    setOffen(false);
+    void vorschauZeigen({ titel: 'Diktat übernehmen', wartetext: anbindung() ? 'Die KI ordnet den Text …' : 'Text wird vorbereitet …', fertig: 'Das Diktat steht im Bericht.', zurueck: () => setOffen(true), danach: () => setText('') },
+      () => ruf<Vorschau>('/api/bautagebuch/diktat', { bericht: p.bericht.id, text: t, anbindung: anbindung() || undefined }));
+  };
+  return (
+    <>
+      <div class="diktat-knopf"><button class="knopf" onClick={() => { setAnbindung(kiAnbindungen()[0]?.id ?? ''); setOffen(true); }}>🎙 Diktieren</button></div>
+      <Show when={offen()}>
+        <Dialog titel="Diktieren" breit onAbbrechen={() => setOffen(false)}
+          knoepfe={<>
+            <button class="knopf" onClick={() => setOffen(false)}>Abbrechen</button>
+            <button class="knopf haupt" disabled={!text().trim()} onClick={weiter}>{anbindung() ? 'Ordnen lassen' : 'Als Notiz übernehmen'}</button>
+          </>}>
+          <p class="leise">Erzähl einfach, was auf der Baustelle los war – auf dem Handy mit dem Mikrofon der Tastatur. Wer da war, Mängel, Aufgaben, Wetter. Es wird kein Ton gespeichert.</p>
+          <textarea class="diktat-text" rows={9} value={text()} onInput={(e) => setText(e.currentTarget.value)} autofocus
+            placeholder="z. B. Heute sonnig, 14 Grad. Firma Müller mit drei Leuten beim Mauern im EG. Am Fenster Küche fehlt die Abdichtung, Müller bis Freitag nachbessern …" />
+          <label class="diktat-ki">KI
+            <select value={anbindung()} onChange={(e) => setAnbindung(e.currentTarget.value)}>
+              <For each={kiAnbindungen()}>{(k) => <option value={k.id}>{String(k.werte.name)}{k.werte.art === 'ollama' ? ' (im Büro)' : ''}</option>}</For>
+              <option value="">ohne KI – alles als Notiz</option>
+            </select>
+          </label>
+        </Dialog>
+      </Show>
+    </>
+  );
+}

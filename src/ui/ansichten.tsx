@@ -28,6 +28,10 @@ import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Balkenplan } from './balkenplan';
 import { Bilder } from './baukasten/bilder';
+import { Diktieren } from './diktat';
+import { Schrittweise } from './baukasten/schrittweise';
+import { FeldEingabe } from './baukasten/feld';
+import { feldAendern } from './baukasten/detailkarte';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -156,15 +160,34 @@ function Berichtslisten(p: { bericht: Zeile }) {
     return lebende('kontakt').map((k) => ({ wert: k.id, titel: [k.werte.name, k.werte.gewerk].filter(Boolean).join(' – '), vorn: beteiligt.has(k.id) }))
       .sort((a, b) => Number(b.vorn) - Number(a.vorn) || a.titel.localeCompare(b.titel, 'de'));
   };
+  // Dieselben Abschnitte in der Karte und im Ablauf „Schritt für Schritt“
+  const listen = [
+    { titel: 'Anwesende', inhalt: () => <Unterliste titel="Anwesende" objekt="bericht_eintrag" fest={fest('anwesend')} haupt="text" neben={['personen']} neuUeber="firma" angebot={firmen} platzhalter="+ Firma hinzufügen …" /> },
+    { titel: 'Notizen', inhalt: () => <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" /> },
+    { titel: 'Mängel', inhalt: () => <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" /> },
+    { titel: 'Zu erledigen', inhalt: () => <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben und Enter" /> },
+    { titel: 'Weisungen', inhalt: () => <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" /> },
+    { titel: 'Fotos', inhalt: () => <Show when={darf('foto', 'lesen')}><Bilder titel="Fotos" objekt="foto" fest={{ projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id }} beschriftung="beschriftung" hochladen="/api/foto" /></Show> },
+  ];
+  const m = modell('tagesbericht');
+  const felder = (gruppe: string) => () => (
+    <div class="schritt-felder">
+      <For each={m.felder.filter((f) => f.gruppe === gruppe && !f.verborgen)}>{(f) =>
+        <FeldEingabe feld={f} wert={sicht.tagesbericht?.[p.bericht.id]?.werte[f.name] ?? null} onWert={(w) => feldAendern(m, sicht.tagesbericht![p.bericht.id]!, f, w)} />}</For>
+    </div>
+  );
+  const schritte = [
+    { titel: 'Wetter', inhalt: () => <><WetterHolen bericht={p.bericht} />{felder('Wetter')()}</> },
+    ...listen,
+    { titel: 'Kontrollen', inhalt: felder('Kontrollen') },
+  ];
   return (
     <Show when={darf('bericht_eintrag', 'lesen')}>
-      <WetterHolen bericht={p.bericht} />
-      <Unterliste titel="Anwesende" objekt="bericht_eintrag" fest={fest('anwesend')} haupt="text" neben={['personen']} neuUeber="firma" angebot={firmen} platzhalter="+ Firma hinzufügen …" />
-      <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" />
-      <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" />
-      <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben und Enter" />
-      <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" />
-      <Show when={darf('foto', 'lesen')}><Bilder titel="Fotos" objekt="foto" fest={{ projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id }} beschriftung="beschriftung" hochladen="/api/foto" /></Show>
+      <div class="bericht-werkzeuge">
+        <Show when={darf('bericht_eintrag', 'schreiben')}><Diktieren bericht={p.bericht} /><Schrittweise knopf="Schritt für Schritt" titel="Tagesbericht" schritte={schritte} /></Show>
+        <WetterHolen bericht={p.bericht} />
+      </div>
+      {listen.map((l) => l.inhalt())}
     </Show>
   );
 }

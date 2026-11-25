@@ -10,12 +10,19 @@ import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
 /** Was die KI mit einem Text tun kann – die Anweisungen stehen hier, nicht in der Oberfläche. */
-export const AUFGABEN: Record<string, { titel: string; anweisung: string }> = {
+export const AUFGABEN: Record<string, { titel: string; anweisung: string; json?: boolean }> = {
   ausformulieren: { titel: 'Stichworte ausformulieren', anweisung: 'Formuliere die Stichworte zu einem sachlichen, knappen Text in ganzen Sätzen aus, wie er in einem Bautagebuch oder Protokoll eines Architekturbüros steht. Erfinde nichts dazu: keine Mengen, Namen, Termine oder Bewertungen, die nicht in den Stichworten stehen.' },
   glaetten: { titel: 'Text glätten', anweisung: 'Glätte den Text sprachlich: klare, sachliche Sätze, gleiche Zeitform, keine Wiederholungen. Der Inhalt bleibt vollständig und unverändert; füge nichts hinzu.' },
   rechtschreibung: { titel: 'Rechtschreibung prüfen', anweisung: 'Korrigiere nur Rechtschreibung, Grammatik und Zeichensetzung. Wortwahl, Satzbau und Inhalt bleiben, wie sie sind.' },
   kuerzen: { titel: 'Kürzen', anweisung: 'Kürze den Text auf das Wesentliche, etwa auf die Hälfte. Alle Fakten (Mengen, Namen, Termine, Mängel, Anordnungen) bleiben erhalten.' },
+  // Bautagebuch per Sprache: der frei diktierte Bericht wird auf die Bereiche des Tagesberichts verteilt
+  diktat: { titel: 'Diktat ordnen', json: true, anweisung: `Der Text ist ein frei diktierter Baustellenbericht (Spracherkennung, Fehler möglich). Verteile ihn auf die Bereiche eines Bautagesberichts.
+Antworte nur mit JSON in genau dieser Form:
+{"wetter": "", "temperatur": null, "anwesend": [{"firma": "", "personen": null, "taetigkeit": ""}], "notizen": [""], "maengel": [{"text": "", "firma": "", "frist": ""}], "aufgaben": [{"text": "", "frist": ""}], "weisungen": [{"text": "", "firma": ""}]}
+wetter: eines von sonnig, bewoelkt, regen, schnee, frost, sturm oder leer. temperatur: Zahl in °C oder null. frist: Datum als JJJJ-MM-TT oder leer.
+Übernimm nur, was im Text steht – erfinde keine Firmen, Mengen, Fristen oder Mängel. Was in keinen Bereich passt, kommt zu notizen. Schreib die Einträge als kurze, sachliche Sätze.` },
 };
+const RAHMEN_JSON = 'Du arbeitest in der Software eines Architekturbüros. Antworte ausschließlich mit gültigem JSON, ohne Einleitung und ohne Codeblock.';
 const RAHMEN = 'Du arbeitest in der Software eines Architekturbüros. Antworte auf Deutsch und gib ausschließlich den fertigen Text zurück – ohne Einleitung, ohne Erklärung, ohne Anführungszeichen, ohne Formatierungszeichen.';
 const GRENZE = 20000;
 
@@ -73,7 +80,7 @@ export async function kiText(db: Db, wer: Benutzer, anbindungId: string, aufgabe
     'insert into kern_ki_ausgang (benutzer_id, benutzer_name, anbindung, art, modell, aufgabe, extern, zeichen, ersetzt, tokens_ein, tokens_aus, fehler) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
     [wer.id, wer.name, a.name, a.art, a.modell, aufgabe, extern, e.text.length, e.karte.size, ein, aus, fehler]);
   try {
-    const r = await dienst<{ text: string; ein: number; aus: number }>('/frage', { ...(await zugang(db, a)), anweisung: [RAHMEN, auf.anweisung, extern ? PLATZHALTER_HINWEIS : ''].filter(Boolean).join('\n\n'), text: e.text });
+    const r = await dienst<{ text: string; ein: number; aus: number }>('/frage', { ...(await zugang(db, a)), anweisung: [auf.json ? RAHMEN_JSON : RAHMEN, auf.anweisung, extern ? PLATZHALTER_HINWEIS : ''].filter(Boolean).join('\n\n'), text: e.text });
     await merke(null, r.ein, r.aus);
     return { vorschlag: klartext(r.text, e.karte).trim(), extern, ersetzt: e.karte.size };
   } catch (err) {
@@ -87,7 +94,7 @@ export function kiRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (req:
   const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
   type Ein = { anbindung?: string; schluessel?: string; aufgabe?: string; text?: string };
 
-  app.get('/api/ki/aufgaben', { preHandler: e.nurAngemeldet }, async () => Object.entries(AUFGABEN).map(([wert, a]) => ({ wert, titel: a.titel })));
+  app.get('/api/ki/aufgaben', { preHandler: e.nurAngemeldet }, async () => Object.entries(AUFGABEN).filter(([, a]) => !a.json).map(([wert, a]) => ({ wert, titel: a.titel })));
 
   app.post('/api/ki/text', { preHandler: e.nurAngemeldet }, async (req) => {
     const b = (req.body ?? {}) as Ein;
