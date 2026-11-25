@@ -6,14 +6,16 @@ import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type 
 import type { Zeile } from '../kern/befehl';
 import type { Feld } from '../kern/modell';
 import { ausfuehren, rueckgaengig, sicht, lebende, gemerkt } from './unterbau/abgleich';
-import { ausdrucke, darf, modell, ruf } from './unterbau/api';
+import { ausdrucke, darf, modell, neueKennung, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
 import { Bilder } from './baukasten/bilder';
-import { Detailkarte, feldAendern, loesche } from './baukasten/detailkarte';
+import { Detailkarte, feldAendern, inEigenemFenster, loesche } from './baukasten/detailkarte';
 import { FeldEingabe, anzeige } from './baukasten/feld';
 import { Schrittweise } from './baukasten/schrittweise';
 import { Unterliste } from './baukasten/unterliste';
+import { Zaehler } from './baukasten/zaehler';
+import { Auswahlliste } from './baukasten/auswahlliste';
 import { Verlauf } from './baukasten/verlauf';
 import { Diktieren } from './diktat';
 import { druckOeffnen } from './druck';
@@ -101,12 +103,52 @@ const firmenFuer = (projekt: unknown) => () => gemerkt(['kontakt', 'projekt_kont
     .sort((a, b) => Number(b.vorn) - Number(a.vorn) || a.titel.localeCompare(b.titel, 'de'));
 });
 
+/** Anwesende wie im bisherigen Bautagebuch: je Firma Kürzel, Name (öffnet den Kontakt), Personen mit − / +, ✕ – darunter die
+ *  Art der Tätigkeit. Unten „＋ Firma hinzufügen“ mit den Beteiligten des Projekts zuerst. */
+const kuerzel = (name: string) => name.replace(/\b(GmbH|AG|KG|UG|mbH|Co|e\.?\s?K|Fa\.?|Firma|und|u\.)\b/gi, ' ').split(/[\s\-&+.,]+/).filter((w) => /^[A-Za-zÄÖÜäöü]/.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
+function Anwesende(p: { bericht: Zeile }) {
+  const m = () => modell('bericht_eintrag');
+  const feld = (n: string) => m().felder.find((f) => f.name === n)!;
+  const schreiben = () => darf('bericht_eintrag', 'schreiben');
+  const zeilen = () => lebende('bericht_eintrag').filter((e) => e.werte.bericht === p.bericht.id && e.werte.art === 'anwesend')
+    .sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0));
+  const name = (z: Zeile) => { const k = z.werte.firma ? sicht.kontakt?.[String(z.werte.firma)] : undefined; return k ? String(k.werte.name ?? '') : String(z.werte.text ?? ''); };
+  const neu = (kontakt: string) => {
+    if (!kontakt) return;
+    const reihe = Math.max(0, ...zeilen().map((z) => Number(z.werte.reihe ?? 0))) + 1;
+    ausfuehren({ objekt: 'bericht_eintrag', art: 'anlegen', objektId: neueKennung(), werte: { projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id, art: 'anwesend', firma: kontakt, personen: 1, text: '', reihe } }, 'Firma eintragen');
+  };
+  return (
+    <div class="anwesende">
+      <For each={zeilen()}>{(z) => (
+        <div class="aw-zeile">
+          <div class="aw-kopf">
+            <span class="aw-kuerzel" aria-hidden="true">{kuerzel(name(z))}</span>
+            <Show when={z.werte.firma} fallback={<span class="aw-name">{name(z) || 'ohne Firma'}</span>}>
+              <button type="button" class="aw-name verweis-knopf" title="Kontakt öffnen" onClick={() => inEigenemFenster(modell('kontakt'), String(z.werte.firma))}>{name(z)}</button>
+            </Show>
+            <Zaehler titel="Personen" wert={z.werte.personen ?? null} gesperrt={!schreiben()} onWert={(w) => feldAendern(m(), z, feld('personen'), w)} />
+            <Show when={darf('bericht_eintrag', 'loeschen')}><button type="button" class="knopf klein still" aria-label={`${name(z)} entfernen`} title="Entfernen" onClick={() => loesche(m(), z)}>✕</button></Show>
+          </div>
+          <textarea class="aw-taetigkeit" rows={1} placeholder="Art der Tätigkeit" aria-label={`Art der Tätigkeit ${name(z)}`} value={String(z.werte.text ?? '')} readOnly={!schreiben()}
+            onChange={(e) => feldAendern(m(), z, feld('text'), e.currentTarget.value)} />
+        </div>
+      )}</For>
+      <Show when={schreiben()}>
+        <Auswahlliste titel="Firma hinzufügen" platzhalter="＋ Firma hinzufügen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)()} onWert={neu} />
+      </Show>
+    </div>
+  );
+}
+/** Summe der Personen der Anwesenden – steht im Kopf des Abschnitts. */
+const personen = (bericht: string) => lebende('bericht_eintrag').filter((e) => e.werte.bericht === bericht && e.werte.art === 'anwesend').reduce((s, e) => s + (Number(e.werte.personen) || 0), 0);
+
 /** Die Listen eines Berichts – dieselben in der Seite und im Ablauf „Schritt für Schritt“. */
 function listen(bericht: Zeile, seite: boolean): Record<string, () => JSX.Element> {
   const fest = (art: string) => ({ projekt: bericht.werte.projekt ?? null, bericht: bericht.id, art });
   const wahl = seite ? { ohneTitel: true, onWahl: (id: string) => { setBearbeiten(false); setEintrag(id); } } : {};
   return {
-    anwesend: () => <Unterliste titel="Anwesende" objekt="bericht_eintrag" fest={fest('anwesend')} haupt="text" neben={['personen']} neuUeber="firma" angebot={firmenFuer(bericht.werte.projekt)} platzhalter="+ Firma hinzufügen …" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
+    anwesend: () => <Anwesende bericht={bericht} />,
     notiz: () => <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
     fotos: () => <Show when={darf('foto', 'lesen')}><Bilder titel="Bilder" ohneTitel={seite} objekt="foto" fest={{ projekt: bericht.werte.projekt ?? null, bericht: bericht.id }} beschriftung="beschriftung" hochladen="/api/foto" /></Show>,
     mangel: () => <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
@@ -206,6 +248,7 @@ function Abschnitt(p: { a: (typeof ABSCHNITTE)[number]; bericht: Zeile; inhalt: 
       <div class="bt-karte-kopf">
         <span class="bt-symbol"><Zeichen name={p.a.zeichen} groesse={18} /></span>
         <h3>{p.a.titel}</h3><span class="anzahl">{anzahl(p.bericht.id, p.a)}</span>
+        <Show when={p.a.id === 'anwesend' && personen(p.bericht.id)}><span class="still-text klein-text">{personen(p.bericht.id)} Personen</span></Show>
         <button class="knopf still" aria-label={zu() ? `${p.a.titel} aufklappen` : `${p.a.titel} zuklappen`} aria-expanded={!zu()} onClick={() => { setZu(!zu()); merke(schluessel, zu() ? 'zu' : ''); }}>{zu() ? '▸' : '▾'}</button>
         <Show when={darf(p.a.id === 'fotos' ? 'foto' : 'bericht_eintrag', 'schreiben')}><button class="knopf bt-plus" aria-label={`${p.a.titel}: neuer Eintrag`} onClick={neu}>+</button></Show>
       </div>
