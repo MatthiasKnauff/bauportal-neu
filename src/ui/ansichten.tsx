@@ -378,6 +378,12 @@ const ANPASSUNG: Record<string, Anpassung> = {
     details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
+  // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)
+  foto: {
+    kachelnZuerst: true, kachelBreite: 150,
+    kachel: (z) => <figure class="foto-kachel"><img src={`/api/foto/vorschau/${z.id}`} alt={String(z.werte.beschriftung || z.werte.name)} loading="lazy" /><figcaption>{String(z.werte.beschriftung || '') || <span class="still-text">{String(sicht.tagesbericht?.[String(z.werte.bericht)]?.werte.nummer ? `Bericht ${String(sicht.tagesbericht[String(z.werte.bericht)]!.werte.nummer)}` : '')}</span>}</figcaption></figure>,
+    kartenOben: (z) => <a class="foto-gross" href={`/api/foto/original/${z.id}`} target="_blank" rel="noopener" title="Original öffnen"><img src={`/api/foto/original/${z.id}`} alt={String(z.werte.beschriftung || z.werte.name)} /></a>,
+  },
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,
     // wie im bisherigen Bauportal: oben Anrufen, E-Mail, Route, Ins Handy; nach der Erreichbarkeit die weiteren Kontaktwege

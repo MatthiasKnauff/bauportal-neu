@@ -26,6 +26,8 @@ export interface Anpassung {
   kartenZusatz?: (z: Zeile) => JSX.Element;
   /** Über den Angaben der Karte (z. B. Anrufen, E-Mail, Route) und nach einer Gruppe eingeschoben (z. B. weitere Kontaktwege nach „Kontakt“). */
   kartenOben?: (z: Zeile) => JSX.Element;
+  /** Kacheln statt Tabelle als erste Form (z. B. Fotos als Vorschaubilder) und ihre Mindestbreite in px. */
+  kachelnZuerst?: boolean; kachelBreite?: number;
   kartenEinschub?: Record<string, (z: Zeile) => JSX.Element>;
   /** Weitere Reiter der Detailkarte neben den Angaben (z. B. „Projekte“ eines Kontakts). */
   kartenReiter?: (z: Zeile) => { titel: string; inhalt: () => JSX.Element }[];

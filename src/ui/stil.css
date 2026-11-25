@@ -534,7 +534,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .schritt-felder { display: grid; gap: 10px; margin-top: 10px; }
 
 /* Baustein Kacheln (z. B. Adressen) */
-.kachelliste { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; padding: 12px; align-content: start; overflow: auto; height: 100%; box-sizing: border-box; }
+.kachelliste { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--kachel-breite, 250px), 1fr)); gap: 10px; padding: 12px; align-content: start; overflow: auto; height: 100%; box-sizing: border-box; }
 .kachelliste-eintrag { background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); padding: 12px 14px; cursor: pointer; }
 .kachelliste-eintrag:hover { border-color: var(--rand-stark); }
 .kachelliste-eintrag.an { border-color: var(--akzent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--akzent) 25%, transparent); }
@@ -639,9 +639,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .plaetze > .reiter.links { margin-right: 12px; } .plaetze > .reiter:not(.links) { margin-left: 12px; }
 
 /* Rahmen links: die Ansichten der App in Abschnitten */
-.ansichten-nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 8px 6px; border-bottom: 1px solid var(--rand); flex: 0 1 auto; min-height: 0; overflow-y: auto; }
-.ansichten-nav > * { flex: none; }
-.ansichten-nav:not(:last-child) { max-height: 55%; }
+.ansichten-nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 8px 6px; border-bottom: 1px solid var(--rand); flex: none; }
 .ansichten-nav:last-child { border-bottom: 0; }   /* ohne Baum darunter kein Trennstrich */   /* mit Baum darunter: beide bekommen Platz, jede Liste rollt für sich */
 .ansichten-nav h3 { margin: 6px 0 2px; padding: 5px 8px; font-size: 12.5px; font-weight: 700; background: var(--still); border-radius: calc(7px * var(--rund)); }
 .ansichten-nav button { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; padding: 5px 8px; border-radius: calc(8px * var(--rund)); font: inherit; text-align: left; cursor: pointer; }
@@ -802,3 +800,12 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .kw-felder { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0 8px; }
 .kw-felder > .breit { grid-column: span 2; }
 .kw-neu { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Linke Seite rollt als Ganzes (Ansichten, Kalender, Abschnitte untereinander) – nur die Kopfzeile mit der Heftzwecke bleibt stehen */
+.platz-links { overflow-y: auto; } .platz-links > * { flex-shrink: 0; }
+.platz-links > .platz-kopf { position: sticky; top: 0; z-index: 2; background: var(--flaeche); padding-bottom: 4px; }
+/* Fotos */
+.foto-kachel { margin: 0; display: flex; flex-direction: column; gap: 4px; } .foto-kachel img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(8px * var(--rund)); background: var(--still); }
+.foto-kachel figcaption { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 16px; }
+.kachelliste:has(.foto-kachel) .kachelliste-eintrag { padding: 6px; }
+.foto-gross { display: block; margin-bottom: 10px; } .foto-gross img { width: 100%; max-height: 60vh; object-fit: contain; border-radius: calc(8px * var(--rund)); background: var(--still); }

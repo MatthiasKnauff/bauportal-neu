@@ -3,9 +3,9 @@
 import { For, Show, type JSX } from 'solid-js';
 import type { Zeile } from '../../kern/befehl';
 
-export function Kacheln(p: { zeilen: Zeile[]; gewaehlt: string | null; leer: string; inhalt: (z: Zeile) => JSX.Element; onWahl: (id: string) => void; onOeffnen: () => void }) {
+export function Kacheln(p: { zeilen: Zeile[]; gewaehlt: string | null; leer: string; inhalt: (z: Zeile) => JSX.Element; onWahl: (id: string) => void; onOeffnen: () => void; breite?: number }) {
   return (
-    <div class="kachelliste">
+    <div class="kachelliste" style={p.breite ? { '--kachel-breite': `${p.breite}px` } : undefined}>
       <Show when={p.zeilen.length} fallback={<p class="leer">{p.leer}</p>}>
         <For each={p.zeilen}>{(z) => (
           <div class="kachelliste-eintrag" classList={{ an: z.id === p.gewaehlt }} role="button" tabindex="0" aria-pressed={z.id === p.gewaehlt}

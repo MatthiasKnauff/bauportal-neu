@@ -43,7 +43,7 @@ export function ObjektAnsicht(p: {
   const [reihe, setReihe] = createSignal<string[] | null>(null);   // Reihenfolge, die Tabelle oder eigene Mitte (Balkenplan) gerade zeigen
   // Tabelle oder Kacheln – nur, wo das Modul Kacheln einstellt; gemerkt je Objektart, am Handy zuerst Kacheln
   const FORM = `bp.form.${m.name}`;
-  const [kacheln, setKacheln] = createSignal(!!a.kachel && (() => { try { const x = localStorage.getItem(FORM); return x ? x === 'kacheln' : matchMedia('(max-width: 860px)').matches; } catch { return false; } })());
+  const [kacheln, setKacheln] = createSignal(!!a.kachel && (() => { try { const x = localStorage.getItem(FORM); return x ? x === 'kacheln' : !!a.kachelnZuerst || matchMedia('(max-width: 860px)').matches; } catch { return false; } })());
   const formWechseln = () => { setKacheln(!kacheln()); try { localStorage.setItem(FORM, kacheln() ? 'kacheln' : 'tabelle'); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
   let rahmen!: RahmenSteuer, tabelle!: TabellenSteuer, suchfeld!: HTMLInputElement, wurzel!: HTMLDivElement;
 
@@ -162,7 +162,7 @@ export function ObjektAnsicht(p: {
         baumTitel={a.linksTitel ?? 'Gliederung'}
         baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksWahl()} onWahl={(id) => setLinksWahl(id === linksWahl() ? '' : id)} /> : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
         inhalt={a.mitte ? a.mitte(mitteP) : a.leer && !lebend().length ? a.leer(fest(), () => neuStart()) : kacheln() && a.kachel ?
-          <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
+          <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
