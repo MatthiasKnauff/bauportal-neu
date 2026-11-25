@@ -255,10 +255,10 @@ export function Balkenplan(p: Mitte) {
   };
   const tun = (b: Vorlage[], titel: string) => { if (b.length) ausfuehrenMehrere(b, titel); };
   // Neue Leistung: wie üblich unterhalb der markierten (ohne Markierung am Ende)
-  const neuDarunter = (werte: Record<string, Wert> = {}, unter = markiert()) => {
+  const neuDarunter = (werte: Record<string, Wert> = {}, unter = markiert(), verknuepfen = autom()) => {
     if (!schreiben()) return;
     const i = unter ? vorgaenge().findIndex((v) => v.id === unter) + 1 : 0;
-    const r = einfuegen(V_(), L_(), i <= 0 ? vorgaenge().length : i, { name: 'Neue Leistung', ...werte }, zu(), neueKennung, autom());
+    const r = einfuegen(V_(), L_(), i <= 0 ? vorgaenge().length : i, { name: 'Neue Leistung', ...werte }, zu(), neueKennung, verknuepfen);
     tun(r.befehle, 'Leistung einfügen');
     setMarkiert(r.id);
     queueMicrotask(() => bearbeiten(r.id, 'name'));
@@ -316,21 +316,38 @@ export function Balkenplan(p: Mitte) {
     setMarkiert(v.id);
     if (!schreiben() || erg().termine.get(v.id)?.gruppe && art !== 'link') return;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    setZiehen({ id: v.id, art, x0: e.clientX, dx: 0, y, yMaus: y });
+    setZiehen({ id: v.id, art, x0: svgX(e.clientX), dx: 0, y, yMaus: y });
+    mitrollen(e.clientX);
   };
   // Auf freier Fläche ziehen: neue Leistung vom ersten bis zum letzten überstrichenen Tag – unter der Zeile, in der gezogen wird
   const aufziehen = (e: PointerEvent) => {
     if (e.button !== 0 || !schreiben() || (e.target as Element).closest('.bzp-balken-teil, .bzp-meilenstein, .bzp-griff, .bzp-punkt')) return;
     const r = (e.currentTarget as SVGElement).getBoundingClientRect();
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    setZiehen({ id: '', art: 'neu', x0: e.clientX, dx: 0, y: Math.floor((e.clientY - r.top) / H) * H, yMaus: e.clientY - r.top, xs: e.clientX - r.left });
+    setZiehen({ id: '', art: 'neu', x0: svgX(e.clientX), dx: 0, y: Math.floor((e.clientY - r.top) / H) * H, yMaus: e.clientY - r.top, xs: e.clientX - r.left });
+    mitrollen(e.clientX);
   };
   const aufgezogen = (g: { x0: number; dx: number; y: number; xs?: number }) => {
     const a = Math.min(g.xs!, g.xs! + g.dx), b = Math.max(g.xs!, g.xs! + g.dx);
     return { t0: achse().t0 + Math.floor(a / px()), t1: achse().t0 + Math.floor(b / px()) };
   };
   const svgY = (e: PointerEvent) => e.clientY - (flaeche.querySelector('.bzp-balken') as SVGElement).getBoundingClientRect().top;
-  const bewegen = (e: PointerEvent) => { const g = ziehen(); if (g) setZiehen({ ...g, dx: e.clientX - g.x0, yMaus: svgY(e) }); };
+  // Gezogen wird in Koordinaten der Balkenfläche: rollt sie mit, wandert der Balken weiter
+  const svgX = (clientX: number) => clientX - (flaeche.querySelector('.bzp-balken') as SVGElement).getBoundingClientRect().left;
+  let mausX = 0;
+  const bewegen = (e: PointerEvent) => { mausX = e.clientX; const g = ziehen(); if (g) setZiehen({ ...g, dx: svgX(e.clientX) - g.x0, yMaus: svgY(e) }); };
+  /** Am Rand der Fläche rollt sie beim Ziehen mit – sonst ginge es nur so weit, wie gerade zu sehen ist. */
+  const mitrollen = (start: number) => {
+    mausX = start;
+    const schritt = () => {
+      const g = ziehen(); if (!g) return;
+      const r = flaeche.getBoundingClientRect(), links = Math.max(r.left, r.left + breiteL() - flaeche.scrollLeft), RAND = 40;
+      const d = mausX > r.right - RAND ? Math.ceil((mausX - (r.right - RAND)) / 3) : mausX < links + RAND ? -Math.ceil((links + RAND - mausX) / 3) : 0;
+      if (d) { const vor = flaeche.scrollLeft; flaeche.scrollLeft += d; if (flaeche.scrollLeft !== vor) setZiehen({ ...g, dx: svgX(mausX) - g.x0 }); }
+      requestAnimationFrame(schritt);
+    };
+    requestAnimationFrame(schritt);
+  };
   const loslassen = (e: PointerEvent) => {
     const g = ziehen();
     setZiehen(null);
@@ -338,7 +355,8 @@ export function Balkenplan(p: Mitte) {
     if (g.art === 'neu') {
       if (Math.abs(g.dx) < px()) return;   // nur geklickt
       const k = kal(), { t0, t1 } = aufgezogen(g), w0 = k.arbeitstag(t0), w1 = k.arbeitstag(t1 + 1);
-      return neuDarunter({ anfang_nicht_vor: isoAus(k.tag(w0)), dauer: Math.max(1, w1 - w0) }, sichtbar()[g.y / H]?.id ?? vorgaenge()[vorgaenge().length - 1]?.id);
+      // Aufgezogen heißt: genau dort – ohne automatische Verknüpfung, die den Anfang wieder verschieben würde
+      return neuDarunter({ anfang_nicht_vor: isoAus(k.tag(w0)), dauer: Math.max(1, w1 - w0) }, sichtbar()[g.y / H]?.id ?? vorgaenge()[vorgaenge().length - 1]?.id, false);
     }
     const v = vorgaenge().find((x) => x.id === g.id), t = erg().termine.get(g.id);
     if (!v || !t) return;
