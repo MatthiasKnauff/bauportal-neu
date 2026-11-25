@@ -29,7 +29,7 @@ export function Kopfleiste(p: {
       <Show when={p.onHilfe}><button class="kopf-rund" aria-label="Hilfe zu dieser Seite" title="Hilfe zu dieser Seite" onClick={p.onHilfe}>?</button></Show>
       <Show when={p.apps?.length}>
         <div class="menue">
-          <button class="kopf-rund" aria-label="Apps" title="Zu einer anderen App" aria-haspopup="menu" aria-expanded={apps()} onClick={() => setApps(!apps())}>▦</button>
+          <button class="kopf-rund" aria-label="Apps" title="Zu einer anderen App" aria-haspopup="menu" aria-expanded={apps()} onClick={() => setApps(!apps())}><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><g fill="currentColor">{[4, 12, 20].flatMap((y) => [4, 12, 20].map((x) => <circle cx={x} cy={y} r="2.2" />))}</g></svg></button>
           <Show when={apps()}>
             <div class="menue-liste apps-liste" role="menu" onClick={() => setApps(false)}>
               <For each={p.apps}>{(a) => <button role="menuitem" onClick={() => p.onApp?.(a.id)}>{a.titel}</button>}</For>

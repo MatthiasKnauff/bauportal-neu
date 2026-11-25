@@ -10,6 +10,7 @@ import { Abfolgeleiste } from './baukasten/abfolgeleiste';
 import { Kopfleiste } from './baukasten/kopfleiste';
 import { Suche, type Treffer } from './suche';
 import { Hilfe } from './hilfe';
+import { Projektkacheln } from './startkacheln';
 import { setSprung } from './sprung';
 import { AppUmgebung } from './baukasten/rahmen';
 import { projektId, setProjektId, waehleVersion } from './projekt';
@@ -236,6 +237,7 @@ function Portal() {
                 <div class="kacheln" role="list" aria-label="Module">
                   <For each={module()}>{(m) => <button class="kachel" role="listitem" onClick={() => { setModulId(m.modul.id); setAnsichtId(''); }}><strong>{m.modul.name}</strong><span>{m.modul.beschreibung}</span></button>}</For>
                 </div>
+                <Show when={projektId() && sicht.projekt?.[projektId()!] && !sicht.projekt[projektId()!]!.geloescht}><Projektkacheln projekt={projektId()!} onApp={(id, a) => oeffne(id, a ?? '')} /></Show>
               </Show>
             </div></div>}>
             {(_s: string) => <AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}

@@ -472,3 +472,18 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .ph-gewerk { margin-bottom: 8px; }
 .ph-gewerk-kopf { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--rand); border-radius: 10px; background: #fafaf7; cursor: pointer; margin-bottom: 6px; }
 .ph-gewerk-kopf strong { display: flex; align-items: center; gap: 8px; }
+/* Startseite: Stand des gewählten Projekts */
+.projektkacheln { margin-top: 28px; }
+.projektkacheln h2 { margin-bottom: 10px; }
+.projektkacheln-reihe { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.projektkachel { display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 14px 16px; border: 1px solid var(--rand); border-radius: 12px; background: var(--flaeche); cursor: pointer; font-size: 14px; }
+.projektkachel:hover { border-color: var(--akzent); }
+.projektkachel strong { font-size: 15px; margin-bottom: 2px; }
+.projektkachel h4 { margin: 8px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-still); }
+.pk-zeile { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pk-zeile i { width: 8px; height: 8px; border-radius: 50%; background: var(--text-still); flex: none; }
+.pk-zeile i.mangel { background: var(--gefahr); }
+.pk-zeile em { margin-left: auto; font-style: normal; color: var(--text-still); white-space: nowrap; padding-left: 8px; }
+.pk-zeile.ueberfaellig em { color: var(--gefahr); font-weight: 600; }
+.pk-hinweis { color: var(--warn); font-weight: 600; }
+.kopf-rund { display: inline-flex; align-items: center; justify-content: center; }
