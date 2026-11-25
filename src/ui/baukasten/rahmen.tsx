@@ -19,6 +19,7 @@ export function Rahmen(p: {
   baum?: JSX.Element; baumTitel?: string;
   inhalt: JSX.Element;
   details?: JSX.Element; detailsTitel?: string;
+  detailsHinweis?: string;                  // ohne Details: was rechts zu tun ist (am großen Bildschirm; rechts bleibt so immer da)
   steuer?: (s: RahmenSteuer) => void;
 }) {
   const app = useContext(AppUmgebung);
@@ -49,9 +50,13 @@ export function Rahmen(p: {
           </Show>
         </Show>
         <section class="platz-mitte">{p.inhalt}</section>
-        <Show when={p.details}>
+        <Show when={p.details || (p.detailsHinweis && !schmal())}>
           <Show when={!rechtsWeg()} fallback={<button class="reiter" title="Details aufklappen" onClick={() => setRechtsZu(false)}><span>{p.detailsTitel ?? 'Details'}</span></button>}>
-            <div class="platz-rechts">{p.details}</div>
+            <div class="platz-rechts">{p.details ?? (
+              <aside class="karte karte-hinweis" aria-label="Details">
+                <div class="karte-kopf"><h2>Details</h2><button class="knopf still" aria-label="Details zuklappen" title="Zuklappen" onClick={() => setRechtsZu(true)}>⇥</button></div>
+                <div class="karte-inhalt"><p class="still-text">{p.detailsHinweis}</p></div>
+              </aside>)}</div>
           </Show>
         </Show>
       </div>

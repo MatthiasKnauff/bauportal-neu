@@ -26,6 +26,7 @@ export async function vorschaubild(datei: File): Promise<Blob> {
 }
 
 export function Bilder(p: {
+  ohneTitel?: boolean;            // Überschrift steht schon außen (z. B. auf der Karte eines Abschnitts)
   titel: string;
   objekt: string;              // Modell der Fotos
   fest: Werte;                 // woran sie hängen (Projekt, Bericht) – geht beim Hochladen mit
@@ -54,7 +55,7 @@ export function Bilder(p: {
   };
   return (
     <fieldset class="bilder">
-      <legend>{p.titel}<Show when={bilder().length}><span class="anzahl">{bilder().length}</span></Show></legend>
+      <Show when={!p.ohneTitel}><legend>{p.titel}<Show when={bilder().length}><span class="anzahl">{bilder().length}</span></Show></legend></Show>
       <div class="bilder-raster">
         <For each={bilder()}>{(z) => (
           <figure>

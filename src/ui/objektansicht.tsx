@@ -131,6 +131,7 @@ export function ObjektAnsicht(p: {
             ]} />
         }
         detailsTitel={String(karte()?.werte[m.anzeigeFeld] ?? m.titel)}
+        detailsHinweis={a.detailsHinweis ?? `${a.mitte ? 'Einen Eintrag' : 'Eine Zeile'} anklicken – hier stehen dann alle Angaben, direkt änderbar.`}
         details={karte() ? (a.details ? a.details(karte()!) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
       <Show when={neu()}>{(start) => <NeuFenster modell={m} start={start()} verborgen={Object.keys(fest())} onZu={(id) => { setNeu(null); if (id) { setGewaehlt(id); rahmen.detailsZeigen(); } }} />}</Show>
     </div>

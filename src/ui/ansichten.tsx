@@ -330,6 +330,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     mitte: (m) => <Berichtsseite {...m} />,
     links: (m) => <BerichtLinks {...m} />,
     linksTitel: 'Kalender',
+    detailsHinweis: 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift ✎ im Kopf öffnet den ganzen Bericht.',
     details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },

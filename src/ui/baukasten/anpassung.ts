@@ -43,6 +43,8 @@ export interface Anpassung {
   // --- Details (rechts), eigene ---
   /** Statt der Detailkarte des gewählten Eintrags etwas anderes rechts; ohne Rückgabe bleibt der Platz rechts leer. */
   details?: (z: Zeile) => JSX.Element | undefined;
+  /** Was rechts steht, solange nichts gewählt ist (Vorgabe: „Einen Eintrag anklicken …“). */
+  detailsHinweis?: string;
   // --- Baum (links) ---
   /** Zeichen vor einem Knoten im Baum. */
   baumSymbol?: (k: Knoten) => string | undefined;
