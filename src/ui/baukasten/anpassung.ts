@@ -24,6 +24,9 @@ export interface Anpassung {
   // --- Details (rechts) ---
   /** Weitere Abschnitte unter den Feldern der Detailkarte. */
   kartenZusatz?: (z: Zeile) => JSX.Element;
+  /** Über den Angaben der Karte (z. B. Anrufen, E-Mail, Route) und nach einer Gruppe eingeschoben (z. B. weitere Kontaktwege nach „Kontakt“). */
+  kartenOben?: (z: Zeile) => JSX.Element;
+  kartenEinschub?: Record<string, (z: Zeile) => JSX.Element>;
   /** Weitere Reiter der Detailkarte neben den Angaben (z. B. „Projekte“ eines Kontakts). */
   kartenReiter?: (z: Zeile) => { titel: string; inhalt: () => JSX.Element }[];
   /** Andere Zeichen für die Knöpfe im Kopf der Detailkarte. */

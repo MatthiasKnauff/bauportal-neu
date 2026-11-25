@@ -14,17 +14,19 @@ import { kiAnbindungen, kiOeffnen } from './ki';
 const EIGEN = '\u0000eigen';
 function EigeneAuswahl(p: { id: string; feld: Feld; wert: string; objekt?: string; gesperrt?: boolean; onWert: (w: Wert) => void }) {
   const [eingabe, setEingabe] = createSignal(false);
+  const [angefasst, setAngefasst] = createSignal(false);   // die eigenen Werte aller Einträge erst sammeln, wenn jemand die Auswahl öffnet
   const fest = () => p.feld.optionen!.filter((o) => o.wert !== '');
   const eigene = () => {
     const da = new Set(fest().map((o) => o.wert));
-    const alle = new Set<string>(p.objekt ? feldWerte(p.objekt, p.feld.name) : []);
+    const alle = new Set<string>(p.objekt && angefasst() ? feldWerte(p.objekt, p.feld.name) : []);
     if (p.wert) alle.add(p.wert);
     return [...alle].filter((w) => w && !da.has(w)).sort((a, b) => a.localeCompare(b, 'de'));
   };
   const optionen = () => [...fest(), ...eigene().map((w) => ({ wert: w, titel: w })), ...(p.gesperrt ? [] : [{ wert: EIGEN, titel: `eigene ${p.feld.titel} …` }])];
   const uebernehmen = (t: string) => { setEingabe(false); const w = t.replace(/\s+/g, ' ').trim(); if (w && w !== p.wert) p.onWert(w); };
   return (
-    <Show when={eingabe()} fallback={<Auswahlliste id={p.id} titel={p.feld.titel} optionen={optionen()} wert={p.wert} gesperrt={p.gesperrt} onWert={(w) => (w === EIGEN ? setEingabe(true) : p.onWert(w))} />}>
+    <Show when={eingabe()} fallback={<div class="eigene-auswahl" onPointerDown={() => setAngefasst(true)} onFocusIn={() => setAngefasst(true)} onKeyDown={() => setAngefasst(true)}>
+      <Auswahlliste id={p.id} titel={p.feld.titel} optionen={optionen()} wert={p.wert} gesperrt={p.gesperrt} onWert={(w) => (w === EIGEN ? setEingabe(true) : p.onWert(w))} /></div>}>
       <input id={p.id} type="text" maxLength={60} autocomplete="off" placeholder={`Eigene ${p.feld.titel}, z. B. Planer:in, Versorger – Enter übernimmt`} aria-label={`Eigene ${p.feld.titel}`}
         ref={(el) => queueMicrotask(() => el.focus())}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); uebernehmen(e.currentTarget.value); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEingabe(false); } }}
@@ -38,6 +40,7 @@ export function FeldEingabe(p: {
   herkunft?: string;     // woher der Wert stammt, wenn nicht von Hand
   zusammenhang?: Werte;  // Projekt und Version des Eintrags: Verweise bieten nur an, was dazugehört
   objekt?: string;       // Modell des Eintrags: Schlagworte schlagen vor, was an anderen Einträgen schon steht
+  breit?: boolean;       // über die ganze Breite (z. B. der Name in der Karte)
 }) {
   const id = createUniqueId();
   // Zahlen stehen mit Komma da, wie man sie hier schreibt
@@ -50,7 +53,8 @@ export function FeldEingabe(p: {
   const ereignis = () => (p.sofort ? { onInput: melden } : { onChange: melden });
   const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : p.feld.art === 'datum' ? 'date' : 'text');
   return (
-    <div class="feld" classList={{ 'mit-fehler': !!p.fehler, quer: p.feld.art === 'ja_nein' }}>
+    <div class="feld" style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, quer: p.feld.art === 'ja_nein',
+      breit: p.breit || (!p.feld.kartenBreite && ['langtext', 'mehrfach', 'schlagworte'].includes(p.feld.art)) || (!p.feld.kartenBreite && p.feld.art === 'auswahl' && !p.feld.eigeneWerte && p.feld.optionen!.length <= 4 && p.feld.optionen!.length > 2) }}>
       <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show>
         {/* Lange Texte: Wenn das Büro eine KI eingeschaltet hat, kann sie hier einen Vorschlag machen */}
         <Show when={p.feld.art === 'langtext' && !p.gesperrt && kiAnbindungen().length}><button type="button" class="ki-knopf" title="Die KI macht einen Vorschlag – übernommen wird erst nach deiner Bestätigung" onClick={() => kiOeffnen({ titel: p.feld.titel, text: text(), onUebernehmen: (t) => p.onWert(t, 'ki') })}>✦ KI</button></Show></label>
@@ -64,7 +68,7 @@ export function FeldEingabe(p: {
         <Match when={p.feld.art === 'auswahl' && p.feld.eigeneWerte}>
           <EigeneAuswahl id={id} feld={p.feld} wert={text()} objekt={p.objekt} gesperrt={p.gesperrt} onWert={p.onWert} />
         </Match>
-        <Match when={p.feld.art === 'auswahl' && p.feld.optionen!.length > 4}>
+        <Match when={p.feld.art === 'auswahl' && (p.feld.optionen!.length > 4 || (p.feld.kartenBreite ?? 3) < 3)}>
           <Auswahlliste id={id} titel={p.feld.titel} optionen={p.feld.optionen!} wert={text()} gesperrt={p.gesperrt} onWert={p.onWert} />
         </Match>
         <Match when={p.feld.art === 'auswahl'}>

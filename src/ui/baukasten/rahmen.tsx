@@ -13,7 +13,7 @@ export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => 
 
 export interface RahmenSteuer { detailsZeigen: () => void; detailsZuklappen: () => void; heftzweckeRechts: () => JSX.Element }   // die eine Heftzwecke der rechten Seite – auch im Kopf der Karte
 
-const LINKS = 230, RECHTS = 400;   // Breiten ab Werk
+const LINKS = 230, RECHTS = 520;   // Breiten ab Werk – rechts breit genug für zwei Spalten in der Karte
 
 /** Griff ⋮ zwischen zwei Plätzen: ziehen ändert die Breite, Pfeiltasten in Schritten, Doppelklick setzt zurück. */
 function Griff(p: { titel: string; wert: number; min: number; max: number; werk: number; richtung: 1 | -1; onWert: (w: number) => void; onFertig: (w: number) => void }) {

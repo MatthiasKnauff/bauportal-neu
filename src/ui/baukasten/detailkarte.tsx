@@ -52,6 +52,8 @@ export function Detailkarte(p: {
   reiter?: (z: Zeile) => { titel: string; inhalt: () => JSX.Element }[];   // weitere Reiter neben den Angaben (z. B. Projekte eines Kontakts)
   symbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
   verborgen?: string[];                    // Felder, die der Zusammenhang schon festlegt (Projekt, Version)
+  oben?: (z: Zeile) => JSX.Element;        // über den Angaben (z. B. Anrufen, E-Mail, Route beim Kontakt)
+  einschub?: Record<string, (z: Zeile) => JSX.Element>;   // nach dieser Gruppe (z. B. weitere Nummern und Ansprechpartner:innen nach „Kontakt“)
   blaettern?: { nr: number; anzahl: number; onSchritt: (schritt: -1 | 1) => void };   // „3 von 42“ mit ‹ › durch die gezeigten Einträge
 }) {
   const schreiben = () => darf(p.modell.name, 'schreiben');
@@ -84,11 +86,12 @@ export function Detailkarte(p: {
       </Show>
       <Show when={reiter() === 0} fallback={<div class="karte-inhalt">{reiterListe()[reiter() - 1]?.inhalt()}</div>}>
       <div class="karte-inhalt">
+        {p.oben?.(p.zeile)}
         <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => {
-          const felder = () => <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />}</For>;
-          return p.modell.eingeklappt?.includes(g.titel)
+          const felder = () => <For each={g.felder}>{(f) => <FeldEingabe feld={f} breit={f.name === p.modell.anzeigeFeld} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />}</For>;
+          return <>{p.modell.eingeklappt?.includes(g.titel)
             ? <details class="feldgruppe"><summary>{g.titel}</summary>{felder()}</details>
-            : <fieldset><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>;
+            : <fieldset><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>}{p.einschub?.[g.titel]?.(p.zeile)}</>;
         }}</For>
         {p.zusatz?.(p.zeile)}
         <Show when={!schreiben()}><p class="still-text klein-text">Du kannst diese Angaben ansehen, aber nicht ändern.</p></Show>

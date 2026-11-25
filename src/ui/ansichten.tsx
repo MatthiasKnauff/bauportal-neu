@@ -4,6 +4,7 @@ import { meineWahl } from './unterbau/design';
 import { Designwahl } from './designwahl';
 import { GebaeudeAssistent, GebaeudeTeile } from './gebaeudeschritte';
 import { Kostenrahmen } from './kostenrahmen';
+import { KontaktOben, Kontaktwege } from './kontaktwege';
 import { Nachschlagen } from './baukasten/nachschlagen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
@@ -379,7 +380,9 @@ const ANPASSUNG: Record<string, Anpassung> = {
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,
-    kartenZusatz: (z) => <Unterliste titel="Weitere Nummern, E-Mails, Anschriften, Ansprechpartner:innen" objekt="kontaktweg" fest={{ kontakt: z.id }} haupt="wert" neben={['art', 'bezeichnung']} platzhalter="Nummer, E-Mail … eingeben und Enter" />,
+    // wie im bisherigen Bauportal: oben Anrufen, E-Mail, Route, Ins Handy; nach der Erreichbarkeit die weiteren Kontaktwege
+    kartenOben: (z) => <KontaktOben kontakt={z} />,
+    kartenEinschub: { Erreichbarkeit: (z) => <Kontaktwege kontakt={z} /> },
     kartenReiter: (z) => [{ titel: 'Projekte', inhalt: () => <KontaktProjekte kontakt={z} /> }],
     knoepfe: () => (darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: aufraeumenOeffnen }] : []),
   },
@@ -399,6 +402,9 @@ export const kartenZusatz = (objekt: string) => (z: Zeile): JSX.Element => <>
   {ANPASSUNG[objekt]?.kartenZusatz?.(z)}
   <For each={ausdrucke(objekt)}>{(a) => <div class="karte-fuss"><button class="knopf" onClick={() => druckOeffnen(a.id, z.id)}>⎙ Drucken / PDF{ausdrucke(objekt).length > 1 ? ` – ${a.titel}` : ''}</button></div>}</For>
 </>;
+
+/** Alles, was ein Modul der Karte eines Objekts mitgibt – auch für die Karte im eigenen Fenster. */
+export const karteVon = (objekt: string) => ({ zusatz: kartenZusatz(objekt), oben: ANPASSUNG[objekt]?.kartenOben, einschub: ANPASSUNG[objekt]?.kartenEinschub, reiter: ANPASSUNG[objekt]?.kartenReiter });
 
 export function sichtbar(a: Ansicht): boolean {
   if (a.nurAdmin && !istAdmin()) return false;

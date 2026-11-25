@@ -1028,3 +1028,19 @@ test('Nachschlagen: Suche nach Nummer oder Wortanfängen, Beipackzettel geprüft
   assert.ok(n && n.gliederung.length === 3);
   assert.ok(register.kataloge.some((k) => k.nachschlag === 'position'));
 });
+
+test('Visitenkarte: Firma mit Ansprechpartner:in, weitere Wege, Sonderzeichen', async () => {
+  const { vcard } = await import('../src/kern/vcard');
+  const v = vcard({ name: 'Abba GmbH', art: 'firma', ansprechpartner: 'Aylin Cengiz', telefon: '0209-36155533', mobil: '0177-2779686', email: 'info@abba-gmbh.de', strasse: 'Luitpoldstr. 11', plz: '45879', ort: 'Gelsenkirchen', notiz: 'Tor 2; bitte klingeln' },
+    [{ art: 'telefon', wert: '0209 1', bezeichnung: 'Zentrale' }, { art: 'person', wert: 'Max Muster', telefon: '0171 2', bezeichnung: 'Bauleiter' }]);
+  assert.match(v, /^BEGIN:VCARD\r\nVERSION:3\.0\r\n/);
+  assert.match(v, /\r\nN:Cengiz;Aylin;;;\r\n/);
+  assert.match(v, /\r\nORG:Abba GmbH\r\n/);
+  assert.match(v, /TEL;TYPE=CELL:0177-2779686/);
+  assert.match(v, /ADR;TYPE=WORK:;;Luitpoldstr\. 11;Gelsenkirchen;;45879;/);
+  assert.match(v, /TEL;TYPE=VOICE:0171 2/);
+  assert.ok(v.includes('NOTE:Tor 2\\; bitte klingeln'), 'Semikolon maskiert');
+  assert.ok(v.endsWith('END:VCARD\r\n'));
+  const p = vcard({ name: 'Familie Kestner', art: 'bauherr', ist_firma: false });
+  assert.ok(!/ORG:/.test(p) && /FN:Familie Kestner/.test(p), 'Bauherr:in als Person: keine Firma');
+});

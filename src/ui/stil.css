@@ -109,6 +109,13 @@ main { flex: 1; min-height: 0; display: flex; }
 .karte-kopf h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .karte-inhalt { flex: 1; overflow: auto; padding: 4px 16px 16px; }
 .karte fieldset, .schritt-inhalt fieldset { border: 0; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 10px; }
+/* Karte zweispaltig, sobald Platz ist (wie im bisherigen Bauportal): kurze Felder nebeneinander, Name, Langtexte und Auswahlknöpfe über die ganze Breite */
+.karte-inhalt { container-type: inline-size; }
+@container (min-width: 430px) {
+  .karte fieldset, .karte details.feldgruppe[open] { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; align-items: end; }
+  .karte fieldset > .feld, .karte details.feldgruppe > .feld { grid-column: span var(--karten-breite, 3); }
+  .karte fieldset > legend, .karte details.feldgruppe > summary, .karte fieldset > .feld.breit, .karte details.feldgruppe > .feld.breit { grid-column: 1 / -1; }
+}
 .karte legend, .schritt-inhalt legend { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-still); padding: 0; margin-bottom: 8px; }
 .karte-fuss { margin-top: 22px; }
 .nur-schmal { display: none; }
@@ -634,7 +641,8 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 /* Rahmen links: die Ansichten der App in Abschnitten */
 .ansichten-nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 8px 6px; border-bottom: 1px solid var(--rand); flex: 0 1 auto; min-height: 0; overflow-y: auto; }
 .ansichten-nav > * { flex: none; }
-.ansichten-nav:not(:last-child) { max-height: 55%; }   /* mit Baum darunter: beide bekommen Platz, jede Liste rollt für sich */
+.ansichten-nav:not(:last-child) { max-height: 55%; }
+.ansichten-nav:last-child { border-bottom: 0; }   /* ohne Baum darunter kein Trennstrich */   /* mit Baum darunter: beide bekommen Platz, jede Liste rollt für sich */
 .ansichten-nav h3 { margin: 6px 0 2px; padding: 5px 8px; font-size: 12.5px; font-weight: 700; background: var(--still); border-radius: calc(7px * var(--rund)); }
 .ansichten-nav button { display: flex; align-items: center; gap: 9px; border: 0; background: transparent; padding: 5px 8px; border-radius: calc(8px * var(--rund)); font: inherit; text-align: left; cursor: pointer; }
 .ansichten-nav button:hover { background: var(--still); }
@@ -783,3 +791,14 @@ html[data-oben="2"] .menueleiste { display: none; }
 html[data-oben][data-oben-zeigen] .kopf { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 70; box-shadow: var(--schatten); }
 html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fixed; top: calc(var(--kopf-h, 52px) + 4px); left: 12px; right: 12px; margin: 0; z-index: 70; box-shadow: var(--schatten); }
 @media (max-width: 860px) { html[data-oben] .kopf { display: flex; } html[data-oben="2"] .menueleiste { display: flex; } }
+
+/* Kontaktkarte: Schnellknöpfe oben, weitere Kontaktwege als kleine Blöcke (wie im bisherigen Bauportal) */
+.kontakt-oben { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; } .kontakt-oben a { text-decoration: none; }
+.kontaktwege { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
+.kw-block { border: 1px solid var(--rand); border-radius: calc(9px * var(--rund)); padding: 6px 8px 2px; background: var(--still-hell); }
+.kw-kopf { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.kw-kopf > span { flex: none; }
+.kw-bezeichnung { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); background: var(--flaeche); color: var(--text); font: inherit; font-weight: 400; }
+.kw-felder { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0 8px; }
+.kw-felder > .breit { grid-column: span 2; }
+.kw-neu { display: flex; flex-wrap: wrap; gap: 6px; }

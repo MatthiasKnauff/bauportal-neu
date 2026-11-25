@@ -9,6 +9,7 @@ import { KENNUNG, type Werte } from '../kern/modell';
 import type { Modulregister } from '../kern/modul';
 import { alsBenutzer, spalte, tabelle, type Db } from './db';
 import { werteAus } from './druck';
+import { vcard, vcardName } from '../kern/vcard';
 import { Ablehnung } from './protokoll';
 import { merken, type Vorschau, type Zahl } from './uebernahme';
 
@@ -48,6 +49,28 @@ export function adressenRouten(app: FastifyInstance, e: { db: Db; register: Modu
   const kontaktModell = () => e.register.modell('kontakt')!;
   // Alle Felder, die auf einen Kontakt verweisen
   const verweise = () => e.register.alleModelle.flatMap((m) => m.felder.filter((f) => f.art === 'verweis' && f.ziel === 'kontakt').map((f) => ({ m, f })));
+
+  // Visitenkarte – „Ins Handy“ (eine) und für die Auswahl in der Tabelle (mehrere: ?ids=a,b,c). Sichtbar ist, was der Benutzer sehen darf.
+  app.get('/api/kontakt/:datei', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    const m = /^([0-9a-f-]{36})\.vcf$/.exec((req.params as { datei: string }).datei);
+    if (!m) throw new Ablehnung('Diese Datei gibt es nicht');
+    return visitenkarten(req, reply, [m[1]!]);
+  });
+  app.get('/api/kontakte.vcf', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    const ids = String((req.query as { ids?: string }).ids ?? '').split(',').filter((x) => KENNUNG.test(x)).slice(0, 5000);
+    if (!ids.length) throw new Ablehnung('Keine Kontakte gewählt');
+    return visitenkarten(req, reply, ids);
+  });
+  const visitenkarten = (req: FastifyRequest, reply: FastifyReply, ids: string[]) => alsBenutzer(e.db, req.benutzer!, async (c) => {
+    const km = kontaktModell(), wm = e.register.modell('kontaktweg')!;
+    const kontakte = (await c.query(`select * from ${tabelle('kontakt')} where not geloescht and id = any($1) order by ${spalte('name')}`, [ids])).rows;
+    if (!kontakte.length) throw new Ablehnung('Diesen Kontakt gibt es nicht (mehr) oder du darfst ihn nicht sehen');
+    const wege = (await c.query(`select * from ${tabelle('kontaktweg')} where not geloescht and ${spalte('kontakt')} = any($1) order by ${spalte('reihe')}`, [ids])).rows;
+    const text = kontakte.map((k) => vcard(werteAus(km, k), wege.filter((w) => w.kontakt === k.id).map((w) => werteAus(wm, w)))).join('');
+    const name = kontakte.length === 1 ? vcardName(werteAus(km, kontakte[0])) : `Kontakte (${kontakte.length}).vcf`;
+    void reply.header('content-type', 'text/vcard; charset=utf-8').header('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
+    return text;
+  });
 
   app.get('/api/adressen/doppelte', { preHandler: e.nurAngemeldet }, async (req) => alsBenutzer(e.db, req.benutzer!, async (c) => {
     const kontakte = (await c.query(`select * from ${tabelle('kontakt')} where not geloescht`)).rows.map((z) => ({ id: z.id as string, werte: werteAus(kontaktModell(), z) }));

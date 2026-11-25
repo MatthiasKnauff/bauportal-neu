@@ -26,12 +26,12 @@ export const kontakt: ObjektModell = {
     ] },
     { name: 'ist_firma', titel: 'ist eine Firma (dann Firma und Ansprechpartner:in)', art: 'ja_nein', gruppe: 'Kontakt', wenn: { art: ['bauherr'] } },
     { name: 'gewerk', titel: 'Gewerk bzw. Amt', art: 'text', inListe: true, breite: 170, gruppe: 'Kontakt', wenn: { art: ['firma', 'behoerde', 'plotdienst', 'eigen'] } },
-    { name: 'anrede', titel: 'Anrede', art: 'auswahl', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] }, optionen: [
+    { name: 'anrede', titel: 'Anrede', art: 'auswahl', kartenBreite: 1, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] }, optionen: [
       { wert: '', titel: '–' }, { wert: 'Herr', titel: 'Herr' }, { wert: 'Frau', titel: 'Frau' },
     ] },
-    { name: 'titel', titel: 'Titel', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
-    { name: 'ansprechpartner', titel: 'Vorname Name', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
-    { name: 'zusatz', titel: 'Zusatz', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'titel', titel: 'Titel', art: 'text', kartenBreite: 1, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'ansprechpartner', titel: 'Vorname Name', art: 'text', kartenBreite: 3, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'zusatz', titel: 'Zusatz', art: 'text', kartenBreite: 1, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
     { name: 'funktion', titel: 'Funktion', art: 'text', gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'behoerde', 'plotdienst', 'eigen'] } },
     { name: 'telefon', titel: 'Telefon', art: 'telefon', inListe: true, breite: 160, gruppe: 'Erreichbarkeit' },
     { name: 'mobil', titel: 'Mobil', art: 'telefon', gruppe: 'Erreichbarkeit' },
@@ -63,11 +63,21 @@ export const kontaktweg: ObjektModell = {
   rechte: kontakt.rechte,
   felder: [
     { name: 'kontakt', titel: 'Kontakt', art: 'verweis', ziel: 'kontakt', pflicht: true, verborgen: true },
-    { name: 'wert', titel: 'Nummer, E-Mail, Anschrift oder Name', art: 'text', pflicht: true },
+    // Wie im bisherigen Bauportal: je Art die passenden Felder – Nummer, E-Mail, Anschrift oder eine Ansprechperson mit eigenem Telefon
     { name: 'art', titel: 'Art', art: 'auswahl', optionen: [
       { wert: 'telefon', titel: '☎ Telefon' }, { wert: 'email', titel: '✉ E-Mail' }, { wert: 'anschrift', titel: '📍 Anschrift' }, { wert: 'person', titel: '👤 Ansprechpartner:in' },
     ] },
-    { name: 'bezeichnung', titel: 'Bezeichnung', art: 'text' },   // z. B. Zentrale, Rechnungen, Lager, Bauleiter:in
+    { name: 'bezeichnung', titel: 'Bezeichnung', art: 'text' },   // z. B. Zentrale, Rechnungen, Lager – bei Ansprechpartner:innen die Funktion
+    { name: 'amt', titel: 'Amt / Abteilung', art: 'text', wenn: { art: ['person'] } },
+    { name: 'anrede', titel: 'Anrede', art: 'auswahl', wenn: { art: ['person'] }, optionen: [{ wert: '', titel: '–' }, { wert: 'Herr', titel: 'Herr' }, { wert: 'Frau', titel: 'Frau' }] },
+    { name: 'titel', titel: 'Titel', art: 'text', wenn: { art: ['person'] } },
+    { name: 'wert', titel: 'Nummer, E-Mail oder Name', art: 'text', wenn: { art: ['telefon', 'email', 'person'] } },
+    { name: 'zusatz', titel: 'Zusatz', art: 'text', wenn: { art: ['person'] } },
+    { name: 'telefon', titel: 'Telefon', art: 'telefon', wenn: { art: ['person'] } },
+    { name: 'email', titel: 'E-Mail (leer = die der Firma)', art: 'email', wenn: { art: ['person'] } },
+    { name: 'strasse', titel: 'Straße, Nr.', art: 'text', wenn: { art: ['anschrift'] } },
+    { name: 'plz', titel: 'PLZ', art: 'text', wenn: { art: ['anschrift'] } },
+    { name: 'ort', titel: 'Ort', art: 'text', wenn: { art: ['anschrift'] } },
     { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
   ],
 };

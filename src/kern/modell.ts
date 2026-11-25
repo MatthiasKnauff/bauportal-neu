@@ -17,6 +17,7 @@ export interface Feld {
   gruppe?: string;         // Abschnitt in der Detailkarte
   inListe?: boolean;       // Spalte in der Tabelle
   breite?: number;         // Spaltenbreite in px
+  kartenBreite?: number;   // Breite in der Karte in Sechsteln (ab Werk 3 = halbe Breite; 6 = ganze), z. B. Anrede 1, Name 3
   ziel?: string;           // nur bei art = verweis: Name des Objekts, auf das verwiesen wird
   eindeutig?: boolean;     // Wert darf nur einmal vorkommen
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)

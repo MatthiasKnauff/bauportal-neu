@@ -6,7 +6,7 @@ import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCle
 import { createStore } from 'solid-js/store';
 import { MERKER, Netzfehler, Serverfehler, darf, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
 import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
-import { AnsichtZeigen, kartenZusatz, sichtbar } from './ansichten';
+import { AnsichtZeigen, karteVon, kartenZusatz, sichtbar } from './ansichten';
 import { Kontextmenue } from './baukasten/kontextmenue';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Abfolgeleiste } from './baukasten/abfolgeleiste';
@@ -164,7 +164,7 @@ function Kartenfenster(p: { objekt: string; id: string }) {
   return (
     <div class="kartenfenster">
       <Show when={z()} fallback={<div class="mitte"><p class="still-text">Diesen Eintrag gibt es nicht (mehr) oder du darfst ihn nicht sehen.</p></div>}>
-        {(zeile) => <Detailkarte modell={m} zeile={zeile()} zusatz={kartenZusatz(p.objekt)} />}
+        {(zeile) => <Detailkarte modell={m} zeile={zeile()} {...karteVon(p.objekt)} />}
       </Show>
       <div class="status" classList={{ getrennt: lage() === 'getrennt', wartet: wartendAnzahl() > 0 }}><i />{lage() === 'verbunden' ? (wartendAnzahl() ? 'Wird gespeichert …' : 'Alles gespeichert') : 'Ohne Verbindung'}</div>
     </div>
