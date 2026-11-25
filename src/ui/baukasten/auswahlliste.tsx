@@ -30,7 +30,7 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
   };
   return (
     <div class="auswahlliste" ref={wurzel}>
-      <button type="button" id={p.id} class="auswahlliste-knopf" aria-haspopup="listbox" aria-expanded={offen()} disabled={p.gesperrt}
+      <button type="button" id={p.id} class="auswahlliste-knopf" aria-label={p.id ? undefined : `${p.titel}: ${aktuell() || 'keine Auswahl'}`} aria-haspopup="listbox" aria-expanded={offen()} disabled={p.gesperrt}
         onClick={() => (offen() ? zu() : auf())} onKeyDown={(e) => { if (e.key === 'ArrowDown' && !offen()) { e.preventDefault(); auf(); } }}>
         <span classList={{ platzhalter: !aktuell() }}>{aktuell() || p.platzhalter || ''}</span><i>▾</i>
       </button>

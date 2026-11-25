@@ -31,6 +31,7 @@ export function ObjektAnsicht(p: {
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
   const [neu, setNeu] = createSignal<Werte | null>(null);
+  const [reihe, setReihe] = createSignal<string[] | null>(null);   // Reihenfolge, die Tabelle oder eigene Mitte (Balkenplan) gerade zeigen
   // Tabelle oder Kacheln – nur, wo das Modul Kacheln einstellt; gemerkt je Objektart, am Handy zuerst Kacheln
   const FORM = `bp.form.${m.name}`;
   const [kacheln, setKacheln] = createSignal(!!a.kachel && (() => { try { const x = localStorage.getItem(FORM); return x ? x === 'kacheln' : matchMedia('(max-width: 860px)').matches; } catch { return false; } })());
@@ -87,6 +88,12 @@ export function ObjektAnsicht(p: {
     werte[m.anzeigeFeld] = `${z.werte[m.anzeigeFeld]} (Kopie)`;
     neuStart(werte);
   };
+  // Blättern in der Karte: in der Reihenfolge, die die Mitte gerade zeigt
+  const blaettern = () => {
+    const ids = (!kacheln() && reihe()) || zeilen().map((z) => z.id);
+    const i = ids.indexOf(gewaehlt() ?? '');
+    return i < 0 ? undefined : { nr: i + 1, anzahl: ids.length, onSchritt: (s: -1 | 1) => { const n = ids[i + s]; if (n) setGewaehlt(n); } };
+  };
   const darfLoeschen = () => darf(m.name, 'loeschen') && !m.einzeln;
   const leer = () => lebend().length ? 'Kein Treffer für diese Auswahl.' : `Noch keine ${m.titelMehrzahl}.${darf(m.name, 'schreiben') ? ` Mit „+ ${m.titel}“ legst du den ersten Eintrag an.` : ''}`;
 
@@ -104,12 +111,12 @@ export function ObjektAnsicht(p: {
             onKeyDown={(e) => { if ((e.key === 'ArrowDown' || e.key === 'Enter') && tabelle && !kacheln()) { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />
           <span class="zaehler">{zeilen().length === lebend().length ? `${lebend().length} ${lebend().length === 1 ? m.titel : m.titelMehrzahl}` : `${zeilen().length} von ${lebend().length}`}</span>
         </>}
-        unterMenue={p.unterMenue}
+        unterMenue={<>{p.unterMenue}{a.oben?.(fest())}</>}
         baumTitel="Gliederung"
         baum={baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
-        inhalt={a.mitte ? a.mitte({ alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld }) : kacheln() && a.kachel ?
+        inhalt={a.mitte ? a.mitte({ alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe }) : kacheln() && a.kachel ?
           <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
-          <Tabelle modell={m} zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
+          <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
             onWahl={setGewaehlt} onOeffnen={insErsteFeld} onSuche={() => suchfeld.focus()}
@@ -123,7 +130,7 @@ export function ObjektAnsicht(p: {
             ]} />
         }
         detailsTitel={String(karte()?.werte[m.anzeigeFeld] ?? m.titel)}
-        details={karte() ? <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> : undefined} />
+        details={karte() ? <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> : undefined} />
       <Show when={neu()}>{(start) => <NeuFenster modell={m} start={start()} verborgen={Object.keys(fest())} onZu={(id) => { setNeu(null); if (id) { setGewaehlt(id); rahmen.detailsZeigen(); } }} />}</Show>
     </div>
   );

@@ -128,7 +128,7 @@ Einfg fügt über der Markierung ein, Entf löscht – mit „Autom. verknüpfen
 Mit der Maus: Balken ziehen verschiebt, rechte Kante ziehen ändert die Dauer, den Punkt am Balkenende auf eine andere Leistung ziehen verknüpft. Rechtsklick auf einen Balken: unterbrechen, Anfang wieder automatisch; auf einen Pfeil: Art ändern, löschen. Strg+Mausrad zoomt.
 
 „✦ Assistent“ macht einen Plan aus dem Gebäudemodell; „Drucken / PDF“ bis A0; „Export / Import“ für Excel, MS Project und Sicherungen.` },
-    { id: 'frei', titel: 'Freie Tage', objekt: 'freier_tag', brauchtProjekt: true },
+    { id: 'frei', titel: 'Arbeitszeit & Feiertage', objekt: 'freier_tag', brauchtProjekt: true },
     { id: 'leistungen', titel: 'Leistungskatalog', objekt: 'leistungsvorlage', baum: ['abschnitt'] },
   ],
   kataloge: [{ id: 'leistungen', titel: 'Leistungen für den Bauzeitenplan', objekt: 'leistungsvorlage' }, { id: 'planregeln', titel: 'Regeln des Planungsassistenten', objekt: 'planregel' }],

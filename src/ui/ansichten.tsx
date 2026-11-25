@@ -28,6 +28,8 @@ import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Balkenplan } from './balkenplan';
 import { Bilder } from './baukasten/bilder';
+import { springeZu } from './sprung';
+import { Arbeitszeit } from './arbeitszeit';
 import { Diktieren } from './diktat';
 import { aufraeumenOeffnen } from './aufraeumen';
 import { PruefSchluessel } from './pruefki';
@@ -101,10 +103,9 @@ function Beteiligte(p: { projekt: Zeile }) {
                 <input aria-label={`Aufgabe von ${name(e.werte.kontakt)}`} placeholder="Aufgabe im Projekt" value={String(e.werte.aufgabe ?? '')} readOnly={!schreiben()}
                   onKeyDown={(x) => { if (x.key === 'Enter') x.currentTarget.blur(); }}
                   onChange={(x) => ausfuehren({ objekt: 'projekt_kontakt', art: 'aendern', objektId: e.id, werte: { aufgabe: x.currentTarget.value.trim() } }, `Aufgabe von „${name(e.werte.kontakt)}“ ändern`)} />
-                <select aria-label={`Vergabe an ${name(e.werte.kontakt)}`} value={String(e.werte.vergabe ?? '')} disabled={!schreiben()}
-                  onChange={(x) => ausfuehren({ objekt: 'projekt_kontakt', art: 'aendern', objektId: e.id, werte: { vergabe: x.currentTarget.value } }, `Vergabe an „${name(e.werte.kontakt)}“ ändern`)}>
-                  <For each={modell('projekt_kontakt').felder.find((f) => f.name === 'vergabe')!.optionen!}>{(o) => <option value={o.wert}>{o.wert ? o.titel : 'Vergabe …'}</option>}</For>
-                </select>
+                <Auswahlliste titel={`Vergabe an ${name(e.werte.kontakt)}`} wert={String(e.werte.vergabe ?? '')} gesperrt={!schreiben()}
+                  optionen={modell('projekt_kontakt').felder.find((f) => f.name === 'vergabe')!.optionen!.map((o) => ({ wert: o.wert, titel: o.wert ? o.titel : 'Vergabe …' }))}
+                  onWert={(w) => ausfuehren({ objekt: 'projekt_kontakt', art: 'aendern', objektId: e.id, werte: { vergabe: w } }, `Vergabe an „${name(e.werte.kontakt)}“ ändern`)} />
               </span>
               <Show when={darf('projekt_kontakt', 'loeschen')}>
                 <button class="knopf klein still" aria-label={`${name(e.werte.kontakt)} entfernen`} title="Entfernen"
@@ -194,6 +195,13 @@ function Berichtslisten(p: { bericht: Zeile }) {
   );
 }
 
+// ---------- Bauzeitenplan: Nachfolger einer Leistung in der Karte ----------
+function Nachfolger(p: { vorgang: Zeile }) {
+  const namen = () => lebende('verknuepfung').filter((l) => l.werte.von === p.vorgang.id)
+    .map((l) => String(sicht.vorgang?.[String(l.werte.nach)]?.werte.name ?? '')).filter(Boolean).sort((a, b) => a.localeCompare(b, 'de'));
+  return <p class="still-text klein-text">Nachfolger: {namen().join(', ') || 'keine'}</p>;
+}
+
 // ---------- Adressen: ein Kontakt als Kachel ----------
 function KontaktKachel(p: { kontakt: Zeile }) {
   const w = () => p.kontakt.werte;
@@ -211,6 +219,25 @@ function KontaktKachel(p: { kontakt: Zeile }) {
         <Show when={w().email}><a href={`mailto:${String(w().email)}`}>✉ {String(w().email)}</a></Show>
       </span>
     </div>
+  );
+}
+
+// ---------- Adressen: in welchen Projekten ein Kontakt beteiligt ist ----------
+function KontaktProjekte(p: { kontakt: Zeile }) {
+  const vergabe = (w: unknown) => modell('projekt_kontakt').felder.find((f) => f.name === 'vergabe')?.optionen?.find((o) => o.wert === w)?.titel;
+  const liste = () => lebende('projekt_kontakt').filter((b) => b.werte.kontakt === p.kontakt.id)
+    .map((b) => ({ b, projekt: sicht.projekt?.[String(b.werte.projekt)] })).filter((x) => x.projekt && !x.projekt.geloescht)
+    .sort((a, b) => String(a.projekt!.werte.nummer ?? '').localeCompare(String(b.projekt!.werte.nummer ?? ''), 'de', { numeric: true }));
+  return (
+    <fieldset>
+      <legend>Projekte<span class="anzahl">{liste().length}</span></legend>
+      <Show when={liste().length} fallback={<p class="still-text klein-text">In keinem Projekt beteiligt, das du siehst.</p>}>
+        <ul class="kontakt-projekte"><For each={liste()}>{(x) => (
+          <li><button class="verweis" onClick={() => springeZu('projekt', x.projekt!.id)}>{[x.projekt!.werte.nummer, x.projekt!.werte.name].filter(Boolean).join(' · ')}</button>
+            <span class="still-text klein-text">{[x.b.werte.aufgabe, vergabe(x.b.werte.vergabe)].filter(Boolean).join(' · ')}</span></li>
+        )}</For></ul>
+      </Show>
+    </fieldset>
   );
 }
 
@@ -363,10 +390,12 @@ const ANPASSUNG: Record<string, Anpassung> = {
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,
+    kartenZusatz: (z) => <KontaktProjekte kontakt={z} />,
     knoepfe: () => (darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', symbol: '⇄', tun: aufraeumenOeffnen }] : []),
   },
-  vorgang: { mitte: (m) => <Balkenplan {...m} /> },
+  vorgang: { mitte: (m) => <Balkenplan {...m} />, kartenZusatz: (z) => <Nachfolger vorgang={z} /> },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
+  freier_tag: { oben: (z) => <Arbeitszeit zusammenhang={z} /> },
   pruefzugang: { kartenZusatz: (z) => <PruefSchluessel zugang={z} /> },
   benutzer: {
     kartenZusatz: (z) => <KennwortSetzen benutzer={z} />,

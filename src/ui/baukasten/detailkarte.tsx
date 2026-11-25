@@ -49,6 +49,7 @@ export function Detailkarte(p: {
   zusatz?: (z: Zeile) => JSX.Element;
   symbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
   verborgen?: string[];                    // Felder, die der Zusammenhang schon festlegt (Projekt, Version)
+  blaettern?: { nr: number; anzahl: number; onSchritt: (schritt: -1 | 1) => void };   // „3 von 42“ mit ‹ › durch die gezeigten Einträge
 }) {
   const schreiben = () => darf(p.modell.name, 'schreiben');
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
@@ -65,6 +66,12 @@ export function Detailkarte(p: {
         </Show>
         <Show when={p.onZu}><button class="knopf still nur-breit" aria-label="Karte schließen" title="Schließen (Esc)" onClick={p.onZu}>{p.symbole?.schliessen ?? '×'}</button></Show>
       </div>
+      <Show when={p.blaettern && p.blaettern.anzahl > 1}>{(_) => { const b = () => p.blaettern!; return (
+        <div class="karte-blaettern">
+          <button class="knopf klein still" aria-label="Voriger Eintrag" disabled={b().nr <= 1} onClick={() => b().onSchritt(-1)}>‹</button>
+          <span>{b().nr} von {b().anzahl}</span>
+          <button class="knopf klein still" aria-label="Nächster Eintrag" disabled={b().nr >= b().anzahl} onClick={() => b().onSchritt(1)}>›</button>
+        </div>); }}</Show>
       <div class="karte-inhalt">
         <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => (
           <fieldset>

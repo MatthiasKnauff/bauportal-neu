@@ -1,7 +1,7 @@
 // Baustein „Tabelle“ (Platz Mitte): Spalten aus dem Datenmodell. Sortieren, Filtern je Spalte, Spalten einstellen,
 // Bearbeiten direkt in der Zelle (Doppelklick oder F2), Tastatur, Kontextmenü.
 // Im Dokument stehen nur die sichtbaren Zeilen – die Tabelle bleibt auch mit tausenden Einträgen schnell.
-import { For, Show, createMemo, createSelector, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSelector, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Feld, ObjektModell, Wert } from '../../kern/modell';
 import { HERKUNFT, type Zeile } from '../../kern/befehl';
@@ -20,6 +20,7 @@ export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => vo
 export function Tabelle(p: {
   modell: ObjektModell;
   zeilen: Zeile[];                              // schon gefiltert; sortiert wird hier
+  onReihe?: (ids: string[]) => void;            // meldet die gezeigte Reihenfolge (z. B. zum Blättern in der Karte)
   gewaehlt: string | null;
   onWahl: (id: string | null) => void;
   onOeffnen?: (z: Zeile) => void;               // Enter – oder Doppelklick auf eine Zelle, die sich nicht in der Tabelle bearbeiten lässt
@@ -51,6 +52,7 @@ export function Tabelle(p: {
     const schluessel = new Map(p.zeilen.map((z) => { const r = unwrap(z); return [r.id, anzeige(f, r.werte[s.feld])]; }));
     return [...p.zeilen].sort((a, b) => vergleich.compare(schluessel.get(a.id)!, schluessel.get(b.id)!) * (s.ab ? -1 : 1));
   });
+  createEffect(() => p.onReihe?.(sortiert().map((z) => z.id)));
   const fenster = createMemo(() => {
     const von = Math.max(0, Math.floor(rollen().oben / ZEILENHOEHE) - 8);
     const bis = Math.min(sortiert().length, Math.ceil((rollen().oben + rollen().hoehe) / ZEILENHOEHE) + 8);

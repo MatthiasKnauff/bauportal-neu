@@ -360,7 +360,6 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .bzp-leiste { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; border-bottom: 1px solid var(--rand); font-size: 13px; color: var(--text-still); }
 .bzp-leiste label { display: inline-flex; align-items: center; gap: 6px; }
 .bzp-leiste input[type=date], .bzp-leiste select { min-height: 28px; border: 1px solid var(--rand-stark); border-radius: 6px; padding: 0 6px; background: var(--flaeche); color: var(--text); }
-.bzp-ende strong { color: var(--text); }
 .bzp-trenner { flex: 1; }
 .bzp-flaeche { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
 .bzp-flaeche:focus-visible .bzp-zelle.zeiger { box-shadow: inset 0 0 0 2px var(--akzent); }
@@ -544,3 +543,9 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .aufbau-bild .linien path { opacity: .9; stroke-width: 1.4; }
 .aufbau-bild marker path { fill: #9aa3ad; }
 .pruef-schluessel { white-space: pre-wrap; overflow-wrap: anywhere; background: #f6f6f2; border: 1px solid var(--rand); border-radius: 8px; padding: 10px; font-size: 12.5px; }
+.karte-blaettern { display: flex; align-items: center; gap: 6px; padding: 4px 14px 0; font-size: 12.5px; color: var(--text-still); }
+.kontakt-projekte { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; } .kontakt-projekte li { display: flex; flex-direction: column; }
+.arbeitszeit { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 16px; padding: 10px 14px; border-bottom: 1px solid var(--rand); background: var(--flaeche); }
+.arbeitszeit .feld { min-width: 200px; }
+.arbeitszeit p { flex: 1 1 100%; margin: 0; }
+.bzp-wahl { display: inline-flex; align-items: center; gap: 6px; } .bzp-wahl .auswahlliste { min-width: 150px; }

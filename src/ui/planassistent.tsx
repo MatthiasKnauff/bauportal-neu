@@ -1,6 +1,7 @@
 // Planungsassistent im Balkenplan: Bauart und Bauweise kommen aus dem Gebäudemodell (hier änderbar), dazu Einheiten
 // und Takt; die Leistungen stehen je Abschnitt zum An- und Abwählen da, mit Richtdauer und Rechenweg. Übernommen wird
 // über die gemeinsame Vorschau – der Server rechnet mit denselben Bausteinen (module/bauzeitenplan/assistent.ts).
+import { Auswahlliste } from './baukasten/auswahlliste';
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
@@ -63,8 +64,7 @@ export function PlanAssistent(p: { projekt: string; version: string; gespeichert
         <div class="planassistent">
           <div class="pa-angaben">
             <p class="still-text klein-text">{gebaeude() ? 'Angaben aus dem Gebäudemodell (gültige Version) – hier für den Plan änderbar.' : 'Im Gebäudemodell gibt es noch kein Gebäude – die Angaben gelten nur für den Plan.'}</p>
-            <label class="druck-feld">Gebäudeart <select value={a().geb} onChange={(e) => setze({ geb: e.currentTarget.value, auswahl: undefined })}>
-              <For each={kb().geb}>{(g) => <option value={g.k}>{g.n}</option>}</For></select></label>
+            <div class="druck-feld">Gebäudeart <Auswahlliste titel="Gebäudeart" wert={a().geb} onWert={(w) => setze({ geb: w, auswahl: undefined })} optionen={kb().geb.map((g) => ({ wert: g.k, titel: g.n }))} /></div>
             <fieldset><legend>Maßnahmen</legend>
               <For each={kb().mass}>{(m) => <label class="druck-haken"><input type="checkbox" checked={a().mass.includes(m.k)} onChange={(e) => setze({ mass: e.currentTarget.checked ? [...a().mass, m.k] : a().mass.filter((x) => x !== m.k), auswahl: undefined })} /> {m.n}</label>}</For>
             </fieldset>
@@ -83,8 +83,7 @@ export function PlanAssistent(p: { projekt: string; version: string; gespeichert
             </fieldset>
             <Show when={as()?.fragen.length}>
               <fieldset><legend>Bauweise</legend>
-                <For each={as()!.fragen}>{(f) => <label class="druck-feld">{f.n} <select value={f.wert} onChange={(e) => setze({ wahl: { ...a().wahl, [f.k]: e.currentTarget.value }, auswahl: undefined })}>
-                  <For each={f.optionen}>{(o) => <option value={o.k}>{o.n}</option>}</For></select></label>}</For>
+                <For each={as()!.fragen}>{(f) => <div class="druck-feld">{f.n} <Auswahlliste titel={f.n} wert={f.wert} onWert={(w) => setze({ wahl: { ...a().wahl, [f.k]: w }, auswahl: undefined })} optionen={f.optionen.map((o) => ({ wert: o.k, titel: o.n }))} /></div>}</For>
               </fieldset>
             </Show>
           </div>

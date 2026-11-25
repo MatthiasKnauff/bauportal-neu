@@ -1,5 +1,5 @@
 // Das Portal: Einrichtung, Anmeldung, Startseite mit den Kacheln und der Rahmen um jedes Modul (Kopfleiste, Reiter, Rückgängig).
-import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { MERKER, Netzfehler, Serverfehler, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
 import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
@@ -11,9 +11,9 @@ import { Kopfleiste } from './baukasten/kopfleiste';
 import { Suche, type Treffer } from './suche';
 import { Hilfe } from './hilfe';
 import { Projektkacheln } from './startkacheln';
-import { setSprung } from './sprung';
+import { springeZu, sprung } from './sprung';
 import { AppUmgebung } from './baukasten/rahmen';
-import { projektId, setProjektId, waehleVersion } from './projekt';
+import { projektId, setProjektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
 import { Aufraeumen } from './aufraeumen';
 import { Druck } from './druck';
@@ -186,12 +186,9 @@ function Portal() {
   const [hilfe, setHilfe] = createSignal(false);
   const oeffne = (id: string, ansichtId = '') => { setModulId(id); setAnsichtId(ansichtId); };
   // Treffer der Suche: Projekt und Version wählen, Ansicht öffnen, die Ansicht holt den Eintrag ab
-  const springe = (t: Treffer) => {
-    if (t.projekt && t.m.name !== 'projekt') setProjektId(t.projekt);
-    if (t.projekt && t.version && t.m.versionsBereich) waehleVersion(t.projekt, t.m.versionsBereich, t.version);
-    setSprung({ objekt: t.m.name, id: t.id });
-    oeffne(t.modul.id, t.ansicht);
-  };
+  const springe = (t: Treffer) => springeZu(t.m.name, t.id, { projekt: t.projekt, version: t.version, modul: t.modul.id, ansicht: t.ansicht });
+  // Ein Sprung (aus der Suche oder aus einer Karte) öffnet Modul und Ansicht; den Eintrag holt die Ansicht selbst ab
+  createEffect(() => { const s = sprung(); if (s) untrack(() => oeffne(s.modul, s.ansicht)); });
   // Handy-Leiste unten: Start, die wichtigsten Apps für die Baustelle, Suche
   const leiste = () => ['bautagebuch', 'bauzeitenplan', 'adressen'].map((id) => module().find((m) => m.modul.id === id)).filter((m): m is NonNullable<typeof m> => !!m);
 

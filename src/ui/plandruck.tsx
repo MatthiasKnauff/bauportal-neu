@@ -1,5 +1,6 @@
 // Druckdialog des Bauzeitenplans: Format, Ausrichtung, Maßstab, Zeitraum, Spalten und was mitgedruckt wird – mit
 // Vorschau aus derselben Funktion, die auf dem Server das PDF baut. Die Einstellungen merkt sich das Gerät.
+import { Auswahlliste } from './baukasten/auswahlliste';
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
 import { DRUCKSPALTEN, FORMATE, STANDARD, planDruck, type Druckoptionen } from '../module/bauzeitenplan/druck';
 import type { Plan } from '../module/bauzeitenplan/plan';
@@ -44,8 +45,8 @@ export function PlanDrucken(p: { plan: Plan; projekt: string; version: string; o
       <div class="plandruck">
         <div class="plandruck-optionen">
           <fieldset><legend>Papier</legend>
-            <label class="druck-feld">Format <select value={o().format} onChange={(e) => setze('format', e.currentTarget.value)}>
-              <For each={Object.entries(FORMATE)}>{([k, f]) => <option value={k}>{f.titel}{f.b ? ` (${f.b} × ${f.h} mm)` : ''}</option>}</For></select></label>
+            <div class="druck-feld">Format <Auswahlliste titel="Format" wert={o().format} onWert={(w) => setze('format', w)}
+              optionen={Object.entries(FORMATE).map(([k, f]) => ({ wert: k, titel: `${f.titel}${f.b ? ` (${f.b} × ${f.h} mm)` : ''}` }))} /></div>
             <Show when={o().format === 'EIGEN'}>{zahl('eigenB', 'Breite mm', 50, 5000)}{zahl('eigenH', 'Höhe mm', 50, 5000)}</Show>
             <Show when={o().format === 'ROLLE'}>{zahl('rolle', 'Rollenbreite mm', 200, 1600)}<p class="still-text klein-text">Die Länge ergibt sich aus dem Plan.</p></Show>
             <Show when={o().format !== 'ROLLE'}><div class="reihe" role="radiogroup">
@@ -72,8 +73,8 @@ export function PlanDrucken(p: { plan: Plan; projekt: string; version: string; o
           </fieldset>
           <fieldset><legend>Mitdrucken</legend>
             {haken('kritisch', 'Kritischer Weg')}{haken('heute', 'Heute-Linie')}{haken('legende', 'Legende')}{haken('kopf', 'Kopfzeile')}{haken('seitenzahl', 'Fußzeile mit Seitenzahl')}
-            <label class="druck-feld">Pfeile <select value={o().pfeile} onChange={(e) => setze('pfeile', e.currentTarget.value as Druckoptionen['pfeile'])}>
-              <option value="keine">keine</option><option value="kritisch">kritischer Weg</option><option value="alle">alle</option></select></label>
+            <div class="druck-feld">Pfeile <Auswahlliste titel="Pfeile" wert={o().pfeile} onWert={(w) => setze('pfeile', w as Druckoptionen['pfeile'])}
+              optionen={[{ wert: 'keine', titel: 'keine' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }]} /></div>
           </fieldset>
         </div>
         <div class="plandruck-vorschau" ref={beobachten}>

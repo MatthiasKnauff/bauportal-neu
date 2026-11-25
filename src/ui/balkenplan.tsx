@@ -3,6 +3,7 @@
 // bearbeitet mit bearbeiten.ts; jede Handlung ist ein Schritt für Strg+Z.
 // Bedienung wie gewohnt: Zelle anklicken und lostippen, F2, Enter/Tab/Esc; Einfg, Entf; Alt+Umschalt+Pfeile gliedern und
 // verschieben; Balken ziehen (verschieben), rechte Kante ziehen (Dauer), Punkt am Balkenende auf einen anderen ziehen (verknüpfen).
+import { Auswahlliste } from './baukasten/auswahlliste';
 import { For, Show, createEffect, createMemo, createResource, createSignal, untrack } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
@@ -128,6 +129,7 @@ export function Balkenplan(p: Mitte) {
       return true;
     });
   });
+  createEffect(() => p.setReihe(sichtbar().map((v) => v.id)));   // die Karte blättert in der Reihenfolge des Plans
   const nrVon = (id: string) => erg().termine.get(id)?.nr ?? 0;
   const vorgaengerText = (id: string) => vorgaengerSchreiben(L_().filter((l) => l.nach === id).map((l) => ({ nr: nrVon(l.von), art: l.art, abstand: l.abstand })).sort((a, b) => a.nr - b.nr));
 
@@ -403,11 +405,7 @@ export function Balkenplan(p: Mitte) {
     return l;
   });
   const heute = () => (tagAus(new Date().toLocaleDateString('sv')) - achse().t0) * px();
-  const zp_ = (feld: string, w: Wert, titel: string) => {
-    const z_ = zp();
-    if (z_) ausfuehren({ objekt: 'zeitplan', art: 'aendern', objektId: z_.id, werte: { [feld]: w } }, titel);
-    else ausfuehren({ objekt: 'zeitplan', art: 'anlegen', objektId: neueKennung(), werte: { ...zu(), anfang: naechsterMontag(), arbeitswoche: '5', bundesland: '', notiz: '', [feld]: w } }, titel);
-  };
+
 
   return (
     <div class="bzp">
@@ -425,16 +423,10 @@ export function Balkenplan(p: Mitte) {
         <button class="knopf klein still bzp-einstellungen" aria-expanded={leisteOffen()} onClick={() => setLeisteOffen(!leisteOffen())}>⚙ Einstellungen und Werkzeuge {leisteOffen() ? '▴' : '▾'}</button>
       </Show>
       <div class="bzp-leiste" classList={{ zu: schmal() && !leisteOffen() }}>
-        <label>Projektanfang <input type="date" value={String(zp()?.werte.anfang ?? '')} disabled={!darf('zeitplan', 'schreiben')} onChange={(e) => e.currentTarget.value && zp_('anfang', e.currentTarget.value, 'Projektanfang ändern')} /></label>
-        <label>Woche <select value={String(zp()?.werte.arbeitswoche ?? '5')} disabled={!darf('zeitplan', 'schreiben')} onChange={(e) => zp_('arbeitswoche', e.currentTarget.value, 'Arbeitswoche ändern')}>
-          <option value="5">5 Tage</option><option value="6">6 Tage</option><option value="7">7 Tage</option></select></label>
-        <label>Feiertage <select value={String(zp()?.werte.bundesland ?? '')} disabled={!darf('zeitplan', 'schreiben')} onChange={(e) => zp_('bundesland', e.currentTarget.value, 'Feiertage ändern')}>
-          <option value="">wie die Baustelle{land() ? ` (${BUNDESLAENDER.find((b) => b.wert === land())?.titel})` : ''}</option>
-          <For each={BUNDESLAENDER}>{(b) => <option value={b.wert}>{b.titel}</option>}</For></select></label>
         <span class="bzp-trenner" />
         <label class="bzp-haken"><input type="checkbox" checked={kritisch()} onChange={(e) => setKritisch(e.currentTarget.checked)} /> Kritischer Weg</label>
-        <label>Pfeile <select value={pfeile()} onChange={(e) => setPfeile(e.currentTarget.value as 'markiert')}>
-          <option value="markiert">bei markierter</option><option value="kritisch">kritischer Weg</option><option value="alle">alle</option><option value="keine">keine</option></select></label>
+        <span class="bzp-wahl">Pfeile <Auswahlliste titel="Pfeile" wert={pfeile()} onWert={(w) => setPfeile(w as 'markiert')}
+          optionen={[{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }]} /></span>
         <Show when={schreiben()}><label class="bzp-haken" title="Einfügen setzt die neue Leistung in die Kette, Löschen überbrückt sie"><input type="checkbox" checked={autom()} onChange={(e) => setAutom(e.currentTarget.checked)} /> Autom. verknüpfen</label></Show>
         <Show when={schreiben()}><button class="knopf klein" onClick={() => setAssi(true)}>✦ Assistent</button></Show>
         <button class="knopf klein" onClick={() => setDrucken(true)}>⎙ Drucken / PDF</button>

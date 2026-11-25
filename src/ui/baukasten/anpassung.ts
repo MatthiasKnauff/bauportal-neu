@@ -15,6 +15,7 @@ export interface Mitte {
   gewaehlt: () => string | null;
   onWahl: (id: string | null) => void;
   onOeffnen: () => void;                // Karte zeigen, ins erste Feld
+  setReihe: (ids: string[]) => void;    // Reihenfolge, in der die Mitte die Einträge zeigt – danach blättert die Karte
 }
 
 export interface Anpassung {
@@ -23,6 +24,9 @@ export interface Anpassung {
   kartenZusatz?: (z: Zeile) => JSX.Element;
   /** Andere Zeichen für die Knöpfe im Kopf der Detailkarte. */
   kartenSymbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
+  // --- Oben (unter der Menüleiste) ---
+  /** Einstellungen, die für alle Einträge der Ansicht gelten (z. B. Arbeitszeit des Plans). Bekommt den Zusammenhang (Projekt, Version). */
+  oben?: (zusammenhang: Record<string, string | number | boolean | null>) => JSX.Element;
   // --- Inhalt (Mitte) ---
   /** Statt der Tabelle eine eigene Darstellung in der Mitte (z. B. der Balkenplan) – Rahmen, Suche, Karte und Anlegen bleiben. */
   mitte?: (p: Mitte) => JSX.Element;

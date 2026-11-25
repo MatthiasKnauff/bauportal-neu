@@ -42,7 +42,7 @@ export function altdatenLesen(roh: unknown): Uebersetzt {
   if (!t || !Array.isArray(t.projects) || !Array.isArray(t.reports)) throw new Ablehnung('Das ist kein Export des Bautagebuchs (Datei „bautagebuch-…json“ aus Einstellungen → Export)');
   const hinweise: string[] = [];
   const kontakte = (t.contacts ?? []).filter((k) => text(k.name)).map((k): Fest => ({ kennung: `alt:kontakt:${k.id}`, werte: {
-    name: text(k.name).slice(0, 300), art: ['firma', 'person', 'behoerde', 'plotdienst'].includes(text(k.art)) ? text(k.art) : 'firma', ansprechpartner: text(k.contact_person), gewerk: text(k.trade),
+    name: text(k.name).slice(0, 300), art: ['firma', 'bauherr', 'person', 'behoerde', 'baustelle', 'plotdienst'].includes(text(k.art)) ? text(k.art) : 'firma', ansprechpartner: text(k.contact_person), gewerk: text(k.trade),
     strasse: text(k.street), plz: text(k.zip), ort: text(k.city), telefon: text(k.phone), mobil: text(k.mobile), email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(k.email)) ? text(k.email) : '', web: text(k.website), notiz: text(k.notes) } }));
   const projekte = t.projects.filter((p) => text(p.name)).map((p): Fest => ({ kennung: `alt:projekt:${p.id}`, werte: {
     name: text(p.name), bauherr: text(p.client), strasse: text(p.street), plz: text(p.zip), ort: text(p.city), ordner: text(p.folder), status: Number(p.archived) ? 'archiviert' : 'aktiv' } }));
