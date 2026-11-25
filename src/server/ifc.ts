@@ -8,6 +8,8 @@ import { KENNUNG } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
 import { Ablehnung } from './protokoll';
 import { ASSISTENT, abgleicher, merken, versionPruefen, type Vorschau, type Zahl } from './uebernahme';
+import { KEIN_KG_KATALOG, aufbautenAusPlan, kostengruppen, type Schicht } from './gebaeudemodell';
+import { BAUTEILARTEN, kostengruppeNummer } from '../module/gebaeudemodell/beipackzettel';
 import type { Benutzer } from './anmeldung';
 
 interface Gelesen {
@@ -15,7 +17,7 @@ interface Gelesen {
   gebaeude: { kennung: string; name: string }[];
   geschosse: { kennung: string; name: string; ebene: number; hoehe: number | null; gebaeude: string | null }[];
   raeume: { kennung: string; nummer: string; name: string; nutzung: string; flaeche: number | null; hoehe: number | null; geschoss: string | null }[];
-  bauteile: { kennung: string; art: string; name: string; geschoss: string | null; lage: string; menge: number | null; einheit: string; abmessung: string; aufbau: string; gewerk?: string }[];
+  bauteile: { kennung: string; art: string; name: string; geschoss: string | null; lage: string; menge: number | null; einheit: string; abmessung: string; schichten?: Schicht[]; gewerk?: string; tragend?: boolean | null; wand?: string | null }[];
   uebersprungen: Record<string, number>;
   flaechen_aus_geometrie: number;
   lage_aus_geometrie?: number;
@@ -52,8 +54,24 @@ export async function planen(db: Db, register: Modulregister, wer: Benutzer, pro
       (e, vorhanden) => vorhanden.find((x) => String(x.kennung).startsWith(ASSISTENT) && x.gebaeude === e.werte.gebaeude && Number(x.ebene) === e.werte.ebene));
     const mitGeschoss = d.raeume.filter((r) => r.geschoss && ort.geschoss!.has(r.geschoss));
     await abgleichen('raum', mitGeschoss.map((r) => ({ kennung: r.kennung, werte: { nummer: r.nummer, name: r.name, nutzung: r.nutzung, flaeche: r.flaeche, hoehe: r.hoehe, geschoss: ort.geschoss!.get(r.geschoss!)! } })), alles);
-    const vorher = await abgleichen('bauteil', d.bauteile.map((b) => ({ kennung: b.kennung, werte: {
-      name: b.name, art: b.art, lage: b.lage, menge: b.menge, einheit: b.einheit, abmessung: b.abmessung, aufbau: b.aufbau, gewerk: b.gewerk ?? '', geschoss: (b.geschoss && ort.geschoss!.get(b.geschoss)) || null } })), alles);
+    // Aufbauten: gleiche Schichtfolge = ein Aufbau, den sich die Bauteile teilen
+    const artTitel = (art: string) => BAUTEILARTEN.find((x) => x.wert === art)?.titel ?? art;
+    const ab = aufbautenAusPlan(d.bauteile, artTitel);
+    await abgleichen('aufbau', ab.eintraege, alles);
+    await abgleichen('aufbau_schicht', ab.schichten(() => ort.aufbau!), alles);
+    const kg = await kostengruppen(c);
+    const vorher = await abgleichen('bauteil', d.bauteile.map((b) => {
+      const tragend = b.tragend === true ? 'ja' : b.tragend === false ? 'nein' : '';
+      const ohneDicke = (b.schichten ?? []).every((s) => !s.dicke);   // nur ein Material, keine Schichten
+      return { kennung: b.kennung, werte: () => ({
+        name: b.name, art: b.art, lage: b.lage, tragend, menge: b.menge, einheit: b.einheit, abmessung: b.abmessung, gewerk: b.gewerk ?? '',
+        geschoss: (b.geschoss && ort.geschoss!.get(b.geschoss)) || null,
+        aufbau: (ab.von.has(b.kennung) && ort.aufbau!.get(ab.von.get(b.kennung)!)) || null,
+        material: ohneDicke ? (b.schichten ?? []).map((s) => s.material).filter(Boolean).join(', ') : '',
+        wand: (b.wand && ort.bauteil!.get(b.wand)) || null,
+        kostengruppe: kg.get(kostengruppeNummer(b.art, b.lage, tragend) ?? '') ?? null,
+      }) };
+    }), alles);
 
     const ohneGeschoss = d.raeume.length - mitGeschoss.length;
     const behalten = Object.values(je).reduce((s, z) => s + z.behalten, 0);
@@ -61,6 +79,9 @@ export async function planen(db: Db, register: Modulregister, wer: Benutzer, pro
     const hinweise = [
       !liste.length && 'Der Plan stimmt mit dem Gebäudemodell überein – es gibt nichts zu übernehmen.',
       ersetzt && `${ersetzt} geschätzte Bauteile aus dem Assistenten werden durch die Bauteile aus dem Plan ersetzt.`,
+      ab.eintraege.length && `${ab.von.size} Bauteile teilen sich ${ab.eintraege.length} Aufbauten (gleiche Schichtfolge = ein Aufbau). Die Wärmeleitfähigkeit λ der Schichten steht nicht im Plan – sie lässt sich unter Aufbauten eintragen.`,
+      d.bauteile.some((b) => b.wand) && `${d.bauteile.filter((b) => b.wand).length} Fenster und Türen kennen ihre Wand. Wandflächen sind ohne Öffnungen gerechnet.`,
+      !kg.size && KEIN_KG_KATALOG,
       behalten && `${behalten} ${behalten === 1 ? 'Eintrag hat' : 'Einträge haben'} von Hand geänderte Werte, die vom Plan abweichen. Sie bleiben, wie du sie eingetragen hast.`,
       d.flaechen_aus_geometrie && `Bei ${d.flaechen_aus_geometrie} Bauteilen oder Räumen stand keine Menge in der Datei – die Fläche ist aus der Geometrie gerechnet.`,
       d.lage_aus_geometrie && `Bei ${d.lage_aus_geometrie} Wänden stand nicht in der Datei, ob sie außen oder innen liegen – das ist aus dem Grundriss ermittelt.`,

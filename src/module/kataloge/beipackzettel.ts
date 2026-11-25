@@ -24,13 +24,31 @@ export const gewerk: ObjektModell = {
   ],
 };
 
+// Kostengruppen nach DIN 276 – Bauteile, Kosten und Ausschreibung ordnen sich danach. Die Fassung kommt über den Kanal.
+export const kostengruppe: ObjektModell = {
+  name: 'kostengruppe',
+  titel: 'Kostengruppe',
+  titelMehrzahl: 'Kostengruppen',
+  anzeigeFeld: 'bezeichnung',
+  rechte: { lesen: ALLE, schreiben: ['bueroleitung'], loeschen: ['bueroleitung'] },
+  felder: [
+    { name: 'nummer', titel: 'KG', art: 'text', pflicht: true, inListe: true, breite: 80, gruppe: 'Kostengruppe' },
+    { name: 'name', titel: 'Bezeichnung', art: 'text', pflicht: true, inListe: true, breite: 380, gruppe: 'Kostengruppe' },
+    { name: 'bezeichnung', titel: 'KG und Bezeichnung', art: 'text', gruppe: 'Kostengruppe' },
+    { name: 'ebene', titel: 'Ebene', art: 'zahl', inListe: true, breite: 80, gruppe: 'Kostengruppe' },
+    { name: 'hauptgruppe', titel: 'Hauptgruppe', art: 'text', gruppe: 'Kostengruppe' },
+    { name: 'notiz', titel: 'Notiz des Büros', art: 'langtext', gruppe: 'Notiz' },
+    { name: 'kennung', titel: 'Kennung im Katalog', art: 'text', gruppe: 'Aus dem Katalog' },
+  ],
+};
+
 export const kataloge: Beipackzettel = {
   id: 'kataloge',
   name: 'Kataloge',
   version: '0.1.0',
-  beschreibung: 'Nachschlagelisten aus dem Katalog-Kanal, auf Knopfdruck aktualisierbar: zuerst die Gewerke nach VOB/C.',
+  beschreibung: 'Nachschlagelisten aus dem Katalog-Kanal, auf Knopfdruck aktualisierbar: Gewerke nach VOB/C, Kostengruppen nach DIN 276.',
   braucht: [],
-  objekte: [gewerk],
-  ansichten: [{ id: 'gewerke', titel: 'Gewerke', objekt: 'gewerk', baum: ['bereich'] }],
-  kataloge: [{ id: 'gewerke', titel: 'Gewerke nach VOB/C', objekt: 'gewerk' }],
+  objekte: [gewerk, kostengruppe],
+  ansichten: [{ id: 'gewerke', titel: 'Gewerke', objekt: 'gewerk', baum: ['bereich'] }, { id: 'kostengruppen', titel: 'Kostengruppen', objekt: 'kostengruppe', baum: ['hauptgruppe'] }],
+  kataloge: [{ id: 'gewerke', titel: 'Gewerke nach VOB/C', objekt: 'gewerk' }, { id: 'kostengruppen', titel: 'Kostengruppen nach DIN 276', objekt: 'kostengruppe' }],
 };

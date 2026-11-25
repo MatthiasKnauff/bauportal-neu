@@ -15,7 +15,8 @@ import { abgleicher, merken, type Eintrag, type Vorschau, type Zahl } from './ue
 
 type Alt = Record<string, unknown>;
 interface Export { format?: number; tables?: Record<string, Alt[]> }
-export interface Uebersetzt { kontakte: Eintrag[]; projekte: Eintrag[]; berichte: (Eintrag & { projekt: string; bauleitung: string })[]; eintraege: (Eintrag & { bericht: string; firma: string })[]; bilder: { datei: string; bericht: string; beschriftung: string; reihe: number }[]; hinweise: string[] }
+type Fest = { kennung: string; werte: Werte };
+export interface Uebersetzt { kontakte: Fest[]; projekte: Fest[]; berichte: (Fest & { projekt: string; bauleitung: string })[]; eintraege: (Fest & { bericht: string; firma: string })[]; bilder: { datei: string; bericht: string; beschriftung: string; reihe: number }[]; hinweise: string[] }
 
 const ARTEN: Record<string, string> = { anwesende: 'anwesend', notizen: 'notiz', maengel: 'mangel', zu_erledigen: 'aufgabe', weisungen: 'weisung' };
 const text = (w: unknown) => (w == null ? '' : String(w)).trim();
@@ -36,10 +37,10 @@ export function altdatenLesen(roh: unknown): Uebersetzt {
   const t = (roh as Export)?.tables;
   if (!t || !Array.isArray(t.projects) || !Array.isArray(t.reports)) throw new Ablehnung('Das ist kein Export des Bautagebuchs (Datei „bautagebuch-…json“ aus Einstellungen → Export)');
   const hinweise: string[] = [];
-  const kontakte = (t.contacts ?? []).filter((k) => text(k.name)).map((k): Eintrag => ({ kennung: `alt:kontakt:${k.id}`, werte: {
+  const kontakte = (t.contacts ?? []).filter((k) => text(k.name)).map((k): Fest => ({ kennung: `alt:kontakt:${k.id}`, werte: {
     name: text(k.name).slice(0, 300), art: ['firma', 'person', 'behoerde', 'plotdienst'].includes(text(k.art)) ? text(k.art) : 'firma', ansprechpartner: text(k.contact_person), gewerk: text(k.trade),
     strasse: text(k.street), plz: text(k.zip), ort: text(k.city), telefon: text(k.phone), mobil: text(k.mobile), email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(k.email)) ? text(k.email) : '', web: text(k.website), notiz: text(k.notes) } }));
-  const projekte = t.projects.filter((p) => text(p.name)).map((p): Eintrag => ({ kennung: `alt:projekt:${p.id}`, werte: {
+  const projekte = t.projects.filter((p) => text(p.name)).map((p): Fest => ({ kennung: `alt:projekt:${p.id}`, werte: {
     name: text(p.name), bauherr: text(p.client), strasse: text(p.street), plz: text(p.zip), ort: text(p.city), ordner: text(p.folder), status: Number(p.archived) ? 'archiviert' : 'aktiv' } }));
   const projektDa = new Set(projekte.map((p) => p.kennung));
   const berichte = t.reports.filter((r) => projektDa.has(`alt:projekt:${r.project_id}`) && datum(r.date)).map((r) => ({ kennung: `alt:bericht:${r.id}`, projekt: `alt:projekt:${r.project_id}`, bauleitung: text(r.site_manager), werte: {
@@ -76,7 +77,7 @@ export async function altdatenPlanen(db: Db, register: Modulregister, wer: Benut
     const { liste, je, ort, abgleichen } = abgleicher(c, register, {}, 'uebernahme', ['uebernahme']);
     const alt = (k: string) => k.startsWith('alt:');
     // Kontakte und Projekte, die es unter demselben Namen schon gibt, werden weitergeführt statt doppelt angelegt
-    const gleicherName = (e: Eintrag, da: Record<string, unknown>[]) => da.find((x) => x.kennung === '' && String(x.name).toLowerCase() === String(e.werte.name).toLowerCase());
+    const gleicherName = (e: Fest, da: Record<string, unknown>[]) => da.find((x) => x.kennung === '' && String(x.name).toLowerCase() === String(e.werte.name).toLowerCase());
     await abgleichen('kontakt', u.kontakte, alt, gleicherName);
     await abgleichen('projekt', u.projekte, alt, gleicherName);
     const benutzer = new Map<string, string>((await c.query('select id, name from o_benutzer where not geloescht')).rows.map((b) => [String(b.name).toLowerCase(), b.id]));

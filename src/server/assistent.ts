@@ -10,6 +10,8 @@ import { schaetzen } from '../module/gebaeudemodell/schaetzung';
 import { alsBenutzer, type Db } from './db';
 import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
+import { KEIN_KG_KATALOG, kostengruppen } from './gebaeudemodell';
+import { kostengruppeNummer } from '../module/gebaeudemodell/beipackzettel';
 import { ASSISTENT, abgleicher, merken, versionPruefen, type Vorschau, type Zahl } from './uebernahme';
 
 /** gebaeude = Kennung eines vorhandenen Gebäudes, sonst entsteht ein neues. */
@@ -47,10 +49,21 @@ export async function planeSchaetzung(db: Db, register: Modulregister, wer: Benu
     if (ausPlan) {
       // Was früher geschätzt wurde, hat der Plan schon ersetzt; hier bleibt nur aufzuräumen, falls etwas übrig ist.
       await abgleichen('bauteil', [], meins);
+      await abgleichen('aufbau', [], meins);
       hinweise.push(`In dieser Version liegen schon ${ausPlan} Bauteile aus einem Plan. Der Assistent trägt deshalb nur die Angaben zum Gebäude ein und schätzt keine Bauteile dazu.`);
     } else {
       await abgleichen('geschoss', s.geschosse.map((g) => ({ kennung: vor + g.schluessel, werte: { name: g.name, ebene: g.ebene, hoehe: g.hoehe, flaeche: g.flaeche, gebaeude: id } })), meins);
-      await abgleichen('bauteil', s.bauteile.map((b) => ({ kennung: vor + b.schluessel, werte: { name: b.name, art: b.art, lage: b.lage, menge: b.menge, einheit: b.einheit, aufbau: b.aufbau, geschoss: (b.geschoss && ort.geschoss!.get(vor + b.geschoss)) || null } })), meins);
+      // Ein geschätzter Aufbau je Art und Beschreibung – ohne Schichten, die kennt erst der Plan
+      const aufbauKennung = (b: { art: string; aufbau: string }) => `${vor}aufbau:${b.art}:${b.aufbau}`;
+      const aufbauten = new Map(s.bauteile.filter((b) => b.aufbau).map((b) => [aufbauKennung(b), { kennung: aufbauKennung(b), werte: { name: b.aufbau, art: b.art } }]));
+      await abgleichen('aufbau', [...aufbauten.values()], meins);
+      const kg = await kostengruppen(c);
+      await abgleichen('bauteil', s.bauteile.map((b) => ({ kennung: vor + b.schluessel, werte: () => ({
+        name: b.name, art: b.art, lage: b.lage, menge: b.menge, einheit: b.einheit,
+        aufbau: (b.aufbau && ort.aufbau!.get(aufbauKennung(b))) || null,
+        kostengruppe: kg.get(kostengruppeNummer(b.art, b.lage, '') ?? '') ?? null,
+        geschoss: (b.geschoss && ort.geschoss!.get(vor + b.geschoss)) || null }) })), meins);
+      if (!kg.size) hinweise.push(KEIN_KG_KATALOG);
       const behalten = Object.values(je).reduce((n, z) => n + z.behalten, 0);
       if (behalten) hinweise.push(`${behalten} ${behalten === 1 ? 'Eintrag hat' : 'Einträge haben'} von Hand geänderte Werte. Sie bleiben, wie du sie eingetragen hast.`);
       hinweise.push(...s.annahmen.map((a) => `Annahme: ${a}.`));

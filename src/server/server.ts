@@ -12,6 +12,7 @@ import { ROLLEN } from '../kern/rechte';
 import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss, stand } from './protokoll';
 import * as anm from './anmeldung';
 import { versionKopieren, versionsregelnAnmelden } from './versionen';
+import { gebaeudemodellRegelnAnmelden } from './gebaeudemodell';
 import { ablageRouten } from './ablage';
 import { ifcRouten } from './ifc';
 import { assistentRouten } from './assistent';
@@ -47,6 +48,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   await app.register(cookie);
   const dbKennung = await kennung(db);
   versionsregelnAnmelden(register);
+  gebaeudemodellRegelnAnmelden();
 
   // ---------- Live-Strom: neue Befehle gehen an alle verbundenen Geräte ----------
   interface Geraet { r: ServerResponse; wer: anm.Benutzer; pos: number }

@@ -54,7 +54,12 @@ export interface Regel {
   vor?: (c: Verbindung, b: Befehl, vorher: Record<string, unknown> | undefined, werte: Werte | undefined) => Promise<void>;
   nach?: (c: Verbindung, b: Befehl, vorher: Record<string, unknown> | undefined, werte: Werte | undefined) => Promise<Befehl[]>;
 }
-export const regeln = new Map<string, Regel>();
+// je Objekt mehrere Regeln, jede unter ihrem Namen – erneutes Anmelden ersetzt sie (z. B. Versionen, Kostengruppen)
+const regeln = new Map<string, Map<string, Regel>>();
+export function regelAnmelden(objekt: string, name: string, r: Regel): void {
+  if (!regeln.has(objekt)) regeln.set(objekt, new Map());
+  regeln.get(objekt)!.set(name, r);
+}
 
 /**
  * Kern eines Befehls: prüfen, Daten ändern, ins Protokoll schreiben, Folgebefehle ausführen.
@@ -66,7 +71,7 @@ export async function fuehreAus(c: Verbindung, register: Modulregister, wer: Abs
   const m: ObjektModell | undefined = register.modell(b.objekt);
   if (!m) throw new Ablehnung(`Unbekannte Objektart „${b.objekt}“`);
   const t = tabelle(m.name);
-  const regel = regeln.get(m.name);
+  const alle = [...(regeln.get(m.name)?.values() ?? [])];
   if (m.einzeln && b.objektId !== m.einzeln) throw new Ablehnung(`${m.titel} gibt es nur einmal`);
   if (m.einzeln && b.art === 'loeschen') throw new Ablehnung(`${m.titel} lässt sich nicht löschen`);
     const vorher = (await c.query(`select * from ${t} where id = $1`, [b.objektId])).rows[0] as Record<string, unknown> | undefined;
@@ -90,7 +95,7 @@ export async function fuehreAus(c: Verbindung, register: Modulregister, wer: Abs
         }
       }
     }
-    await regel?.vor?.(c, b, vorher, werte);
+    for (const r of alle) await r.vor?.(c, b, vorher, werte);
     // Herkunft gilt für das, was der Absender geliefert hat (und was nicht leer ist) – nicht für ergänzte Vorgaben
     const geliefert = new Set(Object.keys((b.werte ?? {}) as object));
     const herkunftFelder = b.herkunft && werte ? herkunftsfelder({ art: b.art, werte }).filter((k) => geliefert.has(k)) : undefined;
@@ -120,7 +125,7 @@ export async function fuehreAus(c: Verbindung, register: Modulregister, wer: Abs
       } else {
         await c.query(`update ${t} set geloescht = $2 where id = $1`, [b.objektId, b.art === 'loeschen']);
       }
-      for (const folge of (await regel?.nach?.(c, b, vorher, werte)) ?? []) await fuehreAus(c, register, wer, folge);
+      for (const r of alle) for (const folge of (await r.nach?.(c, b, vorher, werte)) ?? []) await fuehreAus(c, register, wer, folge);
       return eintrag;
     } catch (e) {
       deute(e, m);

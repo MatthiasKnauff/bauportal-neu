@@ -40,7 +40,7 @@ def testdatei(pfad: str, og_wand_laenge: float = 6.0, mit_tuer: bool = True) -> 
         rep = run("geometry.add_wall_representation", f, context=koerper, length=laenge, height=2.75, thickness=0.365)
         run("geometry.assign_representation", f, product=w, representation=rep)
         p = run("pset.add_pset", f, product=w, name="Pset_WallCommon")
-        run("pset.edit_pset", f, pset=p, properties={"IsExternal": aussen})
+        run("pset.edit_pset", f, pset=p, properties={"IsExternal": aussen, **({"LoadBearing": True} if aussen else {})})
         if flaeche:
             q = run("pset.add_qto", f, product=w, name="Qto_WallBaseQuantities")
             run("pset.edit_qto", f, qto=q, properties={"NetSideArea": flaeche})
@@ -59,6 +59,9 @@ def testdatei(pfad: str, og_wand_laenge: float = 6.0, mit_tuer: bool = True) -> 
     run("pset.edit_qto", f, qto=q, properties={"NetArea": 96.5})
     fenster = bauteil("IfcWindow", "Fenster 1,26 x 1,38", "EG")
     fenster.OverallWidth, fenster.OverallHeight = 1260.0, 1380.0
+    oeffnung = run("root.create_entity", f, ifc_class="IfcOpeningElement", name="Öffnung Fenster")
+    run("feature.add_feature", f, feature=oeffnung, element=aw)
+    run("feature.add_filling", f, opening=oeffnung, element=fenster)   # das Fenster sitzt in der Außenwand Nord
     if mit_tuer:
         bauteil("IfcDoor", "Haustür", "EG")
     bauteil("IfcFurniture", "Sofa", "EG")
@@ -90,7 +93,9 @@ def main() -> None:
         assert set(b) == {"Außenwand Nord", "Innenwand Flur", "Außenwand OG", "Decke über EG", "Fenster 1,26 x 1,38", "Haustür"}, set(b)
         aw = b["Außenwand Nord"]
         assert (aw["art"], aw["lage"], aw["menge"], aw["einheit"]) == ("aussenwand", "aussen", 22.0, "m2"), aw
-        assert aw["aufbau"] == "Außenputz 2 cm | Mauerwerk 36,5 cm | Innenputz 1,5 cm", aw["aufbau"]
+        assert aw["schichten"] == [{"material": "Außenputz", "dicke": 2.0}, {"material": "Mauerwerk", "dicke": 36.5}, {"material": "Innenputz", "dicke": 1.5}], aw["schichten"]
+        assert b["Fenster 1,26 x 1,38"]["wand"] == aw["kennung"] and b["Haustür"]["wand"] is None, "das Fenster kennt seine Wand"
+        assert (aw["tragend"], b["Innenwand Flur"]["tragend"]) == (True, None)
         assert aw["geschoss"] == d["geschosse"][0]["kennung"]
         iw = b["Innenwand Flur"]
         assert iw["art"] == "innenwand" and abs(iw["menge"] - 11.0) < 0.2, iw     # 4,00 m × 2,75 m aus der Geometrie

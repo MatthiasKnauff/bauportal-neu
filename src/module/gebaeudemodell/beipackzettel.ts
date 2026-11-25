@@ -1,4 +1,5 @@
-// Modul Gebäudemodell: Gebäude, Geschosse, Räume, Bauteile in Versionen – gespeist aus IFC oder vom Assistenten.
+// Modul Gebäudemodell: Gebäude, Geschosse, Räume, Aufbauten mit Schichten und Bauteile (mit Kostengruppe nach DIN 276)
+// in Versionen – gespeist aus IFC oder vom Assistenten.
 import type { Beipackzettel } from '../../kern/modul';
 import type { Feld, ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';
@@ -95,23 +96,74 @@ export const raum: ObjektModell = {
   ],
 };
 
+export const BAUTEILARTEN = [
+  { wert: 'aussenwand', titel: 'Außenwand' }, { wert: 'innenwand', titel: 'Innenwand' }, { wert: 'decke', titel: 'Decke' }, { wert: 'dach', titel: 'Dach' },
+  { wert: 'bodenplatte', titel: 'Bodenplatte' }, { wert: 'fundament', titel: 'Fundament' }, { wert: 'fenster', titel: 'Fenster' }, { wert: 'tuer', titel: 'Tür, Tor' }, { wert: 'stuetze', titel: 'Stütze, Träger' },
+  { wert: 'treppe', titel: 'Treppe' }, { wert: 'sonstiges', titel: 'Sonstiges' },
+];
+const WAENDE = ['aussenwand', 'innenwand'];
+
+/**
+ * Kostengruppe nach DIN 276, die zu Art, Lage und Tragfähigkeit eines Bauteils gehört. Wo die Angaben nicht reichen
+ * (z. B. Wand, tragend oder nicht?), die Gruppe darüber – das ist ehrlich und lässt sich von Hand verfeinern.
+ */
+export function kostengruppeNummer(art: unknown, lage: unknown, tragend: unknown): string | null {
+  const aussen = lage === 'aussen';
+  switch (art) {
+    case 'aussenwand': return tragend === 'ja' ? '331' : tragend === 'nein' ? '332' : '330';
+    case 'innenwand': return tragend === 'ja' ? '341' : tragend === 'nein' ? '342' : '340';
+    case 'stuetze': return aussen ? '333' : lage === 'innen' ? '343' : null;
+    case 'fenster': case 'tuer': return aussen ? '334' : lage === 'innen' ? '344' : null;
+    case 'decke': case 'treppe': return '351';
+    case 'dach': return '361';
+    case 'bodenplatte': case 'fundament': return '322';
+    default: return null;
+  }
+}
+
+// Ein Aufbau: Schichten von außen nach innen (bei Decken und Dächern von oben nach unten). Viele Bauteile teilen
+// sich einen Aufbau – daraus werden U-Wert, Kosten und Ausschreibung gerechnet. Gehört wie die Bauteile zur Version.
+export const aufbau: ObjektModell = {
+  ...basis, name: 'aufbau', titel: 'Aufbau', titelMehrzahl: 'Aufbauten', anzeigeFeld: 'name',
+  felder: [
+    ...zusammenhang,
+    { name: 'name', titel: 'Bezeichnung', art: 'text', pflicht: true, inListe: true, breite: 320, gruppe: 'Aufbau' },
+    { name: 'art', titel: 'für Bauteilart', art: 'auswahl', inListe: true, breite: 150, gruppe: 'Aufbau', optionen: [{ wert: '', titel: 'offen' }, ...BAUTEILARTEN] },
+    { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Notiz' },
+    { name: 'kennung', titel: 'Kennung (Plan oder Schätzung)', art: 'text', verborgen: true },
+  ],
+};
+
+export const aufbauSchicht: ObjektModell = {
+  ...basis, name: 'aufbau_schicht', titel: 'Schicht', titelMehrzahl: 'Schichten', anzeigeFeld: 'material',
+  felder: [
+    ...zusammenhang,
+    { name: 'aufbau', titel: 'Aufbau', art: 'verweis', ziel: 'aufbau', pflicht: true, inListe: true, breite: 260, gruppe: 'Schicht' },
+    { name: 'material', titel: 'Material', art: 'text', inListe: true, breite: 260, gruppe: 'Schicht' },
+    { name: 'dicke', titel: 'Dicke in cm', art: 'zahl', inListe: true, breite: 110, gruppe: 'Schicht' },
+    { name: 'lambda', titel: 'λ in W/(m·K)', art: 'zahl', inListe: true, breite: 110, gruppe: 'Schicht' },
+    { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
+    { name: 'kennung', titel: 'Kennung (Plan oder Schätzung)', art: 'text', verborgen: true },
+  ],
+};
+
 export const bauteil: ObjektModell = {
   ...basis, name: 'bauteil', titel: 'Bauteil', titelMehrzahl: 'Bauteile', anzeigeFeld: 'name',
   felder: [
     ...zusammenhang,
     { name: 'name', titel: 'Bezeichnung', art: 'text', pflicht: true, inListe: true, breite: 240, gruppe: 'Bauteil' },
-    { name: 'art', titel: 'Bauteilart', art: 'auswahl', inListe: true, breite: 150, gruppe: 'Bauteil', optionen: [
-      { wert: 'aussenwand', titel: 'Außenwand' }, { wert: 'innenwand', titel: 'Innenwand' }, { wert: 'decke', titel: 'Decke' }, { wert: 'dach', titel: 'Dach' },
-      { wert: 'bodenplatte', titel: 'Bodenplatte' }, { wert: 'fundament', titel: 'Fundament' }, { wert: 'fenster', titel: 'Fenster' }, { wert: 'tuer', titel: 'Tür, Tor' }, { wert: 'stuetze', titel: 'Stütze, Träger' },
-      { wert: 'treppe', titel: 'Treppe' }, { wert: 'sonstiges', titel: 'Sonstiges' },
-    ] },
+    { name: 'art', titel: 'Bauteilart', art: 'auswahl', inListe: true, breite: 150, gruppe: 'Bauteil', optionen: BAUTEILARTEN },
     { name: 'geschoss', titel: 'Geschoss', art: 'verweis', ziel: 'geschoss', inListe: true, breite: 130, gruppe: 'Bauteil' },
-    { name: 'gewerk', titel: 'Gewerk', art: 'text', gruppe: 'Bauteil' },
     { name: 'lage', titel: 'Lage', art: 'auswahl', inListe: true, breite: 100, gruppe: 'Bauteil', optionen: [{ wert: '', titel: 'offen' }, { wert: 'aussen', titel: 'außen' }, { wert: 'innen', titel: 'innen' }] },
+    { name: 'tragend', titel: 'Tragend', art: 'auswahl', gruppe: 'Bauteil', wenn: { art: WAENDE }, optionen: [{ wert: '', titel: 'offen' }, { wert: 'ja', titel: 'tragend' }, { wert: 'nein', titel: 'nicht tragend' }] },
+    { name: 'wand', titel: 'sitzt in Wand', art: 'verweis', ziel: 'bauteil', gruppe: 'Bauteil', wenn: { art: ['fenster', 'tuer'] } },
+    { name: 'kostengruppe', titel: 'Kostengruppe (DIN 276)', art: 'verweis', ziel: 'kostengruppe', inListe: true, breite: 230, gruppe: 'Bauteil' },
+    { name: 'gewerk', titel: 'Gewerk', art: 'text', gruppe: 'Bauteil' },
     { name: 'menge', titel: 'Menge', art: 'zahl', inListe: true, breite: 100, gruppe: 'Menge' },
     { name: 'einheit', titel: 'Einheit', art: 'auswahl', inListe: true, breite: 90, gruppe: 'Menge', optionen: [{ wert: 'm2', titel: 'm²' }, { wert: 'm', titel: 'm' }, { wert: 'stk', titel: 'Stück' }, { wert: 'm3', titel: 'm³' }] },
     { name: 'abmessung', titel: 'Abmessung', art: 'text', gruppe: 'Menge' },
-    { name: 'aufbau', titel: 'Aufbau, Material', art: 'text', inListe: true, breite: 220, gruppe: 'Aufbau' },
+    { name: 'aufbau', titel: 'Aufbau', art: 'verweis', ziel: 'aufbau', inListe: true, breite: 240, gruppe: 'Aufbau' },
+    { name: 'material', titel: 'Material laut Plan', art: 'text', gruppe: 'Aufbau' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Aufbau' },
     { name: 'kennung', titel: 'Kennung im Plan (IFC)', art: 'text', gruppe: 'Aus dem Plan' },
   ],
@@ -122,10 +174,12 @@ export const gebaeudemodell: Beipackzettel = {
   name: 'Gebäudemodell',
   version: '0.1.0',
   beschreibung: 'Der Kern: Gebäude, Geschosse, Räume und Bauteile eines Projekts – mit Herkunft je Wert, in Versionen.',
-  braucht: ['projekte'],
-  objekte: [gebaeude, geschoss, raum, bauteil],
+  braucht: ['projekte', 'kataloge'],
+  objekte: [gebaeude, geschoss, raum, aufbau, aufbauSchicht, bauteil],
   ansichten: [
     { id: 'bauteile', titel: 'Bauteile', objekt: 'bauteil', baum: ['art', 'geschoss'], brauchtProjekt: true },
+    { id: 'kosten', titel: 'nach Kostengruppen', objekt: 'bauteil', baum: ['kostengruppe'], brauchtProjekt: true },
+    { id: 'aufbauten', titel: 'Aufbauten', objekt: 'aufbau', baum: ['art'], brauchtProjekt: true },
     { id: 'raeume', titel: 'Räume', objekt: 'raum', baum: ['geschoss'], brauchtProjekt: true },
     { id: 'geschosse', titel: 'Geschosse', objekt: 'geschoss', baum: ['gebaeude'], brauchtProjekt: true },
     { id: 'gebaeude', titel: 'Gebäude', objekt: 'gebaeude', brauchtProjekt: true },

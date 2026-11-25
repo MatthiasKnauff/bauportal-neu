@@ -5,14 +5,14 @@ import type { Modulregister } from '../kern/modul';
 import type { Befehl, Protokolliert } from '../kern/befehl';
 import { Eingabefehler, KENNUNG, type Werte } from '../kern/modell';
 import { tabelle, type Absender, type Db } from './db';
-import { Ablehnung, regeln, vorgangAusfuehren } from './protokoll';
+import { Ablehnung, regelAnmelden, vorgangAusfuehren } from './protokoll';
 import { alsBenutzer } from './db';
 
 // Folgebefehle des Kerns („die anderen sind nicht mehr gültig“) dürfen, was ein Benutzer direkt nicht darf.
 const folgebefehle = new Set<string>();
 
 export function versionsregelnAnmelden(register: Modulregister): void {
-  regeln.set('version', {
+  regelAnmelden('version', 'versionen', {
     async vor(c, b, vorher, werte) {
       if (b.art === 'anlegen') {
         if (!register.versionsbereiche.some((v) => v.bereich === werte!.bereich)) throw new Ablehnung(`Unbekannter Versionsbereich „${werte!.bereich}“`);
@@ -41,7 +41,7 @@ export function versionsregelnAnmelden(register: Modulregister): void {
   });
   // Objekte, die zu einer Version gehören: die Version muss es geben und zum selben Projekt und Bereich gehören.
   for (const m of register.alleModelle.filter((x) => x.versionsBereich)) {
-    regeln.set(m.name, {
+    regelAnmelden(m.name, 'version', {
       async vor(c, b, _vorher, werte) {
         if (b.art !== 'anlegen' && !(werte && 'version' in werte)) return;
         const v = (await c.query('select projekt, bereich from o_version where id = $1 and not geloescht', [werte!.version])).rows[0];

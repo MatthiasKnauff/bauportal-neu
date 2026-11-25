@@ -46,27 +46,28 @@ def _aus_psets(e, namen):
     return None
 
 
-def _aufbau(e, laenge: float) -> str:
-    """Schichten des Bauteils. Fehlt der Materialname (Allplan), steht dort das Gewerk der Schicht oder nur die Dicke."""
+def _schichten(e, laenge: float) -> list[dict]:
+    """Schichten des Bauteils von außen nach innen: Material und Dicke in cm (None, wenn die Datei keine nennt).
+    Fehlt der Materialname (Allplan), steht dort das Material oder Gewerk aus den Allplan-Attributen der Schicht."""
     m = el.get_material(e, should_skip_usage=True)
     if m is None:
-        return ""
+        return []
     if m.is_a("IfcMaterialLayerSet"):
-        schicht_angaben = [s.get("properties", {}) for k, s in sorted(el.get_psets(e).get("AllplanAttributes", {}).items()) if k.startswith("Object Layer Attributes") and isinstance(s, dict)]
-        teile = []
+        angaben = [s.get("properties", {}) for k, s in sorted(el.get_psets(e).get("AllplanAttributes", {}).items()) if k.startswith("Object Layer Attributes") and isinstance(s, dict)]
+        aus = []
         for i, s in enumerate(m.MaterialLayers):
             name = ((s.Material.Name if s.Material else None) or getattr(s, "Name", None) or "").strip()
-            if not name and i < len(schicht_angaben):
-                name = str(schicht_angaben[i].get("Material") or schicht_angaben[i].get("Gewerk") or "")
-            dicke = (s.LayerThickness or 0) * laenge * 100
-            text = f"{dicke:.1f} cm".replace(".", ",").replace(",0 cm", " cm") if dicke else ""
-            teile.append(f"{name} {text}".strip())
-        return " | ".join(t for t in teile if t)
+            if not name and i < len(angaben):
+                name = str(angaben[i].get("Material") or angaben[i].get("Gewerk") or "").strip()
+            dicke = round((s.LayerThickness or 0) * laenge * 100, 1)
+            aus.append({"material": name, "dicke": dicke or None})
+        return aus
     if m.is_a("IfcMaterialConstituentSet"):
-        return " | ".join(c.Material.Name.strip() for c in (m.MaterialConstituents or []) if c.Material and c.Material.Name.strip())
+        return [{"material": c.Material.Name.strip(), "dicke": None} for c in (m.MaterialConstituents or []) if c.Material and c.Material.Name.strip()]
     if m.is_a("IfcMaterialList"):
-        return " | ".join(x.Name.strip() for x in m.Materials if x.Name.strip())
-    return (getattr(m, "Name", "") or "").strip()
+        return [{"material": x.Name.strip(), "dicke": None} for x in m.Materials if x.Name.strip()]
+    name = (getattr(m, "Name", "") or "").strip()
+    return [{"material": name, "dicke": None}] if name else []
 
 
 def _flaeche_aus_geometrie(e, art: str) -> float | None:
@@ -311,7 +312,8 @@ def auswerten(pfad: str) -> dict:
         lage = "" if aussen is None else ("aussen" if aussen else "innen")
         lage_von[e.id()] = lage
         bauteile.append({"kennung": e.GlobalId, "art": art, "name": name(e, typname or klasse[3:]), "geschoss": ort.GlobalId if ort is not None and ort.is_a("IfcBuildingStorey") else None,
-                         "lage": lage, "menge": menge, "einheit": mass, "abmessung": abmessung, "aufbau": _aufbau(e, laenge), "gewerk": gewerk(e)})
+                         "lage": lage, "menge": menge, "einheit": mass, "abmessung": abmessung, "schichten": _schichten(e, laenge), "gewerk": gewerk(e),
+                         "tragend": _aus_psets(e, ("LoadBearing",)), "wand": None})
 
     # Fenster und Türen ohne eigene Klasse: Manche Programme (Allplan) schreiben nur die Öffnung in der Wand und die
     # Einzelteile (Rahmen, Flügel, Glas …) als lose Körper. Dann zählt die Öffnung als ein Fenster oder eine Tür;
@@ -344,16 +346,19 @@ def auswerten(pfad: str) -> dict:
         mass = f"{_zahl(breite)} × {_zahl(hoehe)} m"
         bauteile.append({"kennung": o.GlobalId, "art": art, "name": f"{'Tür' if art == 'tuer' else 'Fenster'} {mass}", "geschoss": ort.GlobalId if ort is not None and ort.is_a("IfcBuildingStorey") else None,
                          "lage": lage_von.get(wirt.id(), ""), "menge": 1, "einheit": "stk", "abmessung": mass + (f", Brüstung {_zahl(bruestung)} m" if art == "fenster" and bruestung >= 0.15 else ""),
-                         "aufbau": "", "gewerk": next((gewerk(e) for e in teile if gewerk(e)), "")})
+                         "schichten": [], "gewerk": next((gewerk(e) for e in teile if gewerk(e)), ""), "tragend": None, "wand": wirt.GlobalId})
     # Fenster und Türen mit eigener Klasse liegen so außen oder innen wie ihre Wand
     kennung_wand = {}
     for o in f.by_type("IfcOpeningElement"):
         for fuellung in o.HasFillings or []:
             if o.VoidsElements:
-                kennung_wand[fuellung.RelatedBuildingElement.GlobalId] = o.VoidsElements[0].RelatingBuildingElement.id()
+                kennung_wand[fuellung.RelatedBuildingElement.GlobalId] = o.VoidsElements[0].RelatingBuildingElement
     for b in bauteile:
-        if b["art"] in ("fenster", "tuer") and not b["lage"] and b["kennung"] in kennung_wand:
-            b["lage"] = lage_von.get(kennung_wand[b["kennung"]], "")
+        if b["art"] in ("fenster", "tuer") and b["kennung"] in kennung_wand:
+            wirt = kennung_wand[b["kennung"]]
+            b["wand"] = wirt.GlobalId   # die Wand, in der das Fenster oder die Tür sitzt
+            if not b["lage"]:
+                b["lage"] = lage_von.get(wirt.id(), "")
     for e in lose:
         if e.id() not in in_oeffnung:
             uebersprungen[e.is_a()] = uebersprungen.get(e.is_a(), 0) + 1

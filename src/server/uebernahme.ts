@@ -12,7 +12,8 @@ import { Ablehnung, vorgangAusfuehren } from './protokoll';
 
 export type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
 export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number }
-export interface Eintrag { kennung: string; werte: Werte }
+/** werte als Funktion: wird erst ausgewertet, wenn alle Einträge derselben Art ihre Kennung haben (Bauteil verweist auf Bauteil). */
+export interface Eintrag { kennung: string; werte: Werte | (() => Werte) }
 type Vorhanden = Record<string, unknown>;
 /** So beginnen die Kennungen dessen, was der Assistent geschätzt hat. */
 export const ASSISTENT = 'assistent:';
@@ -36,30 +37,35 @@ export function abgleicher(c: PoolClient, register: Modulregister, ziel: Werte, 
    * ersatz: vorhandener Eintrag, den ein neuer Eintrag weiterführt, statt daneben zu entstehen (z. B. das geschätzte
    *         Erdgeschoss wird das Erdgeschoss aus dem Plan – was daran hängt, bleibt hängen).
    */
-  const abgleichen = async (objekt: string, eintraege: Eintrag[], gehoert: (kennung: string) => boolean, ersatz?: (e: Eintrag, vorhanden: Vorhanden[]) => Vorhanden | undefined) => {
+  const abgleichen = async (objekt: string, eintraege: Eintrag[], gehoert: (kennung: string) => boolean, ersatz?: (e: { kennung: string; werte: Werte }, vorhanden: Vorhanden[]) => Vorhanden | undefined) => {
     const m = register.modell(objekt)!;
     const z: Zahl = (je[objekt] = { neu: 0, geaendert: 0, entfernt: 0, unveraendert: 0, behalten: 0 });
     const alle: Vorhanden[] = (await c.query(`select * from ${tabelle(objekt)}${wo.length ? ' where ' + wo.map((k, i) => `${spalte(k)} = $${i + 1}`).join(' and ') : ''}`, wo.map((k) => ziel[k]))).rows;
     const da = new Map<string, Vorhanden>(alle.filter((x) => x.kennung !== '').map((x) => [x.kennung as string, x]));
     const vergeben = new Set<unknown>();
     const karte = (ort[objekt] = new Map<string, string>());
-    for (const e of eintraege) {
+    // 1. Durchgang: Wer ist wer? Jeder Eintrag bekommt seine Kennung im Bauportal (vorhanden, weitergeführt oder neu).
+    const paare = eintraege.map((e) => {
       let alt = da.get(e.kennung);
-      let werte = e.werte;
+      let ersetzt = false;
       if (!alt && ersatz) {
-        alt = ersatz(e, alle.filter((x) => !x.geloescht && !vergeben.has(x.id) && !eintraege.some((n) => n.kennung === x.kennung)));
-        if (alt) werte = { ...werte, kennung: e.kennung };
+        alt = ersatz({ kennung: e.kennung, werte: typeof e.werte === 'function' ? {} : e.werte }, alle.filter((x) => !x.geloescht && !vergeben.has(x.id) && !eintraege.some((n) => n.kennung === x.kennung)));
+        ersetzt = !!alt;
       }
+      const id = alt ? (alt.id as string) : randomUUID();
+      if (alt) vergeben.add(id);
+      karte.set(e.kennung, id);
+      return { e, alt, id, ersetzt };
+    });
+    // 2. Durchgang: Werte vergleichen und die Befehle bilden
+    for (const { e, alt, id, ersetzt } of paare) {
+      const roh = typeof e.werte === 'function' ? e.werte() : e.werte;
+      const werte = ersetzt ? { ...roh, kennung: e.kennung } : roh;
       if (!alt) {
-        const id = randomUUID();
-        karte.set(e.kennung, id);
         liste.push({ ...kopf(), objekt, art: 'anlegen', objektId: id, werte: { ...ziel, kennung: e.kennung, ...werte } });
         z.neu++;
         continue;
       }
-      const id = alt.id as string;
-      vergeben.add(id);
-      karte.set(e.kennung, id);
       if (alt.geloescht) liste.push({ ...kopf(), objekt, art: 'wiederherstellen', objektId: id });
       const stand = alt._stand as Record<string, { herkunft?: string }>;
       const aendern: Werte = {};

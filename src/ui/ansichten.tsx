@@ -24,6 +24,7 @@ import { Updates } from './updates';
 import { AufbauAnsicht } from './aufbau';
 import { Altdaten } from './altdaten';
 import { KiEinrichten } from './baukasten/ki';
+import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Bilder } from './baukasten/bilder';
 
@@ -122,6 +123,24 @@ function WetterHolen(p: { bericht: Zeile }) {
     finally { setLaeuft(false); }
   };
   return <Show when={darf('tagesbericht', 'schreiben')}><div><button class="knopf" disabled={laeuft()} onClick={holen}>{laeuft() ? 'Wetter wird geholt …' : '☁ Wetter vom Standort holen'}</button></div></Show>;
+}
+
+// Aufbau: seine Schichten von innen nach außen, dazu Gesamtdicke, überschlägiger U-Wert und wer ihn verwendet
+function AufbauSchichten(p: { aufbau: Zeile }) {
+  const schichten = () => lebende('aufbau_schicht').filter((s) => s.werte.aufbau === p.aufbau.id)
+    .map((s) => ({ dicke: s.werte.dicke == null ? null : Number(s.werte.dicke), lambda: s.werte.lambda == null ? null : Number(s.werte.lambda) }));
+  const u = () => uWert(String(p.aufbau.werte.art ?? ''), schichten());
+  const bauteile = () => lebende('bauteil').filter((b) => b.werte.aufbau === p.aufbau.id).length;
+  const zahl = (x: number, n = 1) => x.toLocaleString('de', { maximumFractionDigits: n });
+  return (
+    <Show when={darf('aufbau_schicht', 'lesen')}>
+      <Unterliste titel="Schichten (Reihenfolge wie im Plan)" objekt="aufbau_schicht" fest={{ projekt: p.aufbau.werte.projekt ?? null, version: p.aufbau.werte.version ?? null, aufbau: p.aufbau.id }}
+        haupt="material" neben={['dicke', 'lambda']} platzhalter="Material eingeben und Enter" />
+      <p class="still-text">
+        Gesamtdicke {zahl(gesamtdicke(schichten()))} cm · U-Wert {u() == null ? '– (dafür braucht jede Schicht ein λ)' : `≈ ${zahl(u()!, 2)} W/(m²K)`} · verwendet von {bauteile()} {bauteile() === 1 ? 'Bauteil' : 'Bauteilen'}
+      </p>
+    </Show>
+  );
 }
 
 function Berichtslisten(p: { bericht: Zeile }) {
@@ -291,6 +310,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv'), uhrzeit: new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' }), bauleitung: ich().id }),
     kartenZusatz: (z) => <Berichtslisten bericht={z} />,
   },
+  aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
   benutzer: {
     kartenZusatz: (z) => <KennwortSetzen benutzer={z} />,

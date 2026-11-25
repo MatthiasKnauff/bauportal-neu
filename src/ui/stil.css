@@ -220,10 +220,10 @@ main { flex: 1; min-height: 0; display: flex; }
 .unterleiste button.aktiv { border-bottom-color: var(--akzent); color: var(--akzent); font-weight: 600; }
 
 .auswahlliste { position: relative; }
-.auswahlliste-knopf { width: 100%; min-height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--rand-stark); border-radius: 8px; background: #fff; cursor: pointer; text-align: left; }
+.auswahlliste-knopf { width: 100%; min-height: 36px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--rand-stark); border-radius: 8px; background: #fff; color: var(--text); cursor: pointer; text-align: left; }
 .auswahlliste-knopf:disabled { background: #f6f6f3; color: var(--text-still); cursor: default; }
 .auswahlliste-knopf i { font-style: normal; color: var(--text-still); }
-.auswahlliste-fenster { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--flaeche); border: 1px solid var(--rand); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 6px; }
+.auswahlliste-fenster { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--flaeche); color: var(--text); border: 1px solid var(--rand); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 6px; }
 .auswahlliste-fenster input { width: 100%; min-height: 34px; padding: 0 10px; border: 1px solid var(--rand-stark); border-radius: 6px; margin-bottom: 6px; }
 .auswahlliste-fenster [role=listbox] { max-height: 240px; overflow: auto; outline: none; }
 .auswahlliste-fenster [role=option] { padding: 7px 10px; border-radius: 6px; cursor: pointer; }

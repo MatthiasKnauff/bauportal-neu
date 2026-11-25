@@ -14,6 +14,9 @@ import { festeKennung, grundausstattung } from '../src/server/grundausstattung';
 import { kennwortSetzen } from '../src/server/anmeldung';
 import { baueServer } from '../src/server/server';
 import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen';
+import { gebaeudemodellRegelnAnmelden } from '../src/server/gebaeudemodell';
+import { kostengruppeNummer } from '../src/module/gebaeudemodell/beipackzettel';
+import { uWert } from '../src/module/gebaeudemodell/bauphysik';
 import { geheimnisLesen, geheimnisSetzen } from '../src/server/ablage';
 import { planen } from '../src/server/ifc';
 import { planeSchaetzung } from '../src/server/assistent';
@@ -40,6 +43,7 @@ import path from 'node:path';
 process.env.DATEN_PFAD = mkdtempSync(path.join(tmpdir(), 'bp-daten-'));
 
 versionsregelnAnmelden(register);
+gebaeudemodellRegelnAnmelden();
 
 const BASIS = process.env.TEST_DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5433/postgres';
 
@@ -286,11 +290,11 @@ test('Gebäudemodell: Herkunft je Wert, Verweise wandern beim Kopieren einer Ver
     assert.equal(eg2.werte.gebaeude, g2.id);
     assert.equal(w2.werte.geschoss, eg2.id);
     assert.equal(in2(o.geschoss!).length, 2);
-    await tun(db, leitung, { objekt: 'bauteil', objektId: w, herkunft: 'geschaetzt', werte: { aufbau: 'Mauerwerk 36,5' } });
+    await tun(db, leitung, { objekt: 'bauteil', objektId: w, herkunft: 'geschaetzt', werte: { material: 'Mauerwerk 36,5' } });
     const v3 = randomUUID();
     await versionKopieren(db, register, leitung, { vorgang: randomUUID(), quelle: v, projekt: p, name: 'Stand 3', versionId: v3 });
     o = await lies();
-    assert.deepEqual(o.bauteil!.find((x) => x.werte.version === v3)!.herkunft, { aufbau: 'geschaetzt' }, 'die Herkunft wandert in die Kopie mit');
+    assert.deepEqual(o.bauteil!.find((x) => x.werte.version === v3)!.herkunft, { material: 'geschaetzt' }, 'die Herkunft wandert in die Kopie mit');
     assert.deepEqual(o.gebaeude!.find((x) => x.werte.version === v3)!.herkunft, { name: 'ifc', bgf: 'ifc' });
   } finally { await weg(); }
 });
@@ -303,29 +307,42 @@ test('IFC: erster Plan legt an, neuer Planstand ändert nur, was nicht von Hand 
     const [p, v] = [randomUUID(), randomUUID()];
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
     await tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: v, werte: { projekt: p, bereich: 'gebaeudemodell', name: 'Vorentwurf' } });
-    const wand = (kennung: string, name: string, menge: number, geschoss = 'eg') => ({ kennung, art: 'aussenwand', name, geschoss, lage: 'aussen', menge, einheit: 'm2', abmessung: '', aufbau: 'Mauerwerk 36,5 cm' });
+    // Kostengruppen-Katalog (Ausschnitt): ohne ihn bleiben Bauteile ohne Kostengruppe
+    const kg: Record<string, string> = {};
+    for (const n of ['330', '331', '334', '599']) { kg[n] = randomUUID(); await tun(db, leitung, { objekt: 'kostengruppe', art: 'anlegen', objektId: kg[n], werte: { nummer: n, name: 'KG ' + n } }); }
+    const schichten = [{ material: 'Putz', dicke: 1.5 }, { material: 'Mauerwerk', dicke: 36.5 }];
+    const wand = (kennung: string, name: string, menge: number, geschoss = 'eg') => ({ kennung, art: 'aussenwand', name, geschoss, lage: 'aussen', menge, einheit: 'm2', abmessung: '', schichten, tragend: kennung === 'w1' ? true : null });
+    const fenster = { kennung: 'f1', art: 'fenster', name: 'Fenster', geschoss: 'eg', lage: 'aussen', menge: 2, einheit: 'm2', abmessung: '', schichten: [], tragend: null, wand: 'w1' };
     const plan1 = { schema: 'IFC4', uebersprungen: {}, flaechen_aus_geometrie: 0,
       gebaeude: [{ kennung: 'haus', name: 'Wohnhaus' }],
       geschosse: [{ kennung: 'eg', name: 'EG', ebene: 0, hoehe: 2.85, gebaeude: 'haus' }, { kennung: 'og', name: 'OG', ebene: 1, hoehe: null, gebaeude: 'haus' }],
       raeume: [{ kennung: 'r1', nummer: '0.01', name: 'Wohnen', nutzung: '', flaeche: 28.4, hoehe: null, geschoss: 'eg' }, { kennung: 'r2', nummer: 'x', name: 'ohne Geschoss', nutzung: '', flaeche: 1, hoehe: null, geschoss: null }],
-      bauteile: [wand('w1', 'Außenwand Nord', 22), wand('w2', 'Außenwand Süd', 22), wand('w3', 'Außenwand OG', 16.5, 'og')] };
+      bauteile: [wand('w1', 'Außenwand Nord', 22), wand('w2', 'Außenwand Süd', 22), wand('w3', 'Außenwand OG', 16.5, 'og'), fenster] };
     const a = await planen(db, register, wer, p, v, plan1);
-    assert.deepEqual([a.je.gebaeude!.neu, a.je.geschoss!.neu, a.je.raum!.neu, a.je.bauteil!.neu, a.ohneGeschoss], [1, 2, 1, 3, 1]);
+    assert.deepEqual([a.je.gebaeude!.neu, a.je.geschoss!.neu, a.je.raum!.neu, a.je.bauteil!.neu, a.ohneGeschoss], [1, 2, 1, 4, 1]);
+    assert.deepEqual([a.je.aufbau!.neu, a.je.aufbau_schicht!.neu], [1, 2], 'gleiche Schichtfolge: ein Aufbau für alle drei Wände');
     await vorgangAusfuehren(db, register, wer, a.liste);
     const lies = async () => (await schnappschuss(db, register, leitung)).objekte;
     let o = await lies();
     const w1 = o.bauteil!.find((x) => x.werte.kennung === 'w1')!;
     assert.equal(w1.werte.geschoss, o.geschoss!.find((x) => x.werte.kennung === 'eg')!.id);
     assert.equal(w1.herkunft!.menge, 'ifc');
+    const auf = o.aufbau!.find((x) => !x.geloescht)!;
+    assert.equal(auf.werte.name, 'Putz 1,5 · Mauerwerk 36,5 (38 cm)');
+    assert.ok(o.bauteil!.filter((x) => x.werte.art === 'aussenwand').every((x) => x.werte.aufbau === auf.id));
+    assert.deepEqual(o.aufbau_schicht!.filter((x) => x.werte.aufbau === auf.id).map((x) => [x.werte.reihe, x.werte.material, x.werte.dicke]).sort(), [[1, 'Putz', 1.5], [2, 'Mauerwerk', 36.5]]);
+    const f1 = o.bauteil!.find((x) => x.werte.kennung === 'f1')!;
+    assert.equal(f1.werte.wand, w1.id, 'das Fenster kennt seine Wand');
+    assert.deepEqual([w1.werte.tragend, w1.werte.kostengruppe, f1.werte.kostengruppe, o.bauteil!.find((x) => x.werte.kennung === 'w2')!.werte.kostengruppe], ['ja', kg['331'], kg['334'], kg['330']]);
     assert.equal((await planen(db, register, wer, p, v, plan1)).befehle, 0, 'derselbe Plan noch einmal: nichts zu tun');
 
     // Von Hand: Menge von w1 korrigiert, eigenes Bauteil ohne Plan angelegt
     await tun(db, leitung, { objekt: 'bauteil', objektId: w1.id, werte: { menge: 23.5 } });
     await tun(db, leitung, { objekt: 'bauteil', art: 'anlegen', werte: { projekt: p, version: v, name: 'Vordach (von Hand)', art: 'sonstiges' } });
     // Neuer Planstand: w1 und w2 mit anderer Menge, w3 entfällt, w4 neu
-    const plan2 = { ...plan1, bauteile: [wand('w1', 'Außenwand Nord', 25), wand('w2', 'Außenwand Süd', 24), wand('w4', 'Außenwand West', 30)] };
+    const plan2 = { ...plan1, bauteile: [wand('w1', 'Außenwand Nord', 25), wand('w2', 'Außenwand Süd', 24), wand('w4', 'Außenwand West', 30), fenster] };
     const b = await planen(db, register, wer, p, v, plan2);
-    assert.deepEqual(b.je.bauteil, { neu: 1, geaendert: 1, entfernt: 1, unveraendert: 1, behalten: 1 });
+    assert.deepEqual(b.je.bauteil, { neu: 1, geaendert: 1, entfernt: 1, unveraendert: 2, behalten: 1 });
     assert.equal(b.je.geschoss!.unveraendert, 2);
     await vorgangAusfuehren(db, register, wer, b.liste);
     o = await lies();
@@ -339,7 +356,19 @@ test('IFC: erster Plan legt an, neuer Planstand ändert nur, was nicht von Hand 
     await vorgangAusfuehren(db, register, wer, cplan.liste);
     o = await lies();
     assert.equal(o.bauteil!.find((x) => x.werte.kennung === 'w3')!.geloescht, false);
-    assert.equal(o.bauteil!.filter((x) => !x.geloescht).length, 4);
+    assert.equal(o.bauteil!.filter((x) => !x.geloescht).length, 5);
+
+    // Kostengruppe folgt Art, Lage, Tragfähigkeit – bis jemand sie von Hand setzt
+    const kgVon = async (id: string) => (await lies()).bauteil!.find((x) => x.id === id)!.werte.kostengruppe;
+    const w2 = o.bauteil!.find((x) => x.werte.kennung === 'w2')!.id;
+    await tun(db, leitung, { objekt: 'bauteil', objektId: w2, werte: { tragend: 'ja' } });
+    assert.equal(await kgVon(w2), kg['331']);
+    await tun(db, leitung, { objekt: 'bauteil', objektId: w2, werte: { kostengruppe: kg['599']! } });
+    await tun(db, leitung, { objekt: 'bauteil', objektId: w2, werte: { tragend: '' } });
+    assert.equal(await kgVon(w2), kg['599'], 'von Hand gesetzt: bleibt');
+    const neu = randomUUID();
+    await tun(db, leitung, { objekt: 'bauteil', art: 'anlegen', objektId: neu, werte: { projekt: p, version: v, name: 'Fenster Süd', art: 'fenster', lage: 'aussen' } });
+    assert.equal(await kgVon(neu), kg['334'], 'beim Anlegen gesetzt');
   } finally { await weg(); }
 });
 
@@ -396,7 +425,7 @@ test('Assistent: Schätzung aus den Angaben, Antworten am Gebäude, ein Plan ers
     const eg = o.geschoss!.find((x) => !x.geloescht && x.werte.ebene === 0)!;
     const plan = { schema: 'IFC4', uebersprungen: {}, flaechen_aus_geometrie: 0, gebaeude: [{ kennung: 'haus', name: 'Haus aus dem Plan' }],
       geschosse: [{ kennung: 'eg', name: 'EG', ebene: 0, hoehe: 2.9, gebaeude: 'haus' }, { kennung: 'og', name: 'OG', ebene: 1, hoehe: 2.9, gebaeude: 'haus' }], raeume: [],
-      bauteile: [{ kennung: 'w1', art: 'aussenwand', name: 'Außenwand Nord', geschoss: 'eg', lage: 'aussen', menge: 22, einheit: 'm2', abmessung: '', aufbau: '' }] };
+      bauteile: [{ kennung: 'w1', art: 'aussenwand', name: 'Außenwand Nord', geschoss: 'eg', lage: 'aussen', menge: 22, einheit: 'm2', abmessung: '', schichten: [] }] };
     const c = await planen(db, register, wer, p, v, plan);
     assert.deepEqual([c.je.gebaeude!.neu, c.je.gebaeude!.geaendert, c.je.geschoss!.neu, c.je.geschoss!.geaendert, c.je.geschoss!.entfernt], [0, 1, 0, 2, 1], 'EG und das geschätzte Dachgeschoss (Ebene 1) werden die Geschosse aus dem Plan, der Keller entfällt');
     assert.ok(c.hinweise.some((h) => h.includes('geschätzte Bauteile')));
@@ -758,4 +787,11 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
     await ruf('/api/abmelden', { cookie, body: {} });
     assert.equal((await ruf('/api/schnappschuss', { cookie })).status, 401);
   } finally { await app.close(); await weg(); }
+});
+
+test('Gebäudemodell: Kostengruppe aus Art, Lage, Tragfähigkeit; U-Wert eines Aufbaus', () => {
+  assert.deepEqual([['aussenwand', 'aussen', 'ja'], ['aussenwand', 'aussen', 'nein'], ['aussenwand', 'aussen', ''], ['innenwand', 'innen', 'ja'], ['fenster', 'innen', ''], ['dach', 'aussen', ''], ['bodenplatte', 'aussen', ''], ['sonstiges', '', '']]
+    .map(([a, l, t]) => kostengruppeNummer(a, l, t)), ['331', '332', '330', '341', '344', '361', '322', null]);
+  assert.equal(uWert('aussenwand', [{ dicke: 36.5, lambda: 0.08 }]), 0.21);   // 1 / (0,13 + 4,5625 + 0,04)
+  assert.equal(uWert('aussenwand', [{ dicke: 36.5, lambda: 0.08 }, { dicke: 1.5, lambda: null }]), null, 'ohne λ kein Wert');
 });

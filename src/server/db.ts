@@ -188,6 +188,13 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
         if (f.eindeutig) await c.query(`create unique index if not exists "o_${m.name}_${f.name}_eindeutig" on ${t} (${spalte(f.name)}) where not geloescht`);
       }
     }
+    // Umstellung 25.11.2026: der Aufbau eines Bauteils ist jetzt ein eigenes Objekt; der bisherige Text heißt „Material laut Plan“
+    await c.query(`do $u$ begin
+      if exists (select 1 from information_schema.columns where table_name = 'o_bauteil' and column_name = 'aufbau' and data_type = 'text') then
+        alter table o_bauteil drop column if exists material; alter table o_bauteil rename column aufbau to material;
+        alter table o_bauteil add column aufbau uuid;
+        update o_bauteil set _stand = (_stand - 'aufbau') || jsonb_build_object('material', _stand->'aufbau') where _stand ? 'aufbau';
+      end if; end $u$`);
     // Umstellung 24.11.2026: Gebäudeart und Maßnahme haben die Auswahl des Assistenten bekommen – alte Werte auf die neuen
     await c.query(`update o_gebaeude set nutzung = '' where nutzung = 'wohnen';
       update o_gebaeude set massnahme = 'kernsanierung' where massnahme = 'sanierung';
