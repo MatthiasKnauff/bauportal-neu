@@ -255,8 +255,7 @@ export function ObjektAnsicht(p: {
           </Show>
           <span class="zaehler">{zeilen().length === lebend().length ? `${lebend().length} ${lebend().length === 1 ? m.titel : m.titelMehrzahl}` : `${zeilen().length} von ${lebend().length}`}</span>
         </>}
-        unterMenue={<>{p.unterMenue}{a.oben?.(fest())}
-          <Show when={!a.mitte && !kacheln() && darf(m.name, 'schreiben')}><p class="ansicht-hinweis nur-breit">Zelle anklicken und tippen – gespeichert wird beim Verlassen des Feldes · Doppelklick: im eigenen Fenster öffnen</p></Show></>}
+        unterMenue={<>{p.unterMenue}{a.oben?.(fest())}</>}
         baumTitel={a.linksTitel ?? 'Gliederung'}
         baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></> : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
         inhalt={a.mitte ? a.mitte(mitteP) : a.leer && !lebend().length ? a.leer(fest(), () => neuStart()) : kacheln() && a.kachel ?

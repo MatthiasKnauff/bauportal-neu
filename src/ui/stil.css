@@ -768,7 +768,6 @@ details.feldgruppe > summary { cursor: pointer; font-weight: 600; padding: 6px 0
 .kopf-status { position: relative; padding: 6px; cursor: help; }
 @media (max-width: 860px) { .kopf { padding: 4px 8px; gap: 4px; } .kopf-name, .marke-text { display: none; } .kopf .modulname { flex: none; padding: 0 4px; } .kopf .projektwahl { margin-left: 4px; } .kopf .projektwahl .auswahlliste-knopf { padding: 2px 4px; } }
 .kopf-status i { width: 13px; height: 13px; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 0%, transparent); }
-.ansicht-hinweis { margin: -4px 14px 6px; font-size: 12.5px; color: var(--text-still); }
 .leer-seite { padding: 28px 24px; display: flex; flex-direction: column; gap: 8px; } .leer-seite h2 { margin: 0; font-size: 24px; color: var(--akzent); }
 .bzp-zoom { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--text-still); } .bzp-zoom input { width: 110px; }
 
