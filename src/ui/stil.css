@@ -433,3 +433,24 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .bzp-status { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 5px 12px; border-top: 1px solid var(--rand); font-size: 12px; color: var(--text-still); background: #fafaf7; }
 .bzp-status strong { color: var(--text); }
 .bzp-woche-oben { font-size: 11px; font-weight: 600; fill: var(--text); }
+/* Kopf: Suche über alles, runde Knöpfe (Hilfe, Apps) */
+.kopf-suche { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; background: rgba(255,255,255,.08); color: #e5e7eb; cursor: pointer; font-size: 14px; }
+.kopf-suche kbd { font: 11px/1 inherit; padding: 3px 5px; border: 1px solid rgba(255,255,255,.3); border-radius: 4px; color: #cbd5e1; }
+.kopf-rund { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; cursor: pointer; font-weight: 700; }
+.apps-liste { right: 0; min-width: 220px; max-height: 70vh; overflow: auto; }
+.suche-alles { max-width: none; width: 100%; font-size: 16px; min-height: 42px; }
+.suche-treffer { list-style: none; margin: 10px 0 0; padding: 0; max-height: 55vh; overflow: auto; }
+.suche-treffer li { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.suche-treffer li.an { background: var(--akzent-hell); }
+.hilfe p { line-height: 1.5; margin: 0 0 10px; }
+.hilfe-tasten { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0; }
+.hilfe-tasten dd { margin: 0; }
+.hilfe kbd { font: 12px/1 inherit; padding: 3px 6px; border: 1px solid var(--rand-stark); border-radius: 4px; background: #f6f6f3; white-space: nowrap; }
+/* Handy-Leiste unten: nur auf schmalen Bildschirmen */
+.handyleiste { display: none; }
+@media (max-width: 860px) {
+  .kopf-suche, .kopf-rund { display: none; }   /* auf dem Handy: Suche und Start unten in der Leiste, Hilfe im Benutzermenü */
+  .handyleiste { display: flex; flex: none; border-top: 1px solid var(--rand); background: var(--flaeche); padding-bottom: env(safe-area-inset-bottom); }
+  .handyleiste button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: 0; background: none; font-size: 11px; color: var(--text-still); cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .handyleiste button.an { color: var(--akzent); }
+}

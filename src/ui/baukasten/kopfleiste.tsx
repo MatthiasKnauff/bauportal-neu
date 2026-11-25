@@ -11,7 +11,11 @@ export function Kopfleiste(p: {
   benutzer: string; benutzerMenue: Menuepunkt[]; menueFuss?: string;
   /** Platz für weitere Elemente einer App rechts neben den Apps. */
   zusatz?: JSX.Element;
+  onSuche?: () => void;                                   // Suche über alles (Strg+K)
+  apps?: { id: string; titel: string }[]; onApp?: (id: string) => void;   // App-Wechsler
+  onHilfe?: () => void;                                   // Hilfe zur aktuellen Seite
 }) {
+  const [apps, setApps] = createSignal(false);
   const [menue, setMenue] = createSignal(false);
   return (
     <header class="kopf">
@@ -19,8 +23,20 @@ export function Kopfleiste(p: {
         <button class="marke" title="Zur Startseite" onClick={p.onStart}>{p.marke}</button>
         <Show when={p.aktuell}><span class="trenner" aria-hidden="true">›</span><span class="modulname" aria-current="page">{p.aktuell}</span></Show>
       </nav>
+      <Show when={p.onSuche}><button class="kopf-suche" onClick={p.onSuche} title="Suche über alles (Strg+K)">🔍 <span>Suchen …</span><kbd>Strg K</kbd></button></Show>
       {p.zusatz}
       <span class="status" classList={{ getrennt: p.status.art === 'getrennt', wartet: p.status.art === 'wartet' }}><i />{p.status.text}</span>
+      <Show when={p.onHilfe}><button class="kopf-rund" aria-label="Hilfe zu dieser Seite" title="Hilfe zu dieser Seite" onClick={p.onHilfe}>?</button></Show>
+      <Show when={p.apps?.length}>
+        <div class="menue">
+          <button class="kopf-rund" aria-label="Apps" title="Zu einer anderen App" aria-haspopup="menu" aria-expanded={apps()} onClick={() => setApps(!apps())}>▦</button>
+          <Show when={apps()}>
+            <div class="menue-liste apps-liste" role="menu" onClick={() => setApps(false)}>
+              <For each={p.apps}>{(a) => <button role="menuitem" onClick={() => p.onApp?.(a.id)}>{a.titel}</button>}</For>
+            </div>
+          </Show>
+        </div>
+      </Show>
       <div class="menue">
         <button class="knopf still" aria-haspopup="menu" aria-expanded={menue()} onClick={() => setMenue(!menue())}>{p.benutzer} ▾</button>
         <Show when={menue()}>

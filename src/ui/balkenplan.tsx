@@ -144,6 +144,7 @@ export function Balkenplan(p: Mitte) {
   // Markieren zeigt die Karte rechts (wie bisher); Doppelklick, Umschalt+Enter oder „Informationen“ springen hinein
   const [markiert, markieren] = createSignal<string | null>(null);
   const setMarkiert = (id: string | null) => { markieren(id); p.onWahl(id); };
+  createEffect(() => { const g = p.gewaehlt(); if (g && g !== untrack(markiert)) markieren(g); });   // z. B. Sprung aus der Suche
   const oeffnen = (id = markiert()) => { if (id) { setMarkiert(id); p.onWahl(id); p.onOeffnen(); } };
   const [spalte, setSpalte] = createSignal<Spalte['id']>('name');
   const [edit, setEdit] = createSignal<{ id: string | 'neu'; spalte: Spalte['id']; text: string } | null>(null);

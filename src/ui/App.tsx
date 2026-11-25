@@ -8,8 +8,11 @@ import { Kontextmenue } from './baukasten/kontextmenue';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Abfolgeleiste } from './baukasten/abfolgeleiste';
 import { Kopfleiste } from './baukasten/kopfleiste';
+import { Suche, type Treffer } from './suche';
+import { Hilfe } from './hilfe';
+import { setSprung } from './sprung';
 import { AppUmgebung } from './baukasten/rahmen';
-import { projektId, setProjektId } from './projekt';
+import { projektId, setProjektId, waehleVersion } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
 import { Druck } from './druck';
 import { KiFenster } from './baukasten/ki';
@@ -175,9 +178,22 @@ function Portal() {
     .map((x) => ({ wert: x.id, titel: [x.werte.nummer, x.werte.name].filter(Boolean).join(' · ') })).sort((x, y) => x.titel.localeCompare(y.titel, 'de', { numeric: true })));
   const schluessel = createMemo(() => (ansicht() ? `${modul()!.modul.id}.${ansicht()!.id}` : undefined));
   const [kennwortFenster, setKennwortFenster] = createSignal(false);
+  const [suche, setSuche] = createSignal(false);
+  const [hilfe, setHilfe] = createSignal(false);
+  const oeffne = (id: string, ansichtId = '') => { setModulId(id); setAnsichtId(ansichtId); };
+  // Treffer der Suche: Projekt und Version wählen, Ansicht öffnen, die Ansicht holt den Eintrag ab
+  const springe = (t: Treffer) => {
+    if (t.projekt && t.m.name !== 'projekt') setProjektId(t.projekt);
+    if (t.projekt && t.version && t.m.versionsBereich) waehleVersion(t.projekt, t.m.versionsBereich, t.version);
+    setSprung({ objekt: t.m.name, id: t.id });
+    oeffne(t.modul.id, t.ansicht);
+  };
+  // Handy-Leiste unten: Start, die wichtigsten Apps für die Baustelle, Suche
+  const leiste = () => ['bautagebuch', 'bauzeitenplan', 'adressen'].map((id) => module().find((m) => m.modul.id === id)).filter((m): m is NonNullable<typeof m> => !!m);
 
   const taste = (e: KeyboardEvent) => {
     const ziel = e.target as HTMLElement;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSuche(true); return; }   // Suche über alles – auch aus Feldern
     if (!(e.ctrlKey || e.metaKey) || ziel.matches('input, textarea')) return;   // in Feldern gilt das Rückgängig des Browsers
     const k = e.key.toLowerCase();
     if (k === 'z' && !e.shiftKey) { e.preventDefault(); rueckgaengig(); }
@@ -204,8 +220,10 @@ function Portal() {
       <Kopfleiste marke="Bauportal" aktuell={modul()?.modul.name} onStart={() => { setModulId(''); setAnsichtId(''); }}
         status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
         zusatz={<Show when={projekte().length}><div class="projektwahl"><Auswahlliste titel="Projekt" platzhalter="Projekt wählen …" optionen={projekte()} wert={projekte().some((x) => x.wert === projektId()) ? projektId() : null} onWert={setProjektId} /></div></Show>}
+        onSuche={() => setSuche(true)} onHilfe={() => setHilfe(true)}
+        apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name }))} onApp={(id) => oeffne(id)}
         benutzer={ich().name} menueFuss={`${z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version ${z().version}`}
-        benutzerMenue={[{ titel: 'Kennwort ändern …', tun: () => setKennwortFenster(true) }, { titel: 'Abmelden', tun: abmelden }]} />
+        benutzerMenue={[{ titel: 'Hilfe zu dieser Seite', tun: () => setHilfe(true) }, { titel: 'Kennwort ändern …', tun: () => setKennwortFenster(true) }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
         <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.map((a) => ({ id: a.id, titel: a.titel })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId,
@@ -224,6 +242,13 @@ function Portal() {
           </Show>
         </AppUmgebung.Provider>
       </main>
+      <nav class="handyleiste" aria-label="Schnellzugriff">
+        <button classList={{ an: !modulId() }} onClick={() => oeffne('')}><Symbol name="start" />Start</button>
+        <For each={leiste()}>{(m) => <button classList={{ an: modulId() === m.modul.id }} onClick={() => oeffne(m.modul.id)}><Symbol name={m.modul.id} />{m.modul.name}</button>}</For>
+        <button onClick={() => setSuche(true)}><Symbol name="suche" />Suche</button>
+      </nav>
+      <Show when={suche()}><Suche onTreffer={springe} onZu={() => setSuche(false)} /></Show>
+      <Show when={hilfe()}><Hilfe modul={modul()?.modul} ansicht={ansicht()} onZu={() => setHilfe(false)} /></Show>
       <Show when={kennwortFenster()}>
         <Dialog titel="Kennwort ändern" onAbbrechen={() => setKennwortFenster(false)} knoepfe={<button class="knopf" onClick={() => setKennwortFenster(false)}>Abbrechen</button>}>
           <Formular knopf="Kennwort ändern" pfad="/api/kennwort" text="Auf anderen Geräten wirst du dabei abgemeldet."
@@ -236,4 +261,16 @@ function Portal() {
       </Show>
     </div>
   );
+}
+
+// Symbole der Handy-Leiste – schlichte Linien, in der Farbe des Textes
+const PFADE: Record<string, string> = {
+  start: 'M3 11 12 4l9 7v9h-6v-6H9v6H3z',
+  bautagebuch: 'M6 3h10l3 3v15H6zM9 9h7M9 13h7M9 17h4',
+  bauzeitenplan: 'M4 5h7M7 10h9M10 15h10M4 20h16',
+  adressen: 'M5 4h14v16H5zM12 11a2.5 2.5 0 1 0 0-.01M8 17c1-2.5 7-2.5 8 0',
+  suche: 'M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM15.5 15.5 20 20',
+};
+function Symbol(p: { name: string }) {
+  return <svg class="symbol" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d={PFADE[p.name] ?? PFADE.start} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>;
 }

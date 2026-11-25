@@ -32,6 +32,7 @@ export interface Ansicht {
   brauchtProjekt?: boolean;   // zeigt nur die Einträge des oben gewählten Projekts
   filter?: Werte;             // zeigt nur Einträge mit diesen Werten (z. B. nur die Mängel); neue Einträge bekommen sie
   nurAdmin?: boolean;
+  hilfe?: string;             // Hilfe zur Ansicht (Knopf „?“ oben): was man hier tut und wie – Absätze mit Leerzeile getrennt
 }
 
 export class Modulregister {

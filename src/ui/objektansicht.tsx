@@ -1,6 +1,7 @@
 // Die übliche Ansicht eines Objekts: Sie baut nichts selbst, sondern setzt die fertigen Bausteine
 // in den Rahmen – Baum links, Tabelle in die Mitte, Detailkarte rechts – und verbindet sie.
-import { Show, createMemo, createSignal, untrack, type JSX } from 'solid-js';
+import { Show, createEffect, createMemo, createSignal, untrack, type JSX } from 'solid-js';
+import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
 import { leerwert, type ObjektModell, type Werte } from '../kern/modell';
 import type { Zeile } from '../kern/befehl';
@@ -72,6 +73,8 @@ export function ObjektAnsicht(p: {
   // Die Karte zeigt nur, was zum Zusammenhang gehört: nach dem Wechsel von Projekt oder Version bleibt keine fremde Karte stehen.
   const karte = createMemo(() => { const id = gewaehlt(); return id ? lebend().find((z) => z.id === id) : undefined; });
 
+  // Sprung aus der Suche über alles: den Eintrag wählen und die Karte zeigen
+  createEffect(() => { const id = sprungAbholen(m.name); if (id) { setGewaehlt(id); queueMicrotask(() => rahmen.detailsZeigen()); } });
   const insErsteFeld = () => { rahmen.detailsZeigen(); queueMicrotask(() => wurzel.querySelector<HTMLElement>('.karte input:not([readonly]), .karte textarea')?.focus()); };
   const duplizieren = (z: Zeile) => {
     const werte = { ...z.werte };
