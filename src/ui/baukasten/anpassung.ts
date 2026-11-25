@@ -26,6 +26,8 @@ export interface Anpassung {
   // --- Inhalt (Mitte) ---
   /** Statt der Tabelle eine eigene Darstellung in der Mitte (z. B. der Balkenplan) – Rahmen, Suche, Karte und Anlegen bleiben. */
   mitte?: (p: Mitte) => JSX.Element;
+  /** Die Einträge auch als Kacheln: was in einer Kachel steht. Die Ansicht bietet dann Tabelle oder Kacheln zum Umschalten (am Handy zuerst Kacheln). */
+  kachel?: (z: Zeile) => JSX.Element;
   /** Eigene Darstellung einer Tabellenzelle; ohne Rückgabe gilt die übliche. */
   zelle?: (f: Feld, z: Zeile) => JSX.Element | undefined;
   /** Zusätzliche Punkte im Kontextmenü einer Zeile (insgesamt bleiben es höchstens 6). */

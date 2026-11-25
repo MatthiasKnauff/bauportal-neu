@@ -23,6 +23,7 @@ import { kiRouten } from './ki';
 import { updateRouten } from './updates';
 import { wetterRouten } from './wetter';
 import { diktatRouten } from './diktat';
+import { adressenRouten } from './adressen';
 import { fotoRouten } from './foto';
 import { aufbauRouten } from './aufbau';
 import { altdatenRouten } from './altdaten';
@@ -203,6 +204,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   kiRouten(app, { db, nurAngemeldet });
   wetterRouten(app, { db, nurAngemeldet });
   diktatRouten(app, { db, nurAngemeldet });
+  adressenRouten(app, { db, register, nurAngemeldet });
   fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   aufbauRouten(app, { db, register, routen, nurAngemeldet });
   altdatenRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });

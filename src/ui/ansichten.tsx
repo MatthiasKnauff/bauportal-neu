@@ -29,6 +29,7 @@ import { Unterliste } from './baukasten/unterliste';
 import { Balkenplan } from './balkenplan';
 import { Bilder } from './baukasten/bilder';
 import { Diktieren } from './diktat';
+import { Aufraeumen, aufraeumenOeffnen } from './aufraeumen';
 import { Schrittweise } from './baukasten/schrittweise';
 import { FeldEingabe } from './baukasten/feld';
 import { feldAendern } from './baukasten/detailkarte';
@@ -192,6 +193,26 @@ function Berichtslisten(p: { bericht: Zeile }) {
   );
 }
 
+// ---------- Adressen: ein Kontakt als Kachel ----------
+function KontaktKachel(p: { kontakt: Zeile }) {
+  const w = () => p.kontakt.werte;
+  const art = () => modell('kontakt').felder.find((f) => f.name === 'art')?.optionen?.find((o) => o.wert === w().art)?.titel;
+  const tel = (t: unknown) => String(t ?? '').replace(/[^\d+]/g, '');
+  return (
+    <div class="kontakt-kachel">
+      <strong>{String(w().name ?? '')}</strong>
+      <span class="leise">{[art(), w().gewerk].filter(Boolean).join(' · ')}</span>
+      <Show when={w().ansprechpartner}><span>{String(w().ansprechpartner)}</span></Show>
+      <Show when={w().ort}><span class="leise">{[w().plz, w().ort].filter(Boolean).join(' ')}</span></Show>
+      <span class="kontakt-wege">
+        <Show when={w().telefon}><a href={`tel:${tel(w().telefon)}`}>☎ {String(w().telefon)}</a></Show>
+        <Show when={w().mobil}><a href={`tel:${tel(w().mobil)}`}>📱 {String(w().mobil)}</a></Show>
+        <Show when={w().email}><a href={`mailto:${String(w().email)}`}>✉ {String(w().email)}</a></Show>
+      </span>
+    </div>
+  );
+}
+
 // ---------- Projekte: Ordner auf dem Dateiserver zuordnen ----------
 function OrdnerWahl(p: { projekt: Zeile }) {
   const [offen, setOffen] = createSignal(false);
@@ -339,6 +360,10 @@ const ANPASSUNG: Record<string, Anpassung> = {
     kartenZusatz: (z) => <Berichtslisten bericht={z} />,
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
+  kontakt: {
+    kachel: (z) => <KontaktKachel kontakt={z} />,
+    knoepfe: () => (darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', symbol: '⇄', tun: aufraeumenOeffnen }] : []),
+  },
   vorgang: { mitte: (m) => <Balkenplan {...m} /> },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
   benutzer: {

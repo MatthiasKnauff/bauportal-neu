@@ -859,3 +859,50 @@ test('Bauzeitenplan: Plan der Gantt-App in eine Version übernehmen, wiederholba
     assert.deepEqual(b.je.vorgang, { neu: 0, geaendert: 0, entfernt: 0, unveraendert: 2, behalten: 1 });
   } finally { await weg(); }
 });
+
+test('Adressen aufräumen: Doppelte finden, zusammenführen, Verweise wandern mit, Beteiligte nur einmal', async () => {
+  const { nameSchluessel, doppelteFinden } = await import('../src/server/adressen');
+  assert.equal(nameSchluessel('Müller Bau GmbH & Co. KG'), nameSchluessel('mueller bau'));
+  assert.deepEqual(doppelteFinden([
+    { id: 'a', werte: { name: 'Müller Bau GmbH' } }, { id: 'b', werte: { name: 'Mueller Bau' } },
+    { id: 'c', werte: { name: 'Schmidt', telefon: '0201 123456' } }, { id: 'd', werte: { name: 'Elektro Schmidt', telefon: '+49 201 123456' } },
+    { id: 'e', werte: { name: 'Einzeln' } },
+  ]).map((g) => g.ids), [['a', 'b'], ['c', 'd']]);
+  const { db, weg } = await frischeDb();
+  const app = await baueServer({ db, register, version: 'v-test', umgebung: 'test' });
+  try {
+    const adresse = await app.listen({ host: '127.0.0.1', port: 0 });
+    const ruf = async (pfad: string, o: { body?: unknown; cookie?: string } = {}) => {
+      const r = await fetch(adresse + pfad, { method: o.body ? 'POST' : 'GET', headers: { ...(o.body ? { 'content-type': 'application/json' } : {}), ...(o.cookie ? { cookie: o.cookie } : {}) }, body: o.body ? JSON.stringify(o.body) : undefined });
+      return { status: r.status, daten: await r.json() as any, cookie: r.headers.get('set-cookie')?.split(';')[0] };
+    };
+    await ruf('/api/einrichtung', { body: { name: 'Matthias', anmeldename: 'mk', kennwort: 'ein-langes-kennwort', bueroname: 'GK3', musterprojekt: true } });
+    const cookie = (await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } })).cookie!;
+    const p = (await ruf('/api/schnappschuss', { cookie })).daten.objekte.projekt[0].id as string;
+    const [k1, k2] = [randomUUID(), randomUUID()];
+    const [b1, b2, bericht, e1] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const befehle = [
+      bef({ art: 'anlegen', objektId: k1, werte: { name: 'Dachbau Krause GmbH', telefon: '0201 55555' } }),
+      bef({ art: 'anlegen', objektId: k2, werte: { name: 'dachbau krause', email: 'info@krause.de', notiz: 'Chef: Herr Krause' } }),
+      bef({ objekt: 'projekt_kontakt', art: 'anlegen', objektId: b1, werte: { projekt: p, kontakt: k1, aufgabe: 'Dach' } }),
+      bef({ objekt: 'projekt_kontakt', art: 'anlegen', objektId: b2, werte: { projekt: p, kontakt: k2, aufgabe: 'Dach' } }),
+      bef({ objekt: 'tagesbericht', art: 'anlegen', objektId: bericht, werte: { projekt: p, datum: '2026-11-25', titel: 'Dach' } }),
+      bef({ objekt: 'bericht_eintrag', art: 'anlegen', objektId: e1, werte: { projekt: p, bericht, art: 'mangel', text: 'Ortgang', firma: k2 } }),
+    ];
+    const r0 = await ruf('/api/befehle', { cookie, body: { befehle } });
+    assert.ok(r0.daten.ergebnis.every((e: any) => e.seq), JSON.stringify(r0.daten));
+    const gruppen = (await ruf('/api/adressen/doppelte', { cookie })).daten;
+    assert.deepEqual(gruppen.map((g: any) => g.ids.sort()), [[k1, k2].sort()]);
+    const v = (await ruf('/api/adressen/zusammenfuehren', { cookie, body: { gruppen: [{ behalten: k1, weg: [k2] }] } })).daten;
+    assert.equal(v.je.Kontakte.entfernt, 1);
+    assert.equal((await ruf('/api/uebernehmen', { cookie, body: { token: v.token } })).status, 200);
+    const s = (await ruf('/api/schnappschuss', { cookie })).daten.objekte;
+    const k = s.kontakt.find((x: any) => x.id === k1);
+    assert.equal(k.werte.email, 'info@krause.de', 'leere Angabe ergänzt');
+    assert.equal(k.werte.telefon, '0201 55555');
+    assert.ok(s.kontakt.find((x: any) => x.id === k2)?.geloescht ?? true, 'Doppelter entfernt');
+    assert.equal(s.bericht_eintrag.find((x: any) => x.id === e1).werte.firma, k1, 'Mangel zeigt auf den behaltenen');
+    assert.deepEqual(s.projekt_kontakt.filter((x: any) => !x.geloescht && x.werte.projekt === p && x.werte.kontakt === k1).map((x: any) => x.id), [b1], 'Beteiligt nur einmal');
+    assert.equal((await ruf('/api/adressen/doppelte', { cookie })).daten.length, 0);
+  } finally { await app.close(); await weg(); }
+});

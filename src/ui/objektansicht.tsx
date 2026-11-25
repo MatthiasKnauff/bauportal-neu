@@ -13,6 +13,7 @@ import { Detailkarte, NeuFenster, inEigenemFenster, loesche, feldAendern } from 
 import { anzeige } from './baukasten/feld';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 import { Tabelle, type TabellenSteuer } from './baukasten/tabelle';
+import { Kacheln } from './baukasten/kacheln';
 
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const TRENNER = '\u0001';
@@ -30,6 +31,10 @@ export function ObjektAnsicht(p: {
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
   const [neu, setNeu] = createSignal<Werte | null>(null);
+  // Tabelle oder Kacheln – nur, wo das Modul Kacheln einstellt; gemerkt je Objektart, am Handy zuerst Kacheln
+  const FORM = `bp.form.${m.name}`;
+  const [kacheln, setKacheln] = createSignal(!!a.kachel && (() => { try { const x = localStorage.getItem(FORM); return x ? x === 'kacheln' : matchMedia('(max-width: 860px)').matches; } catch { return false; } })());
+  const formWechseln = () => { setKacheln(!kacheln()); try { localStorage.setItem(FORM, kacheln() ? 'kacheln' : 'tabelle'); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
   let rahmen!: RahmenSteuer, tabelle!: TabellenSteuer, suchfeld!: HTMLInputElement, wurzel!: HTMLDivElement;
 
   const fest = () => p.fest?.() ?? {};
@@ -90,18 +95,20 @@ export function ObjektAnsicht(p: {
       <Rahmen schluessel={p.schluessel} steuer={(s) => (rahmen = s)}
         knoepfe={[
           ...(a.knoepfe?.(fest()) ?? []),
-          ...(a.mitte ? [] : [{ titel: 'Spalten einstellen', symbol: '☰', nurSymbol: true, tun: () => tabelle.spaltenEinstellen() }]),
+          ...(a.kachel ? [{ titel: kacheln() ? 'Als Tabelle zeigen' : 'Als Kacheln zeigen', symbol: kacheln() ? '▤' : '▦', nurSymbol: true, tun: formWechseln }] : []),
+          ...(a.mitte || kacheln() ? [] : [{ titel: 'Spalten einstellen', symbol: '☰', nurSymbol: true, tun: () => tabelle.spaltenEinstellen() }]),
           ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, symbol: '+', haupt: true, tun: () => neuStart() }] : []),
         ]}
         menueMitte={<>
           <input ref={suchfeld} class="suche" type="search" placeholder={`${m.titelMehrzahl} durchsuchen`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)}
-            onKeyDown={(e) => { if ((e.key === 'ArrowDown' || e.key === 'Enter') && tabelle) { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />
+            onKeyDown={(e) => { if ((e.key === 'ArrowDown' || e.key === 'Enter') && tabelle && !kacheln()) { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />
           <span class="zaehler">{zeilen().length === lebend().length ? `${lebend().length} ${lebend().length === 1 ? m.titel : m.titelMehrzahl}` : `${zeilen().length} von ${lebend().length}`}</span>
         </>}
         unterMenue={p.unterMenue}
         baumTitel="Gliederung"
         baum={baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
-        inhalt={a.mitte ? a.mitte({ alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld }) :
+        inhalt={a.mitte ? a.mitte({ alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld }) : kacheln() && a.kachel ?
+          <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
           <Tabelle modell={m} zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}

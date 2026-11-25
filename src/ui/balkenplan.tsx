@@ -114,6 +114,7 @@ export function Balkenplan(p: Mitte) {
   const schmalAbfrage = typeof matchMedia === 'function' ? matchMedia('(max-width: 760px)') : null;
   const [schmal, setSchmal] = createSignal(!!schmalAbfrage?.matches);
   schmalAbfrage?.addEventListener('change', (e) => setSchmal(e.matches));
+  const [leisteOffen, setLeisteOffen] = createSignal(false);   // Handy: Einstellungen nur auf Wunsch, damit Platz für den Plan bleibt
   const [handy, setHandy] = createSignal<'jetzt' | 'ablauf' | 'gewerke' | 'plan'>(holen('bzp.handy', 'jetzt'));
   createEffect(() => merken('bzp.handy', handy()));
   const spalten = () => (schmal() ? SPALTEN.slice(0, 2).map((s) => (s.id === 'name' ? { ...s, breite: 150 } : s)) : SPALTEN);
@@ -420,7 +421,10 @@ export function Balkenplan(p: Mitte) {
         <PlanHandy plan={plan()} heute={new Date().toLocaleDateString('sv')} ansicht={handy() as 'jetzt'} onOeffnen={(id) => oeffnen(id)} />
       </Show>
       <Show when={!schmal() || handy() === 'plan'}>
-      <div class="bzp-leiste">
+      <Show when={schmal()}>
+        <button class="knopf klein still bzp-einstellungen" aria-expanded={leisteOffen()} onClick={() => setLeisteOffen(!leisteOffen())}>⚙ Einstellungen und Werkzeuge {leisteOffen() ? '▴' : '▾'}</button>
+      </Show>
+      <div class="bzp-leiste" classList={{ zu: schmal() && !leisteOffen() }}>
         <label>Projektanfang <input type="date" value={String(zp()?.werte.anfang ?? '')} disabled={!darf('zeitplan', 'schreiben')} onChange={(e) => e.currentTarget.value && zp_('anfang', e.currentTarget.value, 'Projektanfang ändern')} /></label>
         <label>Woche <select value={String(zp()?.werte.arbeitswoche ?? '5')} disabled={!darf('zeitplan', 'schreiben')} onChange={(e) => zp_('arbeitswoche', e.currentTarget.value, 'Arbeitswoche ändern')}>
           <option value="5">5 Tage</option><option value="6">6 Tage</option><option value="7">7 Tage</option></select></label>
@@ -540,11 +544,11 @@ export function Balkenplan(p: Mitte) {
         <Show when={erg().termine.size}>
           <span>Anfang {tagname(erg().termine.size ? [...erg().termine.values()].reduce((m, t) => (t.anfang < m ? t.anfang : m), '9999') : '')}</span>
           <span>Ende <strong>{tagname(erg().endeDatum)}</strong></span>
-          <span>{erg().ende} Arbeitstage</span>
+          <span class="nur-breit">{erg().ende} Arbeitstage</span>
         </Show>
-        <span>{kal().woche}-Tage-Woche</span>
-        <span>Feiertage {zp()?.werte.bundesland ? BUNDESLAENDER.find((b) => b.wert === zp()!.werte.bundesland)?.titel : land() ? `${BUNDESLAENDER.find((b) => b.wert === land())?.titel} (Baustelle)` : 'bundesweit'}</span>
-        <Show when={schreiben()}><span>{autom() ? 'Neue Leistungen: automatisch verknüpft' : 'Neue Leistungen: ohne Verknüpfung'}</span></Show>
+        <span class="nur-breit">{kal().woche}-Tage-Woche</span>
+        <span class="nur-breit">Feiertage {zp()?.werte.bundesland ? BUNDESLAENDER.find((b) => b.wert === zp()!.werte.bundesland)?.titel : land() ? `${BUNDESLAENDER.find((b) => b.wert === land())?.titel} (Baustelle)` : 'bundesweit'}</span>
+        <Show when={schreiben()}><span class="nur-breit">{autom() ? 'Neue Leistungen: automatisch verknüpft' : 'Neue Leistungen: ohne Verknüpfung'}</span></Show>
       </div>
       </Show>
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
