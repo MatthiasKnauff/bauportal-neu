@@ -90,7 +90,9 @@ main { flex: 1; min-height: 0; display: flex; }
 .tabelle th { position: sticky; top: 0; background: var(--still-hell); border-bottom: 1px solid var(--rand); padding: 0; text-align: left; font-weight: 600; font-size: 13px; z-index: 1; }
 .tabelle th button { width: 100%; min-height: 34px; padding: 0 10px; border: 0; background: transparent; text-align: left; cursor: pointer; font-weight: 600; display: flex; gap: 6px; align-items: center; }
 .pfeil { font-size: 9px; color: var(--akzent); }
-.tabelle td { padding: 8px 10px; border-bottom: 1px solid var(--rand); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tabelle td { padding: 8px 10px; border-bottom: 1px solid var(--rand); border-right: 1px solid color-mix(in srgb, var(--rand) 70%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* Trennlinie zwischen den Spalten wie im bisherigen Bauportal */
+.tabelle th { border-right: 1px solid color-mix(in srgb, var(--rand) 70%, transparent); }
+.tabelle td:last-child, .tabelle th:last-child { border-right: 0; }
 .tabelle tbody tr { cursor: pointer; }
 /* Filterzeile unter dem Tabellenkopf, Bearbeiten in der Zelle */
 .tabelle .filterzeile th { top: 35px; padding: 3px 4px; background: var(--still-hell); }
@@ -112,11 +114,12 @@ main { flex: 1; min-height: 0; display: flex; }
 /* Karte zweispaltig, sobald Platz ist (wie im bisherigen Bauportal): kurze Felder nebeneinander, Name, Langtexte und Auswahlknöpfe über die ganze Breite */
 .karte-inhalt { container-type: inline-size; }
 @container (min-width: 430px) {
-  .karte fieldset, .karte details.feldgruppe[open] { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; align-items: end; }
-  .karte fieldset > .feld, .karte details.feldgruppe > .feld { grid-column: span var(--karten-breite, 3); }
-  .karte fieldset > legend, .karte details.feldgruppe > summary, .karte fieldset > .feld.breit, .karte details.feldgruppe > .feld.breit { grid-column: 1 / -1; }
+  /* aufklappbare Gruppen: das Raster sitzt auf einem inneren Kasten – den Inhalt von <details> legt der Browser sonst als EIN Kästchen ins Raster */
+  .karte fieldset, .karte .feldgruppe-inhalt { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 12px; align-items: end; }
+  .karte fieldset > .feld, .karte .feldgruppe-inhalt > .feld { grid-column: span var(--karten-breite, 3); }
+  .karte fieldset > legend, .karte fieldset > .feld.breit, .karte .feldgruppe-inhalt > .feld.breit { grid-column: 1 / -1; }
   /* alles, was kein Eingabefeld ist (Erklärtext, Listen, Knöpfe), steht über die ganze Breite – sonst fiele es in eine Sechstelspalte */
-  .karte fieldset > :not(.feld), .karte details.feldgruppe > :not(.feld) { grid-column: 1 / -1; }
+  .karte fieldset > :not(.feld), .karte .feldgruppe-inhalt > :not(.feld) { grid-column: 1 / -1; }
 }
 .karte legend, .schritt-inhalt legend { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-still); padding: 0; margin-bottom: 8px; }
 .karte-fuss { margin-top: 22px; }
@@ -293,7 +296,7 @@ main { flex: 1; min-height: 0; display: flex; }
 
 /* ---- Rahmen: Abfolge-Leiste · Menüleiste · Baum | Inhalt | Details ---- */
 .ansicht, .rahmen { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.menueleiste { flex: none; display: flex; align-items: stretch; gap: 0; padding: 4px 8px 2px; margin: 10px 12px 0; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); min-height: 64px; }
+.menueleiste { flex: none; display: flex; align-items: stretch; gap: 0; padding: 4px 8px 2px; margin: 6px 12px 0; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); min-height: 64px; }
 .band-gruppe { display: flex; flex-direction: column; justify-content: space-between; padding: 0 6px; border-right: 1px solid var(--rand); }
 .band-gruppe:last-of-type { border-right: 0; }
 .band-inhalt { flex: 1; display: flex; align-items: center; gap: 2px; }
@@ -317,7 +320,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .menue-reiter button { flex: none; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; white-space: nowrap; }
 .menue-reiter button.aktiv { border-bottom-color: var(--akzent); color: var(--akzent); font-weight: 600; }
 .menue-mitte { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
-.plaetze { flex: 1; min-height: 0; display: flex; gap: 0; padding: 12px; }
+.plaetze { flex: 1; min-height: 0; display: flex; gap: 0; padding: 6px 12px 12px; }   /* oben schmal: Menüleiste und Inhalt rücken zusammen */
 
 .griff-trenner { flex: none; width: 12px; display: flex; align-items: center; justify-content: center; cursor: col-resize; color: var(--text-still); user-select: none; touch-action: none; border-radius: calc(6px * var(--rund)); }
 .griff-trenner:hover, .griff-trenner:focus-visible, .griff-trenner.zieht { color: var(--akzent); background: var(--akzent-hell); outline: none; }
@@ -325,6 +328,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .platz-mitte { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); overflow: hidden; }
 .platz-mitte > .blatt { margin: 0; border: 0; border-block: 20px solid transparent; border-radius: 0; padding-block: 0; }
 .platz-mitte:has(> .blatt.schmal) { background: transparent; border: 0; }
+.platz-mitte > .blatt.schmal { border-top-width: 0; }   /* schmale Seiten beginnen auf Höhe der Gliederung */
 .platz-rechts { flex: none; display: flex; min-height: 0; }
 .reiter.links { order: -1; }
 .baum { flex: 1; overflow: auto; padding: 6px; outline-offset: -2px; }
@@ -801,13 +805,14 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .kw-kopf { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
 .kw-kopf > span { flex: none; }
 .kw-bezeichnung { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); background: var(--flaeche); color: var(--text); font: inherit; font-weight: 400; }
-.kw-felder { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0 8px; }
-.kw-felder > .breit { grid-column: span 2; }
+.kw-felder { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 8px; align-items: end; }   /* Sechstel wie die Karte: Breite je Feld aus dem Modell */
+@container (max-width: 429px) { .kw-felder > div { grid-column: 1 / -1 !important; } }
 .kw-neu { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* Linke Seite rollt als Ganzes (Ansichten, Kalender, Abschnitte untereinander) – nur die Kopfzeile mit der Heftzwecke bleibt stehen */
-.platz-links { overflow-y: auto; } .platz-links > * { flex-shrink: 0; }
-.platz-links > .platz-kopf { position: sticky; top: 0; z-index: 2; background: var(--flaeche); padding-bottom: 4px; }
+/* Gerollt wird innen – so liegt der Scrollbalken innerhalb des abgerundeten Rahmens und schneidet die Ecken nicht ab */
+.platz-links > .platz-kopf { flex: none; padding-bottom: 4px; }
+.platz-rollen { flex: 1; min-height: 0; overflow-y: auto; margin-bottom: calc(10px * var(--rund)); display: flex; flex-direction: column; } .platz-rollen > * { flex-shrink: 0; }
 /* Fotos */
 .foto-kachel { margin: 0; display: flex; flex-direction: column; gap: 4px; } .foto-kachel img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(8px * var(--rund)); background: var(--still); }
 .foto-kachel figcaption { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 16px; }
@@ -896,3 +901,20 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .wahlliste { display: flex; flex-direction: column; max-height: min(50vh, 420px); overflow-y: auto; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); padding: 4px; }
 .wahlliste button { text-align: left; border: 0; background: transparent; padding: 7px 10px; border-radius: calc(6px * var(--rund)); font: inherit; cursor: pointer; }
 .wahlliste button:hover { background: var(--still); } .wahlliste button.aktiv { background: var(--akzent-hell); font-weight: 600; }
+/* Filter links als Chips (Entscheidung C, Mock „Adressen links: drei Ideen“): Arten und die häufigsten Werte, der Rest über „alle …“
+   oder „Filter hinzufügen“ – keine langen Listen mehr */
+.seitenliste-chips { padding: 4px 8px 10px; gap: 4px; }
+.seitenliste-chips h3 { margin: 10px 2px 4px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-still); background: none; padding: 0; }
+.seitenliste-chips .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.seitenliste-chips .chip { border: 1px solid var(--rand-stark); background: var(--flaeche); color: var(--text); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 13px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seitenliste-chips .chip:hover { border-color: var(--akzent); }
+.seitenliste-chips .chip.aktiv { border-color: var(--akzent); background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
+.seitenliste-chips .chip.nicht { border-color: var(--gefahr); color: var(--gefahr); text-decoration: line-through; }
+.seitenliste-chips .chip.still { border-style: dashed; color: var(--text-still); }
+.seitenliste-chips .chip-anzahl { color: var(--text-still); font-weight: 400; }
+.seitenliste-chips .chip.aktiv .chip-anzahl { color: inherit; }
+.seitenliste-chips .chip-kasten { border: 1px dashed var(--rand-stark); border-radius: calc(8px * var(--rund)); padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
+.seitenliste-chips .chip-kasten.aktiv { border-style: solid; border-color: var(--akzent); background: var(--akzent-hell); }
+.seitenliste-chips .chip-kasten > button { display: flex; justify-content: space-between; gap: 8px; border: 0; background: none; padding: 2px 0; font: inherit; text-align: left; cursor: pointer; }
+.seitenliste-chips .chip-kasten .seitenliste-schalter { font-size: 12px; color: var(--text-still); }
+.filter-dazu { padding: 8px 8px 0; } .filter-dazu .filtersuche { max-width: none; } .filter-dazu .suche { max-width: none; }

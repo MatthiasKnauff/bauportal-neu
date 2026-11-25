@@ -5,7 +5,6 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import { KENNUNG } from '../kern/modell';
-import { ABLAGE_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, type Db } from './db';
 import { Dienstfehler, ablegen, originalLesen } from './ablage';
 import { Ablehnung, befehlAusfuehren } from './protokoll';
@@ -36,8 +35,7 @@ export async function fotoAblegen(db: Db, register: Modulregister, umgebung: str
     return { bericht: b as { nummer: string | null; datum: string }, ordner: (await c.query('select ordner from o_projekt where id = $1', [f.projekt])).rows[0]?.ordner as string | undefined,
       reihe: (await c.query('select coalesce(max(reihe), 0) + 1 as n from o_foto where bericht = $1', [f.bericht])).rows[0].n as number };
   });
-  const basis = ((await db.query('select fotos_ordner from o_ablage where id = $1', [ABLAGE_ID])).rows[0]?.fotos_ordner as string | undefined)?.trim() || 'Bautagebuch/Fotos';
-  const wo = await ablegen(db, { umgebung, projekt: f.projekt, projektordner: z.ordner || null, unterordner: `${basis}/${z.bericht.datum} Bericht ${Number(z.bericht.nummer ?? 0)}`, name, daten: f.original });
+  const wo = await ablegen(db, { umgebung, projekt: f.projekt, projektordner: z.ordner || null, unterordner: `Bautagebuch/Fotos/${z.bericht.datum} Bericht ${Number(z.bericht.nummer ?? 0)}`, name, daten: f.original });
   const id = randomUUID();
   await db.query('insert into kern_vorschau (id, bild) values ($1, $2)', [id, f.vorschau]);
   await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: 0, objekt: 'foto', art: 'anlegen', objektId: id, ...(f.herkunft ? { herkunft: f.herkunft } : {}),

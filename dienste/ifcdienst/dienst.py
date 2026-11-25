@@ -70,12 +70,62 @@ def _schichten(e, laenge: float) -> list[dict]:
     return [{"material": name, "dicke": None}] if name else []
 
 
+def _dreiecke(k) -> tuple:
+    """Flächen und Normalen aller Dreiecke eines schon berechneten Körpers (Weltkoordinaten)."""
+    _, _, v, d = k
+    a, b, c = v[d[:, 0]], v[d[:, 1]], v[d[:, 2]]
+    kreuz = np.cross(b - a, c - a)
+    laenge = np.linalg.norm(kreuz, axis=1)
+    gut = laenge > 1e-12
+    return a[gut], b[gut], c[gut], laenge[gut] / 2, kreuz[gut] / laenge[gut][:, None]
+
+
+def _netto(e, menge: float | None, art: str, koerper: dict) -> float | None:
+    """Fläche abzüglich der Öffnungen im Bauteil (Körper ohne ausgeschnittene Öffnungen): Wand – Breite × Höhe der Öffnung,
+    Decke/Dach/Bodenplatte – ihre Grundfläche."""
+    if not menge:
+        return menge
+    ab = 0.0
+    for r in getattr(e, "HasOpenings", None) or []:
+        o = r.RelatedOpeningElement
+        if o.id() not in koerper:
+            continue
+        # nur der Teil der Öffnung, der im Bauteil liegt (Öffnungskörper ragen oft über die Wand hinaus)
+        lo = np.maximum(koerper[o.id()][0], koerper[e.id()][0])
+        hi = np.minimum(koerper[o.id()][1], koerper[e.id()][1])
+        d = np.clip(hi - lo, 0, None)
+        if art in ("aussenwand", "innenwand"):
+            ab += float(max(d[0], d[1]) * d[2])
+        else:   # Decke/Dach: die Grundfläche der Öffnung selbst (Treppenlöcher sind oft nicht rechteckig), höchstens ihr Rechteck im Bauteil
+            flaechen, n = _dreiecke(koerper[o.id()])[3:]
+            ab += min(float(flaechen[n[:, 2] > 0.5].sum()), float(d[0] * d[1]))
+    return round(max(0.0, menge - ab), 2) or None
+
+
+def _volumen_aus_koerper(k) -> float | None:
+    a, b, c, _, _ = _dreiecke(k)
+    if not len(a):
+        return None
+    v = abs(float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum()) / 6)
+    return round(v, 2) if v > 0 else None
+
+
+def _ohne_ausschnitt():
+    import ifcopenshell.geom
+    e = ifcopenshell.geom.settings()
+    e.set("disable-opening-subtractions", True)   # Öffnungen zieht _netto ab – das Ausschneiden kostete ¾ der Zeit
+    return e
+
+
+_OHNE_AUSSCHNITT = _ohne_ausschnitt()
+
+
 def _flaeche_aus_geometrie(e, art: str) -> float | None:
     """Fläche aus der Geometrie, wenn die Datei keine Mengen mitbringt. Wand: größte Seitenfläche, Decke/Dach: Grundfläche."""
     try:
         import ifcopenshell.geom
         import ifcopenshell.util.shape as form
-        g = ifcopenshell.geom.create_shape(ifcopenshell.geom.settings(), e).geometry
+        g = ifcopenshell.geom.create_shape(_OHNE_AUSSCHNITT, e).geometry
         f = form.get_side_area(g) if art in ("aussenwand", "innenwand") else form.get_footprint_area(g)
         return round(float(f), 2) if f and f > 0 else None
     except Exception:  # noqa: BLE001 – ohne brauchbare Geometrie bleibt die Menge leer
@@ -99,6 +149,9 @@ def _koerper(f) -> dict:
     import ifcopenshell.geom
     einst = ifcopenshell.geom.settings()
     einst.set("use-world-coords", True)
+    # Öffnungen nicht ausschneiden: das Ausschneiden (Boolesche Geometrie) kostete bei echten Plänen ¾ der Zeit.
+    # Die Flächen der Öffnungen zieht _netto ab; für die Grundrisse (Außenwände) sind ungeteilte Wände sogar besser.
+    einst.set("disable-opening-subtractions", True)
     aus = {}
     lauf = ifcopenshell.geom.iterator(einst, f, max(1, min(4, multiprocessing.cpu_count())), include=f.by_type("IfcElement"))
     if lauf.initialize():
@@ -147,17 +200,12 @@ def _aussenwaende(waende: list, koerper: dict, zelle: float = 0.1) -> set:
         d2 = dicht.copy()
         d2[1:, :] |= dicht[:-1, :]; d2[:-1, :] |= dicht[1:, :]; d2[:, 1:] |= dicht[:, :-1]; d2[:, :-1] |= dicht[:, 1:]
         dicht = d2
-    aussen = np.zeros_like(dicht)
-    aussen[0, :] = aussen[-1, :] = True
-    aussen[:, 0] = aussen[:, -1] = True
-    aussen &= ~dicht
-    while True:   # Wasser breitet sich aus, bis nichts mehr dazukommt
-        n = aussen.copy()
-        n[1:, :] |= aussen[:-1, :]; n[:-1, :] |= aussen[1:, :]; n[:, 1:] |= aussen[:, :-1]; n[:, :-1] |= aussen[:, 1:]
-        n &= ~dicht
-        if (n == aussen).all():
-            break
-        aussen = n
+    # Fluten in einem Zug: zusammenhängende freie Flächen bestimmen; außen ist, was den Rand berührt.
+    # (Vorher wuchs das Wasser Zelle für Zelle – bei großen Grundrissen tausende Durchgänge über Millionen Zellen.)
+    from scipy import ndimage
+    teile, _ = ndimage.label(~dicht)
+    rand = np.unique(np.concatenate([teile[0, :], teile[-1, :], teile[:, 0], teile[:, -1]]))
+    aussen = np.isin(teile, rand[rand > 0])
     nah = aussen.copy()
     for _ in range(4):   # die geschlossenen Fugen wieder überbrücken
         n = nah.copy()
@@ -285,7 +333,7 @@ def auswerten(pfad: str) -> dict:
             if m:
                 menge = round(m * flaeche, 2)
             else:
-                menge = _flaeche_aus_geometrie(e, art)
+                menge = _netto(e, _flaeche_aus_geometrie(e, art), art, koerper)
                 gerechnet += 1 if menge else 0
         elif art in ("fenster", "tuer"):
             menge = 1
@@ -298,7 +346,7 @@ def auswerten(pfad: str) -> dict:
             if m:
                 menge = round(m * einheit.calculate_unit_scale(f, "VOLUMEUNIT"), 2)
             else:
-                menge = _volumen_aus_geometrie(e)
+                menge = _volumen_aus_koerper(koerper[e.id()]) if e.id() in koerper else _volumen_aus_geometrie(e)
                 gerechnet += 1 if menge else 0
         elif art == "stuetze":
             mass = "m"

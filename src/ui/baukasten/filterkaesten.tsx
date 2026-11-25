@@ -31,7 +31,7 @@ export function Filterkaesten(p: { bedingung: Bedingung; arten: FilterArt[]; onA
                 <Show when={k() > 0}><button type="button" class="filter-op" title="Verknüpfung innerhalb – Klick: ODER ↔ UND" onClick={() => p.onAendern(opWechseln(p.bedingung, i()))}>{wort(g.op)}</button></Show>
                 <span class="filterwert" classList={{ nicht: v.nicht }}>
                   <button type="button" class="filterwert-text" aria-pressed={v.nicht} title={v.nicht ? 'NICHT – Klick: wieder einschließen' : 'Klick: NICHT (ausschließen)'} onClick={() => p.onAendern(nichtWechseln(p.bedingung, i(), k()))}>
-                    {v.nicht ? 'nicht ' : ''}{titel(g.art, v.w)}
+                    {v.nicht ? 'nicht ' : ''}{v.enthaelt ? `enthält „${v.w}“` : titel(g.art, v.w)}
                   </button>
                   <button type="button" class="filter-x" aria-label={`${titel(g.art, v.w)} aus dem Filter nehmen`} title="Aus dem Filter nehmen" onClick={() => p.onAendern(wertWeg(p.bedingung, i(), k()))}>✕</button>
                 </span>
@@ -51,7 +51,7 @@ type Vorschlag = { art: FilterArt; w: string; n: number } | { text: true };
 /** Suchfeld mit Vorschlägen nach Art. ids: die Einträge, aus denen die Vorschläge kommen. */
 export function Filtersuche(p: {
   text: string; onText: (t: string) => void; arten: FilterArt[]; ids: () => string[];
-  onNehmen: (art: string, w: string, nicht: boolean) => void; onWeiter: () => void; platzhalter: string; ref?: (el: HTMLInputElement) => void;
+  onNehmen: (art: string, w: string, nicht: boolean) => void; onWeiter: () => void; platzhalter: string; ref?: (el: HTMLInputElement) => void; name?: string;
 }) {
   const [offen, setOffen] = createSignal(false);
   const [markiert, setMarkiert] = createSignal(-1);
@@ -76,7 +76,7 @@ export function Filtersuche(p: {
   };
   return (
     <div class="filtersuche">
-      <input ref={p.ref} class="suche" type="search" placeholder={p.platzhalter} aria-label="Suchen und filtern" value={p.text} autocomplete="off" role="combobox" aria-expanded={offen() && flach().length > 0}
+      <input ref={p.ref} class="suche" type="search" placeholder={p.platzhalter} aria-label={p.name ?? 'Suchen und filtern'} value={p.text} autocomplete="off" role="combobox" aria-expanded={offen() && flach().length > 0}
         onInput={(e) => { p.onText(e.currentTarget.value); setOffen(true); setMarkiert(-1); }} onFocus={() => setOffen(true)} onBlur={() => setTimeout(() => setOffen(false), 150)}
         onKeyDown={(e) => {
           const l = flach();

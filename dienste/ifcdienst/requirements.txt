@@ -1,3 +1,4 @@
 fastapi==0.165.*
 uvicorn==0.*
 ifcopenshell==0.9.*
+scipy==1.*

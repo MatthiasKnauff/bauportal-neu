@@ -11,6 +11,7 @@ import { hinweis } from './unterbau/meldungen';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
 import type { AuswahlBefehl } from './baukasten/auswahl';
+import type { AuswahlHilfen } from './baukasten/anpassung';
 import { aufraeumenOeffnen } from './aufraeumen';
 
 type Art = 'art' | 'gewerk' | 'stichworte' | 'tags' | 'projekt' | 'projekt_weg';
@@ -27,7 +28,7 @@ function schritt(vs: Vorlage[], titel: string) {
 }
 
 /** Die Befehle der Adressen für die Auswahl; excel kommt vom Baustein (gezeigte Spalten). */
-export function kontaktAuswahl(h: { excel: (ids: string[]) => void; drucken?: (ids: string[]) => void }): AuswahlBefehl[] {
+export function kontaktAuswahl(h: AuswahlHilfen): AuswahlBefehl[] {
   const schreiben = () => (darf('kontakt', 'schreiben') ? undefined : 'Dazu fehlt dir das Recht');
   return [
     { titel: '＋ Projekt', gesperrt: () => (darf('projekt_kontakt', 'schreiben') ? undefined : 'Dazu fehlt dir das Recht'), tun: (ids) => setOffen({ art: 'projekt', ids }) },

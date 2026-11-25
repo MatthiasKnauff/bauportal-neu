@@ -16,7 +16,6 @@ const ARTEN: Record<string, { zeichen: string; titel: string; knopf: string; bez
   anschrift: { zeichen: '📍', titel: 'Anschrift', knopf: 'weitere Anschrift', bezeichnung: 'z. B. Rechnungsanschrift, Lager' },
   person: { zeichen: '👤', titel: 'Ansprechpartner:in', knopf: 'Ansprechpartner:in', bezeichnung: 'Funktion, z. B. Bauleiter:in', wert: 'Vorname Name' },
 };
-const BREIT = new Set(['wert', 'strasse', 'amt', 'email']);
 const nur = (n: string) => String(n ?? '').replace(/[^\d+]/g, '');
 const wegeVon = (kontakt: string) => gemerkt('kontaktweg', `wege:${kontakt}`, () =>
   lebende('kontaktweg').filter((w) => w.werte.kontakt === kontakt).sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0)));
@@ -87,7 +86,7 @@ export function Kontaktwege(p: { kontakt: Zeile }) {
             </div>
             <div class="kw-felder">
               <For each={felder(z)}>{(f) => (
-                <div classList={{ breit: BREIT.has(f.name) }}>
+                <div style={{ 'grid-column': `span ${f.kartenBreite ?? 3}` }}>
                   <FeldEingabe feld={f} wert={z.werte[f.name] ?? null} gesperrt={!schreiben()} objekt="kontaktweg" zusammenhang={z.werte} onWert={(w) => feldAendern(m(), z, f, w)} />
                 </div>
               )}</For>

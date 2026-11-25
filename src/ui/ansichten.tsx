@@ -18,7 +18,8 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { hinweis } from './unterbau/meldungen';
-import type { Anpassung } from './baukasten/anpassung';
+import type { Anpassung, AuswahlHilfen } from './baukasten/anpassung';
+import type { AuswahlBefehl } from './baukasten/auswahl';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
@@ -221,7 +222,7 @@ function AblageVerbindung() {
       <Detailkarte modell={m()} zeile={zeile()} zusatz={() => (
         <fieldset>
           <legend>Kennwort und Prüfung</legend>
-          <p class="still-text klein-text">Das Kennwort wird verschlüsselt gespeichert und steht nie im Protokoll. {lage()?.kennwortGesetzt ? 'Es ist ein Kennwort hinterlegt.' : 'Es ist noch kein Kennwort hinterlegt.'}</p>
+          
           <Show when={lage()?.nurLesen}><p class="hinweis-kasten">Testserver: Die Ablage wird hier nur gelesen. Auf dem Dateiserver wird nichts angelegt, geändert oder gelöscht.</p></Show>
           <div class="reihe"><button class="knopf" onClick={() => setKennwort(true)}>Kennwort eintragen …</button><button class="knopf haupt" onClick={pruefen}>Verbindung prüfen</button></div>
           <Show when={ergebnis()}>{(e) => <p classList={{ 'feld-fehler': !e().gut, 'gut-text': e().gut }} role="status">{e().text}</p>}</Show>
@@ -337,6 +338,8 @@ function Darstellung() {
 
 const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
+// Mehrere wählen: ein Feld für alle setzen und die Auswahl als Excel – dazu kommt vom Baustein der Papierkorb
+const gemeinsam = (h: AuswahlHilfen): AuswahlBefehl[] => [{ titel: 'Ändern …', tun: h.aendern }, { titel: 'Excel', tun: h.excel }];
 const ANPASSUNG: Record<string, Anpassung> = {
   projekt: {
     kartenZusatz: (z) => <><OrdnerWahl projekt={z} /><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
@@ -345,6 +348,8 @@ const ANPASSUNG: Record<string, Anpassung> = {
   // Gebäudemodell: in jeder seiner Ansichten lässt sich der Assistent starten und eine IFC-Datei einlesen
   ...Object.fromEntries(['bauteil', 'raum', 'geschoss', 'gebaeude'].map((o) => [o, {
     knoepfe: (z) => (darf('bauteil', 'schreiben') ? [{ titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => assistentStarten(String(z.projekt), String(z.version)) }, { titel: 'IFC einlesen', zeichen: 'datei_hoch', gruppe: 'Planen', tun: () => ifcEinlesen(String(z.projekt), String(z.version)) }] : []),
+    // mehrere wählen und gemeinsam ändern (ein Feld für alle setzen), Excel der Auswahl
+    auswahl: gemeinsam,
     // die Gebäudekarte: Assistent, Kostenrahmen und weitere Gebäudeteile
     ...(o === 'gebaeude' ? {
       kartenZusatz: (z: Zeile) => <><GebaeudeAssistent gebaeude={z.id} /><Kostenrahmen gebaeude={z} /><GebaeudeTeile gebaeude={z} /></>,
@@ -371,7 +376,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     detailsHinweis: 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift ✎ im Kopf öffnet den ganzen Bericht.',
     details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },
-  aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
+  aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} />, auswahl: gemeinsam },
   // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)
   foto: {
     kachelnZuerst: true, kachelBreite: 150,

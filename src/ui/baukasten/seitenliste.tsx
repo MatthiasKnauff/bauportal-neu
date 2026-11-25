@@ -15,8 +15,47 @@ export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | 
   let nr = 0;
   const farbe = new Map<string, string>();
   const farbeVon = (id: string) => farbe.get(id) ?? (farbe.set(id, FARBEN[nr++ % FARBEN.length]!), farbe.get(id)!);
+  // Filter links (Entscheidung C): Chips statt langer Listen – je Abschnitt die gewählten und die häufigsten, der Rest über „alle …“
+  // bzw. „Filter hinzufügen“; Einträge ohne Treffer fallen weg; ein Eintrag mit Zusatz (Beteiligte des Projekts) steht als Kasten.
+  if (p.art === 'filter') return (
+    <nav class="ansichten-nav seitenliste-filter seitenliste-chips" aria-label={p.name}>
+      <For each={p.abschnitte}>{(a) => {
+        const [alle, setAlle] = createSignal(false);
+        const HAEUFIG = 7;
+        const kasten = () => a.eintraege.filter((e) => e.nach);
+        const rest = () => a.eintraege.filter((e) => !e.nach && (e.anzahl !== 0 || an(e.id) || !!p.nicht?.(e.id)));
+        const lang = () => rest().length > HAEUFIG + 1;
+        const gezeigt = () => {
+          if (!lang() || alle()) return rest();
+          const vorn = rest().filter((e) => e.id.endsWith(':*'));
+          const oft = rest().filter((e) => !e.id.endsWith(':*')).sort((x, y) => (y.anzahl ?? 0) - (x.anzahl ?? 0)).slice(0, HAEUFIG);
+          const gewaehlt = rest().filter((e) => (an(e.id) || !!p.nicht?.(e.id)) && !oft.includes(e) && !vorn.includes(e));
+          return [...vorn, ...oft, ...gewaehlt];
+        };
+        return (
+          <Show when={kasten().length || rest().length}>
+            <Show when={a.titel}><h3>{lang() && !alle() ? `Häufige ${a.titel}` : a.titel}</h3></Show>
+            <For each={kasten()}>{(e) => (
+              <div class="chip-kasten" classList={{ aktiv: an(e.id) }}>
+                <button type="button" aria-pressed={an(e.id)} onClick={() => p.onWahl(e.id)}><span>{e.titel}</span><span class="seitenliste-anzahl">{e.anzahl}</span></button>
+                {e.nach}
+              </div>
+            )}</For>
+            <div class="chips">
+              <For each={gezeigt()}>{(e) => (
+                <button type="button" class="chip" aria-pressed={an(e.id) || !!p.nicht?.(e.id)} classList={{ aktiv: an(e.id), nicht: !!p.nicht?.(e.id) }} onClick={() => p.onWahl(e.id)}>
+                  {e.titel}<Show when={e.anzahl !== undefined}> <span class="chip-anzahl">{e.anzahl}</span></Show>
+                </button>
+              )}</For>
+              <Show when={lang()}><button type="button" class="chip still" onClick={() => setAlle(!alle())}>{alle() ? 'weniger' : `alle ${rest().length} …`}</button></Show>
+            </div>
+          </Show>
+        );
+      }}</For>
+    </nav>
+  );
   return (
-    <nav class="ansichten-nav" classList={{ 'seitenliste-filter': p.art === 'filter' }} aria-label={p.name} role={p.art === 'filter' ? undefined : 'tablist'} aria-orientation="vertical">
+    <nav class="ansichten-nav" aria-label={p.name} role="tablist" aria-orientation="vertical">
       <For each={p.abschnitte}>{(a) => {
         const [such, setSuch] = createSignal('');
         const sichtbar = () => { const t = such().trim().toLowerCase(); return t ? a.eintraege.filter((e) => e.titel.toLowerCase().includes(t)) : a.eintraege; };
@@ -24,8 +63,7 @@ export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | 
           <Show when={a.titel}><h3>{a.titel}</h3></Show>
           <Show when={a.suche}><input class="seitenliste-suche" type="search" placeholder={`${a.titel} suchen (${a.eintraege.length})`} aria-label={`${a.titel} suchen`} value={such()} onInput={(e) => setSuch(e.currentTarget.value)} /></Show>
           <For each={sichtbar()}>{(e) => (<>
-            <button type="button" role={p.art === 'filter' ? undefined : 'tab'} aria-selected={p.art === 'filter' ? undefined : an(e.id)} aria-pressed={p.art === 'filter' ? an(e.id) || !!p.nicht?.(e.id) : undefined}
-              classList={{ aktiv: an(e.id), nicht: !!p.nicht?.(e.id) }} onClick={(ev) => { if (p.art !== 'filter') ev.stopPropagation(); p.onWahl(e.id); }}   /* Filter: am Handy schließt die Seite danach (wie beim Baum) */>
+            <button type="button" role="tab" aria-selected={an(e.id)} classList={{ aktiv: an(e.id) }} onClick={(ev) => { ev.stopPropagation(); p.onWahl(e.id); }}>
               <span class="ansichten-zeichen" style={{ background: farbeVon(e.zeichen ?? e.id) }}>{e.zeichen && istZeichen(e.zeichen) ? <Zeichen name={e.zeichen} groesse={17} /> : e.titel.slice(0, 1)}</span>
               <span class="seitenliste-titel">{e.titel}</span>
               <Show when={e.anzahl !== undefined}><span class="seitenliste-anzahl">{e.anzahl}</span></Show>

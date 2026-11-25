@@ -124,8 +124,9 @@ export function Tabelle(p: {
   const HAKEN = 34;   // Spalte für die Haken der Auswahl
   const haken = () => (p.auswahl ? HAKEN : 0);   // feste Breite – schmaler werden nur die Spalten
   const summe = createMemo(() => spalten.sichtbare().reduce((s, f) => s + spalten.breite(f), 0));
-  // Passen die Spalten nicht hinein, werden alle im selben Verhältnis schmaler (wie im bisherigen Bauportal)
-  const faktor = () => (platz() && summe() + haken() > platz() ? (platz() - haken()) / summe() : 1);
+  // Voreingestellt passen die Spalten in den Platz: zu breite werden alle im selben Verhältnis schmaler – kein waagerechtes Rollen.
+  // Hat der Benutzer Breiten gezogen, gelten sie genau wie in Excel; wird die Tabelle breiter als der Platz, rollt sie waagerecht.
+  const faktor = () => (!spalten.eigeneBreiten() && platz() && summe() + haken() > platz() ? (platz() - haken()) / summe() : 1);
   const breite = () => summe() * faktor() + haken();
   const spaltenbreite = (f: Feld) => spalten.breite(f) * faktor();
 
@@ -192,14 +193,28 @@ export function Tabelle(p: {
   };
 
   let gezogen = '';
+  // Bevor zum ersten Mal eine Breite gesetzt wird, bleiben alle Spalten so breit, wie sie gerade zu sehen sind – nichts springt
+  const festhalten = () => { if (!spalten.eigeneBreiten()) spalten.setzeBreiten(Object.fromEntries(spalten.sichtbare().map((x) => [x.name, spaltenbreite(x)]))); };
+  // Wie in Excel: Ziehen an der Kante ändert nur diese Spalte, die rechts daneben rücken mit.
   const breiteZiehen = (e: PointerEvent, f: Feld) => {
     e.preventDefault(); e.stopPropagation();
-    const start = e.clientX, b0 = spalten.breite(f), sichtbar0 = spaltenbreite(f), rest = summe() - b0;
-    // Die Kante folgt der Maus: sind die Spalten zusammengeschoben, wird die gemerkte Breite so gewählt, dass sie danach sichtbar so breit ist
-    const ziel = (x: PointerEvent) => { const v = Math.max(30, sichtbar0 + x.clientX - start); return !platz() || rest + v <= platz() ? v : v >= platz() - 30 ? b0 : (v * rest) / (platz() - v); };
-    const bewegt = (x: PointerEvent) => spalten.setzeBreite(f.name, ziel(x), false);
-    const fertig = (x: PointerEvent) => { spalten.setzeBreite(f.name, ziel(x), true); removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig); };
+    festhalten();
+    const start = e.clientX, b0 = spalten.breite(f);
+    const bewegt = (x: PointerEvent) => spalten.setzeBreite(f.name, b0 + x.clientX - start, false);
+    const fertig = (x: PointerEvent) => { spalten.setzeBreite(f.name, b0 + x.clientX - start, true); removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig); };
     addEventListener('pointermove', bewegt); addEventListener('pointerup', fertig);
+  };
+  // Doppelklick auf die Kante: so breit wie der längste Inhalt der Spalte (alle Zeilen, nicht nur die sichtbaren)
+  const passend = (f: Feld) => {
+    const stift = document.createElement('canvas').getContext('2d')!;
+    const zelle = kasten.querySelector('tbody td:not(.haken-zelle)') ?? kasten;
+    stift.font = getComputedStyle(zelle).font;
+    let breit = 0;
+    for (const z of sortiert()) breit = Math.max(breit, stift.measureText(anzeige(f, unwrap(z).werte[f.name])).width);
+    stift.font = `600 13px ${getComputedStyle(kasten).fontFamily}`;
+    breit = Math.max(breit + 21, stift.measureText(f.titel).width + 21 + 18);   // Innenabstand und Trennlinie; im Kopf Platz für den Sortierpfeil
+    festhalten();
+    spalten.setzeBreite(f.name, Math.min(800, Math.ceil(breit)), true);
   };
 
   return (
@@ -216,7 +231,7 @@ export function Tabelle(p: {
                 <button onClick={() => { if (!p.reihenfolgeFest) setSort((s) => ({ feld: f.name, ab: s.feld === f.name ? !s.ab : false })); }}>
                   <span>{f.titel}</span><span class="pfeil">{!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? '▼' : '▲') : ''}</span>
                 </button>
-                <i class="griff" aria-hidden="true" onPointerDown={(e) => breiteZiehen(e, f)} onClick={(e) => e.stopPropagation()} />
+                <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: passend zum Inhalt" onPointerDown={(e) => breiteZiehen(e, f)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => { e.stopPropagation(); passend(f); }} />
               </th>
             )}</For>
           </tr>

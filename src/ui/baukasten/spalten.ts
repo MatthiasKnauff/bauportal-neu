@@ -47,6 +47,10 @@ export function spaltenwahl<S extends Spaltenart>(schluessel: string, moeglich: 
       [r[i], r[k]] = [r[k]!, r[i]!];
       setStand('reihenfolge', r); merken();
     },
+    /** Hat der Benutzer schon Breiten gezogen? Dann gelten sie wie in Excel genau – sonst passt die Tabelle sich dem Platz an. */
+    eigeneBreiten: () => Object.keys(stand.breiten).length > 0,
+    /** Alle Breiten auf einmal festhalten (z. B. die gerade sichtbaren, bevor zum ersten Mal gezogen wird). */
+    setzeBreiten(b: Record<string, number>) { setStand('breiten', Object.fromEntries(Object.entries(b).map(([n, px]) => [n, Math.max(40, Math.round(px))]))); },
     setzeBreite(n: string, px: number, fertig: boolean) { setStand('breiten', n, Math.max(40, Math.round(px))); if (fertig) merken(); },
     zuruecksetzen() { setStand(werk()); merken(); },
   };

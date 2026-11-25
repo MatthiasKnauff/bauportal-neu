@@ -55,6 +55,7 @@ export const kontakt: ObjektModell = {
 };
 
 // Weitere Nummern, E-Mails, Anschriften und Ansprechpartner:innen eines Kontakts – Zeilen in seiner Karte
+// Ansprechperson wie im Kontakt: Anrede · Titel · Vorname Name · Zusatz in einer Zeile (kartenBreite in Sechsteln)
 export const kontaktweg: ObjektModell = {
   name: 'kontaktweg',
   titel: 'Kontaktweg',
@@ -67,17 +68,17 @@ export const kontaktweg: ObjektModell = {
     { name: 'art', titel: 'Art', art: 'auswahl', optionen: [
       { wert: 'telefon', titel: '☎ Telefon' }, { wert: 'email', titel: '✉ E-Mail' }, { wert: 'anschrift', titel: '📍 Anschrift' }, { wert: 'person', titel: '👤 Ansprechpartner:in' },
     ] },
-    { name: 'bezeichnung', titel: 'Bezeichnung', art: 'text', vorschlagen: true },   // z. B. Zentrale, Rechnungen, Lager – bei Ansprechpartner:innen die Funktion
-    { name: 'amt', titel: 'Amt / Abteilung', art: 'text', vorschlagen: true, wenn: { art: ['person'] } },
-    { name: 'anrede', titel: 'Anrede', art: 'auswahl', wenn: { art: ['person'] }, optionen: [{ wert: '', titel: '–' }, { wert: 'Herr', titel: 'Herr' }, { wert: 'Frau', titel: 'Frau' }] },
-    { name: 'titel', titel: 'Titel', art: 'text', vorschlagen: true, wenn: { art: ['person'] } },
-    { name: 'wert', titel: 'Nummer, E-Mail oder Name', art: 'text', wenn: { art: ['telefon', 'email', 'person'] } },
-    { name: 'zusatz', titel: 'Zusatz', art: 'text', vorschlagen: true, wenn: { art: ['person'] } },
-    { name: 'telefon', titel: 'Telefon', art: 'telefon', wenn: { art: ['person'] } },
-    { name: 'email', titel: 'E-Mail (leer = die der Firma)', art: 'email', wenn: { art: ['person'] } },
-    { name: 'strasse', titel: 'Straße, Nr.', art: 'text', wenn: { art: ['anschrift'] } },
-    { name: 'plz', titel: 'PLZ', art: 'text', wenn: { art: ['anschrift'] } },
-    { name: 'ort', titel: 'Ort', art: 'text', vorschlagen: true, wenn: { art: ['anschrift'] } },
+    { name: 'anrede', kartenBreite: 1, titel: 'Anrede', art: 'auswahl', wenn: { art: ['person'] }, optionen: [{ wert: '', titel: '–' }, { wert: 'Herr', titel: 'Herr' }, { wert: 'Frau', titel: 'Frau' }] },
+    { name: 'titel', kartenBreite: 1, titel: 'Titel', art: 'text', vorschlagen: true, wenn: { art: ['person'] } },
+    { name: 'wert', kartenBreite: 3, titel: 'Nummer, E-Mail oder Name', art: 'text', wenn: { art: ['telefon', 'email', 'person'] } },
+    { name: 'zusatz', kartenBreite: 1, titel: 'Zusatz', art: 'text', vorschlagen: true, wenn: { art: ['person'] } },
+    { name: 'bezeichnung', kartenBreite: 3, titel: 'Bezeichnung', art: 'text', vorschlagen: true },   // z. B. Zentrale, Rechnungen, Lager – bei Ansprechpartner:innen die Funktion
+    { name: 'amt', kartenBreite: 3, titel: 'Amt / Abteilung', art: 'text', vorschlagen: true, wenn: { art: ['person'] } },
+    { name: 'telefon', kartenBreite: 3, titel: 'Telefon', art: 'telefon', wenn: { art: ['person'] } },
+    { name: 'email', kartenBreite: 3, titel: 'E-Mail (leer = die der Firma)', art: 'email', wenn: { art: ['person'] } },
+    { name: 'strasse', kartenBreite: 3, titel: 'Straße, Nr.', art: 'text', wenn: { art: ['anschrift'] } },
+    { name: 'plz', kartenBreite: 1, titel: 'PLZ', art: 'text', wenn: { art: ['anschrift'] } },
+    { name: 'ort', kartenBreite: 2, titel: 'Ort', art: 'text', vorschlagen: true, wenn: { art: ['anschrift'] } },
     { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
   ],
 };

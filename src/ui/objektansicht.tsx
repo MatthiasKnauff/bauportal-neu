@@ -5,7 +5,7 @@ import { Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, t
 import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
 import { leerwert, type Feld, type ObjektModell, type Werte } from '../kern/modell';
-import { LEER, artWeg, erfuellt, hat, satz, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
+import { LEER, artWeg, erfuellt, hat, satz, textSetzen, textVon, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
 import { Filterkaesten, Filtersuche, type FilterArt } from './baukasten/filterkaesten';
 import type { Zeile } from '../kern/befehl';
 import { ausfuehrenMehrere, geaendert, lebende, objektname, rueckgaengig, sicht } from './unterbau/abgleich';
@@ -24,6 +24,7 @@ import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 import { Tabelle, type TabellenSteuer } from './baukasten/tabelle';
 import { Kacheln } from './baukasten/kacheln';
 import { Auswahlleiste, auswahlAnlegen, auswahlMenue, type AuswahlBefehl } from './baukasten/auswahl';
+import { feldSetzenOeffnen } from './baukasten/feldsetzen';
 import { Dialog } from './baukasten/dialog';
 import { spaltenFuer } from './baukasten/spalten';
 import { csv } from '../kern/csv';
@@ -43,10 +44,10 @@ export function ObjektAnsicht(p: {
   const a = p.anpassung ?? {};
   const baumFelder = (p.baum ?? []).map((n) => m.felder.find((f) => f.name === n)!);
   const [suche, setSuche] = createSignal('');
-  const [filter, setFilter] = createSignal<Record<string, string>>({});   // Filterzeile der Tabelle: Text je Spalte
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
-  const [bed, setBed] = createSignal<Bedingung>(LEER);   // Filterbedingung (links und Vorschläge im Suchfeld): UND, ODER, NICHT
+  const [bed, setBed] = createSignal<Bedingung>(LEER);
+  const [dazuText, setDazuText] = createSignal('');   // „Filter hinzufügen“ links: nur Vorschläge nach Art, kein Volltext   // Filterbedingung (links und Vorschläge im Suchfeld): UND, ODER, NICHT
   const [neu, setNeu] = createSignal<Werte | null>(null);
   const [mitteKnoepfe, setMitteKnoepfe] = createSignal<Knopf[]>([]);   // Befehle einer eigenen Mitte
   const [reihe, setReihe] = createSignal<string[] | null>(null);   // Reihenfolge, die Tabelle oder eigene Mitte (Balkenplan) gerade zeigen
@@ -109,7 +110,10 @@ export function ObjektAnsicht(p: {
       return { key: `l${nr}`, titel: lf.art ?? lf.titel, werte: (id) => { const w = werteVon(id); return nurPasst(lf, w) ? liste(f, w[lf.feld!]) : []; }, wertTitel: f.art === 'auswahl' ? (w) => anzeige(f, w) || w : undefined };
     }),
     ...(p.suchArten ?? []).map((sa, i): FilterArt => ({ key: `s${i}`, titel: sa.titel, werte: (id) => { const w = werteVon(id); return sa.felder.flatMap((n) => liste(feld(n), w[n])); } })),
+    // Filter im Spaltenkopf: je Spalte eine Art („enthält“) – sie stehen links in den Filterkästen und lassen sich dort verknüpfen
+    ...m.felder.filter((f) => !f.verborgen).map((f): FilterArt => ({ key: `f:${f.name}`, titel: f.titel, werte: (id) => [anzeige(f, werteVon(id)[f.name])] })),
   ]);
+  const spaltenText = createMemo(() => Object.fromEntries(m.felder.map((f) => [f.name, textVon(bed(), `f:${f.name}`)])));
   const art = (key: string) => arten().find((a) => a.key === key)!;
   const nimm = (key: string, w: string, nicht = false) => setBed(umschalten(bed(), key, w, nicht));
   // Start wie im bisherigen Bauportal: mit den Beteiligten des gewählten Projekts – außer die Person will es ohne
@@ -158,10 +162,6 @@ export function ObjektAnsicht(p: {
     const worte = suche().toLowerCase().split(/\s+/).filter(Boolean);
     // „-wort“ schließt aus (wie im bisherigen Bauportal)
     if (worte.length) l = l.filter((z) => { const t = suchtext(z).toLowerCase(); return worte.every((w) => (w.startsWith('-') && w.length > 1 ? !t.includes(w.slice(1)) : t.includes(w))); });
-    for (const [name, text] of Object.entries(filter())) {
-      const f = m.felder.find((x) => x.name === name), t = text.trim().toLowerCase();
-      if (f && t) l = l.filter((z) => anzeige(f, roh(z).werte[name]).toLowerCase().includes(t));
-    }
     return l;
   });
   // Text, in dem gesucht wird: einfache Felder direkt, Auswahl/Datum/Verweis so, wie sie angezeigt werden.
@@ -221,12 +221,11 @@ export function ObjektAnsicht(p: {
     const ar = arten(), teile = [
       ...(bed().gruppen.length ? [satz(bed(), (k) => ar.find((x) => x.key === k)?.titel ?? k, (k, w) => ar.find((x) => x.key === k)?.wertTitel?.(w) ?? w)] : []),
       ...(suche().trim() ? [`Text „${suche().trim()}“`] : []),
-      ...Object.entries(filter()).filter(([, t]) => t.trim()).map(([n, t]) => `${m.felder.find((f) => f.name === n)?.titel ?? n}: ${t.trim()}`),
     ];
     return teile.length ? teile.join(' · ') : `alle ${m.titelMehrzahl}`;
   };
   const drucken = (ids?: string[]) => { const v = verzeichnis(); if (v) verzeichnisDrucken(v.id, ids ?? reiheJetzt(), ids ? `Auswahl (${ids.length})` : filterText()); };
-  const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel, drucken: verzeichnis() ? (ids) => drucken(ids) : undefined }), papierkorb] : []);
+  const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel, drucken: verzeichnis() ? (ids) => drucken(ids) : undefined, aendern: (ids) => feldSetzenOeffnen(m.name, ids, Object.keys(fest())) }), papierkorb] : []);
   // Am Handy erscheinen die Haken erst, wenn etwas gewählt ist (lange tippen)
   if (auswahl) { createEffect(() => document.documentElement.classList.toggle('auswahl-an', auswahl.anzahl() > 0)); onCleanup(() => document.documentElement.classList.remove('auswahl-an')); }
   // Gelöschte fallen aus der Auswahl
@@ -257,12 +256,15 @@ export function ObjektAnsicht(p: {
         </>}
         unterMenue={<>{p.unterMenue}{a.oben?.(fest())}</>}
         baumTitel={a.linksTitel ?? 'Gliederung'}
-        baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></> : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
+        // links über der Gliederung immer die Filterkästen: Filter links, aus dem Suchfeld und aus den Spaltenköpfen – verknüpfbar
+        baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><div class="filter-dazu"><Filtersuche text={dazuText()} onText={setDazuText} arten={arten()} ids={() => lebend().map((z) => z.id)} onNehmen={nimm} onWeiter={() => undefined} platzhalter="Filter hinzufügen: Gewerk, Projekt, Ort …" name="Filter hinzufügen" /></div><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></>
+          : baumFelder.length ? <><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /></>
+          : bed().gruppen.length ? <Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /> : undefined}
         inhalt={a.mitte ? a.mitte(mitteP) : a.leer && !lebend().length ? a.leer(fest(), () => neuStart()) : kacheln() && a.kachel ?
           <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()}
             auswahl={auswahl} auswahlMenue={auswahl ? (e) => auswahlMenue(auswahl, auswahlBefehle(), e) : undefined} name={(z) => objektname(m, z.werte)} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
-            filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
+            filter={spaltenText()} onFilter={(feld, text) => setBed(textSetzen(bed(), `f:${feld}`, text))} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
             onWahl={setGewaehlt} onOeffnen={insErsteFeld} onDoppelklick={a.details ? undefined : (z) => setSchwebend(z.id)} onSuche={() => suchfeld.focus()}
             onLoeschen={darfLoeschen() ? (z) => loesche(m, z) : undefined}

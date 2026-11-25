@@ -53,24 +53,24 @@ _sperre = threading.Lock()
 _angemeldet: dict[tuple[str, int], tuple[str, str]] = {}
 
 
-def _ziel(z: Zugang) -> tuple[str, int, str]:
-    """Zerlegt die Freigabe in Server, Port und UNC-Wurzel."""
+def _ziel(z: Zugang) -> tuple[dict, str]:
+    """Zerlegt die Freigabe in Verbindung (Server, Port, Anmeldung) und UNC-Wurzel.
+    Die Anmeldung geht bei jedem Zugriff mit – so meldet smbclient sich von selbst neu an, wenn der Dateiserver
+    die Verbindung getrennt hat (Neustart, Leerlauf). Ohne sie versuchte es das ohne Kennwort und scheiterte."""
     m = re.fullmatch(r"[\\/]{2}([^\\/:]+)(?::(\d+))?[\\/]+(.+?)[\\/]*", z.freigabe.strip())
     if not m:
         raise Fehler(r"Die Freigabe muss so aussehen: \\server\freigabe")
     server, port, rest = m.group(1), int(m.group(2) or 445), re.sub(r"[\\/]+", r"\\", m.group(3))
     name = f"{z.domaene}\\{z.benutzer}" if z.domaene else z.benutzer
     with _sperre:
-        if _angemeldet.get((server, port)) != (name, z.kennwort):
-            # andere Zugangsdaten als zuletzt: alte Verbindung schließen, neu anmelden
-            _angemeldet.pop((server, port), None)
+        if _angemeldet.get((server, port)) not in (None, (name, z.kennwort)):
+            # andere Zugangsdaten als zuletzt: die alte Sitzung schließen, sonst bliebe sie mit den alten Daten bestehen
             try:
                 smbclient.delete_session(server, port=port)
             except Exception:
                 pass
-            smbclient.register_session(server, username=name or None, password=z.kennwort or None, port=port, connection_timeout=10)
-            _angemeldet[(server, port)] = (name, z.kennwort)
-    return server, port, f"\\\\{server}\\{rest}"
+        _angemeldet[(server, port)] = (name, z.kennwort)
+    return {"port": port, "username": name or None, "password": z.kennwort or None, "connection_timeout": 10}, f"\\\\{server}\\{rest}"
 
 
 def _pfad(wurzel: str, pfad: str) -> str:
@@ -115,9 +115,9 @@ def liste(a: Anfrage, x_schluessel: str | None = Header(default=None)):
     """Inhalt eines Ordners. kennung = Dateikennung des Dateiservers: bleibt beim Umbenennen und Verschieben gleich."""
     _pruefe(x_schluessel)
     try:
-        _, port, wurzel = _ziel(a.zugang)
+        v, wurzel = _ziel(a.zugang)
         eintraege = []
-        for e in smbclient.scandir(_pfad(wurzel, a.pfad), port=port):
+        for e in smbclient.scandir(_pfad(wurzel, a.pfad), **v):
             if e.name.startswith(("~$", ".")) or e.name in ("Thumbs.db", "desktop.ini"):
                 continue
             i = e.smb_info   # kommt mit der Ordnerliste – keine weitere Anfrage je Datei
@@ -137,10 +137,10 @@ def datei(a: Anfrage, x_schluessel: str | None = Header(default=None)):
     """Inhalt einer Datei, stückweise durchgereicht."""
     _pruefe(x_schluessel)
     try:
-        _, port, wurzel = _ziel(a.zugang)
+        v, wurzel = _ziel(a.zugang)
         pfad = _pfad(wurzel, a.pfad)
-        s = smbclient.stat(pfad, port=port)
-        f = smbclient.open_file(pfad, mode="rb", share_access="rwd", port=port)
+        s = smbclient.stat(pfad, **v)
+        f = smbclient.open_file(pfad, mode="rb", share_access="rwd", **v)
     except Fehler:
         raise
     except Exception as e:  # noqa: BLE001
@@ -172,7 +172,7 @@ def schreiben(a: Ablegen, x_schluessel: str | None = Header(default=None)):
     if "/" in a.name or "\\" in a.name:
         raise Fehler("Ungültiger Dateiname")
     try:
-        _, port, wurzel = _ziel(a.zugang)
+        v, wurzel = _ziel(a.zugang)
         ordner = _pfad(wurzel, a.pfad)
         _pfad(ordner, a.name)   # prüft den Namen
         # Ordner Stufe für Stufe anlegen; was es schon gibt, bleibt
@@ -180,7 +180,7 @@ def schreiben(a: Ablegen, x_schluessel: str | None = Header(default=None)):
         for teil in [t for t in re.split(r"[\\/]+", a.pfad) if t]:
             stufe = f"{stufe}\\{teil}"
             try:
-                smbclient.mkdir(stufe, port=port)
+                smbclient.mkdir(stufe, **v)
             except SMBOSError as e:
                 if e.errno != 17 and "NAME_COLLISION" not in str(e):
                     raise
@@ -190,7 +190,7 @@ def schreiben(a: Ablegen, x_schluessel: str | None = Header(default=None)):
         for n in range(1, 1000):
             name = a.name if n == 1 else f"{stamm} ({n}){punkt}{endung}"
             try:
-                with smbclient.open_file(_pfad(ordner, name), mode="xb", port=port) as f:   # x = nur anlegen, nie überschreiben
+                with smbclient.open_file(_pfad(ordner, name), mode="xb", **v) as f:   # x = nur anlegen, nie überschreiben
                     f.write(daten)
                 return {"name": name, "groesse": len(daten)}
             except SMBOSError as e:
