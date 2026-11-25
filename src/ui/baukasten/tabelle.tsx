@@ -5,7 +5,6 @@ import { For, Show, createEffect, createMemo, createSelector, createSignal, onCl
 import { unwrap } from 'solid-js/store';
 import type { Feld, ObjektModell, Wert } from '../../kern/modell';
 import { HERKUNFT, type Zeile } from '../../kern/befehl';
-import { Dialog } from './dialog';
 import { anzeige } from './feld';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
 import { spaltenFuer } from './spalten';
@@ -38,7 +37,9 @@ export function Tabelle(p: {
   const m = p.modell;
   const spalten = spaltenFuer(m);
   const [sort, setSort] = createSignal<{ feld: string; ab: boolean }>({ feld: m.anzeigeFeld, ab: false });
-  const [spaltenFenster, setSpaltenFenster] = createSignal(false);
+  const [spaltenFeld, setSpaltenFeld] = createSignal<{ x: number; y: number } | null>(null);   // kleines Feld „Spalten“ am Tabellenkopf
+  // ohne Mausposition (Knopf ☰): oben rechts an der Tabelle
+  const spaltenAuf = (e?: MouseEvent) => { const r = kasten.getBoundingClientRect(); setSpaltenFeld(e ? { x: e.clientX, y: e.clientY } : { x: r.right - 250, y: r.top + 8 }); };
   const [rollen, setRollen] = createSignal({ oben: 0, hoehe: 600 });
   const istGewaehlt = createSelector(() => p.gewaehlt);
   const [inArbeit, setInArbeit] = createSignal<{ id: string; feld: string; fehler?: string } | null>(null);
@@ -72,7 +73,7 @@ export function Tabelle(p: {
     b.observe(kasten);
     onCleanup(() => b.disconnect());
     p.steuer?.({
-      spaltenEinstellen: () => setSpaltenFenster(true),
+      spaltenEinstellen: () => spaltenAuf(),
       fokus: () => kasten.focus(),
       ersteWaehlen: () => { kasten.scrollTop = 0; if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); },
     });
@@ -134,7 +135,7 @@ export function Tabelle(p: {
       <div class="tabelle-rollen" tabindex="0" ref={kasten} onKeyDown={tasten} onScroll={() => setRollen({ oben: kasten.scrollTop, hoehe: kasten.clientHeight })}>
         <table class="tabelle" style={{ width: `${breite()}px` }}>
           <colgroup><For each={spalten.sichtbare()}>{(f) => <col style={{ width: `${spalten.breite(f)}px` }} />}</For></colgroup>
-          <thead><tr onContextMenu={(e) => zeigeMenue(e, [{ titel: 'Spalten einstellen …', tun: () => setSpaltenFenster(true) }, { titel: 'Spalten zurücksetzen', tun: spalten.zuruecksetzen }])}>
+          <thead><tr onContextMenu={(e) => { e.preventDefault(); spaltenAuf(e); }}>
             <For each={spalten.sichtbare()}>{(f) => (
               <th aria-sort={sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} draggable={true}
                 onDragStart={(e) => { gezogen = f.name; e.dataTransfer!.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()}
@@ -179,24 +180,39 @@ export function Tabelle(p: {
         </table>
         <Show when={!sortiert().length}><div class="leer">{p.leer}</div></Show>
       </div>
-      <Show when={spaltenFenster()}>
-        <Dialog titel={`Spalten – ${m.titelMehrzahl}`} onAbbrechen={() => setSpaltenFenster(false)}
-          knoepfe={<><button class="knopf" onClick={spalten.zuruecksetzen}>Zurücksetzen</button><button class="knopf haupt" onClick={() => setSpaltenFenster(false)}>Fertig</button></>}>
-          <p class="still-text klein-text">Gilt für dich auf diesem Gerät. In der Tabelle kannst du Spalten auch am Kopf ziehen und am rechten Rand breiter machen.</p>
-          <ul class="schaltliste">
-            <For each={spalten.alle()}>{(f, i) => (
-              <li>
-                <span><strong>{f.titel}</strong></span>
-                <span class="reihe-knoepfe">
-                  <button class="knopf klein still" aria-label={`${f.titel} nach oben`} disabled={i() === 0} onClick={() => spalten.schritt(f.name, -1)}>▲</button>
-                  <button class="knopf klein still" aria-label={`${f.titel} nach unten`} disabled={i() === spalten.alle().length - 1} onClick={() => spalten.schritt(f.name, 1)}>▼</button>
-                  <button type="button" role="switch" aria-checked={spalten.istAn(f.name)} aria-label={`Spalte ${f.titel} zeigen`} class="schalter" classList={{ aktiv: spalten.istAn(f.name) }} onClick={() => spalten.schalten(f.name)}><span /></button>
-                </span>
-              </li>
-            )}</For>
-          </ul>
-        </Dialog>
-      </Show>
+      <Show when={spaltenFeld()}>{(o) => <Spaltenfeld spalten={spalten} ort={o()} onZu={() => setSpaltenFeld(null)} />}</Show>
     </>
+  );
+}
+
+/** Das kleine Feld „Spalten“: Häkchen zum Zeigen, Griff ⋮⋮ zum Verschieben (oder Alt+↑/↓), „Standard“ – wie im bisherigen Bauportal. */
+function Spaltenfeld(p: { spalten: ReturnType<typeof spaltenFuer>; ort: { x: number; y: number }; onZu: () => void }) {
+  let feld!: HTMLDivElement, gezogen = '';
+  const draussen = (e: PointerEvent) => { if (!feld.contains(e.target as Node)) p.onZu(); };
+  const taste = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); p.onZu(); } };
+  onMount(() => {
+    // im Fenster halten
+    const r = feld.getBoundingClientRect();
+    feld.style.left = `${Math.max(8, Math.min(p.ort.x, innerWidth - r.width - 8))}px`;
+    feld.style.top = `${Math.max(8, Math.min(p.ort.y, innerHeight - r.height - 8))}px`;
+    feld.querySelector<HTMLElement>('input')?.focus();
+    document.addEventListener('pointerdown', draussen, true); document.addEventListener('keydown', taste, true);
+  });
+  onCleanup(() => { document.removeEventListener('pointerdown', draussen, true); document.removeEventListener('keydown', taste, true); });
+  return (
+    <div class="spaltenfeld" ref={feld} role="dialog" aria-label="Spalten" style={{ left: `${p.ort.x}px`, top: `${p.ort.y}px` }}>
+      <div class="spaltenfeld-kopf"><strong>Spalten</strong><button class="knopf klein still" aria-label="Spalten schließen" onClick={p.onZu}>×</button></div>
+      <ul>
+        <For each={p.spalten.alle()}>{(f) => (
+          <li draggable={true} onDragStart={(e) => { gezogen = f.name; e.dataTransfer!.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); if (gezogen) p.spalten.schieben(gezogen, f.name); gezogen = ''; }}>
+            <span class="griff" aria-hidden="true">⋮⋮</span>
+            <label><input type="checkbox" checked={p.spalten.istAn(f.name)} onChange={() => p.spalten.schalten(f.name)}
+              onKeyDown={(e) => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); p.spalten.schritt(f.name, e.key === 'ArrowUp' ? -1 : 1); } }} /> {f.titel}</label>
+          </li>
+        )}</For>
+      </ul>
+      <div class="spaltenfeld-fuss"><button class="verweis" onClick={p.spalten.zuruecksetzen}>Standard</button><span class="still-text klein-text">Ziehen am ⋮⋮ ändert die Reihenfolge</span></div>
+    </div>
   );
 }

@@ -2,12 +2,13 @@
 // Druckdienst (Hilfscontainer mit Chromium) daraus das PDF machen. Gelesen wird als der Benutzer – wer ein Objekt
 // nicht sehen darf, bekommt auch keinen Ausdruck davon.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import { dateiname, druckSeite, listenfolge, type Druckdaten, type Einstellungen } from '../kern/druck';
 import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, spalte, tabelle, type Db } from './db';
-import { Ablehnung } from './protokoll';
+import { Ablehnung, befehlAusfuehren } from './protokoll';
 import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
 import type { Benutzer } from './anmeldung';
 
@@ -76,12 +77,22 @@ export async function pdfAus(html: string): Promise<Buffer> {
   return Buffer.from(await r.arrayBuffer());
 }
 
-export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
+/** Vermerk am Objekt, dass ein PDF entstanden ist („Datei · Zeitpunkt“) – ein Befehl wie jede Änderung. */
+async function vermerken(db: Db, register: Modulregister, wer: Benutzer, ausdruckId: string, objektId: string, name: string, abgelegt: boolean): Promise<void> {
+  const a = register.ausdrucke.find((x) => x.id === ausdruckId);
+  if (!a?.vermerk) return;
+  const zeit = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: 0, objekt: a.objekt, art: 'aendern', objektId, werte: { [a.vermerk]: `${name} · ${zeit}${abgelegt ? ' · im Projektordner' : ''}` } });
+}
+
+export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
   app.post('/api/druck/pdf', { preHandler: e.nurAngemeldet }, async (req, reply) => {
     const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string };
     if (!KENNUNG.test(b.objekt ?? '')) throw new Ablehnung('Was gedruckt werden soll, fehlt');
     const { html, name } = await seiteBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!);
     const pdf = await pdfAus(html);
+    await vermerken(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!, name, false);
+    e.nachBefehlen();
     return reply.header('content-type', 'application/pdf').header('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name)}`).send(pdf);
   });
 
@@ -95,6 +106,8 @@ export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulre
     if (hindernis) throw new Ablehnung(hindernis);
     try {
       const wo = await ablegen(e.db, { umgebung: e.umgebung, projekt: s.projekt, projektordner: s.projektordner, unterordner: s.ordner, name: s.name, daten: await pdfAus(s.html) });
+      await vermerken(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!, s.name, true);
+      e.nachBefehlen();
       return { pfad: wo.pfad };
     } catch (err) { if (err instanceof Dienstfehler) return reply.code(err.status).send({ fehler: err.message }); throw err; }
   });

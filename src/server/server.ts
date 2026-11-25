@@ -25,6 +25,7 @@ import { wetterRouten } from './wetter';
 import { diktatRouten } from './diktat';
 import { adressenRouten } from './adressen';
 import { prueferRouten } from './pruefer';
+import { verlaufRouten } from './verlauf';
 import { fotoRouten } from './foto';
 import { aufbauRouten } from './aufbau';
 import { altdatenRouten } from './altdaten';
@@ -198,7 +199,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
   ifcRouten(app, { db, register, nurAngemeldet });
   assistentRouten(app, { db, register, nurAngemeldet });
-  druckRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet });
+  druckRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   bauzeitenplanRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet });
   planEinlesenRouten(app, { db, register, nurAngemeldet });
   planAssistentRouten(app, { db, register, nurAngemeldet });
@@ -206,6 +207,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   wetterRouten(app, { db, nurAngemeldet });
   diktatRouten(app, { db, nurAngemeldet });
   adressenRouten(app, { db, register, nurAngemeldet });
+  verlaufRouten(app, { db, register, nurAngemeldet });
   fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   aufbauRouten(app, { db, register, routen, nurAngemeldet });
   prueferRouten(app, { db, register, routen, version: e.version, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });

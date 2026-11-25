@@ -88,6 +88,7 @@ export function ObjektAnsicht(p: {
     werte[m.anzeigeFeld] = `${z.werte[m.anzeigeFeld]} (Kopie)`;
     neuStart(werte);
   };
+  const mitteP = { alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe };
   // Blättern in der Karte: in der Reihenfolge, die die Mitte gerade zeigt
   const blaettern = () => {
     const ids = (!kacheln() && reihe()) || zeilen().map((z) => z.id);
@@ -112,9 +113,9 @@ export function ObjektAnsicht(p: {
           <span class="zaehler">{zeilen().length === lebend().length ? `${lebend().length} ${lebend().length === 1 ? m.titel : m.titelMehrzahl}` : `${zeilen().length} von ${lebend().length}`}</span>
         </>}
         unterMenue={<>{p.unterMenue}{a.oben?.(fest())}</>}
-        baumTitel="Gliederung"
-        baum={baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
-        inhalt={a.mitte ? a.mitte({ alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe }) : kacheln() && a.kachel ?
+        baumTitel={a.linksTitel ?? 'Gliederung'}
+        baum={a.links ? a.links(mitteP) : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
+        inhalt={a.mitte ? a.mitte(mitteP) : kacheln() && a.kachel ?
           <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))}
@@ -130,7 +131,7 @@ export function ObjektAnsicht(p: {
             ]} />
         }
         detailsTitel={String(karte()?.werte[m.anzeigeFeld] ?? m.titel)}
-        details={karte() ? <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> : undefined} />
+        details={karte() ? (a.details ? a.details(karte()!) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
       <Show when={neu()}>{(start) => <NeuFenster modell={m} start={start()} verborgen={Object.keys(fest())} onZu={(id) => { setNeu(null); if (id) { setGewaehlt(id); rahmen.detailsZeigen(); } }} />}</Show>
     </div>
   );

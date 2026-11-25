@@ -37,6 +37,7 @@ export const tagesbericht: ObjektModell = {
     { name: 'aufgeraeumt', titel: 'Baustelle aufgeräumt', art: 'ja_nein', gruppe: 'Kontrollen' },
     { name: 'masskontrolle', titel: 'Maßkontrolle', art: 'ja_nein', gruppe: 'Kontrollen' },
     { name: 'fotodoku', titel: 'Fotodokumentation', art: 'ja_nein', gruppe: 'Kontrollen' },
+    { name: 'pdf', titel: 'Als PDF exportiert', art: 'text', verborgen: true },
     { name: 'firmen_angesprochen', titel: 'Alle Firmen angesprochen', art: 'ja_nein', gruppe: 'Kontrollen' },
     { name: 'kennung', titel: 'Kennung aus der Übernahme', art: 'text', verborgen: true },
   ],
@@ -109,7 +110,7 @@ export const bautagebuch: Beipackzettel = {
   ],
   ausdrucke: [{
     id: 'bautagebuch.tagesbericht', titel: 'Tagesbericht', objekt: 'tagesbericht',
-    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', fuss: '{buero} · Tagesbericht Nr. {nummer} vom {datum}', ordner: 'Bautagebuch/Berichte',
+    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', fuss: '{buero} · Tagesbericht Nr. {nummer} vom {datum}', ordner: 'Bautagebuch/Berichte', vermerk: 'pdf',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Tagesbericht Nr. {nummer}', unter: '{datum} · {titel}' },

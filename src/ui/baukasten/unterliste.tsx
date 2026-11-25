@@ -22,6 +22,9 @@ export function Unterliste(p: {
   neuUeber?: string;              // statt Tippen: neuer Eintrag durch Auswahl in diesem Verweis-Feld
   angebot?: () => { wert: string; titel: string }[];   // was die Auswahl zuerst anbietet (z. B. die Beteiligten des Projekts)
   platzhalter: string;
+  ohneTitel?: boolean;            // Überschrift steht schon außen (z. B. auf der Karte eines Abschnitts)
+  gewaehlt?: string | null;       // hervorgehobener Eintrag
+  onWahl?: (id: string) => void;  // Eintrag angeklickt (z. B. um ihn rechts im Detail zu zeigen)
 }) {
   const m = (): ObjektModell => modell(p.objekt);
   const feld = (n: string): Feld => m().felder.find((f) => f.name === n)!;
@@ -37,11 +40,11 @@ export function Unterliste(p: {
   const zeilentitel = (z: Zeile) => (p.neuUeber && z.werte[p.neuUeber] ? verweisname(feld(p.neuUeber).ziel!, String(z.werte[p.neuUeber])) : String(z.werte[p.haupt] ?? ''));
   const neben = (z: Zeile) => (p.neben ?? []).map(feld).filter((f) => gilt(f, z.werte));
   return (
-    <fieldset class="unterliste">
-      <legend>{p.titel}<Show when={eintraege().length}><span class="anzahl">{eintraege().length}</span></Show></legend>
+    <fieldset class="unterliste" aria-label={p.titel}>
+      <Show when={!p.ohneTitel}><legend>{p.titel}<Show when={eintraege().length}><span class="anzahl">{eintraege().length}</span></Show></legend></Show>
       <ul>
         <For each={eintraege()}>{(z) => (
-          <li classList={{ erledigt: !!p.haken && z.werte[p.haken] === true }}>
+          <li classList={{ erledigt: !!p.haken && z.werte[p.haken] === true, gewaehlt: p.gewaehlt === z.id }} onFocusIn={() => p.onWahl?.(z.id)} onClick={() => p.onWahl?.(z.id)}>
             <div class="unterliste-zeile">
               <Show when={p.haken}>
                 <button type="button" role="checkbox" class="haken" classList={{ an: z.werte[p.haken!] === true }} aria-checked={z.werte[p.haken!] === true} aria-label={`${feld(p.haken!).titel}: ${zeilentitel(z)}`} disabled={!schreiben()}

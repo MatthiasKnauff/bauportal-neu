@@ -36,6 +36,13 @@ export interface Anpassung {
   zelle?: (f: Feld, z: Zeile) => JSX.Element | undefined;
   /** Zusätzliche Punkte im Kontextmenü einer Zeile (insgesamt bleiben es höchstens 6). */
   zeilenMenue?: (z: Zeile) => Menuepunkt[];
+  // --- Links ---
+  /** Statt des Baums eine eigene Darstellung links (z. B. Kalender und Abschnitte im Bautagebuch). */
+  links?: (p: Mitte) => JSX.Element;
+  linksTitel?: string;
+  // --- Details (rechts), eigene ---
+  /** Statt der Detailkarte des gewählten Eintrags etwas anderes rechts; ohne Rückgabe bleibt der Platz rechts leer. */
+  details?: (z: Zeile) => JSX.Element | undefined;
   // --- Baum (links) ---
   /** Zeichen vor einem Knoten im Baum. */
   baumSymbol?: (k: Knoten) => string | undefined;

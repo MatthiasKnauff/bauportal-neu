@@ -4,7 +4,7 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
-import { ausfuehren, rueckgaengig, sicht } from './unterbau/abgleich';
+import { ausfuehren, sicht } from './unterbau/abgleich';
 import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { Versionsleiste } from './baukasten/versionsleiste';
@@ -27,15 +27,11 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Balkenplan } from './balkenplan';
-import { Bilder } from './baukasten/bilder';
 import { springeZu } from './sprung';
 import { Arbeitszeit } from './arbeitszeit';
-import { Diktieren } from './diktat';
+import { BerichtDetails, BerichtLinks, Berichtsseite, berichtDetailsDa } from './bautagebuch';
 import { aufraeumenOeffnen } from './aufraeumen';
 import { PruefSchluessel } from './pruefki';
-import { Schrittweise } from './baukasten/schrittweise';
-import { FeldEingabe } from './baukasten/feld';
-import { feldAendern } from './baukasten/detailkarte';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -123,20 +119,6 @@ function Beteiligte(p: { projekt: Zeile }) {
 }
 
 // ---------- Bautagebuch: was im Bericht steht – Anwesende, Notizen, Mängel, Aufgaben, Weisungen ----------
-function WetterHolen(p: { bericht: Zeile }) {
-  const [laeuft, setLaeuft] = createSignal(false);
-  const holen = async () => {
-    setLaeuft(true);
-    try {
-      const { ort, ...w } = await ruf<{ ort: string; wetter: string; temperatur: number; luftfeuchte: number; wind: number; niederschlag: number }>('/api/wetter', { projekt: p.bericht.werte.projekt, datum: p.bericht.werte.datum, uhrzeit: p.bericht.werte.uhrzeit });
-      ausfuehren({ objekt: 'tagesbericht', art: 'aendern', objektId: p.bericht.id, werte: w, herkunft: 'wetterdienst' }, 'Wetter eintragen');
-      hinweis(`Wetter für ${ort} eingetragen.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
-    } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
-    finally { setLaeuft(false); }
-  };
-  return <Show when={darf('tagesbericht', 'schreiben')}><div><button class="knopf" disabled={laeuft()} onClick={holen}>{laeuft() ? 'Wetter wird geholt …' : '☁ Wetter vom Standort holen'}</button></div></Show>;
-}
-
 // Aufbau: seine Schichten von innen nach außen, dazu Gesamtdicke, überschlägiger U-Wert und wer ihn verwendet
 function AufbauSchichten(p: { aufbau: Zeile }) {
   const schichten = () => lebende('aufbau_schicht').filter((s) => s.werte.aufbau === p.aufbau.id)
@@ -151,46 +133,6 @@ function AufbauSchichten(p: { aufbau: Zeile }) {
       <p class="still-text">
         Gesamtdicke {zahl(gesamtdicke(schichten()))} cm · U-Wert {u() == null ? '– (dafür braucht jede Schicht ein λ)' : `≈ ${zahl(u()!, 2)} W/(m²K)`} · verwendet von {bauteile()} {bauteile() === 1 ? 'Bauteil' : 'Bauteilen'}
       </p>
-    </Show>
-  );
-}
-
-function Berichtslisten(p: { bericht: Zeile }) {
-  const fest = (art: string) => ({ projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id, art });
-  // Firmen zur Auswahl: zuerst die Beteiligten des Projekts, dann alle übrigen Kontakte
-  const firmen = () => {
-    const beteiligt = new Set(lebende('projekt_kontakt').filter((e) => e.werte.projekt === p.bericht.werte.projekt).map((e) => e.werte.kontakt));
-    return lebende('kontakt').map((k) => ({ wert: k.id, titel: [k.werte.name, k.werte.gewerk].filter(Boolean).join(' – '), vorn: beteiligt.has(k.id) }))
-      .sort((a, b) => Number(b.vorn) - Number(a.vorn) || a.titel.localeCompare(b.titel, 'de'));
-  };
-  // Dieselben Abschnitte in der Karte und im Ablauf „Schritt für Schritt“
-  const listen = [
-    { titel: 'Anwesende', inhalt: () => <Unterliste titel="Anwesende" objekt="bericht_eintrag" fest={fest('anwesend')} haupt="text" neben={['personen']} neuUeber="firma" angebot={firmen} platzhalter="+ Firma hinzufügen …" /> },
-    { titel: 'Notizen', inhalt: () => <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" /> },
-    { titel: 'Mängel', inhalt: () => <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" /> },
-    { titel: 'Zu erledigen', inhalt: () => <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben und Enter" /> },
-    { titel: 'Weisungen', inhalt: () => <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" /> },
-    { titel: 'Fotos', inhalt: () => <Show when={darf('foto', 'lesen')}><Bilder titel="Fotos" objekt="foto" fest={{ projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id }} beschriftung="beschriftung" hochladen="/api/foto" /></Show> },
-  ];
-  const m = modell('tagesbericht');
-  const felder = (gruppe: string) => () => (
-    <div class="schritt-felder">
-      <For each={m.felder.filter((f) => f.gruppe === gruppe && !f.verborgen)}>{(f) =>
-        <FeldEingabe feld={f} wert={sicht.tagesbericht?.[p.bericht.id]?.werte[f.name] ?? null} onWert={(w) => feldAendern(m, sicht.tagesbericht![p.bericht.id]!, f, w)} />}</For>
-    </div>
-  );
-  const schritte = [
-    { titel: 'Wetter', inhalt: () => <><WetterHolen bericht={p.bericht} />{felder('Wetter')()}</> },
-    ...listen,
-    { titel: 'Kontrollen', inhalt: felder('Kontrollen') },
-  ];
-  return (
-    <Show when={darf('bericht_eintrag', 'lesen')}>
-      <div class="bericht-werkzeuge">
-        <Show when={darf('bericht_eintrag', 'schreiben')}><Diktieren bericht={p.bericht} /><Schrittweise knopf="Schritt für Schritt" titel="Tagesbericht" schritte={schritte} /></Show>
-        <WetterHolen bericht={p.bericht} />
-      </div>
-      {listen.map((l) => l.inhalt())}
     </Show>
   );
 }
@@ -385,7 +327,10 @@ const ANPASSUNG: Record<string, Anpassung> = {
   tagesbericht: {
     // nächste Nummer im Projekt, heutiges Datum und Uhrzeit, Bauleitung: wer den Bericht anlegt
     neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv'), uhrzeit: new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' }), bauleitung: ich().id }),
-    kartenZusatz: (z) => <Berichtslisten bericht={z} />,
+    mitte: (m) => <Berichtsseite {...m} />,
+    links: (m) => <BerichtLinks {...m} />,
+    linksTitel: 'Kalender',
+    details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   kontakt: {

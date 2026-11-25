@@ -7,7 +7,7 @@ interface Stand { reihenfolge: string[]; aus: string[]; breiten: Record<string, 
 
 export function spaltenFuer(m: ObjektModell) {
   const schluessel = `bp_spalten_${m.name}`;
-  const moeglich = m.felder.filter((f) => f.art !== 'langtext');
+  const moeglich = m.felder.filter((f) => f.art !== 'langtext' && !f.verborgen);   // verborgene Felder (Kennung, Reihe …) sind keine Spalten
   const werk = (): Stand => ({ reihenfolge: moeglich.map((f) => f.name), aus: moeglich.filter((f) => !f.inListe).map((f) => f.name), breiten: {} });
   let start = werk();
   try {
