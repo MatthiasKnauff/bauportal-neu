@@ -572,8 +572,9 @@ export function Balkenplan(p: Mitte) {
             <For each={pfeilListe()}>{(a) => <g class="bzp-pfeil" classList={{ kritisch: kritisch() && a.kritisch }} onContextMenu={(e) => linkMenue(e, a.id)}>
               <path d={a.d} /><path d={a.links ? `M${a.x2},${a.yb} l-6,-4 v8 z` : `M${a.x2},${a.yb} l6,-4 v8 z`} class="bzp-spitze" />
             </g>}</For>
-            <Show when={ziehen()?.art === 'neu' && Math.abs(ziehen()!.dx) >= px()}>{(_) => { const f = aufgezogen(ziehen()!); return <rect x={(f.t0 - achse().t0) * px()} y={ziehen()!.y + 5} width={(f.t1 - f.t0 + 1) * px()} height={H - 10} rx={3} class="bzp-aufziehen" />; }}</Show>
-            <Show when={ziehen()?.art === 'link'}>{(_) => { const g = ziehen()!; const t = erg().termine.get(g.id)!; return <line x1={xEnde(t.s, t.f) + 9} y1={g.y + H / 2} x2={xEnde(t.s, t.f) + 9 + g.dx} y2={g.yMaus} class="bzp-zieh" />; }}</Show>
+            {/* Vorschau beim Aufziehen: folgt der Maus (bei jeder Bewegung neu gerechnet, nicht nur beim ersten Schritt) */}
+            <Show when={ziehen()?.art === 'neu' && Math.abs(ziehen()!.dx) >= px()}>{(_) => { const f = () => { const g = ziehen(); return g ? aufgezogen(g) : { t0: achse().t0, t1: achse().t0 }; }; return <rect x={(f().t0 - achse().t0) * px()} y={(ziehen()?.y ?? 0) + 5} width={(f().t1 - f().t0 + 1) * px()} height={H - 10} rx={3} class="bzp-aufziehen" />; }}</Show>
+            <Show when={ziehen()?.art === 'link' && erg().termine.get(ziehen()!.id)}>{(t) => <line x1={xEnde(t().s, t().f) + 9} y1={(ziehen()?.y ?? 0) + H / 2} x2={xEnde(t().s, t().f) + 9 + (ziehen()?.dx ?? 0)} y2={ziehen()?.yMaus ?? 0} class="bzp-zieh" />}</Show>
           </svg>
           <div class="bzp-zeilen" style={{ top: `${KOPF}px` }}>
             <For each={sichtbar()}>{(v) => {
