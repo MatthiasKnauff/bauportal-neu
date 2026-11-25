@@ -60,6 +60,96 @@
    "quelle": "Statistisches Bundesamt, Baupreisindizes für den Neubau in konventioneller Bauart einschl. USt (GENESIS 61261), Basis 2021 = 100; 2010 = Jahresdurchschnitt derselben Reihe (Verkettung auf die NHK 2010)",
    "datei": "baupreisindex/baupreisindex-1.json",
    "sha256": "962f75b95c6e6d366c0066dbad2f58a40383137a246b4bee6dad6e06381de5f5"
+  },
+  {
+   "id": "positionen",
+   "titel": "Positionsdatenbank",
+   "beschreibung": "70780 Leistungspositionen mit Kurz- und Langtext, Einheit, Kostengruppe nach DIN 276 und Preisspanne – für Kostenschätzung und Ausschreibung. Liegt nur am Server und wird seitenweise gesucht.",
+   "version": 1,
+   "stand": "2026-11",
+   "quelle": "Positionsdatenbank des bisherigen Bauportals (eigene Texte und Kalkulation, Preisstand 2026-11, Baupreisindex 141,7)",
+   "teile": [
+    {
+     "datei": "positionen/positionen-1-01.json",
+     "sha256": "eb07b4de16560d8a0c5b019f086a97372544c5f13eddc22b5b95835e3aa297bc"
+    },
+    {
+     "datei": "positionen/positionen-1-02.json",
+     "sha256": "a7522952d6ff978f61df54fce48f649dbeea932450da57a713e6d7f5768ca32d"
+    },
+    {
+     "datei": "positionen/positionen-1-03.json",
+     "sha256": "497fd5a5058b45524dc901a2fbd526cf2a1e7e8ddbd1159a6b9e05c7dabc8097"
+    },
+    {
+     "datei": "positionen/positionen-1-04.json",
+     "sha256": "975ce8ace5b3d51d4a6229a8b342cd0c340979e981167111adc5dec9a401d694"
+    },
+    {
+     "datei": "positionen/positionen-1-05.json",
+     "sha256": "c6b17b2684193dc3408822e35cfd16cb943079ce076d30c439f97c1974da5f80"
+    },
+    {
+     "datei": "positionen/positionen-1-06.json",
+     "sha256": "fd426f1cff6d8bef02420abb8fa1b06e87f0c9e9c3e5ef9a0b1e64d9960365d9"
+    },
+    {
+     "datei": "positionen/positionen-1-07.json",
+     "sha256": "ef87c74c469520519e194bb5460ead25dce1169e58f6549874249b1aff90f5c4"
+    },
+    {
+     "datei": "positionen/positionen-1-08.json",
+     "sha256": "5837567135e36a51769fe63e0a5a2c9b5c7b78fce9af02f5159066dc3b0ebd7d"
+    },
+    {
+     "datei": "positionen/positionen-1-09.json",
+     "sha256": "2643f1b28ddb0ef9bf50612ec27dc4699e443163b0dd702c5dbc911e1df7c4ca"
+    },
+    {
+     "datei": "positionen/positionen-1-10.json",
+     "sha256": "4a72d1152e27e97234bf688a66ebd4255a8049aa9b2b24bfc566a66f627db98b"
+    },
+    {
+     "datei": "positionen/positionen-1-11.json",
+     "sha256": "35bfbed536b106172c774966fe0072fb7e34a32b81b96b84104b22632aad947f"
+    },
+    {
+     "datei": "positionen/positionen-1-12.json",
+     "sha256": "17a0c63a02d33488d8ccc384c14fba6f05db7b6c48ce042e4397ea21e29f5c5d"
+    },
+    {
+     "datei": "positionen/positionen-1-13.json",
+     "sha256": "bcc8dffeeddb1cde0938bb48c41eb7fe267371e6e23865b066e4c7158086b1c0"
+    },
+    {
+     "datei": "positionen/positionen-1-14.json",
+     "sha256": "1f408415ac94cb7e0075626ace6be31b19a78d54033b1ee8f0f5ffab2618739f"
+    },
+    {
+     "datei": "positionen/positionen-1-15.json",
+     "sha256": "c2a6cda7d6757a7e0db6a64926689f7890a356c9683b666e0b505b794b208108"
+    },
+    {
+     "datei": "positionen/positionen-1-16.json",
+     "sha256": "1d0ec38c6cf9c443534cb1b845d93fb14150e4a3d2e27675983025a46abdccee"
+    },
+    {
+     "datei": "positionen/positionen-1-17.json",
+     "sha256": "6e6efa190a0ee079d7f0e50185dab0adb4374a842c2fc7f49c215da2fd4eecb2"
+    },
+    {
+     "datei": "positionen/positionen-1-18.json",
+     "sha256": "59d8a595878f7f856e3f5829d8fda2f6649947f300748330197d46c45455dea3"
+    },
+    {
+     "datei": "positionen/positionen-1-19.json",
+     "sha256": "fb76ddf1eb5188d9267bf804c6870833f3e836244b2f987ed9a57f28e6722b20"
+    },
+    {
+     "datei": "positionen/positionen-1-20.json",
+     "sha256": "3e42f479c9152c67afab056a26f821911c3fba0ecc7c4b6dde40ff8cca44de4e"
+    }
+   ]
   }
  ]
 }
