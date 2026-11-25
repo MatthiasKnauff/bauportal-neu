@@ -18,6 +18,7 @@ import type { Mitte } from './baukasten/anpassung';
 import { hinweis } from './baukasten/hinweise';
 import { zeigeMenue } from './baukasten/kontextmenue';
 import { PlanDrucken } from './plandruck';
+import { PlanAssistent } from './planassistent';
 import { csvAus, mspdiAus, planJsonAus } from '../module/bauzeitenplan/austausch';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 
@@ -83,6 +84,7 @@ export function Balkenplan(p: Mitte) {
   createEffect(() => { merken('bzp.zoom', zoom()); merken('bzp.pfeile', pfeile()); merken('bzp.kritisch', kritisch()); merken('bzp.autom', autom()); });
   const px = () => ZOOM[zoom()] ?? 12;
   const [drucken, setDrucken] = createSignal(false);
+  const [assi, setAssi] = createSignal(false);
   // Export als Datei (im Browser erzeugt) und Plan aus einer Datei einlesen (Vorschau wie jede Übernahme)
   let dateiWahl!: HTMLInputElement;
   const titel = () => { const pr = sicht.projekt?.[z().projekt]?.werte; return `Bauzeitenplan ${[pr?.nummer, pr?.name].filter(Boolean).join(' ')} ${sicht.version?.[z().version]?.werte.name ?? ''}`.trim(); };
@@ -410,6 +412,7 @@ export function Balkenplan(p: Mitte) {
         <label>Pfeile <select value={pfeile()} onChange={(e) => setPfeile(e.currentTarget.value as 'markiert')}>
           <option value="markiert">bei markierter</option><option value="kritisch">kritischer Weg</option><option value="alle">alle</option><option value="keine">keine</option></select></label>
         <Show when={schreiben()}><label class="bzp-haken" title="Einfügen setzt die neue Leistung in die Kette, Löschen überbrückt sie"><input type="checkbox" checked={autom()} onChange={(e) => setAutom(e.currentTarget.checked)} /> Autom. verknüpfen</label></Show>
+        <Show when={schreiben()}><button class="knopf klein" onClick={() => setAssi(true)}>✦ Assistent</button></Show>
         <button class="knopf klein" onClick={() => setDrucken(true)}>⎙ Drucken / PDF</button>
         <button class="knopf klein" onClick={austauschMenue}>Export / Import ▾</button>
         <input ref={dateiWahl} type="file" accept=".gantt,.json,application/json" hidden onChange={() => void einlesen()} />
@@ -509,8 +512,9 @@ export function Balkenplan(p: Mitte) {
           </div>
         </div>
       </div>
+      <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
-      <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Tippe unten in „+ Neue Leistung“ – Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
+      <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
     </div>
   );
 }

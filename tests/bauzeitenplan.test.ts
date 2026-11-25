@@ -123,3 +123,47 @@ test('Austausch und Ausdruck: Gantt-Plan lesen, Sicherung, CSV, MS Project, Seit
   const rolle = planDruck(d, { ...STANDARD, format: 'ROLLE', rolle: 914, anpassen: 'fest', mmJeTag: 5 });
   assert.ok(rolle.seiten === 1 && rolle.blatt.b > 300 && rolle.html.includes('@page { size: '));
 });
+
+test('Planungsassistent: Empfehlung, Bauweise, Überbrücken, Dauern aus Mengen, Einheiten im Takt', async () => {
+  const { katalogAus, assistent, angabenAusGebaeude } = await import('../src/module/bauzeitenplan/assistent');
+  const L = (id: string, w: Record<string, unknown>) => ({ werte: { kennung: id, bezug: 'bau', dauer: 2, vorgaenger: 'start', ...w } as never });
+  const vorlagen = [
+    L('be', { name: 'Baustelleneinrichtung', fest: true }),
+    L('keller', { name: 'Keller', vorgaenger: 'be', dauer: 10 }),
+    L('grund', { name: 'Bodenplatte', vorgaenger: 'keller', bezugsgroesse: 'gr', leistungswert: 10 }),
+    L('mauer', { name: 'Mauerwerk', vorgaenger: 'grund' }),
+    L('estrich', { name: 'Estrich', bezug: 'we', vorgaenger: 'mauer', dauer: 3 }),
+    L('estr_tr', { name: 'Estrich trocknen', bezug: 'we', vorgaenger: 'estrich', dauer: 20, fest: true, wartezeit: true }),
+    L('maler', { name: 'Maler', bezug: 'we', vorgaenger: 'estr_tr', dauer: 4 }),
+  ];
+  const r = (art: string, kennung: string, daten: unknown) => ({ werte: { art, kennung, name: kennung, daten: JSON.stringify(daten) } as never });
+  const regeln = [
+    r('abschnitte', 'abschnitte', [{ k: 'roh', n: 'Rohbau' }, { k: 'aus', n: 'Ausbau' }]),
+    r('bezug', 'bezug', { ref: { bau: 140, we: 80 }, leistung: { be: { ph: 'roh' }, keller: { ph: 'roh' }, grund: { ph: 'roh' }, mauer: { ph: 'roh' }, estrich: { ph: 'aus' }, estr_tr: { ph: 'aus' }, maler: { ph: 'aus' } } }),
+    r('profil', 'profil:neubau_efh', { k: 'neubau_efh', n: 'Neubau EFH', rec: ['be', 'grund', 'mauer', 'estrich', 'estr_tr', 'maler'], opt: ['keller'], choice: { keller: 'none' }, dg: 'aus', takt: 'versetzt' }),
+    r('bauweise', 'bauweise:keller', { k: 'keller', ph: 'roh', n: 'Keller', types: ['neubau_efh'], opts: [{ k: 'none', n: 'ohne', on: [] }, { k: 'wu', n: 'WU-Beton', on: ['keller'], ovr: { keller: { n: 'Keller WU-Beton', d: 12 } } }] }),
+    r('kombi', 'kombi', { geb: [{ k: 'ef', n: 'EFH', fl: 'wf', h: 2.9, wand: 2.8, groesse: 'efh', area: 140, units: 1, floors: 2, naming: 'whg', std: '', opt: '', weg: '' }], mass: [{ k: 'nb', n: 'Neubau', base: { efh: 'neubau_efh' }, neu: 1 }], ber: [], aussen: '', immer: '', nurNeu: '' }),
+  ];
+  const kat = katalogAus(vorlagen, regeln);
+  const a = assistent(kat, { geb: 'ef', mass: ['nb'], ber: [], denkmal: false, flaeche: 140, einheiten: 0, geschosse: 0, dg: '', takt: 'versetzt', wahl: {} })!;
+  assert.equal(a.bauart.n, 'EFH · Neubau');
+  assert.deepEqual([...a.auswahl()].sort(), ['be', 'estr_tr', 'estrich', 'grund', 'maler', 'mauer'], 'ohne Keller');
+  const ohne = a.plan();
+  assert.ok(ohne.links.some((l) => l.von === 'assistent:be@-1' && l.nach === 'assistent:grund@-1'), 'Keller nicht gewählt: Bodenplatte folgt direkt der Baustelleneinrichtung');
+  assert.equal(a.dauer('be'), 2, 'feste Dauer');
+  // Bauweise „WU-Keller“: Keller kommt dazu, mit Namen und Dauer der Ausführung
+  const k = assistent(kat, { geb: 'ef', mass: ['nb'], ber: [], denkmal: false, flaeche: 140, einheiten: 0, geschosse: 0, dg: '', takt: 'versetzt', wahl: { keller: 'wu' } })!;
+  assert.ok(k.auswahl().has('keller'));
+  assert.equal(k.leistung('keller')!.n, 'Keller WU-Beton');
+  assert.ok(k.dauer('keller') >= 12);
+  // Dauer aus Menge: Bodenplatte mit echter Grundfläche aus dem Gebäudemodell
+  const g = angabenAusGebaeude({ nutzung: 'efh', massnahme: 'neubau', wohnflaeche: 140, einheiten: 3, bgf: 200 } as never, [{ werte: { art: 'bodenplatte', menge: 100, einheit: 'm2' } }] as never, 2);
+  assert.deepEqual([g.geb, g.mass, g.mengen?.gr, g.geschosse], ['ef', ['nb'], 100, 2]);
+  const m = assistent(kat, { ...g, takt: 'versetzt' })!;
+  assert.equal(m.dauer('grund'), 10, '100 m² ÷ 10 m²/Tag');
+  // drei Einheiten im Takt: Maler der Einheit 2 wartet auf den Maler der Einheit 1, das Trocknen läuft überall zugleich
+  const p = m.plan();
+  assert.ok(p.zeilen.some((z) => z.werte.name === 'Wohnung 3 fertiggestellt'));
+  const hat = (von: string, nach: string) => p.links.some((l) => l.von === `assistent:${von}` && l.nach === `assistent:${nach}`);
+  assert.ok(hat('maler@0', 'maler@1') && !hat('estr_tr@0', 'estr_tr@1') && hat('mauer@-1', 'estrich@2'));
+});

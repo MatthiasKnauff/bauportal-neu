@@ -270,6 +270,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .warte { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 95; background: #1c1c1a; color: #f6f6f3; border-radius: 99px; padding: 6px 14px; font-size: 13px; }
 .platzhalter { color: var(--text-still); }
 .beteiligt { flex: 1; gap: 4px; } .beteiligt input { min-height: 30px; padding: 2px 8px; border: 1px solid var(--rand); border-radius: 6px; font-size: 13px; width: 100%; }
+.beteiligt select { min-height: 30px; border: 1px solid var(--rand); border-radius: 6px; font-size: 13px; background: var(--flaeche); }
 .kartenfenster { flex: 1; min-height: 0; display: flex; flex-direction: column; } .kartenfenster .karte { flex: 1; width: auto; border: 0; border-radius: 0; }
 .kartenfenster .status { padding: 6px 14px; border-top: 1px solid var(--rand); background: var(--flaeche); }
 @media (max-width: 860px) { .karten-halter { flex: 1; } .reiter { display: none; } .tabelle th .griff { display: none; } }
@@ -414,3 +415,16 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 @media (max-width: 760px) { .plandruck { flex-direction: column; } .plandruck-optionen { width: auto; } }
 .planliste { list-style: none; margin: 8px 0 0; padding: 0; max-height: 340px; overflow: auto; border-top: 1px solid var(--rand); }
 .planliste li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #efefea; font-size: 14px; }
+.planassistent { display: flex; gap: 16px; height: 100%; min-height: 0; width: 100%; }
+.pa-angaben { width: 300px; flex: none; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.pa-angaben fieldset { border: 1px solid var(--rand); border-radius: 8px; padding: 6px 10px 10px; display: flex; flex-direction: column; gap: 5px; }
+.pa-angaben legend { font-weight: 600; font-size: 13px; }
+.pa-leistungen { flex: 1; min-width: 0; overflow: auto; }
+.pa-leistungen h3 { margin: 14px 0 4px; font-size: 14px; }
+.pa-weitere { display: inline-flex; margin-left: 12px; }
+.pa-liste { list-style: none; margin: 0; padding: 0; }
+.pa-liste li { display: grid; grid-template-columns: minmax(0, 1fr) 180px 100px; align-items: center; gap: 8px; padding: 3px 0; border-bottom: 1px solid #f1f1ec; }
+.pa-liste li.aus { opacity: .6; }
+.pa-dauer { width: 56px; min-height: 26px; border: 1px solid var(--rand-stark); border-radius: 6px; padding: 0 4px; text-align: right; }
+@media (max-width: 760px) { .planassistent { flex-direction: column; } .pa-angaben { width: auto; } .pa-liste li { grid-template-columns: 1fr 70px; } .pa-liste li > .klein-text { display: none; } }
+.pa-dauerzelle { white-space: nowrap; font-size: 13px; color: var(--text-still); }

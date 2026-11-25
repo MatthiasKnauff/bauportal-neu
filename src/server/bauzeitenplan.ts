@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { Befehl } from '../kern/befehl';
 import { altplanLesen, type Altplan } from '../module/bauzeitenplan/austausch';
+import { assistent, katalogAus, type Angaben } from '../module/bauzeitenplan/assistent';
 import { abgleicher, merken, type Vorschau, type Zahl } from './uebernahme';
 
 export async function planLaden(db: Db, register: Modulregister, wer: Benutzer, version: string): Promise<{ plan: Plan; projekt: string; projektName: string; versionName: string; buero: string; ordner: string | null }> {
@@ -104,4 +105,63 @@ export function planEinlesenRouten(app: FastifyInstance, e: { db: Db; register: 
     });
     return merken(req.benutzer!.id, plan);
   });
+}
+
+/**
+ * Planungsassistent: die Angaben (aus dem Gebäudemodell, im Dialog ergänzt) → Leistungen, Dauern, Abfolge → Übernahme
+ * in die Version. Wiederholbar: Was der Assistent angelegt hat, passt sich an; was von Hand geändert wurde, bleibt.
+ */
+export function assistentRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
+  app.post('/api/bauzeitenplan/assistent', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
+    const b = (req.body ?? {}) as { version?: string; angaben?: Angaben };
+    if (!KENNUNG.test(b.version ?? '') || !b.angaben || typeof b.angaben !== 'object') throw new Ablehnung('Version und Angaben fehlen');
+    const a = angabenPruefen(b.angaben);
+    const plan = await alsBenutzer(e.db, req.benutzer!, async (c) => {
+      const v = (await c.query("select projekt from o_version where id = $1 and bereich = 'bauzeitenplan' and not geloescht", [b.version])).rows[0];
+      if (!v) throw new Ablehnung('Diese Version des Bauzeitenplans gibt es nicht');
+      if (!(await c.query("select bp_darf('vorgang', 'schreiben', $1) as d", [v.projekt])).rows[0].d) throw new Ablehnung('Dazu fehlt dir das Recht');
+      const vorlagen = (await c.query('select * from o_leistungsvorlage where not geloescht')).rows.map((z) => ({ werte: werteAus(e.register.modell('leistungsvorlage')!, z) }));
+      const regeln = (await c.query('select * from o_planregel where not geloescht')).rows.map((z) => ({ werte: werteAus(e.register.modell('planregel')!, z) }));
+      if (!vorlagen.length || !regeln.length) throw new Ablehnung('Der Assistent braucht die Kataloge „Leistungen für den Bauzeitenplan“ und „Regeln des Planungsassistenten“ – bitte unter Verwaltung → Updates einspielen');
+      const as = assistent(katalogAus(vorlagen, regeln), a);
+      if (!as) throw new Ablehnung('Diese Gebäudeart kennt der Katalog nicht');
+      const p = as.plan();
+      // Firma aus den Beteiligten des Projekts, wenn deren Aufgabe zum Gewerk passt
+      const firmen = (await c.query('select pk.kontakt, pk.aufgabe, k.name from o_projekt_kontakt pk join o_kontakt k on k.id = pk.kontakt where pk.projekt = $1 and not pk.geloescht and not k.geloescht', [v.projekt])).rows as { kontakt: string; aufgabe: string; name: string }[];
+      const firma = (gw: string) => (gw ? firmen.find((f) => f.aufgabe && (f.aufgabe.toLowerCase() === gw.toLowerCase() || f.aufgabe.toLowerCase().includes(gw.toLowerCase()))) : undefined);
+      const zp = (await c.query('select * from o_zeitplan where version = $1 and not geloescht order by id limit 1', [b.version])).rows[0];
+      const alt: Altplan = {
+        name: as.bauart.n, zeitplan: { anfang: zp?.anfang ? String(zp.anfang).slice(0, 10) : new Date().toLocaleDateString('sv'), arbeitswoche: String(zp?.arbeitswoche ?? '5'), bundesland: String(zp?.bundesland ?? '') },
+        frei: [], bt: null, hinweise: [],
+        vorgaenge: p.zeilen.map((z) => { const f = firma(String(z.werte.gewerk ?? '')); return { kennung: z.kennung, werte: { ...z.werte, ...(f ? { firma: f.kontakt, unternehmer: f.name } : {}) } }; }),
+        links: p.links,
+      };
+      const r = await planUebernehmen(c, e.register, { projekt: v.projekt, version: b.version! }, alt, 'assistent:');
+      // die Angaben bleiben am Kalender der Version – der Assistent öffnet beim nächsten Mal mit ihnen
+      const merk = JSON.stringify({ geb: a.geb, mass: a.mass, ber: a.ber, denkmal: a.denkmal, flaeche: a.flaeche, einheiten: a.einheiten, geschosse: a.geschosse, dg: a.dg, takt: a.takt, wahl: a.wahl, auswahl: a.auswahl, dauern: a.dauern });
+      const zpBefehl = r.liste.find((x) => x.objekt === 'zeitplan');
+      if (zpBefehl?.werte) zpBefehl.werte.assistent = merk;
+      else if (zp && zp.assistent !== merk) r.liste.unshift({ id: randomUUID(), gesehen: 0, objekt: 'zeitplan', art: 'aendern', objektId: zp.id, werte: { assistent: merk } });
+      return { ...r, hinweise: [
+        `Bauart: ${as.bauart.n} · ${as.auswahl().size} Leistungen${as.einheiten > 1 ? ` in ${as.einheiten} Einheiten (${a.takt === 'versetzt' ? 'im Takt' : 'parallel'})` : ''}. Die Dauern sind Richtwerte aus Mengen und Fläche – im Plan änderbar.`,
+        ...(firmen.length ? [] : ['Firmen kommen aus den Beteiligten des Projekts (Aufgabe = Gewerk) – noch ist niemand beteiligt.']),
+        ...r.hinweise.filter((h) => !h.startsWith('Alles Übernommene')),
+        'Was der Assistent anlegt, trägt die Marke „übernommen“. Erneut aufrufen passt den Plan an; von Hand Geändertes bleibt.',
+      ] };
+    });
+    return merken(req.benutzer!.id, plan);
+  });
+}
+
+/** Angaben aus dem Browser: nur bekannte Felder, Zahlen als Zahlen. */
+function angabenPruefen(x: Angaben): Angaben {
+  const liste = (v: unknown) => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string' && s.length < 60).slice(0, 400) : []);
+  const zahl = (v: unknown) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
+  const obj = <T,>(v: unknown, f: (w: unknown) => T): Record<string, T> => (v && typeof v === 'object' ? Object.fromEntries(Object.entries(v as Record<string, unknown>).slice(0, 400).map(([k, w]) => [k.slice(0, 60), f(w)])) : {});
+  return {
+    geb: String(x.geb ?? 'ef').slice(0, 10), mass: liste(x.mass), ber: liste(x.ber), denkmal: x.denkmal === true,
+    flaeche: zahl(x.flaeche), einheiten: Math.min(200, zahl(x.einheiten)), geschosse: Math.min(60, zahl(x.geschosse)), dg: String(x.dg ?? '').slice(0, 10), takt: x.takt === 'parallel' ? 'parallel' : 'versetzt',
+    wahl: obj(x.wahl, (w) => String(w).slice(0, 20)), mengen: obj(x.mengen, zahl) as Angaben['mengen'],
+    ...(Array.isArray(x.auswahl) ? { auswahl: liste(x.auswahl) } : {}), ...(x.dauern ? { dauern: obj(x.dauern, zahl) } : {}),
+  };
 }

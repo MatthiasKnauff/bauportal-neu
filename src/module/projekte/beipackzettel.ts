@@ -52,7 +52,11 @@ export const projektKontakt: ObjektModell = {
   felder: [
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
     { name: 'kontakt', titel: 'Kontakt', art: 'verweis', ziel: 'kontakt', pflicht: true },
-    { name: 'aufgabe', titel: 'Aufgabe im Projekt', art: 'text' },
+    { name: 'aufgabe', titel: 'Aufgabe im Projekt (z. B. das Gewerk)', art: 'text' },
+    { name: 'vergabe', titel: 'Vergabe', art: 'auswahl', optionen: [
+      { wert: '', titel: '–' }, { wert: 'offen', titel: 'offen' }, { wert: 'angefragt', titel: 'angefragt' }, { wert: 'angebot', titel: 'Angebot liegt vor' },
+      { wert: 'beauftragt', titel: 'beauftragt' }, { wert: 'abgeschlossen', titel: 'abgeschlossen' },
+    ] },
   ],
 };
 

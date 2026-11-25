@@ -18,7 +18,7 @@ import { ifcRouten } from './ifc';
 import { assistentRouten } from './assistent';
 import { uebernahmeRouten } from './uebernahme';
 import { druckRouten } from './druck';
-import { bauzeitenplanRouten, planEinlesenRouten } from './bauzeitenplan';
+import { assistentRouten as planAssistentRouten, bauzeitenplanRouten, planEinlesenRouten } from './bauzeitenplan';
 import { kiRouten } from './ki';
 import { updateRouten } from './updates';
 import { wetterRouten } from './wetter';
@@ -198,6 +198,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   druckRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet });
   bauzeitenplanRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet });
   planEinlesenRouten(app, { db, register, nurAngemeldet });
+  planAssistentRouten(app, { db, register, nurAngemeldet });
   kiRouten(app, { db, nurAngemeldet });
   wetterRouten(app, { db, nurAngemeldet });
   fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });

@@ -95,6 +95,10 @@ function Beteiligte(p: { projekt: Zeile }) {
                 <input aria-label={`Aufgabe von ${name(e.werte.kontakt)}`} placeholder="Aufgabe im Projekt" value={String(e.werte.aufgabe ?? '')} readOnly={!schreiben()}
                   onKeyDown={(x) => { if (x.key === 'Enter') x.currentTarget.blur(); }}
                   onChange={(x) => ausfuehren({ objekt: 'projekt_kontakt', art: 'aendern', objektId: e.id, werte: { aufgabe: x.currentTarget.value.trim() } }, `Aufgabe von „${name(e.werte.kontakt)}“ ändern`)} />
+                <select aria-label={`Vergabe an ${name(e.werte.kontakt)}`} value={String(e.werte.vergabe ?? '')} disabled={!schreiben()}
+                  onChange={(x) => ausfuehren({ objekt: 'projekt_kontakt', art: 'aendern', objektId: e.id, werte: { vergabe: x.currentTarget.value } }, `Vergabe an „${name(e.werte.kontakt)}“ ändern`)}>
+                  <For each={modell('projekt_kontakt').felder.find((f) => f.name === 'vergabe')!.optionen!}>{(o) => <option value={o.wert}>{o.wert ? o.titel : 'Vergabe …'}</option>}</For>
+                </select>
               </span>
               <Show when={darf('projekt_kontakt', 'loeschen')}>
                 <button class="knopf klein still" aria-label={`${name(e.werte.kontakt)} entfernen`} title="Entfernen"
