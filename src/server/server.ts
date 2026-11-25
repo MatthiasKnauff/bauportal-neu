@@ -29,7 +29,7 @@ import { prueferRouten } from './pruefer';
 import { verlaufRouten } from './verlauf';
 import { schriftRouten } from './schriften';
 import { fotoRouten } from './foto';
-import { aufbauRouten } from './aufbau';
+import { aufbauRouten, type Langsam } from './aufbau';
 import { altdatenRouten } from './altdaten';
 
 export interface Einstellungen {
@@ -52,6 +52,18 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   // jede Server-Stelle merken – die Verwaltung zeigt sie unter „Aufbau“
   const routen: string[] = [];
   app.addHook('onRoute', (r) => { if (r.url.startsWith('/api/') || r.url === '/health') for (const m of [r.method].flat()) if (m !== 'HEAD') routen.push(`${m} ${r.url}`); });
+  // Langsame Anfragen (ab 1 s) merken – die Verwaltung zeigt sie unter Aufbau → Betrieb. Dazu, ob gerade auf eine freie
+  // Datenbank-Verbindung gewartet wurde: so lässt sich unterscheiden, ob die Rechnung oder das Warten die Zeit kostet.
+  const langsam: Langsam[] = [];
+  app.addHook('onRequest', async (req) => { (req as { dbWartend?: number }).dbWartend = db.waitingCount; });
+  app.addHook('onResponse', async (req, reply) => {
+    const ms = reply.elapsedTime;
+    if (ms < 1000 || String(req.headers.accept ?? '').includes('text/event-stream')) return;   // der Live-Strom bleibt offen – kein Warten
+    const x: Langsam = { zeit: new Date().toISOString(), stelle: `${req.method} ${req.routeOptions.url ?? req.url.split('?')[0]}`, status: reply.statusCode, ms: Math.round(ms),
+      wer: req.benutzer?.name ?? '', dbWartend: Math.max((req as { dbWartend?: number }).dbWartend ?? 0, db.waitingCount) };
+    langsam.unshift(x); langsam.splice(50);
+    console.warn(`langsam: ${x.stelle} ${x.ms} ms (Status ${x.status}, auf die Datenbank wartend: ${x.dbWartend})`);
+  });
   await app.register(cookie);
   const dbKennung = await kennung(db);
   versionsregelnAnmelden(register);
@@ -212,7 +224,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   verlaufRouten(app, { db, register, nurAngemeldet });
   schriftRouten(app, { db, nurAngemeldet });
   fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
-  aufbauRouten(app, { db, register, routen, nurAngemeldet });
+  aufbauRouten(app, { db, register, routen, langsam, nurAngemeldet });
   prueferRouten(app, { db, register, routen, version: e.version, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   altdatenRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   updateRouten(app, { db, register, version: e.version, umgebung: e.umgebung, nurAngemeldet });

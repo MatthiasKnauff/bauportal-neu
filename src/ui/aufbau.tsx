@@ -13,6 +13,7 @@ import { Rahmen } from './baukasten/rahmen';
 interface Aufbau {
   quelltext: Quelltext | null;
   routen: string[]; dienste: { name: string; zweck: string; erreichbar: boolean; version: string }[]; tabellen: { name: string; zeilen: string }[];
+  gestartet: string; langsam: { zeit: string; stelle: string; status: number; ms: number; wer: string; dbWartend: number }[]; db: { offen: number; frei: number; wartend: number };
 }
 
 /** Ohne Auswahl: je Modul bzw. Bereich eine Kachel mit seinen Bausteinen. */
@@ -29,6 +30,7 @@ function Uebersicht(p: { netz: Netz; onWahl: (id: string) => void }) {
   );
 }
 
+const zeitpunkt = (iso: string) => new Date(iso).toLocaleString('de', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const B = 172, H = 36, LUECKE = 6, ABSTAND = 54, KOPF = 46;   // Maße des Bildes
 /** Mit Auswahl: das Gewählte in der Mitte, links was darauf zeigt (Herkunft), rechts worauf es zeigt (Ziel). */
 function Fokus(p: { netz: Netz; wahl: string; tiefe: 1 | 2; onWahl: (id: string) => void }) {
@@ -179,6 +181,14 @@ export function AufbauAnsicht() {
         </Show>
         <Show when={passendeSicht() === 'betrieb'}>
           <Show when={a()} fallback={<p class="still-text">{a.error ? (a.error as Error).message : 'Wird abgefragt …'}</p>}>{(x) => (<>
+            <h2>Server</h2>
+            <p>Läuft seit {zeitpunkt(x().gestartet)} · Datenbank-Verbindungen: {x().db.offen} offen, {x().db.frei} frei{x().db.wartend ? `, ${x().db.wartend} wartend` : ''}</p>
+            <h3>Langsame Anfragen (ab 1 s, seit dem Start)</h3>
+            <Show when={x().langsam.length} fallback={<p class="still-text">Keine – alles unter 1 s.</p>}>
+              <table class="matrix"><thead><tr><th>Zeit</th><th>Stelle</th><th>Dauer</th><th>Status</th><th>Wer</th><th>auf Datenbank wartend</th></tr></thead><tbody>
+                <For each={x().langsam}>{(l) => <tr><td>{zeitpunkt(l.zeit)}</td><td><code>{l.stelle}</code></td><td>{(l.ms / 1000).toLocaleString('de', { maximumFractionDigits: 1 })} s</td><td>{l.status}</td><td>{l.wer}</td><td>{l.dbWartend}</td></tr>}</For>
+              </tbody></table>
+            </Show>
             <h2>Hilfsdienste</h2>
             <table class="matrix"><thead><tr><th>Dienst</th><th>Zweck</th><th>Zustand</th></tr></thead><tbody>
               <For each={x().dienste}>{(d) => <tr><th scope="row">{d.name}</th><td>{d.zweck}</td><td classList={{ 'gut-text': d.erreichbar, 'feld-fehler': !d.erreichbar }}>{d.erreichbar ? `läuft${d.version ? ` (${d.version})` : ''}` : 'nicht erreichbar'}</td></tr>}</For>

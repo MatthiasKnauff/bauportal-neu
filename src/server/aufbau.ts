@@ -62,14 +62,18 @@ export function aufbauText(register: Modulregister, q: Quelltext | null, routen:
   return z.join('\n') + '\n';
 }
 
-export function aufbauRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; routen: string[]; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
+/** Eine Anfrage, die länger als 1 s gebraucht hat. */
+export interface Langsam { zeit: string; stelle: string; status: number; ms: number; wer: string; dbWartend: number }
+const GESTARTET = new Date().toISOString();
+
+export function aufbauRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; routen: string[]; langsam: Langsam[]; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
   const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
 
   app.get('/api/aufbau', { preHandler: e.nurAngemeldet }, async (req) => {
     admin(req);
     const dienste = await diensteZustand();
     const tabellen = (await e.db.query("select c.relname as name, greatest(c.reltuples, 0)::bigint as zeilen from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and (c.relname like 'kern\\_%' or c.relname like 'o\\_%') order by 1")).rows;
-    return { quelltext: lies(), routen: e.routen, dienste, tabellen };
+    return { quelltext: lies(), routen: e.routen, dienste, tabellen, gestartet: GESTARTET, langsam: e.langsam, db: { offen: e.db.totalCount, frei: e.db.idleCount, wartend: e.db.waitingCount } };
   });
 
   app.get('/api/aufbau/text', { preHandler: e.nurAngemeldet }, async (req, reply) => {
