@@ -336,7 +336,8 @@ const ANPASSUNG: Record<string, Anpassung> = {
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,
-    kartenZusatz: (z) => <KontaktProjekte kontakt={z} />,
+    kartenZusatz: (z) => <Unterliste titel="Weitere Nummern, E-Mails, Anschriften, Ansprechpartner:innen" objekt="kontaktweg" fest={{ kontakt: z.id }} haupt="wert" neben={['art', 'bezeichnung']} platzhalter="Nummer, E-Mail … eingeben und Enter" />,
+    kartenReiter: (z) => [{ titel: 'Projekte', inhalt: () => <KontaktProjekte kontakt={z} /> }],
     knoepfe: () => (darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: aufraeumenOeffnen }] : []),
   },
   vorgang: { mitte: (m) => <Balkenplan {...m} />, kartenZusatz: (z) => <Nachfolger vorgang={z} /> },

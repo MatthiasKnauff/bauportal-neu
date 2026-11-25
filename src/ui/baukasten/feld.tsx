@@ -1,4 +1,5 @@
 // Baustein „Feld“: ein Eingabefeld, erzeugt aus der Feldbeschreibung im Datenmodell.
+import { Schlagworte, vorkommen } from './schlagworte';
 import { For, Match, Show, Switch, createUniqueId } from 'solid-js';
 import type { Feld, Wert, Werte } from '../../kern/modell';
 import { HERKUNFT } from '../../kern/befehl';
@@ -12,6 +13,7 @@ export function FeldEingabe(p: {
   feld: Feld; wert: Wert; fehler?: string; onWert: (w: Wert, herkunft?: string) => void; sofort?: boolean; gesperrt?: boolean;
   herkunft?: string;     // woher der Wert stammt, wenn nicht von Hand
   zusammenhang?: Werte;  // Projekt und Version des Eintrags: Verweise bieten nur an, was dazugehört
+  objekt?: string;       // Modell des Eintrags: Schlagworte schlagen vor, was an anderen Einträgen schon steht
 }) {
   const id = createUniqueId();
   // Zahlen stehen mit Komma da, wie man sie hier schreibt
@@ -54,6 +56,10 @@ export function FeldEingabe(p: {
                 onClick={() => p.onWert(p.feld.optionen!.filter((x) => (x.wert === o.wert) !== text().split(',').includes(x.wert)).map((x) => x.wert).join(','))}>{o.titel}</button>;
             }}</For>
           </div>
+        </Match>
+        <Match when={p.feld.art === 'schlagworte'}>
+          <Schlagworte id={id} titel={p.feld.titel} wert={text()} gesperrt={p.gesperrt} onWert={p.onWert}
+            vorschlaege={p.objekt ? () => vorkommen(Object.values(sicht[p.objekt!] ?? {}), p.feld.name) : undefined} />
         </Match>
         <Match when={p.feld.art === 'ja_nein'}>
           <button type="button" id={id} role="switch" aria-checked={p.wert === true} class="schalter" classList={{ aktiv: p.wert === true }} disabled={p.gesperrt}

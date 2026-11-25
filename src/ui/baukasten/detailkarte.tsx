@@ -1,6 +1,6 @@
 // Baustein „Detailkarte“ (Platz rechts): alle Felder eines Objekts, erzeugt aus dem Datenmodell.
 // Jede Änderung eines Feldes ist ein Befehl – sofort wirksam, mit Rückgängig.
-import { For, Show, type JSX } from 'solid-js';
+import { For, Show, createSignal, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Eingabefehler, gilt, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
@@ -48,6 +48,7 @@ export function Detailkarte(p: {
   modell: ObjektModell; zeile: Zeile;
   onZu?: () => void; onZuklappen?: () => void;
   zusatz?: (z: Zeile) => JSX.Element;
+  reiter?: (z: Zeile) => { titel: string; inhalt: () => JSX.Element }[];   // weitere Reiter neben den Angaben (z. B. Projekte eines Kontakts)
   symbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
   verborgen?: string[];                    // Felder, die der Zusammenhang schon festlegt (Projekt, Version)
   blaettern?: { nr: number; anzahl: number; onSchritt: (schritt: -1 | 1) => void };   // „3 von 42“ mit ‹ › durch die gezeigten Einträge
@@ -55,6 +56,8 @@ export function Detailkarte(p: {
   const schreiben = () => darf(p.modell.name, 'schreiben');
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
   const titel = () => objektname(p.modell, p.zeile.werte);
+  const [reiter, setReiter] = createSignal(0);
+  const reiterListe = () => p.reiter?.(p.zeile) ?? [];
   const aendern = (f: Feld, w: Wert, herkunft?: string) => setFehler(f.name, feldAendern(p.modell, p.zeile, f, w, herkunft));
   return (
     <aside class="karte" aria-label={`${p.modell.titel} ${titel()}`}>
@@ -73,19 +76,26 @@ export function Detailkarte(p: {
           <span>{b().nr} von {b().anzahl}</span>
           <button class="knopf klein still" aria-label="Nächster Eintrag" disabled={b().nr >= b().anzahl} onClick={() => b().onSchritt(1)}>›</button>
         </div>); }}</Show>
+      <Show when={reiterListe().length}>
+        <div class="karte-reiter" role="tablist">
+          <For each={[p.modell.titel, ...reiterListe().map((r) => r.titel)]}>{(t, i) => <button type="button" role="tab" aria-selected={reiter() === i()} onClick={() => setReiter(i())}>{t}</button>}</For>
+        </div>
+      </Show>
+      <Show when={reiter() === 0} fallback={<div class="karte-inhalt">{reiterListe()[reiter() - 1]?.inhalt()}</div>}>
       <div class="karte-inhalt">
-        <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => (
-          <fieldset>
-            <Show when={g.titel}><legend>{g.titel}</legend></Show>
-            <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />}</For>
-          </fieldset>
-        )}</For>
+        <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => {
+          const felder = () => <For each={g.felder}>{(f) => <FeldEingabe feld={f} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />}</For>;
+          return p.modell.eingeklappt?.includes(g.titel)
+            ? <details class="feldgruppe"><summary>{g.titel}</summary>{felder()}</details>
+            : <fieldset><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>;
+        }}</For>
         {p.zusatz?.(p.zeile)}
         <Show when={!schreiben()}><p class="still-text klein-text">Du kannst diese Angaben ansehen, aber nicht ändern.</p></Show>
         <Show when={p.onZu && !p.modell.einzeln && darf(p.modell.name, 'loeschen')}>
           <div class="karte-fuss"><button class="knopf gefahr" onClick={() => loesche(p.modell, p.zeile)}>{p.modell.titel} löschen</button></div>
         </Show>
       </div>
+      </Show>
     </aside>
   );
 }
@@ -113,7 +123,7 @@ export function NeuFenster(p: { modell: ObjektModell; start: Werte; verborgen?: 
       knoepfe={<><button class="knopf" onClick={() => p.onZu()}>Abbrechen</button><button class="knopf haupt" onClick={ok}>Anlegen</button></>}>
       <form class="raster" onSubmit={(e) => { e.preventDefault(); ok(); }}>
         <For each={p.modell.felder.filter((f) => (f.art !== 'langtext' || f.name === p.modell.anzeigeFeld) && !f.verborgen && !p.verborgen?.includes(f.name) && gilt(f, werte))}>{(f) => (
-          <FeldEingabe feld={f} wert={werte[f.name] ?? null} fehler={fehler[f.name]} sofort zusammenhang={werte} onWert={(w) => setWerte(f.name, w)} />
+          <FeldEingabe feld={f} wert={werte[f.name] ?? null} fehler={fehler[f.name]} sofort objekt={p.modell.name} zusammenhang={werte} onWert={(w) => setWerte(f.name, w)} />
         )}</For>
         <button type="submit" hidden />
       </form>

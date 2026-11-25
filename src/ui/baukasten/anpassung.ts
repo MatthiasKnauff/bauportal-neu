@@ -16,13 +16,16 @@ export interface Mitte {
   onWahl: (id: string | null) => void;
   onOeffnen: () => void;                // Karte zeigen, ins erste Feld
   setReihe: (ids: string[]) => void;    // Reihenfolge, in der die Mitte die Einträge zeigt – danach blättert die Karte
-  setKnoepfe: (k: Knopf[]) => void;     // Befehle der Mitte für die Menüleiste (z. B. Kritischer Weg, Zoom im Balkenplan)
+  setKnoepfe: (k: Knopf[]) => void;
+  setNeu: (f: () => void) => void;      // „Neu“ in der Menüleiste legt so an (z. B. Balkenplan: unterhalb der markierten Leistung)     // Befehle der Mitte für die Menüleiste (z. B. Kritischer Weg, Zoom im Balkenplan)
 }
 
 export interface Anpassung {
   // --- Details (rechts) ---
   /** Weitere Abschnitte unter den Feldern der Detailkarte. */
   kartenZusatz?: (z: Zeile) => JSX.Element;
+  /** Weitere Reiter der Detailkarte neben den Angaben (z. B. „Projekte“ eines Kontakts). */
+  kartenReiter?: (z: Zeile) => { titel: string; inhalt: () => JSX.Element }[];
   /** Andere Zeichen für die Knöpfe im Kopf der Detailkarte. */
   kartenSymbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
   // --- Oben (unter der Menüleiste) ---

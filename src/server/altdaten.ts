@@ -43,7 +43,7 @@ export function altdatenLesen(roh: unknown): Uebersetzt {
   const hinweise: string[] = [];
   const kontakte = (t.contacts ?? []).filter((k) => text(k.name)).map((k): Fest => ({ kennung: `alt:kontakt:${k.id}`, werte: {
     name: text(k.name).slice(0, 300), art: ['firma', 'bauherr', 'person', 'behoerde', 'baustelle', 'plotdienst'].includes(text(k.art)) ? text(k.art) : 'firma', ansprechpartner: text(k.contact_person), gewerk: text(k.trade),
-    strasse: text(k.street), plz: text(k.zip), ort: text(k.city), telefon: text(k.phone), mobil: text(k.mobile), email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(k.email)) ? text(k.email) : '', web: text(k.website), notiz: text(k.notes) } }));
+    strasse: text(k.street), plz: text(k.zip), ort: text(k.city), telefon: text(k.phone), mobil: text(k.mobile), email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(k.email)) ? text(k.email) : '', web: text(k.website), notiz: text(k.notes), ...kontaktZusatz(k) } }));
   const projekte = t.projects.filter((p) => text(p.name)).map((p): Fest => ({ kennung: `alt:projekt:${p.id}`, werte: {
     name: text(p.name), bauherr: text(p.client), strasse: text(p.street), plz: text(p.zip), ort: text(p.city), ordner: text(p.folder), status: Number(p.archived) ? 'archiviert' : 'aktiv' } }));
   const projektDa = new Set(projekte.map((p) => p.kennung));
@@ -266,4 +266,17 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     if (!f.schon) e.nachBefehlen();
     return f;
   });
+}
+
+/** Die Angaben, die das bisherige Bauportal je Kontakt im Feld „extra“ führt (Ansprechpartner zerlegt, Firma / Rechnung), dazu Funktion und Stichwörter. */
+function kontaktZusatz(k: Alt): Werte {
+  let x: Record<string, unknown> = {}; try { x = JSON.parse(text(k.extra) || '{}') as Record<string, unknown>; } catch { /* kein JSON */ }
+  const t = (n: string) => text(x[n]);
+  const zahl = Number(t('mitarbeiter'));
+  return {
+    anrede: ['Herr', 'Frau'].includes(t('ap_anrede')) ? t('ap_anrede') : '', titel: t('ap_titel'), zusatz: t('ap_zusatz'), funktion: text(k.role),
+    ist_firma: t('ist_firma') === 'ja', rechtsform: t('rechtsform'), sitz: t('sitz'), hrb: t('hrb'), mitarbeiter: t('mitarbeiter') && Number.isFinite(zahl) ? zahl : null,
+    ustid: t('ustid'), rechnung: t('rechnung'), oeffentlich: t('oeffentlich') === 'ja',
+    stichworte: text(k.stichworte), tags: text(k.tags), ...(t('amt') && !text(k.trade) ? { gewerk: t('amt') } : {}),
+  };
 }

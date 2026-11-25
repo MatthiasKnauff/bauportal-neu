@@ -94,7 +94,8 @@ export function ObjektAnsicht(p: {
     werte[m.anzeigeFeld] = `${z.werte[m.anzeigeFeld]} (Kopie)`;
     neuStart(werte);
   };
-  const mitteP = { alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe, setKnoepfe: setMitteKnoepfe };
+  let mitteNeu: (() => void) | undefined;   // wie die eigene Mitte neu anlegt, falls sie das selbst regelt
+  const mitteP = { alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe, setKnoepfe: setMitteKnoepfe, setNeu: (f: () => void) => { mitteNeu = f; } };
   // Blättern in der Karte: in der Reihenfolge, die die Mitte gerade zeigt
   const blaettern = () => {
     const ids = (!kacheln() && reihe()) || zeilen().map((z) => z.id);
@@ -108,7 +109,7 @@ export function ObjektAnsicht(p: {
     <div class="ansicht" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented && (e.target as HTMLElement).closest('.karte')) { e.preventDefault(); tabelle?.fokus(); } }}>
       <Rahmen schluessel={p.schluessel} steuer={(s) => (rahmen = s)}
         knoepfe={[
-          ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => neuStart() }] : []),
+          ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => (a.mitte && mitteNeu ? mitteNeu() : neuStart()) }] : []),
           ...(a.knoepfe?.(fest()) ?? []),
           ...(a.mitte ? mitteKnoepfe() : []),
           ...(a.kachel ? [{ titel: 'Karten', zeichen: 'kacheln', gruppe: 'Ansicht', an: kacheln(), tun: () => { if (!kacheln()) formWechseln(); } },
@@ -140,9 +141,9 @@ export function ObjektAnsicht(p: {
         }
         detailsTitel={(karte() && objektname(m, karte()!.werte)) || m.titel}
         detailsHinweis={a.detailsHinweis ?? `${a.mitte ? 'Einen Eintrag' : 'Eine Zeile'} anklicken – hier stehen dann alle Angaben, direkt änderbar.`}
-        details={karte() ? (a.details ? a.details(karte()!) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
+        details={karte() ? (a.details ? a.details(karte()!) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
       <Show when={schwebZeile()}>{(z) => <Schwebefenster titel={objektname(m, z().werte) || m.titel} onZu={() => { setSchwebend(null); tabelle?.fokus(); }}>
-        <Detailkarte modell={m} zeile={z()} onZu={() => setSchwebend(null)} zusatz={a.kartenZusatz} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />
+        <Detailkarte modell={m} zeile={z()} onZu={() => setSchwebend(null)} zusatz={a.kartenZusatz} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />
       </Schwebefenster>}</Show>
       <Show when={neu()}>{(start) => <NeuFenster modell={m} start={start()} verborgen={Object.keys(fest())} onZu={(id) => { setNeu(null); if (id) { setGewaehlt(id); rahmen.detailsZeigen(); } }} />}</Show>
     </div>

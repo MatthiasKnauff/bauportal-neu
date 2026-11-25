@@ -44,6 +44,7 @@ export function Tabelle(p: {
   // ohne Mausposition (Knopf ☰): oben rechts an der Tabelle
   const spaltenAuf = (e?: MouseEvent) => { const r = kasten.getBoundingClientRect(); setSpaltenFeld(e ? { x: e.clientX, y: e.clientY } : { x: r.right - 250, y: r.top + 8 }); };
   const [rollen, setRollen] = createSignal({ oben: 0, hoehe: 600 });
+  const [platz, setPlatz] = createSignal(0);   // Breite, die die Tabelle hat – kein waagerechtes Rollen in der Standardbreite
   const istGewaehlt = createSelector(() => p.gewaehlt);
   const [inArbeit, setInArbeit] = createSignal<{ id: string; feld: string; fehler?: string; start?: string } | null>(null);
   const [zelle, setZelle] = createSignal<{ id: string; feld: string } | null>(null);   // zuletzt angeklickte Zelle – Tippen schreibt hinein
@@ -63,7 +64,11 @@ export function Tabelle(p: {
     const bis = Math.min(sortiert().length, Math.ceil((rollen().oben + rollen().hoehe) / ZEILENHOEHE) + 8);
     return { von, bis, teil: sortiert().slice(von, bis) };
   });
-  const breite = createMemo(() => spalten.sichtbare().reduce((s, f) => s + spalten.breite(f), 0));
+  const summe = createMemo(() => spalten.sichtbare().reduce((s, f) => s + spalten.breite(f), 0));
+  // Passen die Spalten nicht hinein, werden alle im selben Verhältnis schmaler (wie im bisherigen Bauportal)
+  const faktor = () => (platz() && summe() > platz() ? platz() / summe() : 1);
+  const breite = () => summe() * faktor();
+  const spaltenbreite = (f: Feld) => spalten.breite(f) * faktor();
 
   const waehle = (z: Zeile | undefined) => {
     if (!z) return;
@@ -73,7 +78,7 @@ export function Tabelle(p: {
     else if (oben + ZEILENHOEHE + kopf > kasten.scrollTop + kasten.clientHeight) kasten.scrollTop = oben + ZEILENHOEHE + kopf - kasten.clientHeight;
   };
   onMount(() => {
-    const b = new ResizeObserver(() => setRollen((r) => ({ ...r, hoehe: kasten.clientHeight })));
+    const b = new ResizeObserver(() => { setRollen((r) => ({ ...r, hoehe: kasten.clientHeight })); setPlatz(kasten.clientWidth); });
     b.observe(kasten);
     onCleanup(() => b.disconnect());
     p.steuer?.({
@@ -126,9 +131,11 @@ export function Tabelle(p: {
   let gezogen = '';
   const breiteZiehen = (e: PointerEvent, f: Feld) => {
     e.preventDefault(); e.stopPropagation();
-    const start = e.clientX, b0 = spalten.breite(f);
-    const bewegt = (x: PointerEvent) => spalten.setzeBreite(f.name, b0 + x.clientX - start, false);
-    const fertig = (x: PointerEvent) => { spalten.setzeBreite(f.name, b0 + x.clientX - start, true); removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig); };
+    const start = e.clientX, b0 = spalten.breite(f), sichtbar0 = spaltenbreite(f), rest = summe() - b0;
+    // Die Kante folgt der Maus: sind die Spalten zusammengeschoben, wird die gemerkte Breite so gewählt, dass sie danach sichtbar so breit ist
+    const ziel = (x: PointerEvent) => { const v = Math.max(30, sichtbar0 + x.clientX - start); return !platz() || rest + v <= platz() ? v : v >= platz() - 30 ? b0 : (v * rest) / (platz() - v); };
+    const bewegt = (x: PointerEvent) => spalten.setzeBreite(f.name, ziel(x), false);
+    const fertig = (x: PointerEvent) => { spalten.setzeBreite(f.name, ziel(x), true); removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig); };
     addEventListener('pointermove', bewegt); addEventListener('pointerup', fertig);
   };
 
@@ -136,7 +143,7 @@ export function Tabelle(p: {
     <>
       <div class="tabelle-rollen" tabindex="0" ref={kasten} onKeyDown={tasten} onScroll={() => setRollen({ oben: kasten.scrollTop, hoehe: kasten.clientHeight })}>
         <table class="tabelle" style={{ width: `${breite()}px` }}>
-          <colgroup><For each={spalten.sichtbare()}>{(f) => <col style={{ width: `${spalten.breite(f)}px` }} />}</For></colgroup>
+          <colgroup><For each={spalten.sichtbare()}>{(f) => <col style={{ width: `${spaltenbreite(f)}px` }} />}</For></colgroup>
           <thead><tr onContextMenu={(e) => { e.preventDefault(); spaltenAuf(e); }}>
             <For each={spalten.sichtbare()}>{(f) => (
               <th aria-sort={sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} draggable={true}

@@ -102,6 +102,7 @@ export function Balkenplan(p: Mitte) {
   };
   // Befehle des Balkenplans in der Menüleiste (Band) – wie im bisherigen Bauportal
   const PFEILE = [{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }] as const;
+  p.setNeu(() => neuDarunter());
   createEffect(() => p.setKnoepfe([
     ...(schreiben() ? [{ titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
@@ -253,10 +254,11 @@ export function Balkenplan(p: Mitte) {
     return true;
   };
   const tun = (b: Vorlage[], titel: string) => { if (b.length) ausfuehrenMehrere(b, titel); };
-  const neuDavor = () => {
+  // Neue Leistung: wie üblich unterhalb der markierten (ohne Markierung am Ende)
+  const neuDarunter = (werte: Record<string, Wert> = {}, unter = markiert()) => {
     if (!schreiben()) return;
-    const id = markiert(), i = id ? vorgaenge().findIndex((v) => v.id === id) : vorgaenge().length;
-    const r = einfuegen(V_(), L_(), i < 0 ? vorgaenge().length : i, { name: 'Neue Leistung' }, zu(), neueKennung, autom());
+    const i = unter ? vorgaenge().findIndex((v) => v.id === unter) + 1 : 0;
+    const r = einfuegen(V_(), L_(), i <= 0 ? vorgaenge().length : i, { name: 'Neue Leistung', ...werte }, zu(), neueKennung, autom());
     tun(r.befehle, 'Leistung einfügen');
     setMarkiert(r.id);
     queueMicrotask(() => bearbeiten(r.id, 'name'));
@@ -284,7 +286,7 @@ export function Balkenplan(p: Mitte) {
     else if (k === 'ArrowLeft' || (k === 'Tab' && e.shiftKey)) { e.preventDefault(); setSpalte(spalten()[Math.max(0, c - 1)]!.id); }
     else if (k === 'Home') { e.preventDefault(); waehle(0); }
     else if (k === 'End') { e.preventDefault(); waehle(sichtbar().length - 1); }
-    else if (k === 'Insert') { e.preventDefault(); neuDavor(); }
+    else if (k === 'Insert') { e.preventDefault(); neuDarunter(); }
     else if (k === 'Delete' && id) { e.preventDefault(); entfernen(); }
     else if ((k === 'Enter' || k === 'F2') && id) { e.preventDefault(); if (e.shiftKey || spalte() === 'nr') oeffnen(); else bearbeiten(id, spalte()); }
     else if (k === ' ' && id && erg().termine.get(id)?.gruppe && spalte() === 'name') { e.preventDefault(); umschalten(id); }
@@ -306,7 +308,7 @@ export function Balkenplan(p: Mitte) {
   };
 
   // ---------- Balken mit der Maus ----------
-  const [ziehen, setZiehen] = createSignal<{ id: string; art: 'schieben' | 'dauer' | 'link'; x0: number; dx: number; y: number; yMaus: number } | null>(null);
+  const [ziehen, setZiehen] = createSignal<{ id: string; art: 'schieben' | 'dauer' | 'link' | 'neu'; x0: number; dx: number; y: number; yMaus: number; xs?: number } | null>(null);
   const tageAus = (dx: number) => Math.round(dx / px());
   const startZiehen = (e: PointerEvent, v: Zeile, art: 'schieben' | 'dauer' | 'link', y: number) => {
     if (e.button !== 0) return;
@@ -316,12 +318,28 @@ export function Balkenplan(p: Mitte) {
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     setZiehen({ id: v.id, art, x0: e.clientX, dx: 0, y, yMaus: y });
   };
+  // Auf freier Fläche ziehen: neue Leistung vom ersten bis zum letzten überstrichenen Tag – unter der Zeile, in der gezogen wird
+  const aufziehen = (e: PointerEvent) => {
+    if (e.button !== 0 || !schreiben() || (e.target as Element).closest('.bzp-balken-teil, .bzp-meilenstein, .bzp-griff, .bzp-punkt')) return;
+    const r = (e.currentTarget as SVGElement).getBoundingClientRect();
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    setZiehen({ id: '', art: 'neu', x0: e.clientX, dx: 0, y: Math.floor((e.clientY - r.top) / H) * H, yMaus: e.clientY - r.top, xs: e.clientX - r.left });
+  };
+  const aufgezogen = (g: { x0: number; dx: number; y: number; xs?: number }) => {
+    const a = Math.min(g.xs!, g.xs! + g.dx), b = Math.max(g.xs!, g.xs! + g.dx);
+    return { t0: achse().t0 + Math.floor(a / px()), t1: achse().t0 + Math.floor(b / px()) };
+  };
   const svgY = (e: PointerEvent) => e.clientY - (flaeche.querySelector('.bzp-balken') as SVGElement).getBoundingClientRect().top;
   const bewegen = (e: PointerEvent) => { const g = ziehen(); if (g) setZiehen({ ...g, dx: e.clientX - g.x0, yMaus: svgY(e) }); };
   const loslassen = (e: PointerEvent) => {
     const g = ziehen();
     setZiehen(null);
     if (!g) return;
+    if (g.art === 'neu') {
+      if (Math.abs(g.dx) < px()) return;   // nur geklickt
+      const k = kal(), { t0, t1 } = aufgezogen(g), w0 = k.arbeitstag(t0), w1 = k.arbeitstag(t1 + 1);
+      return neuDarunter({ anfang_nicht_vor: isoAus(k.tag(w0)), dauer: Math.max(1, w1 - w0) }, sichtbar()[g.y / H]?.id ?? vorgaenge()[vorgaenge().length - 1]?.id);
+    }
     const v = vorgaenge().find((x) => x.id === g.id), t = erg().termine.get(g.id);
     if (!v || !t) return;
     const k = kal(), name = String(v.werte.name ?? '');
@@ -374,7 +392,7 @@ export function Balkenplan(p: Mitte) {
     zeigeMenue(e, [
       { titel: 'Informationen …', tun: () => oeffnen(v.id) },
       ...(schreiben() ? [
-        { titel: 'Leistung darüber einfügen', tun: neuDavor },
+        { titel: 'Leistung darunter einfügen', tun: () => neuDarunter() },
         { titel: 'Hier unterbrechen …', gesperrt: erg().termine.get(v.id)!.gruppe || Number(v.werte.dauer ?? 0) < 2, tun: () => unterbrechen(e, v) },
         { titel: 'Anfang wieder automatisch', gesperrt: !v.werte.anfang_nicht_vor, tun: () => ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { anfang_nicht_vor: null } }, 'Anfang wieder automatisch') },
       ] : []),
@@ -451,7 +469,7 @@ export function Balkenplan(p: Mitte) {
             </svg>
           </div>
           <svg class="bzp-balken" width={breiteR()} height={(sichtbar().length + 1) * H} style={{ left: `${breiteL()}px`, top: `${KOPF}px` }}
-            onPointerMove={bewegen} onPointerUp={loslassen}>
+            onPointerDown={aufziehen} onPointerMove={bewegen} onPointerUp={loslassen}>
             <For each={freieTage()}>{(f) => <rect x={f.x} y={0} width={px()} height="100%" class={f.feiertag ? 'bzp-feiertag' : 'bzp-wochenende'}>{f.feiertag ? <title>{f.feiertag}</title> : null}</rect>}</For>
             <For each={sichtbar()}>{(v, i) => <rect x={0} y={i() * H} width="100%" height={H} class="bzp-streifen" classList={{ gewaehlt: v.id === markiert() }} />}</For>
             <line x1={heute()} x2={heute()} y1={0} y2="100%" class="bzp-heute" />
@@ -493,6 +511,7 @@ export function Balkenplan(p: Mitte) {
             <For each={pfeilListe()}>{(a) => <g class="bzp-pfeil" classList={{ kritisch: kritisch() && a.kritisch }} onContextMenu={(e) => linkMenue(e, a.id)}>
               <path d={a.d} /><path d={a.links ? `M${a.x2},${a.yb} l-6,-4 v8 z` : `M${a.x2},${a.yb} l6,-4 v8 z`} class="bzp-spitze" />
             </g>}</For>
+            <Show when={ziehen()?.art === 'neu' && Math.abs(ziehen()!.dx) >= px()}>{(_) => { const f = aufgezogen(ziehen()!); return <rect x={(f.t0 - achse().t0) * px()} y={ziehen()!.y + 5} width={(f.t1 - f.t0 + 1) * px()} height={H - 10} rx={3} class="bzp-aufziehen" />; }}</Show>
             <Show when={ziehen()?.art === 'link'}>{(_) => { const g = ziehen()!; const t = erg().termine.get(g.id)!; return <line x1={xEnde(t.s, t.f) + 9} y1={g.y + H / 2} x2={xEnde(t.s, t.f) + 9 + g.dx} y2={g.yMaus} class="bzp-zieh" />; }}</Show>
           </svg>
           <div class="bzp-zeilen" style={{ top: `${KOPF}px` }}>

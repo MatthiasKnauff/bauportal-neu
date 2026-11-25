@@ -2,7 +2,7 @@
 // Daraus entstehen die Tabelle in der Datenbank, die Prüfung der Eingaben,
 // die Befehle und die Masken und Tabellen der Oberfläche.
 
-export type FeldArt = 'text' | 'langtext' | 'auswahl' | 'email' | 'telefon' | 'zahl' | 'ja_nein' | 'verweis' | 'datum' | 'mehrfach';
+export type FeldArt = 'text' | 'langtext' | 'auswahl' | 'email' | 'telefon' | 'zahl' | 'ja_nein' | 'verweis' | 'datum' | 'mehrfach' | 'schlagworte';
 export type Wert = string | number | boolean | null;
 export type Werte = Record<string, Wert>;
 
@@ -31,6 +31,8 @@ export interface ObjektModell {
   anzeigeFeld: string;     // Feld, mit dem ein Objekt benannt wird
   /** Benennt das Objekt, solange das Anzeigefeld leer ist (z. B. Nr. und Datum beim Tagesbericht ohne Kurzbeschreibung). */
   ersatzName?: string[];
+  /** Abschnitte der Karte, die zunächst zugeklappt sind (z. B. „Firma / Rechnung“ bei Adressen). */
+  eingeklappt?: string[];
   felder: Feld[];
   /** Wer darf was – Vorgabe ab Werk. Das Büro kann sie in der Verwaltung ändern. Administrator:innen dürfen immer alles. */
   rechte: Record<Rechtart, string[]>;
@@ -108,6 +110,12 @@ function pruefeFeld(f: Feld, roh: unknown): Wert {
       const teile = (roh ?? '').split(',').filter(Boolean);
       if (teile.some((w) => !f.optionen!.some((o) => o.wert === w))) throw new Error('Bitte Einträge aus der Liste wählen');
       return f.optionen!.filter((o) => teile.includes(o.wert)).map((o) => o.wert).join(',');
+    }
+    case 'schlagworte': {   // freie Stichwörter, gespeichert als „a, b“ – ohne Doppelte (Groß/klein gleich)
+      if (roh !== null && roh !== undefined && typeof roh !== 'string') throw new Error('Text erwartet');
+      const aus: string[] = [];
+      for (const x of (roh ?? '').replace(/;/g, ',').split(',')) { const t = x.replace(/\s+/g, ' ').trim(); if (t && !aus.some((y) => y.toLowerCase() === t.toLowerCase())) aus.push(t); }
+      const s = aus.join(', '); if (s.length > 2000) throw new Error('Höchstens 2000 Zeichen'); return s;
     }
     case 'auswahl': {
       const w = String(roh ?? '');
