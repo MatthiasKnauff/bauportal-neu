@@ -10,6 +10,8 @@ import { darf } from './unterbau/api';
 import type { Anpassung } from './baukasten/anpassung';
 import type { Knopf } from './baukasten/menueleiste';
 import { Baum, type Knoten } from './baukasten/baum';
+import { Seitenliste, type SeitenAbschnitt } from './baukasten/seitenliste';
+import type { LinksFilter } from '../kern/modul';
 import { Schwebefenster } from './baukasten/schwebefenster';
 import { Detailkarte, NeuFenster, inEigenemFenster, loesche, feldAendern } from './baukasten/detailkarte';
 import { anzeige } from './baukasten/feld';
@@ -22,6 +24,7 @@ const TRENNER = '\u0001';
 
 export function ObjektAnsicht(p: {
   schluessel: string; modell: ObjektModell; baum?: string[]; anpassung?: Anpassung;
+  linksFilter?: LinksFilter[];   // links Filter in Abschnitten statt des Baums
   fest?: () => Werte;            // Zusammenhang: nur Einträge mit diesen Werten (Projekt, Version); neue bekommen sie
   unterMenue?: JSX.Element;      // z. B. die Versionsleiste
 }) {
@@ -32,6 +35,7 @@ export function ObjektAnsicht(p: {
   const [filter, setFilter] = createSignal<Record<string, string>>({});   // Filterzeile der Tabelle: Text je Spalte
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
+  const [linksWahl, setLinksWahl] = createSignal('');   // gewählter Filter links: „feld=wert“ ('' = alle)
   const [neu, setNeu] = createSignal<Werte | null>(null);
   const [mitteKnoepfe, setMitteKnoepfe] = createSignal<Knopf[]>([]);   // Befehle einer eigenen Mitte
   const [reihe, setReihe] = createSignal<string[] | null>(null);   // Reihenfolge, die Tabelle oder eigene Mitte (Balkenplan) gerade zeigen
@@ -65,8 +69,24 @@ export function ObjektAnsicht(p: {
     };
     return [{ id: '', titel: `Alle ${m.titelMehrzahl}`, anzahl: lebend().length, kinder: ebene(lebend(), 0, '') }];
   });
+  // Filter links in Abschnitten: je Wert die Anzahl der Einträge
+  const linksAbschnitte = createMemo((): SeitenAbschnitt[] => (p.linksFilter ?? []).map((lf, nr) => {
+    const f = m.felder.find((x) => x.name === lf.feld)!;
+    const passt = (z: Zeile) => Object.entries(lf.nur ?? {}).every(([k, ws]) => ws.includes(String(roh(z).werte[k] ?? '')));
+    const zahl = new Map<string, number>();
+    for (const z of lebend()) if (passt(z)) { const w = String(roh(z).werte[lf.feld] ?? ''); zahl.set(w, (zahl.get(w) ?? 0) + 1); }
+    const werte = f.art === 'auswahl' ? f.optionen!.map((o) => o.wert).filter((w) => w !== '') : [...zahl.keys()].filter((w) => w !== '').sort((x, y) => vergleich.compare(x, y));
+    return { titel: lf.titel, suche: lf.suche, eintraege: [
+      ...(lf.alle !== undefined ? [{ id: '', titel: lf.alle, anzahl: lebend().length, zeichen: 'personen' }] : []),
+      ...werte.map((w) => ({ id: `${nr}:${w}`, titel: lf.mehrzahl?.[w] ?? (anzeige(f, w) || w), anzahl: zahl.get(w) ?? 0, zeichen: lf.zeichen?.[w] ?? (f.art === 'auswahl' ? undefined : 'liste') })),
+    ] };
+  }));
   const zeilen = createMemo(() => {
     let l = lebend();
+    if (linksWahl()) {   // „Abschnitt:Wert“
+      const k = linksWahl().indexOf(':'), lf = p.linksFilter![Number(linksWahl().slice(0, k))]!, wert = linksWahl().slice(k + 1);
+      l = l.filter((z) => String(roh(z).werte[lf.feld] ?? '') === wert && Object.entries(lf.nur ?? {}).every(([f, ws]) => ws.includes(String(roh(z).werte[f] ?? ''))));
+    }
     if (ast()) { const soll = ast().slice(2); const tiefe = soll.split(TRENNER).length; l = l.filter((z) => pfad(z, tiefe) === soll); }
     const worte = suche().toLowerCase().split(/\s+/).filter(Boolean);
     if (worte.length) l = l.filter((z) => { const t = suchtext(z).toLowerCase(); return worte.every((w) => t.includes(w)); });
@@ -121,9 +141,10 @@ export function ObjektAnsicht(p: {
             onKeyDown={(e) => { if ((e.key === 'ArrowDown' || e.key === 'Enter') && tabelle && !kacheln()) { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />
           <span class="zaehler">{zeilen().length === lebend().length ? `${lebend().length} ${lebend().length === 1 ? m.titel : m.titelMehrzahl}` : `${zeilen().length} von ${lebend().length}`}</span>
         </>}
-        unterMenue={<>{p.unterMenue}{a.oben?.(fest())}</>}
+        unterMenue={<>{p.unterMenue}{a.oben?.(fest())}
+          <Show when={!a.mitte && !kacheln() && darf(m.name, 'schreiben')}><p class="ansicht-hinweis nur-breit">Zelle anklicken und tippen – gespeichert wird beim Verlassen des Feldes · Doppelklick: im eigenen Fenster öffnen</p></Show></>}
         baumTitel={a.linksTitel ?? 'Gliederung'}
-        baum={a.links ? a.links(mitteP) : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
+        baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksWahl()} onWahl={(id) => setLinksWahl(id === linksWahl() ? '' : id)} /> : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
         inhalt={a.mitte ? a.mitte(mitteP) : kacheln() && a.kachel ?
           <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
@@ -141,7 +162,7 @@ export function ObjektAnsicht(p: {
         }
         detailsTitel={(karte() && objektname(m, karte()!.werte)) || m.titel}
         detailsHinweis={a.detailsHinweis ?? `${a.mitte ? 'Einen Eintrag' : 'Eine Zeile'} anklicken – hier stehen dann alle Angaben, direkt änderbar.`}
-        details={karte() ? (a.details ? a.details(karte()!) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} zusatz={a.kartenZusatz} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
+        details={karte() ? (a.details ? a.details(karte()!) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} heftzwecke={rahmen.heftzweckeRechts()} zusatz={a.kartenZusatz} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
       <Show when={schwebZeile()}>{(z) => <Schwebefenster titel={objektname(m, z().werte) || m.titel} onZu={() => { setSchwebend(null); tabelle?.fokus(); }}>
         <Detailkarte modell={m} zeile={z()} onZu={() => setSchwebend(null)} zusatz={a.kartenZusatz} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />
       </Schwebefenster>}</Show>

@@ -66,7 +66,7 @@ jobs:
           pip install -q -r dienste/kidienst/requirements.txt
           cd dienste/kidienst && python test_dienst.py
 
-      - name: Geschwindigkeit im Browser (Klick unter 50 ms)
+      - name: Geschwindigkeit im Browser (Klick unter 50 ms) und unter Last (100 Benutzer)
         env:
           DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
           PORT: 8000
@@ -76,6 +76,7 @@ jobs:
           node dist/server.mjs &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health >/dev/null && break; sleep 1; done
           node tests/ui/klick.mjs
+          node tests/ui/last.mjs
 
       - name: Ziel und Version bestimmen
         id: meta

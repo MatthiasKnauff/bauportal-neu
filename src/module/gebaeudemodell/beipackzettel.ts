@@ -69,6 +69,23 @@ export const gebaeude: ObjektModell = {
   ],
 };
 
+// Gebäudeteile (Bestand und Anbau, Aufstockung …): Das Gebäude ist der erste Teil. Ein weiterer Teil nennt nur, was bei
+// ihm anders ist – leer heißt „wie das Hauptgebäude“ (Entscheidung 25.11.2026: eigene Einträge, erben vom ersten Teil).
+const JE_TEIL = ['geschosszahl', 'wohnflaeche', 'dach_oben', 'keller', 'tragwerk', 'dachform', 'dachdeckung', 'fassade', 'fenster', 'lueftung', 'waermeverteilung', 'estrich', 'innenausbau', 'bodenbelag'];
+export const gebaeudeteil: ObjektModell = {
+  ...basis, name: 'gebaeudeteil', titel: 'Gebäudeteil', titelMehrzahl: 'Gebäudeteile', anzeigeFeld: 'name',
+  felder: [
+    ...zusammenhang,
+    { name: 'gebaeude', titel: 'Gebäude', art: 'verweis', ziel: 'gebaeude', pflicht: true, verborgen: true },
+    { name: 'name', titel: 'Bezeichnung, z. B. Anbau', art: 'text', pflicht: true, gruppe: 'Gebäudeteil' },
+    { name: 'lage', titel: 'Art', art: 'auswahl', gruppe: 'Gebäudeteil', optionen: wahl(['anbau', 'Anbau (neu)'], ['aufstockung', 'Aufstockung (neu, auf dem Bestand)'], ['neu', 'eigenes neues Gebäude'], ['bestand', 'Bestand']) },
+    ...gebaeude.felder.filter((f) => JE_TEIL.includes(f.name)).map((f): Feld => ({ ...f, inListe: false, wenn: undefined,
+      titel: f.art === 'zahl' ? `${f.titel} (leer: wie das Hauptgebäude)` : f.titel,
+      ...(f.optionen ? { optionen: f.optionen.map((o) => (o.wert === '' ? { wert: '', titel: 'wie das Hauptgebäude' } : o)) } : {}) })),
+    { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
+  ],
+};
+
 export const geschoss: ObjektModell = {
   ...basis, name: 'geschoss', titel: 'Geschoss', titelMehrzahl: 'Geschosse', anzeigeFeld: 'name',
   felder: [
@@ -171,11 +188,12 @@ export const bauteil: ObjektModell = {
 
 export const gebaeudemodell: Beipackzettel = {
   id: 'gebaeudemodell',
+  zeichen: 'gebaeude',
   name: 'Gebäudemodell',
   version: '0.1.0',
   beschreibung: 'Der Kern: Gebäude, Geschosse, Räume und Bauteile eines Projekts – mit Herkunft je Wert, in Versionen.',
   braucht: ['projekte', 'kataloge'],
-  objekte: [gebaeude, geschoss, raum, aufbau, aufbauSchicht, bauteil],
+  objekte: [gebaeude, gebaeudeteil, geschoss, raum, aufbau, aufbauSchicht, bauteil],
   ansichten: [
     { id: 'bauteile', titel: 'Bauteile', abschnitt: 'Modell', zeichen: 'bausteine', objekt: 'bauteil', baum: ['art', 'geschoss'], brauchtProjekt: true },
     { id: 'kosten', titel: 'nach Kostengruppen', abschnitt: 'Modell', zeichen: 'liste_aufgaben', objekt: 'bauteil', baum: ['kostengruppe'], brauchtProjekt: true },

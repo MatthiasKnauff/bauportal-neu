@@ -2,7 +2,7 @@
 // Wer ein Symbol braucht, nimmt es hier; neue kommen in die Liste unten. Gezeichnet in der Textfarbe (currentColor).
 import type { JSX } from 'solid-js';
 import {
-  ArrowRightLeft, Blocks, BookOpen, BookUser, Building2, Calendar, CalendarClock, CalendarPlus, Camera, ChartGantt, Check, ChevronDown, ChevronLeft,
+  ArrowRightLeft, Database, IndentIncrease, IndentDecrease, ArrowUp, ArrowDown, Blocks, BookOpen, BookUser, Building2, Calendar, CalendarClock, CalendarPlus, Camera, ChartGantt, Check, ChevronDown, ChevronLeft,
   ChevronRight, CircleCheck, CircleHelp, ClipboardCheck, ClipboardList, Cloud, Columns3, Contact, Copy, Diamond, Download, ExternalLink, Eye,
   FileDown, FileText, FileUp, Flag, Folder, FolderKanban, GitBranch, Grid3x3, History, House, ImagePlus, Info, KeyRound, LayoutGrid, Library,
   List, ListPlus, ListTree, Mail, MapPin, Merge, Mic, NotebookPen, NotebookText, PanelLeft, PanelRightClose, Paintbrush, Pencil, Plus, Printer,
@@ -24,7 +24,7 @@ const ZEICHEN = {
   assistent: Sparkles, standort: MapPin, wetter: Cloud, diktieren: Mic, schrittweise: Send, foto: Camera, foto_neu: ImagePlus,
   bericht_neu: CalendarPlus, bericht: NotebookText, notiz: StickyNote, notiz_neu: NotebookPen, mangel: TriangleAlert, aufgabe: ClipboardCheck,
   weisung: Flag, personen: Users, person_neu: UserPlus, kontakt: Contact, adressen: BookUser, projekte: FolderKanban, dateien: Folder,
-  gebaeude: Building2, katalog: BookOpen, kataloge: Library, version: GitBranch, meilenstein: Diamond, gruppe_neu: ListPlus, plan: ChartGantt,
+  gebaeude: Building2, katalog: BookOpen, kataloge: Library, baudaten: Database, einruecken: IndentIncrease, ausruecken: IndentDecrease, nach_oben: ArrowUp, nach_unten: ArrowDown, version: GitBranch, meilenstein: Diamond, gruppe_neu: ListPlus, plan: ChartGantt,
   anheften: Pin, loesen: PinOff, ablauf: Workflow, kritisch: Route, pfeile: Spline, groesser: ZoomIn, kleiner: ZoomOut, bausteine: Blocks, pruefung: ShieldCheck, liste_aufgaben: ClipboardList, start: House,
 } satisfies Record<string, IconNode>;
 export type Zeichenname = keyof typeof ZEICHEN;
@@ -39,5 +39,17 @@ export function Zeichen(p: { name: Zeichenname; groesse?: number; class?: string
     <svg class={`zeichen ${p.class ?? ''}`} width={p.groesse ?? 18} height={p.groesse ?? 18} viewBox="0 0 24 24" fill="none" stroke="currentColor"
       stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden={p.titel ? undefined : 'true'} role={p.titel ? 'img' : undefined}
       aria-label={p.titel} innerHTML={innen(p.name)} />
+  );
+}
+
+// Symbol einer App: farbiges Feld mit Zeichen – Startseite und Apps-Menü zeigen dasselbe (wie im bisherigen Bauportal)
+const APPFARBEN = ['#2563eb', '#16a34a', '#7c3aed', '#ea580c', '#dc2626', '#0d9488', '#ca8a04', '#db2777', '#4f46e5', '#65a30d'];
+export function appFarbe(id: string): string { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return APPFARBEN[h % APPFARBEN.length]!; }
+export function AppSymbol(p: { id: string; zeichen?: string; groesse?: number }) {
+  const f = () => appFarbe(p.id);
+  return (
+    <span class="app-symbol" style={{ color: f(), background: `color-mix(in srgb, ${f()} 13%, var(--flaeche))` }} aria-hidden="true">
+      {p.zeichen && istZeichen(p.zeichen) ? <Zeichen name={p.zeichen} groesse={p.groesse ?? 20} /> : null}
+    </span>
   );
 }

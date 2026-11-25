@@ -74,10 +74,19 @@ export const kontaktweg: ObjektModell = {
 
 export const adressen: Beipackzettel = {
   id: 'adressen',
+  zeichen: 'adressen',
   name: 'Adressen',
   version: '0.1.0',
   beschreibung: 'Firmen, Personen und Behörden – eine Liste für alle Module.',
   braucht: [],
   objekte: [kontakt, kontaktweg],
-  ansichten: [{ id: 'kontakte', titel: 'Kontakte', abschnitt: 'Kontakte', zeichen: 'adressen', objekt: 'kontakt', baum: ['art', 'gewerk'] }],
+  ansichten: [{ id: 'kontakte', titel: 'Kontakte', abschnitt: 'Kontakte', zeichen: 'adressen', objekt: 'kontakt',
+    // links wie im bisherigen Bauportal: Kontakte nach Art, Gewerke (mit Suche), Ämter der Behörden – je mit Anzahl
+    linksFilter: [
+      { feld: 'art', titel: 'Kontakte', alle: 'Alle',
+        mehrzahl: { firma: 'Firmen', bauherr: 'Bauherr:innen', person: 'Personen', behoerde: 'Behörden', baustelle: 'Baustellen', plotdienst: 'Plotdienste' },
+        zeichen: { firma: 'gebaeude', bauherr: 'start', person: 'kontakt', behoerde: 'pruefung', baustelle: 'standort', plotdienst: 'drucken' } },
+      { feld: 'gewerk', titel: 'Gewerke', suche: true, nur: { art: ['firma', 'plotdienst', 'person', 'bauherr'] } },
+      { feld: 'gewerk', titel: 'Ämter der Behörden', nur: { art: ['behoerde'] } },
+    ] }],
 };

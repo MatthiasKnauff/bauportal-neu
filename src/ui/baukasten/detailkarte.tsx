@@ -46,7 +46,8 @@ export function inEigenemFenster(m: ObjektModell, id: string): void {
 
 export function Detailkarte(p: {
   modell: ObjektModell; zeile: Zeile;
-  onZu?: () => void; onZuklappen?: () => void;
+  onZu?: () => void;
+  heftzwecke?: JSX.Element;   // Heftzwecke der Seitenleiste (vom Rahmen) – mit ihr auch „In eigenem Fenster“
   zusatz?: (z: Zeile) => JSX.Element;
   reiter?: (z: Zeile) => { titel: string; inhalt: () => JSX.Element }[];   // weitere Reiter neben den Angaben (z. B. Projekte eines Kontakts)
   symbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
@@ -64,9 +65,9 @@ export function Detailkarte(p: {
       <div class="karte-kopf">
         <Show when={p.onZu}><button class="knopf still nur-schmal" onClick={p.onZu}>‹ Liste</button></Show>
         <h2>{titel() || p.modell.titel}</h2>
-        <Show when={p.onZuklappen}>
+        <Show when={p.heftzwecke}>
           <button class="knopf still nur-breit" aria-label="In eigenem Fenster öffnen" title="In eigenem Fenster öffnen" onClick={() => inEigenemFenster(p.modell, p.zeile.id)}>{p.symbole?.fenster ?? '⧉'}</button>
-          <button class="heftzwecke nur-breit" aria-label="Lösen – blendet sich aus" title="Lösen – blendet sich aus und erscheint, wenn die Maus an den Rand kommt" onClick={p.onZuklappen}>{p.symbole?.zuklappen ?? <Zeichen name="anheften" groesse={15} />}</button>
+          <span class="nur-breit-flex">{p.heftzwecke}</span>
         </Show>
         <Show when={p.onZu}><button class="knopf still nur-breit" aria-label="Karte schließen" title="Schließen (Esc)" onClick={p.onZu}>{p.symbole?.schliessen ?? '×'}</button></Show>
       </div>

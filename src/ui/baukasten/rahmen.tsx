@@ -3,14 +3,15 @@
 // Die App setzt fertige Bausteine auf die Plätze. Ein leerer Platz fehlt einfach; wer zugeklappt ist,
 // gibt seinen Platz an die Mitte ab. Am Handy stehen die Plätze nacheinander statt nebeneinander.
 import { For, Show, createContext, createSignal, useContext, type JSX } from 'solid-js';
-import { Zeichen, istZeichen } from './zeichen';
+import { Zeichen } from './zeichen';
+import { Seitenliste, type SeitenAbschnitt } from './seitenliste';
 import { Abfolgeleiste, type Schritt } from './abfolgeleiste';
 import { Menueleiste, type Knopf, type Reiter, type Rueckgaengig } from './menueleiste';
 
 /** Was das Portal jeder Ansicht mitgibt: die Reiter der App und Rückgängig/Wiederholen. */
 export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => string; onReiter: (id: string) => void; rueckgaengig: Rueckgaengig }>();
 
-export interface RahmenSteuer { detailsZeigen: () => void; detailsZuklappen: () => void }
+export interface RahmenSteuer { detailsZeigen: () => void; detailsZuklappen: () => void; heftzweckeRechts: () => JSX.Element }   // die eine Heftzwecke der rechten Seite – auch im Kopf der Karte
 
 const LINKS = 230, RECHTS = 400;   // Breiten ab Werk
 
@@ -36,23 +37,10 @@ function Griff(p: { titel: string; wert: number; min: number; max: number; werk:
   );
 }
 
-const FARBEN = ['#e8f0fd', '#e6f4ea', '#f1ebfa', '#fdf0e2', '#fde8e8', '#e7f6f6', '#fbf3dc'];
-/** Links oben: die Ansichten der App in Abschnitten, mit farbigem Symbol – wie im bisherigen Bauportal. */
+/** Links oben: die Ansichten der App in Abschnitten, mit farbigem Symbol – Baustein Seitenliste. */
 function Ansichtsliste(p: { reiter: Reiter[]; aktiv: string; onWahl: (id: string) => void }) {
-  const abschnitte = () => { const l: { titel: string; reiter: Reiter[] }[] = []; for (const r of p.reiter) { const t = r.abschnitt ?? ''; const x = l.find((a) => a.titel === t); if (x) x.reiter.push(r); else l.push({ titel: t, reiter: [r] }); } return l; };
-  return (
-    <nav class="ansichten-nav" aria-label="Ansichten" role="tablist" aria-orientation="vertical">
-      <For each={abschnitte()}>{(a) => (<>
-        <Show when={a.titel}><h3>{a.titel}</h3></Show>
-        <For each={a.reiter}>{(r) => (
-          <button type="button" role="tab" aria-selected={r.id === p.aktiv} classList={{ aktiv: r.id === p.aktiv }} onClick={(e) => { e.stopPropagation(); p.onWahl(r.id); }}>
-            <span class="ansichten-zeichen" style={{ background: FARBEN[p.reiter.indexOf(r) % FARBEN.length] }}>{r.zeichen && istZeichen(r.zeichen) ? <Zeichen name={r.zeichen} groesse={17} /> : r.titel.slice(0, 1)}</span>
-            {r.titel}
-          </button>
-        )}</For>
-      </>)}</For>
-    </nav>
-  );
+  const abschnitte = (): SeitenAbschnitt[] => { const l: SeitenAbschnitt[] = []; for (const r of p.reiter) { const t = r.abschnitt ?? ''; const e = { id: r.id, titel: r.titel, zeichen: r.zeichen }; const x = l.find((a) => a.titel === t); if (x) x.eintraege.push(e); else l.push({ titel: t, eintraege: [e] }); } return l; };
+  return <Seitenliste name="Ansichten" abschnitte={abschnitte()} aktiv={p.aktiv} onWahl={p.onWahl} />;
 }
 
 export function Rahmen(p: {
@@ -68,7 +56,8 @@ export function Rahmen(p: {
 }) {
   const app = useContext(AppUmgebung);
   const ansichten = () => app?.reiter() ?? [];
-  const merk = (seite: string) => `bp_rahmen_${p.schluessel}_${seite}`;
+  // Die Heftzwecke gilt für die ganze Seitenleiste – in allen Ansichten und Apps gleich, nicht je Reiter
+  const merk = (seite: string) => `bp_rahmen_${seite}`;
   const lies = (seite: string) => { try { return localStorage.getItem(merk(seite)) === 'zu'; } catch { return false; } };
   const [linksZu, setLinksZuRoh] = createSignal(lies('links'));
   const [rechtsZu, setRechtsZuRoh] = createSignal(lies('rechts'));
@@ -78,11 +67,11 @@ export function Rahmen(p: {
   // Heftzwecke wie im bisherigen Bauportal: „zu“ heißt gelöst – dann blendet sich die Seite aus und gleitet bei Bedarf über den Inhalt
   const [linksSchwebt, setLinksSchwebt] = createSignal(false), [rechtsSchwebt, setRechtsSchwebt] = createSignal(false);
   // Breite links und rechts: am Griff ⋮ zwischen den Plätzen ziehen (Doppelklick: wie ab Werk) – gemerkt je Ansicht
-  const zahl = (seite: string, d: number) => { try { return Number(localStorage.getItem(merk(`breite_${seite}`))) || d; } catch { return d; } };
+  const zahl = (seite: string, d: number) => { try { return Number(localStorage.getItem(`bp_rahmen_${p.schluessel}_breite_${seite}`)) || d; } catch { return d; } };
   const [linksBreite, setLinksBreite] = createSignal(zahl('links', LINKS));
   const [rechtsBreite, setRechtsBreite] = createSignal(zahl('rechts', RECHTS));
-  const breiteMerken = (seite: string, w: number) => { try { localStorage.setItem(merk(`breite_${seite}`), String(Math.round(w))); } catch { /* gesperrt */ } };
-  p.steuer?.({ detailsZeigen: () => { if (rechtsZu()) setRechtsSchwebt(true); }, detailsZuklappen: () => { setRechtsZu(true); setRechtsSchwebt(false); } });
+  const breiteMerken = (seite: string, w: number) => { try { localStorage.setItem(`bp_rahmen_${p.schluessel}_breite_${seite}`, String(Math.round(w))); } catch { /* gesperrt */ } };
+
   // Am Handy stehen die Plätze nacheinander: der Baum ist dort ein eigener Schritt, unabhängig vom Zuklappen am großen Bildschirm.
   const schmal = () => matchMedia('(max-width: 860px)').matches;
   const rechtsWeg = () => rechtsZu() && !schmal();   // am Handy gibt es kein Zuklappen: Details sind dort ein eigener Schritt
@@ -95,6 +84,7 @@ export function Rahmen(p: {
     <button type="button" class="heftzwecke" classList={{ geloest: zu() }} aria-pressed={!zu()} aria-label={zu() ? 'Anheften' : 'Lösen – blendet sich aus'} title={zu() ? 'Anheften' : 'Lösen – blendet sich aus und erscheint, wenn die Maus an den Rand kommt'}
       onClick={(e) => { e.stopPropagation(); setZu(!zu()); schwebt(false); }}><Zeichen name={zu() ? 'loesen' : 'anheften'} groesse={15} /></button>
   );
+  p.steuer?.({ detailsZeigen: () => { if (rechtsZu()) setRechtsSchwebt(true); }, detailsZuklappen: () => { setRechtsZu(true); setRechtsSchwebt(false); }, heftzweckeRechts: () => heftzwecke(rechtsZu, setRechtsZu, setRechtsSchwebt) });
   const linksInhalt = () => (<>
     <div class="platz-kopf nur-breit-flex"><span>{p.baumTitel ?? ''}</span>{heftzwecke(linksZu, setLinksZu, setLinksSchwebt)}</div>
     <Show when={ansichten().length > 1}><Ansichtsliste reiter={ansichten()} aktiv={app!.aktiv()} onWahl={app!.onReiter} /></Show>

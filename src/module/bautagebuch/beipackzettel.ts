@@ -97,6 +97,7 @@ const liste = (art: string, spalten: string[]) => ({ id: art, art: 'liste' as co
 
 export const bautagebuch: Beipackzettel = {
   id: 'bautagebuch',
+  zeichen: 'bericht',
   name: 'Bautagebuch',
   version: '0.2.0',
   beschreibung: 'Nummerierte Tagesberichte je Projekt: Wetter, Anwesende, Notizen, Mängel, Aufgaben, Weisungen – mit Ausdruck.',

@@ -1,5 +1,8 @@
 // Ansichten der Module. Die Ansicht eines Objekts kommt von selbst (ObjektAnsicht: Baum, Tabelle, Detailkarte im Rahmen).
 // Hier steht nur, was ein Modul darüber hinaus zeigt – und was es an den Bausteinen über die Stellschrauben einstellt.
+import { meineWahl } from './unterbau/design';
+import { Designwahl } from './designwahl';
+import { GebaeudeAssistent, GebaeudeTeile } from './gebaeudeschritte';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
@@ -313,7 +316,30 @@ function Buero() {
   return <Rahmen schluessel="verwaltung.buero" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} />}</Show></section>} />;
 }
 
-const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht };
+// Für mich: eigenes Konto (Kennwort) und Darstellung (Design) – für jede:n, wie im bisherigen Bauportal
+function MeinKonto() {
+  const rolle = () => zustand()!.rollen.find((r) => r.name === ich().rolle)?.titel ?? ich().rolle;
+  return <Rahmen schluessel="verwaltung.konto" inhalt={<section class="blatt schmal">
+    <h2>{ich().name}</h2><p class="still-text">{rolle()} · angemeldet als {ich().anmeldename}</p>
+    <Formular titel="Kennwort ändern" knopf="Kennwort ändern" pfad="/api/kennwort" text="Auf anderen Geräten wirst du dabei abgemeldet."
+      felder={[
+        { name: 'altesKennwort', titel: 'Bisheriges Kennwort', typ: 'password', auto: 'current-password' },
+        { name: 'kennwort', titel: 'Neues Kennwort (mindestens 10 Zeichen)', typ: 'password', auto: 'new-password' },
+      ]}
+      onFertig={() => hinweis('Kennwort geändert.')} />
+  </section>} />;
+}
+function Darstellung() {
+  const [offen, setOffen] = createSignal(false);
+  const name = () => { const w = meineWahl(); const d = w?.werte.design ? sicht.design?.[String(w.werte.design)] : undefined; return `${d ? String(d.werte.name) : 'Standard'} · ${({ hell: 'hell', dunkel: 'dunkel', system: 'wie das Gerät' } as Record<string, string>)[String(w?.werte.modus ?? 'hell')]}`; };
+  return <Rahmen schluessel="verwaltung.darstellung" inhalt={<section class="blatt schmal">
+    <h2>Darstellung</h2><p class="still-text">Gerade: {name()}</p>
+    <div><button class="knopf haupt" onClick={() => setOffen(true)}>Design wählen …</button></div>
+    <Show when={offen()}><Designwahl onZu={() => setOffen(false)} /></Show>
+  </section>} />;
+}
+
+const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
 const ANPASSUNG: Record<string, Anpassung> = {
   projekt: {
@@ -334,6 +360,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
+  gebaeude: { kartenZusatz: (z) => <><GebaeudeAssistent gebaeude={z.id} /><GebaeudeTeile gebaeude={z} /></> },
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,
     kartenZusatz: (z) => <Unterliste titel="Weitere Nummern, E-Mails, Anschriften, Ansprechpartner:innen" objekt="kontaktweg" fest={{ kontakt: z.id }} haupt="wert" neben={['art', 'bezeichnung']} platzhalter="Nummer, E-Mail … eingeben und Enter" />,
@@ -384,13 +411,22 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
     waehleVersion(pr, bereich!.bereich, id);
   };
   const leiste = () => (
-    <Versionsleiste titel={bereich!.titel} versionen={versionen()} aktiv={aktiv()?.id ?? null} wege={bereich!.wege} darfAendern={darf('version', 'schreiben')} vorlagen={vorlagen}
+    <Versionsleiste steuer={(f) => (neuOeffnen = f)} titel={bereich!.titel} versionen={versionen()} aktiv={aktiv()?.id ?? null} wege={bereich!.wege} darfAendern={darf('version', 'schreiben')} vorlagen={vorlagen}
       onWahl={(id) => waehleVersion(projekt()!.id, bereich!.bereich, id)} onNeu={neu}
       onGueltig={(id) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { gueltig: true } }, 'Version gültig machen')}
       onUmbenennen={(id, name) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { name } }, 'Version umbenennen')}
       onLoeschen={(id) => ausfuehren({ objekt: 'version', art: 'loeschen', objektId: id }, 'Version löschen', true)} />
   );
   const leer = (text: string) => <div class="mitte"><p class="still-text">{text}</p></div>;
+  let neuOeffnen: (() => void) | undefined;
+  // Leere Seite wie im bisherigen Bauportal: großer Titel, ein Satz, ein Knopf
+  const leerAnlegen = () => (
+    <div class="mitte leer-seite">
+      <h2>„{bereich!.titel}“ gibt es für {String(projekt()?.werte.name ?? 'dieses Projekt')} noch nicht</h2>
+      <p class="still-text">Neu anlegen – leer, aus einer vorhandenen Version oder aus einem anderen Projekt.</p>
+      <Show when={darf('version', 'schreiben')}><div><button class="knopf haupt" onClick={() => neuOeffnen?.()}>{bereich!.titel} anlegen …</button></div></Show>
+    </div>
+  );
   // Listen ohne Versionen und ohne eigene Seite: auch über alle Projekte (Schalter über der Liste, gemerkt je Ansicht)
   const umfangMoeglich = !bereich && !ANPASSUNG[m.name]?.mitte;
   const [alle, setAlle] = createSignal(umfangMoeglich && (() => { try { return localStorage.getItem(`bp.umfang.${schluessel}`) === 'alle'; } catch { return false; } })());
@@ -410,8 +446,8 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
         fest={() => ({ ...p.ansicht.filter })} />}>
     <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} unterMenue={umfangMoeglich ? umfangLeiste() : undefined} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
       <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={leiste()}
-        inhalt={leer(`„${bereich!.titel}“ gibt es für dieses Projekt noch nicht.${darf('version', 'schreiben') ? ' Mit „+ Neue Version“ legst du die erste Version an.' : ''}`)} />}>
-        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} anpassung={anpassung(m.name)} unterMenue={bereich ? leiste() : umfangMoeglich ? umfangLeiste() : undefined}
+        inhalt={leerAnlegen()} />}>
+        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} anpassung={anpassung(m.name)} unterMenue={bereich ? leiste() : umfangMoeglich ? umfangLeiste() : undefined}
           fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}), ...p.ansicht.filter })} />
       </Show>
     </Show>
@@ -423,5 +459,5 @@ export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   const eigene = EIGENE[`${p.modul.id}.${p.ansicht.id}`];
   if (eigene) return eigene();
   if (p.ansicht.brauchtProjekt) return <ProjektAnsicht modul={p.modul} ansicht={p.ansicht} />;
-  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} anpassung={anpassung(p.ansicht.objekt!)} fest={p.ansicht.filter ? () => p.ansicht.filter! : undefined} />;
+  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} anpassung={anpassung(p.ansicht.objekt!)} fest={p.ansicht.filter ? () => p.ansicht.filter! : undefined} />;
 }

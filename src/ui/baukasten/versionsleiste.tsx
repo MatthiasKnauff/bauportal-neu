@@ -17,6 +17,7 @@ export function Versionsleiste(p: {
   vorlagen: () => Option[];                                    // Versionen anderer Projekte
   onNeu: (weg: Versionsweg, name: string, vorlage?: string) => void;
   onGueltig: (id: string) => void; onUmbenennen: (id: string, name: string) => void; onLoeschen: (id: string) => void;
+  steuer?: (oeffneNeu: () => void) => void;   // „Neue Version“ auch von außen öffnen (z. B. „… anlegen“ auf der leeren Seite)
 }) {
   const [neu, setNeu] = createSignal(false);
   const [umbenennen, setUmbenennen] = createSignal<Zeile | null>(null);
@@ -27,6 +28,7 @@ export function Versionsleiste(p: {
   // „Aus der aktuellen“ geht nur, wenn es eine gibt; „aus anderem Projekt“ nur, wenn es Vorlagen gibt.
   const moeglich = () => p.wege.filter((w) => (w === 'kopie' ? !!p.aktiv : w === 'projekt' ? p.vorlagen().length > 0 : true));
   const oeffneNeu = () => { setName(''); setFehler(''); setVorlage(null); setWeg(moeglich()[0] ?? 'leer'); setNeu(true); };
+  p.steuer?.(oeffneNeu);
   const anlegen = () => {
     if (!name().trim()) { setFehler('Bitte einen Namen eintragen, z. B. „Startversion“ oder „nach Bauherrengespräch“'); return; }
     if (weg() === 'projekt' && !vorlage()) { setFehler('Bitte die Vorlage wählen'); return; }

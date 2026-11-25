@@ -170,17 +170,22 @@ export const designWahl: ObjektModell = {
 
 export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
+  zeichen: 'einstellungen',
   name: 'Verwaltung',
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',
   braucht: [],
   objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
   ansichten: [
-    { id: 'benutzer', titel: 'Benutzer', abschnitt: 'Zugang', zeichen: 'personen', objekt: 'benutzer', baum: ['rolle'] },
-    { id: 'rechte', titel: 'Rechte', abschnitt: 'Zugang', zeichen: 'schluessel', nurAdmin: true },
+    // „Für mich“: für jede:n – eigenes Konto und Darstellung (wie im bisherigen Bauportal)
+    { id: 'konto', titel: 'Mein Konto', abschnitt: 'Für mich', zeichen: 'schluessel' },
+    { id: 'darstellung', titel: 'Darstellung', abschnitt: 'Für mich', zeichen: 'kacheln' },
+    { id: 'projekte', titel: 'Projekte', abschnitt: 'Büro', zeichen: 'projekte', objekt: 'projekt', baum: ['status'] },
     { id: 'buero', titel: 'Büro', abschnitt: 'Büro', zeichen: 'einstellungen' },
     { id: 'ablage', titel: 'Ablage', abschnitt: 'Büro', zeichen: 'dateien', nurAdmin: true },
     { id: 'ki', titel: 'KI', abschnitt: 'Büro', zeichen: 'assistent', objekt: 'ki_anbindung', nurAdmin: true },
+    { id: 'benutzer', titel: 'Benutzer', abschnitt: 'Zugang', zeichen: 'personen', objekt: 'benutzer', baum: ['rolle'] },
+    { id: 'rechte', titel: 'Rechte', abschnitt: 'Zugang', zeichen: 'schluessel', nurAdmin: true },
     { id: 'updates', titel: 'Updates', abschnitt: 'System', zeichen: 'aktualisieren', nurAdmin: true },
     { id: 'aufbau', titel: 'Aufbau', abschnitt: 'System', zeichen: 'bausteine', nurAdmin: true },
     { id: 'ratschlaege', titel: 'Ratschläge', abschnitt: 'Prüfung', zeichen: 'liste_aufgaben', objekt: 'pruefrat', nurAdmin: true, baum: ['stand'] },

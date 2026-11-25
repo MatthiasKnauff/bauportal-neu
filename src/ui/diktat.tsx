@@ -8,10 +8,12 @@ import { Dialog } from './baukasten/dialog';
 import { kiAnbindungen } from './baukasten/ki';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 
-export function Diktieren(p: { bericht: Zeile }) {
+export function Diktieren(p: { bericht: Zeile; steuer?: (oeffnen: () => void) => void }) {   // mit steuer: Knopf steht woanders (Menüleiste)
   const [offen, setOffen] = createSignal(false);
   const [text, setText] = createSignal('');
   const [anbindung, setAnbindung] = createSignal(kiAnbindungen()[0]?.id ?? '');
+  const oeffnen = () => { setAnbindung(kiAnbindungen()[0]?.id ?? ''); setOffen(true); };
+  p.steuer?.(oeffnen);
   const weiter = () => {
     const t = text().trim();
     if (!t) return;
@@ -21,7 +23,7 @@ export function Diktieren(p: { bericht: Zeile }) {
   };
   return (
     <>
-      <div class="diktat-knopf"><button class="knopf" onClick={() => { setAnbindung(kiAnbindungen()[0]?.id ?? ''); setOffen(true); }}>🎙 Diktieren</button></div>
+      <Show when={!p.steuer}><div class="diktat-knopf"><button class="knopf" onClick={oeffnen}>🎙 Diktieren</button></div></Show>
       <Show when={offen()}>
         <Dialog titel="Diktieren" breit onAbbrechen={() => setOffen(false)}
           knoepfe={<>

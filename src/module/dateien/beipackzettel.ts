@@ -5,6 +5,7 @@ import type { Beipackzettel } from '../../kern/modul';
 // es bringt keine eigenen Objekte mit. Sichtbar ist, was der Benutzer am Projekt sehen darf.
 export const dateien: Beipackzettel = {
   id: 'dateien',
+  zeichen: 'dateien',
   name: 'Pläne und Dateien',
   version: '0.1.0',
   beschreibung: 'Der Projektordner auf dem Dateiserver: durchblättern, ansehen, herunterladen.',

@@ -1,5 +1,5 @@
 // Das Portal: Einrichtung, Anmeldung, Startseite mit den Kacheln und der Rahmen um jedes Modul (Kopfleiste, Reiter, Rückgängig).
-import { Designwahl } from './designwahl';
+import { AppSymbol } from './baukasten/zeichen';
 import { designBeobachten } from './unterbau/design';
 import { Projektwahl } from './projektwahl';
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from 'solid-js';
@@ -184,8 +184,6 @@ function Portal() {
   const projekte = createMemo(() => Object.values(sicht.projekt ?? {}).filter((x) => !x.geloescht && x.werte.status !== 'archiviert')
     .map((x) => ({ wert: x.id, titel: [x.werte.nummer, x.werte.name].filter(Boolean).join(' · ') })).sort((x, y) => x.titel.localeCompare(y.titel, 'de', { numeric: true })));
   const schluessel = createMemo(() => (ansicht() ? `${modul()!.modul.id}.${ansicht()!.id}` : undefined));
-  const [kennwortFenster, setKennwortFenster] = createSignal(false);
-  const [designFenster, setDesignFenster] = createSignal(false);
   designBeobachten();
   const [suche, setSuche] = createSignal(false);
   const [hilfe, setHilfe] = createSignal(false);
@@ -225,11 +223,11 @@ function Portal() {
     <div class="portal">
       <Kopfleiste marke="Bauportal" aktuell={modul()?.modul.name} onStart={() => { setModulId(''); setAnsichtId(''); }}
         status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
-        zusatz={<Show when={projekte().length || darf('projekt', 'schreiben')}><Projektwahl kartenZusatz={kartenZusatz('projekt')} /></Show>}
+        projekt={<Show when={projekte().length || darf('projekt', 'schreiben')}><Projektwahl kartenZusatz={kartenZusatz('projekt')} /></Show>}
         onSuche={() => setSuche(true)} onHilfe={() => setHilfe(true)}
-        apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name }))} onApp={(id) => oeffne(id)}
+        apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name, zeichen: m.modul.zeichen }))} projektName={projektId() && sicht.projekt?.[projektId()!] ? String(sicht.projekt[projektId()!]!.werte.name ?? '') : ''} onApp={(id) => oeffne(id)}
         benutzer={ich().name} menueFuss={`${z().rollen.find((r) => r.name === ich().rolle)?.titel} · Version ${z().version}`}
-        benutzerMenue={[{ titel: 'Hilfe zu dieser Seite', tun: () => setHilfe(true) }, { titel: 'Kennwort ändern …', tun: () => setKennwortFenster(true) }, { titel: 'Design …', tun: () => setDesignFenster(true) }, { titel: 'Abmelden', tun: abmelden }]} />
+        benutzerMenue={[{ titel: 'Hilfe zu dieser Seite', tun: () => setHilfe(true) }, { titel: 'Mein Konto · Kennwort …', tun: () => oeffne('verwaltung', 'konto') }, { titel: 'Darstellung …', tun: () => oeffne('verwaltung', 'darstellung') }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
         <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.map((a) => ({ id: a.id, titel: a.titel, abschnitt: a.abschnitt, zeichen: a.zeichen })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId,
@@ -240,7 +238,7 @@ function Portal() {
               <Show when={module().length} fallback={<p class="still-text">Für dich ist noch nichts freigegeben. Bitte wende dich an eine Administratorin oder einen Administrator.</p>}>
                 <p class="still-text">Womit möchtest du arbeiten?</p>
                 <div class="kacheln" role="list" aria-label="Module">
-                  <For each={module()}>{(m) => <button class="kachel" role="listitem" onClick={() => { setModulId(m.modul.id); setAnsichtId(''); }}><strong>{m.modul.name}</strong><span>{m.modul.beschreibung}</span></button>}</For>
+                  <For each={module()}>{(m) => <button class="kachel app-kachel" role="listitem" onClick={() => { setModulId(m.modul.id); setAnsichtId(''); }}><AppSymbol id={m.modul.id} zeichen={m.modul.zeichen} /><span class="app-kachel-text"><strong>{m.modul.name}</strong><span title={m.modul.beschreibung}>{m.modul.beschreibung}</span></span></button>}</For>
                 </div>
                 <Show when={projektId() && sicht.projekt?.[projektId()!] && !sicht.projekt[projektId()!]!.geloescht}><Projektkacheln projekt={projektId()!} onApp={(id, a) => oeffne(id, a ?? '')} /></Show>
               </Show>
@@ -258,17 +256,6 @@ function Portal() {
       </nav>
       <Show when={suche()}><Suche onTreffer={springe} onZu={() => setSuche(false)} /></Show>
       <Show when={hilfe()}><Hilfe modul={modul()?.modul} ansicht={ansicht()} onZu={() => setHilfe(false)} /></Show>
-      <Show when={designFenster()}><Designwahl onZu={() => setDesignFenster(false)} /></Show>
-      <Show when={kennwortFenster()}>
-        <Dialog titel="Kennwort ändern" onAbbrechen={() => setKennwortFenster(false)} knoepfe={<button class="knopf" onClick={() => setKennwortFenster(false)}>Abbrechen</button>}>
-          <Formular knopf="Kennwort ändern" pfad="/api/kennwort" text="Auf anderen Geräten wirst du dabei abgemeldet."
-            felder={[
-              { name: 'altesKennwort', titel: 'Bisheriges Kennwort', typ: 'password', auto: 'current-password' },
-              { name: 'kennwort', titel: 'Neues Kennwort (mindestens 10 Zeichen)', typ: 'password', auto: 'new-password' },
-            ]}
-            onFertig={() => { setKennwortFenster(false); hinweis('Kennwort geändert.'); }} />
-        </Dialog>
-      </Show>
     </div>
   );
 }

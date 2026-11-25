@@ -98,10 +98,11 @@ export const version: ObjektModell = {
 
 export const projekte: Beipackzettel = {
   id: 'projekte',
+  zeichen: 'projekte',
   name: 'Projekte',
   version: '0.1.0',
   beschreibung: 'Projekte und wer daran mitarbeitet. Daran hängen später Bautagebuch, Termine und Kosten.',
   braucht: ['verwaltung', 'adressen'],
   objekte: [projekt, projektMitglied, projektKontakt, projektMerker, version],
-  ansichten: [{ id: 'projekte', titel: 'Projekte', abschnitt: 'Projekte', zeichen: 'projekte', objekt: 'projekt', baum: ['status'] }],
+  ansichten: [],   // Projekte stehen wie im bisherigen Bauportal in der Verwaltung (Büro → Projekte), gewählt wird oben in der Kopfleiste
 };

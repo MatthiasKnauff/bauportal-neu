@@ -9,6 +9,7 @@ import { angabenAusGebaeude, assistent, katalogAus, type Angaben } from '../modu
 import { geaendert, sicht } from './unterbau/abgleich';
 import { istAdmin, ruf } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
+import { GebaeudeAssistent } from './gebaeudeschritte';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 
 const lebende = (o: string): Zeile[] => { geaendert(o); return Object.values(sicht[o] ?? {}).map((z) => unwrap(z)).filter((z) => !z.geloescht); };
@@ -29,8 +30,16 @@ export function PlanAssistent(p: { projekt: string; version: string; gespeichert
     // Gespeichertes geht vor, die Mengen kommen immer frisch aus dem Gebäudemodell
     return { takt: 'versetzt', ...aus, ...alt, mengen: aus.mengen, wahl: { ...aus.wahl, ...(alt.wahl ?? {}) } } as Angaben;
   };
-  const [a, setA] = createSignal<Angaben>(start());
-  const setze = (n: Partial<Angaben>) => setA({ ...a(), ...n });
+  // Gibt es ein Gebäude, kommen die Angaben immer frisch aus dem Gebäudemodell (geändert wird dort, über die Schritte);
+  // hier bleibt nur, was den Plan betrifft: Takt, Auswahl der Leistungen, eigene Dauern.
+  const [eigen, setEigen] = createSignal<Angaben>(start());
+  const a = createMemo((): Angaben => {
+    const g = gebaeude();
+    if (!g) return eigen();
+    const aus = angabenAusGebaeude(g.g.werte, g.bauteile, g.geschosse);
+    return { ...eigen(), ...aus, wahl: aus.wahl } as Angaben;
+  });
+  const setze = (n: Partial<Angaben>) => setEigen({ ...eigen(), ...n });
   const as = createMemo(() => (katalog().leistungen.size ? assistent(katalog(), a()) : null));
   const gewaehlt = createMemo(() => as()?.auswahl() ?? new Set<string>());
   const umschalten = (id: string, an: boolean) => {
@@ -63,7 +72,12 @@ export function PlanAssistent(p: { projekt: string; version: string; gespeichert
       <Show when={katalog().leistungen.size} fallback={<p class="still-text">Der Assistent braucht die Kataloge „Leistungen für den Bauzeitenplan“ und „Regeln des Planungsassistenten“. {istAdmin() ? 'Bitte unter Verwaltung → Updates einspielen.' : 'Bitte die Verwaltung bitten, sie unter Verwaltung → Updates einzuspielen.'}</p>}>
         <div class="planassistent">
           <div class="pa-angaben">
-            <p class="still-text klein-text">{gebaeude() ? 'Angaben aus dem Gebäudemodell (gültige Version) – hier für den Plan änderbar.' : 'Im Gebäudemodell gibt es noch kein Gebäude – die Angaben gelten nur für den Plan.'}</p>
+            <Show when={gebaeude()} fallback={<p class="still-text klein-text">Im Gebäudemodell gibt es noch kein Gebäude – die Angaben gelten nur für diesen Plan. Mit einem Gebäude im Modell füllt der Assistent dessen Karte aus und alle Apps lesen dort.</p>}>
+              <p class="still-text klein-text">Das Gebäude steht im Gebäudemodell (gültige Version) – geändert wird es dort, hier Schritt für Schritt:</p>
+              <GebaeudeAssistent gebaeude={gebaeude()!.g.id} knopf="Gebäude – Schritt für Schritt" />
+              <p class="klein-text">{kb().geb.find((x) => x.k === a().geb)?.n} · {a().mass.map((m) => kb().mass.find((x) => x.k === m)?.n).filter(Boolean).join(', ')} · {a().flaeche || '–'} m² · {a().geschosse || '–'} Geschosse · {a().einheiten || 1} Einheit(en)</p>
+            </Show>
+            <Show when={!gebaeude()}>
             <div class="druck-feld">Gebäudeart <Auswahlliste titel="Gebäudeart" wert={a().geb} onWert={(w) => setze({ geb: w, auswahl: undefined })} optionen={kb().geb.map((g) => ({ wert: g.k, titel: g.n }))} /></div>
             <fieldset><legend>Maßnahmen</legend>
               <For each={kb().mass}>{(m) => <label class="druck-haken"><input type="checkbox" checked={a().mass.includes(m.k)} onChange={(e) => setze({ mass: e.currentTarget.checked ? [...a().mass, m.k] : a().mass.filter((x) => x !== m.k), auswahl: undefined })} /> {m.n}</label>}</For>
@@ -84,6 +98,13 @@ export function PlanAssistent(p: { projekt: string; version: string; gespeichert
             <Show when={as()?.fragen.length}>
               <fieldset><legend>Bauweise</legend>
                 <For each={as()!.fragen}>{(f) => <div class="druck-feld">{f.n} <Auswahlliste titel={f.n} wert={f.wert} onWert={(w) => setze({ wahl: { ...a().wahl, [f.k]: w }, auswahl: undefined })} optionen={f.optionen.map((o) => ({ wert: o.k, titel: o.n }))} /></div>}</For>
+              </fieldset>
+            </Show>
+            </Show>
+            <Show when={gebaeude() && (as()?.einheiten ?? 1) > 1}>
+              <fieldset><legend>Ablauf</legend>
+                <label class="druck-haken"><input type="radio" checked={a().takt === 'versetzt'} onChange={() => setze({ takt: 'versetzt' })} /> im Takt (jedes Gewerk zieht von Einheit zu Einheit)</label>
+                <label class="druck-haken"><input type="radio" checked={a().takt === 'parallel'} onChange={() => setze({ takt: 'parallel' })} /> alle Einheiten parallel</label>
               </fieldset>
             </Show>
           </div>

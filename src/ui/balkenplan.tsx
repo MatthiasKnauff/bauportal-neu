@@ -3,6 +3,7 @@
 // bearbeitet mit bearbeiten.ts; jede Handlung ist ein Schritt für Strg+Z.
 // Bedienung wie gewohnt: Zelle anklicken und lostippen, F2, Enter/Tab/Esc; Einfg, Entf; Alt+Umschalt+Pfeile gliedern und
 // verschieben; Balken ziehen (verschieben), rechte Kante ziehen (Dauer), Punkt am Balkenende auf einen anderen ziehen (verknüpfen).
+import { Zeichen } from './baukasten/zeichen';
 import { spaltenwahl } from './baukasten/spalten';
 import { Klappe, Ordner } from './baukasten/baum';
 import { Spaltenfeld } from './baukasten/spaltenfeld';
@@ -103,7 +104,20 @@ export function Balkenplan(p: Mitte) {
   // Befehle des Balkenplans in der Menüleiste (Band) – wie im bisherigen Bauportal
   const PFEILE = [{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }] as const;
   p.setNeu(() => neuDarunter());
+  // Bearbeiten und Gliederung im Band wie im bisherigen Bauportal – dieselben Befehle wie Tastatur und Kontextmenü
+  const gliederung = (art: 'aus' | 'ein' | 'hoch' | 'runter') => {
+    const id = markiert(); if (!id) return;
+    const b = art === 'ein' ? gliedern(V_(), L_(), id, 1) : art === 'aus' ? gliedern(V_(), L_(), id, -1) : verschieben(V_(), id, art === 'hoch' ? -1 : 1);
+    if (b) tun(b, art === 'ein' ? 'Einrücken' : art === 'aus' ? 'Ausrücken' : 'Verschieben');
+  };
   createEffect(() => p.setKnoepfe([
+    ...(schreiben() ? [
+      { titel: 'Löschen', zeichen: 'loeschen', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: () => entfernen() },
+      { titel: 'Höher', zeichen: 'ausruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('aus') },
+      { titel: 'Tiefer', zeichen: 'einruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('ein') },
+      { titel: 'Nach oben', zeichen: 'nach_oben', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('hoch') },
+      { titel: 'Nach unten', zeichen: 'nach_unten', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('runter') },
+    ] : []),
     ...(schreiben() ? [{ titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
     { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
@@ -581,6 +595,10 @@ export function Balkenplan(p: Mitte) {
         <span class="nur-breit">{kal().woche}-Tage-Woche</span>
         <span class="nur-breit">Feiertage {zp()?.werte.bundesland ? BUNDESLAENDER.find((b) => b.wert === zp()!.werte.bundesland)?.titel : land() ? `${BUNDESLAENDER.find((b) => b.wert === land())?.titel} (Baustelle)` : 'bundesweit'}</span>
         <Show when={schreiben()}><span class="nur-breit">{autom() ? 'Neue Leistungen: automatisch verknüpft' : 'Neue Leistungen: ohne Verknüpfung'}</span></Show>
+        {/* Zoom wie im bisherigen Bauportal unten rechts – nur hier im Plan, keine gemeinsame Fußzeile */}
+        <label class="bzp-zoom nur-breit-flex" title="Zeitachse enger oder weiter"><Zeichen name="kleiner" groesse={14} />
+          <input type="range" min={0} max={ZOOM.length - 1} step={1} value={zoom()} aria-label="Zoom der Zeitachse" onInput={(e) => setZoom(Number(e.currentTarget.value))} />
+          <Zeichen name="groesser" groesse={14} /></label>
       </div>
       </Show>
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>

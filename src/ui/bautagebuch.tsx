@@ -1,6 +1,7 @@
 // Bautagebuch wie gewohnt: links Kalender (oder Liste) und die Abschnitte des Berichts, in der Mitte der Bericht als
 // Seite – Kopf mit Datum, Wetter und Kontrollen, darunter je Abschnitt eine Karte –, rechts das Detail des angeklickten
 // Eintrags. Die Abschnitte sind dieselben Bausteine wie in „Schritt für Schritt“ (Unterliste, Bilder, Feld).
+import { Seitenliste } from './baukasten/seitenliste';
 import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Feld } from '../kern/modell';
@@ -9,13 +10,14 @@ import { ausdrucke, darf, modell, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
 import { Bilder } from './baukasten/bilder';
-import { Detailkarte, feldAendern } from './baukasten/detailkarte';
+import { Detailkarte, feldAendern, loesche } from './baukasten/detailkarte';
 import { FeldEingabe, anzeige } from './baukasten/feld';
 import { Schrittweise } from './baukasten/schrittweise';
 import { Unterliste } from './baukasten/unterliste';
 import { Verlauf } from './baukasten/verlauf';
 import { Diktieren } from './diktat';
 import { druckOeffnen } from './druck';
+import { Zeichen, type Zeichenname } from './baukasten/zeichen';
 
 const lebende = (objekt: string) => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht);
 const heute = () => new Date().toLocaleDateString('sv');
@@ -28,13 +30,13 @@ const [eintrag, setEintrag] = createSignal<string | null>(null);
 const [bearbeiten, setBearbeiten] = createSignal(false);
 
 /** Die Abschnitte eines Berichts – Reihenfolge wie im alten Bautagebuch. */
-const ABSCHNITTE: { id: string; titel: string; symbol: string; art?: string }[] = [
-  { id: 'anwesend', titel: 'Anwesende', symbol: '👥', art: 'anwesend' },
-  { id: 'notiz', titel: 'Notizen', symbol: '📝', art: 'notiz' },
-  { id: 'fotos', titel: 'Bilder', symbol: '📷' },
-  { id: 'mangel', titel: 'Mängel', symbol: '⚠', art: 'mangel' },
-  { id: 'aufgabe', titel: 'Zu erledigen', symbol: '✓', art: 'aufgabe' },
-  { id: 'weisung', titel: 'Weisungen', symbol: '⚑', art: 'weisung' },
+const ABSCHNITTE: { id: string; titel: string; zeichen: Zeichenname; art?: string }[] = [
+  { id: 'anwesend', titel: 'Anwesende', zeichen: 'personen', art: 'anwesend' },
+  { id: 'notiz', titel: 'Notizen', zeichen: 'notiz', art: 'notiz' },
+  { id: 'fotos', titel: 'Bilder', zeichen: 'foto' },
+  { id: 'mangel', titel: 'Mängel', zeichen: 'mangel', art: 'mangel' },
+  { id: 'aufgabe', titel: 'Zu erledigen', zeichen: 'aufgabe', art: 'aufgabe' },
+  { id: 'weisung', titel: 'Weisungen', zeichen: 'weisung', art: 'weisung' },
 ];
 const anzahl = (bericht: string, a: (typeof ABSCHNITTE)[number]) =>
   a.art ? lebende('bericht_eintrag').filter((e) => e.werte.bericht === bericht && e.werte.art === a.art).length : lebende('foto').filter((f) => f.werte.bericht === bericht).length;
@@ -83,11 +85,8 @@ export function BerichtLinks(p: Mitte) {
         </div>
       </Show>
       <Show when={gewaehlt()}>{(g) => (
-        <nav class="bt-abschnitte" aria-label="Abschnitte des Berichts">
-          <h3>Tagesbericht Nr. {String(g().werte.nummer ?? '')} · {datumText(g().werte.datum)}</h3>
-          <button onClick={() => zumAbschnitt('kopf')}><span>📄</span>Tagesbericht</button>
-          <For each={ABSCHNITTE}>{(a) => <button onClick={() => zumAbschnitt(a.id)}><span>{a.symbol}</span>{a.titel}<em>{anzahl(g().id, a)}</em></button>}</For>
-        </nav>
+        <Seitenliste name="Abschnitte des Berichts" art="filter" aktiv="" onWahl={zumAbschnitt} abschnitte={[{ titel: `Tagesbericht Nr. ${String(g().werte.nummer ?? '')} · ${datumText(g().werte.datum)}`,
+          eintraege: [{ id: 'kopf', titel: 'Allgemein', zeichen: 'bericht' }, ...ABSCHNITTE.map((a) => ({ id: a.id, titel: a.titel, zeichen: a.zeichen, anzahl: anzahl(g().id, a) }))] }]} />
       )}</Show>
     </div>
   );
@@ -130,7 +129,7 @@ export function WetterHolen(p: { bericht: Zeile }) {
 }
 
 /** „Schritt für Schritt“ durch einen Bericht – am Handy auf der Baustelle. */
-function Schritte(p: { bericht: Zeile }) {
+function Schritte(p: { bericht: Zeile; steuer?: (oeffnen: () => void) => void }) {
   const m = modell('tagesbericht');
   const felder = (gruppe: string) => () => (
     <div class="schritt-felder">
@@ -144,10 +143,13 @@ function Schritte(p: { bericht: Zeile }) {
     ...ABSCHNITTE.map((a) => ({ titel: a.titel, inhalt: l[a.id]! })),
     { titel: 'Kontrollen', inhalt: felder('Kontrollen') },
   ];
-  return <Schrittweise knopf="Schritt für Schritt" titel="Tagesbericht" schritte={schritte} />;
+  return <Schrittweise knopf="Schritt für Schritt" titel="Tagesbericht" schritte={schritte} steuer={p.steuer} />;
 }
 
-function Kopf(p: { bericht: Zeile }) {
+// Werkzeuge des Berichts (Diktieren, Schritt für Schritt) stehen wie im bisherigen Bauportal in der Menüleiste;
+// ihre Fenster hängen hier am Bericht – geöffnet über die gemeldeten Funktionen.
+interface Werkzeuge { diktat?: () => void; schritte?: () => void }
+function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
   const m = modell('tagesbericht');
   const w = () => p.bericht.werte;
   const feld = (n: string) => m.felder.find((f) => f.name === n)!;
@@ -159,7 +161,7 @@ function Kopf(p: { bericht: Zeile }) {
   return (
     <section class="bt-kopf bt-karte" id="abschnitt-kopf" aria-label="Tagesbericht">
       <div class="bt-kopf-zeile">
-        <span class="bt-symbol">📄</span>
+        <span class="bt-symbol"><Zeichen name="bericht" groesse={18} /></span>
         <div class="bt-kopf-titel">
           <h2>Tagesbericht Nr. {String(w().nummer ?? '')}</h2>
           <p classList={{ 'bt-nicht-heute': !!w().datum && w().datum !== heute() }}>
@@ -182,8 +184,7 @@ function Kopf(p: { bericht: Zeile }) {
       <div class="bt-kopf-zeile bt-fuss">
         <Show when={w().pdf} fallback={<span class="still-text klein-text">Noch nicht als PDF exportiert</span>}><span class="gut-text klein-text">✓ Als PDF exportiert: {String(w().pdf)}</span></Show>
         <span class="bt-werkzeuge">
-          <Show when={darf('bericht_eintrag', 'schreiben')}><Diktieren bericht={p.bericht} /><Schritte bericht={p.bericht} /></Show>
-          <For each={ausdrucke('tagesbericht')}>{(a) => <button class="knopf" onClick={() => druckOeffnen(a.id, p.bericht.id)}>⎙ PDF</button>}</For>
+          <Show when={darf('bericht_eintrag', 'schreiben')}><Diktieren bericht={p.bericht} steuer={(f) => (p.werkzeuge.diktat = f)} /><Schritte bericht={p.bericht} steuer={(f) => (p.werkzeuge.schritte = f)} /></Show>
           <Verlauf objekt="tagesbericht" id={p.bericht.id} unter={[{ objekt: 'bericht_eintrag', feld: 'bericht' }, { objekt: 'foto', feld: 'bericht' }]} />
         </span>
       </div>
@@ -201,7 +202,7 @@ function Abschnitt(p: { a: (typeof ABSCHNITTE)[number]; bericht: Zeile; inhalt: 
   return (
     <section class={`bt-karte bt-${p.a.id}`} id={`abschnitt-${p.a.id}`} ref={karte} aria-label={p.a.titel}>
       <div class="bt-karte-kopf">
-        <span class="bt-symbol">{p.a.symbol}</span>
+        <span class="bt-symbol"><Zeichen name={p.a.zeichen} groesse={18} /></span>
         <h3>{p.a.titel}</h3><span class="anzahl">{anzahl(p.bericht.id, p.a)}</span>
         <button class="knopf still" aria-label={zu() ? `${p.a.titel} aufklappen` : `${p.a.titel} zuklappen`} aria-expanded={!zu()} onClick={() => { setZu(!zu()); merke(schluessel, zu() ? 'zu' : ''); }}>{zu() ? '▸' : '▾'}</button>
         <Show when={darf(p.a.id === 'fotos' ? 'foto' : 'bericht_eintrag', 'schreiben')}><button class="knopf bt-plus" aria-label={`${p.a.titel}: neuer Eintrag`} onClick={neu}>+</button></Show>
@@ -220,12 +221,23 @@ export function Berichtsseite(p: Mitte) {
   });
   createEffect(on(() => p.gewaehlt(), () => { setEintrag(null); setBearbeiten(false); }, { defer: true }));
   const bericht = () => (p.gewaehlt() ? sicht.tagesbericht?.[p.gewaehlt()!] : undefined);
+  const werkzeuge: Werkzeuge = {};
+  // Menüleiste wie im bisherigen Bauportal: NEU Diktieren · BERICHT Schritt für Schritt, Löschen · AUSGABE PDF
+  createEffect(() => {
+    const b = bericht();
+    p.setKnoepfe(b ? [
+      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Diktieren', zeichen: 'diktieren', gruppe: 'Neu', tun: () => werkzeuge.diktat?.() },
+        { titel: 'Schritt für Schritt', zeichen: 'schrittweise', gruppe: 'Bericht', tun: () => werkzeuge.schritte?.() }] : []),
+      ...(darf('tagesbericht', 'loeschen') ? [{ titel: 'Löschen', zeichen: 'loeschen', gruppe: 'Bericht', tun: () => loesche(modell('tagesbericht'), b) }] : []),
+      ...ausdrucke('tagesbericht').map((a) => ({ titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => druckOeffnen(a.id, b.id) })),
+    ] : []);
+  });
   return (
     <div class="bt-seite">
       <Show when={bericht()} fallback={<p class="leer">{p.alle().length ? 'Links einen Bericht wählen.' : darf('tagesbericht', 'schreiben') ? 'Noch kein Tagesbericht. Mit „+ Tagesbericht“ legst du den ersten an.' : 'Noch kein Tagesbericht.'}</p>}>{(b) => {
         const l = listen(b(), true);
         return (<>
-          <Kopf bericht={b()} />
+          <Kopf bericht={b()} werkzeuge={werkzeuge} />
           <Show when={darf('bericht_eintrag', 'lesen')}>
             <For each={ABSCHNITTE}>{(a) => <Abschnitt a={a} bericht={b()} inhalt={l[a.id]!} />}</For>
           </Show>

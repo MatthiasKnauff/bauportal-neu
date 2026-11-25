@@ -182,8 +182,11 @@ export async function schnappschuss(db: Db, register: Modulregister, wer: Absend
     }
     return { stand: s, objekte };
   }, async (c) => {
-    // Sperre: während des Lesens kommt kein Befehl dazu – Stand und Daten passen sicher zusammen.
-    await c.query('select pg_advisory_xact_lock($1)', [SPERRE_PROTOKOLL]);
+    // Stand und Daten aus EINEM Schnappschuss der Datenbank (repeatable read) – ohne Sperre: früher hielt jeder
+    // Schnappschuss die Protokoll-Sperre, dann warteten alle Leser und Schreiber aufeinander (100 Benutzer: 23 s).
+    // Befehle laufen weiter nacheinander (Sperre in „bekannt“); höchstens einer ist gerade offen, und seine Nummer ist
+    // größer als alle abgeschlossenen – alles bis zum gelesenen Stand ist also sicher im Schnappschuss.
+    await c.query('set transaction isolation level repeatable read');
     s = (await c.query('select coalesce(max(seq), 0) as s from kern_befehl')).rows[0].s as number;
     return undefined;
   });

@@ -113,6 +113,7 @@ export const planregel: ObjektModell = {
 
 export const bauzeitenplan: Beipackzettel = {
   id: 'bauzeitenplan',
+  zeichen: 'plan',
   name: 'Bauzeitenplan',
   version: '0.2.0',
   beschreibung: 'Balkenplan eines Projekts: Leistungen mit Dauer in Arbeitstagen, Verknüpfungen, Gruppen, Unterbrechungen, Arbeitskalender mit Feiertagen, kritischer Weg – in benannten Versionen.',
@@ -123,13 +124,14 @@ export const bauzeitenplan: Beipackzettel = {
 
 Eingeben wie gewohnt: Zelle anklicken und lostippen oder F2; Enter übernimmt, Tab geht zur nächsten Spalte, Esc bricht ab. Dauer „5“, „5t“, „2w“, „0“ = Meilenstein. Vorgänger „3;4AA+2t;5EE-1t“ (Zeilennummer, Art EA/AA/EE/AE, Abstand). Ein Datum bei Anfang setzt „nicht früher als“.
 
-Einfg fügt über der Markierung ein, Entf löscht – mit „Autom. verknüpfen“ rückt die Kette nach. Alt+Umschalt+→/← gliedert ein und aus, Alt+Umschalt+↑/↓ verschiebt.
+Einfg fügt unter der Markierung ein, ebenso „Leistung“ in der Menüleiste; auf freier Fläche im Balkenplan ziehen legt eine Leistung genau dort an, Entf löscht – mit „Autom. verknüpfen“ rückt die Kette nach. Alt+Umschalt+→/← gliedert ein und aus, Alt+Umschalt+↑/↓ verschiebt.
 
 Mit der Maus: Balken ziehen verschiebt, rechte Kante ziehen ändert die Dauer, den Punkt am Balkenende auf eine andere Leistung ziehen verknüpft. Rechtsklick auf einen Balken: unterbrechen, Anfang wieder automatisch; auf einen Pfeil: Art ändern, löschen. Strg+Mausrad zoomt.
 
 „✦ Assistent“ macht einen Plan aus dem Gebäudemodell; „Drucken / PDF“ bis A0; „Export / Import“ für Excel, MS Project und Sicherungen.` },
-    { id: 'frei', titel: 'Arbeitszeit & Feiertage', abschnitt: 'Terminplan', zeichen: 'arbeitszeit', objekt: 'freier_tag', brauchtProjekt: true },
+    { id: 'beteiligte', titel: 'Gewerke & Firmen', abschnitt: 'Beteiligte', zeichen: 'personen', objekt: 'projekt_kontakt', brauchtProjekt: true },
     { id: 'leistungen', titel: 'Leistungskatalog', abschnitt: 'Vorlagen', zeichen: 'katalog', objekt: 'leistungsvorlage', baum: ['abschnitt'] },
+    { id: 'frei', titel: 'Arbeitszeit & Feiertage', abschnitt: 'Projekt', zeichen: 'arbeitszeit', objekt: 'freier_tag', brauchtProjekt: true },
   ],
   kataloge: [{ id: 'leistungen', titel: 'Leistungen für den Bauzeitenplan', objekt: 'leistungsvorlage' }, { id: 'planregeln', titel: 'Regeln des Planungsassistenten', objekt: 'planregel' }],
   versionen: [{ bereich: 'bauzeitenplan', titel: 'Bauzeitenplan', wege: ['kopie', 'leer', 'projekt'] }],

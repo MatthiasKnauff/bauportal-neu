@@ -13,7 +13,8 @@ export type Db = pg.Pool;
 export type Verbindung = pg.PoolClient;
 
 export function verbinden(url: string): Db {
-  return new pg.Pool({ connectionString: url, max: 10 });
+  // Verbindungen zur Datenbank: einstellbar (DB_VERBINDUNGEN), Vorgabe 20 – gemessen mit tests/ui/last.mjs
+  return new pg.Pool({ connectionString: url, max: Number(process.env.DB_VERBINDUNGEN) || 20 });
 }
 
 /** Wartet, bis die Datenbank erreichbar ist (beim Start des Containers ist sie evtl. noch nicht so weit). */
@@ -91,6 +92,10 @@ create or replace function bp_darf(obj text, art text, p uuid) returns boolean l
       and (p is null or bp_alle_projekte()
            or exists (select 1 from o_projekt_mitglied m where m.projekt = p and m.benutzer = bp_ich() and not m.geloescht))
   end $f$;
+
+-- Projekte, in denen der Benutzer Mitglied ist – für die Leseregeln (einmal je Abfrage, nicht je Zeile)
+create or replace function bp_meine_projekte() returns setof uuid language sql stable security definer set search_path = public as $f$
+  select projekt from o_projekt_mitglied where benutzer = bp_ich() and not geloescht $f$;
 
 -- Prüft jede Änderung an einem Objekt. Argumente: Objektname, Projektfeld.
 create or replace function bp_pruefe() returns trigger language plpgsql as $f$
@@ -178,6 +183,7 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
       alter table kern_befehl add column if not exists herkunft text;
       alter table kern_befehl add column if not exists herkunft_felder text[];
       create index if not exists kern_befehl_objekt on kern_befehl (objekt, objekt_id);
+      create index if not exists kern_befehl_projekt on kern_befehl (projekt_id, seq);   -- Abgleich je Projekt
     `);
     await c.query('insert into kern_meta values ($1, $2) on conflict do nothing', ['kennung', randomUUID()]);
     for (const m of register.alleModelle) {
@@ -190,8 +196,12 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
       for (const f of m.felder) {
         await c.query(`alter table ${t} add column if not exists ${spalte(f.name)} ${spaltentyp(f)}`);
         if (f.eindeutig) await c.query(`create unique index if not exists "o_${m.name}_${f.name}_eindeutig" on ${t} (${spalte(f.name)}) where not geloescht`);
+        // Jeder Verweis bekommt seinen Index – aus dem Datenmodell, damit keiner vergessen wird (Joins, „alle zu dieser Version“, Rechte je Projekt)
+        if (f.art === 'verweis') await c.query(`create index if not exists "o_${m.name}_${f.name}_verweis" on ${t} (${spalte(f.name)})`);
       }
     }
+    // Rechteprüfung je Zeile fragt „ist der Benutzer Mitglied dieses Projekts?“ – mit diesem Index ohne Tabellensuche
+    await c.query('create index if not exists o_projekt_mitglied_wer on o_projekt_mitglied (benutzer, projekt) where not geloescht');
     // Umstellung 25.11.2026: der Aufbau eines Bauteils ist jetzt ein eigenes Objekt; der bisherige Text heißt „Material laut Plan“
     await c.query(`do $u$ begin
       if exists (select 1 from information_schema.columns where table_name = 'o_bauteil' and column_name = 'aufbau' and data_type = 'text') then
@@ -208,15 +218,18 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
     for (const m of register.alleModelle) {
       const t = tabelle(m.name);
       const p = m.projektFeld ? spalte(m.projektFeld) : 'null';
-      const eigen = m.eigenFeld ? ` and ${spalte(m.eigenFeld)} = bp_ich()` : '';   // nur die eigenen Einträge
+      const eigen = m.eigenFeld ? ` and ${spalte(m.eigenFeld)} = (select bp_ich())` : '';   // nur die eigenen Einträge
+      // Leseregel: dieselbe Entscheidung wie bp_darf, aber so geschrieben, dass Postgres sie EINMAL je Abfrage rechnet
+      // (Unterabfragen als InitPlan) – vorher lief bp_darf für jede Zeile (2000 Kontakte: 120 ms statt wenigen ms).
+      const lesen = `(select bp_darf('${m.name}', 'lesen', null))` + (m.projektFeld ? ` and (${p} is null or (select bp_alle_projekte()) or ${p} in (select bp_meine_projekte()))` : '') + eigen;
       await c.query(`
         alter table ${t} enable row level security;
         drop policy if exists lesen on ${t};
-        create policy lesen on ${t} for select using (bp_darf('${m.name}', 'lesen', ${p})${eigen});
+        create policy lesen on ${t} for select using (${lesen});
         drop policy if exists anlegen on ${t};
         create policy anlegen on ${t} for insert with check (true);
         drop policy if exists aendern on ${t};
-        create policy aendern on ${t} for update using (bp_darf('${m.name}', 'lesen', ${p})${eigen});
+        create policy aendern on ${t} for update using (${lesen});
         drop trigger if exists pruefe on ${t};
         create trigger pruefe before insert or update on ${t} for each row execute function bp_pruefe('${m.name}', '${m.projektFeld ?? ''}', '${m.eigenFeld ?? ''}');
         grant select, insert, update on ${t} to bp_nutzer;

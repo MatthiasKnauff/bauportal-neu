@@ -9,6 +9,7 @@ export interface Beipackzettel {
   name: string;
   version: string;
   beschreibung: string;
+  zeichen?: string;           // Symbol der App (Apps-Menü, Startseite) – Name aus ui/baukasten/zeichen
   braucht: string[];          // Module, ohne die dieses nicht läuft
   objekte: ObjektModell[];    // Objekte, die das Modul mitbringt
   ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
@@ -35,6 +36,18 @@ export interface Ansicht {
   hilfe?: string;             // Hilfe zur Ansicht (Knopf „?“ oben): was man hier tut und wie – Absätze mit Leerzeile getrennt
   abschnitt?: string;         // Überschrift, unter der die Ansicht links steht (z. B. „Terminplan“, „Vorlagen“)
   zeichen?: string;           // Name des Symbols (Baustein „Zeichen“ der Oberfläche)
+  /** Links statt des Baums: Filter in Abschnitten (wie im bisherigen Bauportal, z. B. Kontakte nach Art, Gewerke, Ämter). */
+  linksFilter?: LinksFilter[];
+}
+
+export interface LinksFilter {
+  feld: string;                          // nach diesem Feld
+  titel: string;                         // Überschrift des Abschnitts
+  alle?: string;                         // erster Eintrag ohne Filter (z. B. „Alle“)
+  suche?: boolean;                       // eigenes Suchfeld im Abschnitt
+  nur?: Record<string, string[]>;        // nur Einträge mit diesen Werten zählen (z. B. Ämter: nur Behörden)
+  zeichen?: Record<string, string>;      // Symbol je Wert
+  mehrzahl?: Record<string, string>;     // Name je Wert, wenn anders als in der Auswahl (z. B. „Firmen“)
 }
 
 export class Modulregister {

@@ -2,11 +2,10 @@
 // am Rechner rechts die Vorschau (Karte, Angaben, Bearbeiten). Tastatur: ↑↓ wählen, Enter öffnen, F2 bearbeiten.
 // Bearbeiten öffnet die Projektkarte im Schwebefenster. Ordner auf dem Dateiserver, zu denen es noch kein Projekt gibt,
 // lassen sich beim Suchen direkt als Projekt anlegen. Favoriten und Zuletzt merkt sich der Server je Benutzer (projekt_merker).
-import { For, Show, createMemo, createSignal, onMount, type JSX } from 'solid-js';
+import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { ausfuehren, sicht } from './unterbau/abgleich';
 import { darf, ich, modell, neueKennung, ruf, zustand } from './unterbau/api';
-import { Dialog } from './baukasten/dialog';
 import { Detailkarte, NeuFenster } from './baukasten/detailkarte';
 import { Schwebefenster } from './baukasten/schwebefenster';
 import { projektId, setProjektId } from './projekt';
@@ -33,39 +32,38 @@ export function projektWaehlen(pid: string) {
 
 export function Projektwahl(p: { kartenZusatz: (z: Zeile) => JSX.Element }) {
   const [offen, setOffen] = createSignal(false);
-  const [bearbeiten, setBearbeiten] = createSignal<string | null>(null);
   const [neu, setNeu] = createSignal<Record<string, string> | null>(null);
   const aktuell = () => (projektId() ? sicht.projekt?.[projektId()!] : undefined);
-  const bearbeitet = () => (bearbeiten() ? sicht.projekt?.[bearbeiten()!] : undefined);
   return (
     <>
       <div class="projektwahl">
-        <button type="button" class="auswahlliste-knopf" aria-haspopup="dialog" aria-label={`Projekt: ${aktuell() ? titel(aktuell()!) : 'keine Auswahl'}`} onClick={() => setOffen(true)}>
-          <span>{aktuell() && !aktuell()!.geloescht ? titel(aktuell()!) : 'Projekt wählen …'}</span><span aria-hidden="true">▾</span>
+        <button type="button" class="auswahlliste-knopf" aria-haspopup="dialog" aria-label={`Projekt: ${aktuell() ? titel(aktuell()!) : 'keine Auswahl'}`} onClick={() => setOffen(!offen())}>
+          <span class="pw-titel"><b>{aktuell() && !aktuell()!.geloescht ? titel(aktuell()!) : 'Projekt wählen …'}</b>
+            <Show when={aktuell() && !aktuell()!.geloescht && adresse(aktuell()!)}><small>{adresse(aktuell()!)}</small></Show></span><span aria-hidden="true">▾</span>
         </button>
       </div>
       <Show when={offen()}>
-        <WahlFenster onZu={() => setOffen(false)} onBearbeiten={(id) => { setOffen(false); setBearbeiten(id); }}
-          onNeu={(werte) => { setOffen(false); setNeu(werte); }} />
+        <WahlFenster kartenZusatz={p.kartenZusatz} onZu={() => setOffen(false)} onNeu={(werte) => { setOffen(false); setNeu(werte); }} />
       </Show>
-      <Show when={bearbeitet()}>{(z) => (
-        <Schwebefenster titel={`Projekt ${titel(z())}`} onZu={() => setBearbeiten(null)}>
-          <Detailkarte modell={modell('projekt')} zeile={z()} zusatz={p.kartenZusatz} />
-        </Schwebefenster>
-      )}</Show>
       <Show when={neu()}>{(start) => <NeuFenster modell={modell('projekt')} start={start()} onZu={(id) => { setNeu(null); if (id) projektWaehlen(id); }} />}</Show>
     </>
   );
 }
 
-function WahlFenster(p: { onZu: () => void; onBearbeiten: (id: string) => void; onNeu: (werte: Record<string, string>) => void }) {
+// Projektwahl und Projekteinstellungen in EINEM verschiebbaren, in der Größe änderbaren Fenster: links die Projekte,
+// rechts die Vorschau – oder, mit ✎ / F2, die Einstellungen des Projekts (Projektkarte mit Ordner, Beteiligten, Mitgliedern).
+function WahlFenster(p: { kartenZusatz: (z: Zeile) => JSX.Element; onZu: () => void; onNeu: (werte: Record<string, string>) => void }) {
+  const [bearbeiten, setBearbeiten] = createSignal<string | null>(null);
+  const bearbeitet = () => (bearbeiten() ? sicht.projekt?.[bearbeiten()!] : undefined);
   const projekte = () => lebend('projekt');
   const mein = (id: string) => lebend('projekt_mitglied').some((m) => m.werte.projekt === id && m.werte.benutzer === ich().id);
   const [q, setQ] = createSignal('');
   const [filter, setFilter] = createSignal<Filter>(projekte().some((x) => mein(x.id) && x.werte.status !== 'archiviert') ? 'meine' : 'alle');
   const [sel, setSel] = createSignal(0);
   const [ordner, setOrdner] = createSignal<string[]>([]);
-  const breit = () => innerWidth > 760;
+  const [breit, setBreit] = createSignal(true);   // Platz für die rechte Seite (folgt der Fenstergröße)
+  let rahmen!: HTMLDivElement;
+  onMount(() => { const ro = new ResizeObserver(() => setBreit(rahmen.clientWidth > 640)); ro.observe(rahmen); onCleanup(() => ro.disconnect()); });
   // Neue Projekte: nur Rollen, die alle Projekte sehen (wie in der Datenbank)
   const anlegen = darf('projekt', 'schreiben') && !!zustand()!.rollen.find((r) => r.name === ich().rolle)?.alleProjekte;
   onMount(() => { if (anlegen) ruf<{ ordner: string[] }>('/api/ablage/ordner').then((r) => setOrdner(r.ordner)).catch(() => { /* Ablage nicht eingerichtet */ }); });
@@ -107,7 +105,7 @@ function WahlFenster(p: { onZu: () => void; onBearbeiten: (id: string) => void; 
     if (e.key === 'ArrowDown') { e.preventDefault(); setSel((i) => Math.min(n - 1, i + 1)); rollen(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((i) => Math.max(0, i - 1)); rollen(); }
     else if (e.key === 'Enter' && gewaehlt()) { e.preventDefault(); waehlen(gewaehlt()!); }
-    else if (e.key === 'F2' && gewaehlt()) { e.preventDefault(); p.onBearbeiten(gewaehlt()!.id); }
+    else if (e.key === 'F2' && gewaehlt()) { e.preventDefault(); setBearbeiten(gewaehlt()!.id); }
   };
   let liste!: HTMLDivElement;
   const rollen = () => queueMicrotask(() => liste.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }));
@@ -116,11 +114,10 @@ function WahlFenster(p: { onZu: () => void; onBearbeiten: (id: string) => void; 
   const karte = (x: Zeile) => `https://www.google.com/maps?q=${encodeURIComponent(adresse(x) || String(x.werte.name))}&hl=de&z=14&output=embed`;
 
   return (
-    <Dialog titel="Projekt wählen" breit onAbbrechen={p.onZu}
-      knoepfe={<><button class="knopf" onClick={p.onZu}>Abbrechen</button>
-        <Show when={anlegen}><button class="knopf haupt" onClick={() => p.onNeu({ name: q().trim() })}>＋ Neues Projekt</button></Show></>}>
-      <div class="pw" onKeyDown={taste}>
-        <div class="pw-links">
+    <Schwebefenster titel="Projekt wählen" schluessel="projektwahl" breite={960} hoehe={600} onZu={p.onZu}
+      kopfZusatz={<Show when={anlegen}><button type="button" class="knopf klein haupt" onClick={() => p.onNeu({ name: q().trim() })}>＋ Neues Projekt</button></Show>}>
+      <div class="pw" ref={rahmen} onKeyDown={taste}>
+        <div class="pw-links" hidden={!breit() && !!bearbeitet()}>
           <input type="search" class="suche" placeholder="Projekt suchen – Nummer, Name oder Adresse" aria-label="Projekt suchen" value={q()} autocomplete="off"
             onInput={(e) => { setQ(e.currentTarget.value); setSel(0); }} />
           <div class="auswahl pw-filter" role="radiogroup" aria-label="Filter">
@@ -132,13 +129,13 @@ function WahlFenster(p: { onZu: () => void; onBearbeiten: (id: string) => void; 
               <div class="pw-gruppe">{g.titel}</div>
               <For each={g.zeilen}>{(x) => (
                 <div class="pw-zeile" role="option" aria-selected={gewaehlt()?.id === x.id} classList={{ aktiv: x.id === projektId() }}
-                  onClick={() => waehlen(x)} onMouseEnter={() => setSel(reihe().indexOf(x))}>
+                  onClick={() => waehlen(x)} onMouseMove={() => { if (!bearbeiten()) setSel(reihe().indexOf(x)); }}>
                   <button type="button" class="pw-stern" classList={{ an: fav(x.id) }} aria-label={fav(x.id) ? 'Favorit entfernen' : 'Als Favorit oben anheften'}
                     onClick={(e) => { e.stopPropagation(); merken(x.id, { favorit: !fav(x.id) }); }}>{fav(x.id) ? '★' : '☆'}</button>
                   <b>{String(x.werte.nummer ?? '')}</b>
                   <span class="pw-name">{String(x.werte.name ?? '')}<Show when={x.werte.ort}><small> · {String(x.werte.ort)}</small></Show>
                     <Show when={filter() !== 'meine' && !mein(x.id)}><small title="Projekt anderer Bauleiter:innen"> 👥</small></Show></span>
-                  <button type="button" class="knopf still klein" aria-label="Bearbeiten" title="Bearbeiten (F2)" onClick={(e) => { e.stopPropagation(); p.onBearbeiten(x.id); }}>✎</button>
+                  <button type="button" class="knopf still klein" aria-label="Bearbeiten" title="Bearbeiten (F2)" onClick={(e) => { e.stopPropagation(); setBearbeiten(x.id); }}>✎</button>
                 </div>
               )}</For>
             </>}</For>
@@ -150,7 +147,13 @@ function WahlFenster(p: { onZu: () => void; onBearbeiten: (id: string) => void; 
           </div>
           <small class="still-text">↑↓ wählen · Enter öffnen · F2 bearbeiten</small>
         </div>
-        <Show when={breit() && gewaehlt()}>{(x) => (
+        <Show when={bearbeitet()}>{(z) => (
+          <div class="pw-einstellungen">
+            <button type="button" class="knopf klein still" onClick={() => setBearbeiten(null)}>‹ zurück zur Vorschau</button>
+            <Detailkarte modell={modell('projekt')} zeile={z()} zusatz={p.kartenZusatz} />
+          </div>
+        )}</Show>
+        <Show when={breit() && !bearbeitet() && gewaehlt()}>{(x) => (
           <aside class="pw-vorschau" aria-label="Vorschau">
             <iframe class="pw-karte" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Karte" src={karte(x())} />
             <b>{titel(x())}</b>
@@ -161,13 +164,13 @@ function WahlFenster(p: { onZu: () => void; onBearbeiten: (id: string) => void; 
               <dt>Stand</dt><dd>{modell('projekt').felder.find((f) => f.name === 'status')!.optionen!.find((o) => o.wert === x().werte.status)?.titel ?? '–'}</dd>
             </dl>
             <div class="pw-knoepfe">
-              <button type="button" class="knopf" onClick={() => p.onBearbeiten(x().id)}>✎ Bearbeiten</button>
+              <button type="button" class="knopf" onClick={() => setBearbeiten(x().id)}>✎ Bearbeiten</button>
               <button type="button" class="knopf" onClick={() => merken(x().id, { favorit: !fav(x().id) })}>{fav(x().id) ? '★ Favorit' : '☆ Favorit'}</button>
             </div>
           </aside>
         )}</Show>
       </div>
-    </Dialog>
+    </Schwebefenster>
   );
 }
 
