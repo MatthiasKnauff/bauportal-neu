@@ -13,12 +13,13 @@ export function zeigeMenue(e: MouseEvent, punkte: Menuepunkt[]): void {
 
 export function Kontextmenue() {
   const zu = () => setMenue(null);
-  const taste = (e: KeyboardEvent) => { if (e.key === 'Escape') zu(); };
+  // Esc schließt nur das Menü – nicht zugleich, was darunter auf Esc hört (z. B. die Auswahl)
+  const taste = (e: KeyboardEvent) => { if (e.key === 'Escape' && menue()) { e.preventDefault(); e.stopPropagation(); zu(); } };
   const draussen = (e: MouseEvent) => { if (!(e.target as Element).closest?.('.kontextmenue')) zu(); };
   document.addEventListener('mousedown', draussen);
-  document.addEventListener('keydown', taste);
+  document.addEventListener('keydown', taste, true);
   window.addEventListener('blur', zu);
-  onCleanup(() => { document.removeEventListener('mousedown', draussen); document.removeEventListener('keydown', taste); window.removeEventListener('blur', zu); });
+  onCleanup(() => { document.removeEventListener('mousedown', draussen); document.removeEventListener('keydown', taste, true); window.removeEventListener('blur', zu); });
   return (
     <Show when={menue()}>{(m) => (
       <div class="kontextmenue" role="menu" style={{ left: `${m().x}px`, top: `${m().y}px` }} onContextMenu={(e) => e.preventDefault()}>

@@ -11,6 +11,8 @@ import { csv } from '../../kern/csv';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
 import { spaltenFuer } from './spalten';
 import { Spaltenfeld } from './spaltenfeld';
+import { Haken, KopfHaken, auswahlKlick, langTippen, type Auswahl } from './auswahl';
+import { objektname } from '../unterbau/abgleich';
 
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const ZEILENHOEHE = 37;
@@ -63,7 +65,7 @@ function FilterFeld(p: { f: Feld; text: string; werte: () => string[]; onText: (
   );
 }
 
-export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void; alsCsv: () => string }
+export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void; alsCsv: (ids?: Set<string>) => string }
 
 export function Tabelle(p: {
   modell: ObjektModell;
@@ -86,6 +88,8 @@ export function Tabelle(p: {
   steuer?: (s: TabellenSteuer) => void;
   reihenfolgeFest?: boolean;                    // Zeilen bleiben in der gegebenen Reihenfolge (z. B. vom Server sortiert und seitenweise geladen)
   onEnde?: () => void;                          // die letzten Zeilen kommen in Sicht – z. B. um die nächste Seite zu holen
+  auswahl?: Auswahl;                            // mehrere wählen: Haken vorn, Strg/Umschalt+Klick, Strg+A (Baustein Auswahl)
+  auswahlMenue?: (e: MouseEvent) => void;       // rechte Maustaste auf einer gewählten Zeile
 }) {
   const m = p.modell;
   const spalten = spaltenFuer(m);
@@ -116,10 +120,13 @@ export function Tabelle(p: {
     return { von, bis, teil: sortiert().slice(von, bis) };
   });
   createEffect(() => { const f = fenster(); if (p.onEnde && sortiert().length && f.bis >= sortiert().length - 20) untrack(() => p.onEnde!()); });
+  const reihe = () => sortiert().map((z) => z.id);
+  const HAKEN = 34;   // Spalte für die Haken der Auswahl
+  const haken = () => (p.auswahl ? HAKEN : 0);   // feste Breite – schmaler werden nur die Spalten
   const summe = createMemo(() => spalten.sichtbare().reduce((s, f) => s + spalten.breite(f), 0));
   // Passen die Spalten nicht hinein, werden alle im selben Verhältnis schmaler (wie im bisherigen Bauportal)
-  const faktor = () => (platz() && summe() > platz() ? platz() / summe() : 1);
-  const breite = () => summe() * faktor();
+  const faktor = () => (platz() && summe() + haken() > platz() ? (platz() - haken()) / summe() : 1);
+  const breite = () => summe() * faktor() + haken();
   const spaltenbreite = (f: Feld) => spalten.breite(f) * faktor();
 
   const waehle = (z: Zeile | undefined) => {
@@ -138,7 +145,7 @@ export function Tabelle(p: {
       fokus: () => kasten.focus(),
       ersteWaehlen: () => { kasten.scrollTop = 0; if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); },
       // so, wie die Tabelle gerade aussieht: gezeigte Spalten in ihrer Reihenfolge, gefilterte Zeilen in ihrer Sortierung
-      alsCsv: () => csv([spalten.sichtbare().map((f) => f.titel), ...sortiert().map((z) => spalten.sichtbare().map((f) => anzeige(f, z.werte[f.name])))]),
+      alsCsv: (ids) => csv([spalten.sichtbare().map((f) => f.titel), ...sortiert().filter((z) => !ids || ids.has(z.id)).map((z) => spalten.sichtbare().map((f) => anzeige(f, z.werte[f.name])))]),
     });
   });
 
@@ -155,6 +162,8 @@ export function Tabelle(p: {
     else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && l[i] && p.onZelle && zelle()?.id === l[i].id) {   // Zelle angeklickt und tippen
       const f = m.felder.find((x) => x.name === zelle()!.feld); if (f && IN_ZELLE.includes(f.art) && f.art !== 'datum') { e.preventDefault(); setInArbeit({ id: l[i].id, feld: f.name, start: e.key }); } }
     else if (e.key === 'Delete' && l[i] && p.onLoeschen) { e.preventDefault(); const z = l[i]; waehle(l[i + 1] ?? l[i - 1]); p.onLoeschen(z); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && p.auswahl) { e.preventDefault(); p.auswahl.alle(reihe(), true); }
+    else if (e.key === 'Escape' && p.auswahl?.anzahl()) { e.preventDefault(); p.auswahl.leeren(); }
     else if (e.key === 'Escape' && p.gewaehlt) { e.preventDefault(); p.onWahl(null); }
     else if (e.key === '/' && p.onSuche) { e.preventDefault(); p.onSuche(); }
   };
@@ -197,8 +206,9 @@ export function Tabelle(p: {
     <>
       <div class="tabelle-rollen" tabindex="0" ref={kasten} onKeyDown={tasten} onScroll={() => setRollen({ oben: kasten.scrollTop, hoehe: kasten.clientHeight })}>
         <table class="tabelle" style={{ width: `${breite()}px` }}>
-          <colgroup><For each={spalten.sichtbare()}>{(f) => <col style={{ width: `${spaltenbreite(f)}px` }} />}</For></colgroup>
+          <colgroup><Show when={p.auswahl}><col style={{ width: `${HAKEN}px` }} /></Show><For each={spalten.sichtbare()}>{(f) => <col style={{ width: `${spaltenbreite(f)}px` }} />}</For></colgroup>
           <thead><tr onContextMenu={(e) => { e.preventDefault(); spaltenAuf(e); }}>
+            <Show when={p.auswahl}>{(a) => <th class="haken-zelle" rowSpan={p.onFilter ? 2 : 1}><KopfHaken auswahl={a()} reihe={reihe} /></th>}</Show>
             <For each={spalten.sichtbare()}>{(f) => (
               <th aria-sort={!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} draggable={true}
                 onDragStart={(e) => { gezogen = f.name; e.dataTransfer!.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()}
@@ -221,9 +231,12 @@ export function Tabelle(p: {
           </thead>
           <tbody>
             <tr aria-hidden="true" style={{ height: `${fenster().von * ZEILENHOEHE}px` }} />
-            <For each={fenster().teil}>{(z) => (
-              <tr classList={{ gewaehlt: istGewaehlt(z.id) }} onClick={() => p.onWahl(z.id)}
-                onContextMenu={(e) => { if (!p.zeilenMenue) return; p.onWahl(z.id); zeigeMenue(e, p.zeilenMenue(z)); }}>
+            <For each={fenster().teil}>{(z) => { const lang = langTippen(p.auswahl, z.id); return (
+              <tr classList={{ gewaehlt: istGewaehlt(z.id), markiert: !!p.auswahl?.hat(z.id) }}
+                onClick={(e) => { if (lang.schlucken(e) || auswahlKlick(p.auswahl, e, z.id, reihe)) return; p.onWahl(z.id); }}
+                onPointerDown={lang.onPointerDown} onPointerMove={lang.onPointerMove} onPointerUp={lang.onPointerUp} onPointerCancel={lang.onPointerCancel}
+                onContextMenu={(e) => { lang.onContextMenu(e); if (e.defaultPrevented) return; if (p.auswahl?.hat(z.id) && p.auswahlMenue) { e.preventDefault(); p.auswahlMenue(e); return; } if (!p.zeilenMenue) return; p.onWahl(z.id); zeigeMenue(e, p.zeilenMenue(z)); }}>
+                <Show when={p.auswahl}>{(a) => <td class="haken-zelle"><Haken auswahl={a()} id={z.id} name={objektname(m, z.werte)} reihe={reihe} /></td>}</Show>
                 <For each={spalten.sichtbare()}>{(f) => (
                   <td class={z.herkunft?.[f.name] ? `herkunft-${z.herkunft[f.name]}` : undefined} classList={{ 'in-arbeit': inArbeit()?.id === z.id && inArbeit()?.feld === f.name, 'aktiv-zelle': zelle()?.id === z.id && zelle()?.feld === f.name && istGewaehlt(z.id) && !inArbeit() }}
                     title={z.herkunft?.[f.name] ? HERKUNFT[z.herkunft[f.name]!] : undefined}
@@ -235,8 +248,7 @@ export function Tabelle(p: {
                     </Show>
                   </td>
                 )}</For>
-              </tr>
-            )}</For>
+              </tr>); }}</For>
             <tr aria-hidden="true" style={{ height: `${(sortiert().length - fenster().bis) * ZEILENHOEHE}px` }} />
           </tbody>
           <Show when={p.fuss}><tfoot>{p.fuss}</tfoot></Show>

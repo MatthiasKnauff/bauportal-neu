@@ -858,3 +858,18 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .filtersuche-liste div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border-radius: calc(6px * var(--rund)); cursor: pointer; white-space: nowrap; }
 .filtersuche-liste div:hover, .filtersuche-liste div.markiert { background: var(--akzent-hell); }
 .textvorschlag > input { width: 100%; box-sizing: border-box; }
+/* Auswahl (mehrere wählen): Haken vorn, gewählte Zeilen getönt, schwebende Leiste unten über der Liste – nichts schiebt die Liste */
+.auswahl-haken { width: 16px; height: 16px; margin: 0; accent-color: var(--akzent); cursor: pointer; }
+.tabelle .haken-zelle { width: 34px; text-align: center; padding: 0; }
+.tabelle tbody tr.markiert { background: color-mix(in srgb, var(--akzent) 10%, var(--flaeche)); }
+.tabelle tbody tr.markiert.gewaehlt { background: color-mix(in srgb, var(--akzent) 18%, var(--flaeche)); }
+.kachelliste-eintrag.mit-haken { position: relative; padding-left: 36px; } .kachelliste-eintrag > .auswahl-haken { position: absolute; left: 12px; top: 14px; }
+.kachelliste-eintrag.markiert { background: color-mix(in srgb, var(--akzent) 8%, var(--flaeche)); }
+@media (max-width: 860px) { html:not(.auswahl-an) .kachelliste-eintrag > .auswahl-haken { display: none; } html:not(.auswahl-an) .kachelliste-eintrag.mit-haken { padding-left: 14px; } }
+.auswahlleiste { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 60; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; max-width: calc(100vw - 32px);
+  background: var(--flaeche); border: 1px solid var(--akzent); border-radius: calc(12px * var(--rund)); padding: 8px 12px; box-shadow: var(--schatten); font-size: 14px; }
+.auswahlleiste-platz { flex: 1; min-width: 8px; }
+@media (max-width: 860px) { .auswahlleiste { left: 8px; right: 8px; transform: none; bottom: calc(var(--handyleiste-h, 64px) + 8px); } }
+.wahl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.wahl-chips button { border: 1px solid var(--rand-stark); background: var(--flaeche); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit; }
+.wahl-chips button.aktiv { border-color: var(--akzent); background: var(--akzent-hell); font-weight: 600; }

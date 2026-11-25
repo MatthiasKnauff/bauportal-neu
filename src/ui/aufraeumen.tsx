@@ -10,7 +10,9 @@ import { vorschauZeigen, type Vorschau } from './uebernahme';
 interface Gruppe { ids: string[]; grund: string[] }
 interface Wahl { behalten: string; mit: Record<string, boolean> }
 const [offen, setOffen] = createSignal(false);
-export const aufraeumenOeffnen = () => setOffen(true);
+const [vorgabe, setVorgabe] = createSignal<string[] | null>(null);   // gewählte Kontakte (Auswahl) statt der Suche nach Doppelten
+/** Ohne Angabe: Doppelte suchen. Mit Kennungen: genau diese zusammenführen (Auswahl in den Adressen). */
+export const aufraeumenOeffnen = (ids?: string[]) => { setVorgabe(ids && ids.length > 1 ? ids : null); setOffen(true); };
 
 const kontakt = (id: string) => sicht.kontakt?.[id]?.werte ?? {};
 const gefuellt = (id: string) => Object.values(kontakt(id)).filter((w) => w != null && w !== '').length;
@@ -19,7 +21,8 @@ function AufraeumenFenster() {
   const [gruppen, setGruppen] = createSignal<Gruppe[] | null>(null);
   const [fehler, setFehler] = createSignal('');
   const [wahl, setWahl] = createStore<Wahl[]>([]);
-  ruf<Gruppe[]>('/api/adressen/doppelte').then((g) => {
+  const v = vorgabe();
+  (v ? Promise.resolve<Gruppe[]>([{ ids: v, grund: [`${v.length} gewählte Kontakte`] }]) : ruf<Gruppe[]>('/api/adressen/doppelte')).then((g) => {
     // Vorschlag: der Kontakt mit den meisten Angaben bleibt, die übrigen gehen in ihm auf
     setWahl(g.map((x) => { const b = [...x.ids].sort((a, c) => gefuellt(c) - gefuellt(a))[0]!; return { behalten: b, mit: Object.fromEntries(x.ids.filter((i) => i !== b).map((i) => [i, true])) }; }));
     setGruppen(g);

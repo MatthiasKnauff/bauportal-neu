@@ -37,6 +37,7 @@ import { springeZu } from './sprung';
 import { Arbeitszeit } from './arbeitszeit';
 import { BerichtDetails, BerichtLinks, Berichtsseite, berichtDetailsDa } from './bautagebuch';
 import { aufraeumenOeffnen } from './aufraeumen';
+import { kontaktAuswahl } from './kontaktauswahl';
 import { PruefSchluessel } from './pruefki';
 
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
@@ -390,7 +391,8 @@ const ANPASSUNG: Record<string, Anpassung> = {
     kartenOben: (z) => <KontaktOben kontakt={z} />,
     kartenEinschub: { Erreichbarkeit: (z) => <Kontaktwege kontakt={z} /> },
     kartenReiter: (z) => [{ titel: 'Projekte', inhalt: () => <KontaktProjekte kontakt={z} /> }],
-    knoepfe: () => (darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: aufraeumenOeffnen }] : []),
+    knoepfe: () => (darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: () => aufraeumenOeffnen() }] : []),
+    auswahl: kontaktAuswahl,   // mehrere wählen: Projekt, Ändern, Ausgeben, Zusammenführen
   },
   vorgang: { mitte: (m) => <Balkenplan {...m} />, kartenZusatz: (z) => <Nachfolger vorgang={z} /> },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },

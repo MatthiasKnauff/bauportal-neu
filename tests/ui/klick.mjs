@@ -39,7 +39,7 @@ for (let i = 2; i < 14; i++) {
     const z = document.querySelectorAll('tbody tr:not([aria-hidden])')[i];
     const t0 = performance.now();
     z.click();
-    await new Promise((ok) => { const p = () => (document.querySelector('.karte h2')?.textContent === z.firstChild.textContent ? ok() : requestAnimationFrame(p)); p(); });
+    await new Promise((ok) => { const p = () => (document.querySelector('.karte h2')?.textContent === z.querySelector('td:not(.haken-zelle)').textContent ? ok() : requestAnimationFrame(p)); p(); });
     await new Promise((r) => requestAnimationFrame(() => r()));
     return performance.now() - t0;
   }, i));

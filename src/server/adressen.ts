@@ -56,8 +56,10 @@ export function adressenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     if (!m) throw new Ablehnung('Diese Datei gibt es nicht');
     return visitenkarten(req, reply, [m[1]!]);
   });
-  app.get('/api/kontakte.vcf', { preHandler: e.nurAngemeldet }, async (req, reply) => {
-    const ids = String((req.query as { ids?: string }).ids ?? '').split(',').filter((x) => KENNUNG.test(x)).slice(0, 5000);
+  // mehrere als eine Datei – die Kennungen im Rumpf (viele Kennungen passen in keine Adresszeile)
+  app.post('/api/kontakte.vcf', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    const roh = (req.body as { ids?: unknown } | null)?.ids;
+    const ids = (Array.isArray(roh) ? roh : []).map(String).filter((x) => KENNUNG.test(x)).slice(0, 5000);
     if (!ids.length) throw new Ablehnung('Keine Kontakte gewählt');
     return visitenkarten(req, reply, ids);
   });

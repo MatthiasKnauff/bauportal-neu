@@ -1,16 +1,16 @@
 // Die übliche Ansicht eines Objekts: Sie baut nichts selbst, sondern setzt die fertigen Bausteine
 // in den Rahmen – Baum links, Tabelle in die Mitte, Detailkarte rechts – und verbindet sie.
 import { herunterladen } from './baukasten/herunterladen';
-import { Show, createEffect, createMemo, createSignal, on, untrack, type JSX } from 'solid-js';
+import { Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from 'solid-js';
 import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
 import { leerwert, type Feld, type ObjektModell, type Werte } from '../kern/modell';
 import { LEER, artWeg, erfuellt, hat, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
 import { Filterkaesten, Filtersuche, type FilterArt } from './baukasten/filterkaesten';
 import type { Zeile } from '../kern/befehl';
-import { geaendert, lebende, objektname, sicht } from './unterbau/abgleich';
+import { ausfuehrenMehrere, geaendert, lebende, objektname, rueckgaengig, sicht } from './unterbau/abgleich';
 import { projektId } from './projekt';
-import { darf } from './unterbau/api';
+import { darf, zustand } from './unterbau/api';
 import type { Anpassung } from './baukasten/anpassung';
 import type { Knopf } from './baukasten/menueleiste';
 import { Baum, type Knoten } from './baukasten/baum';
@@ -22,6 +22,11 @@ import { anzeige } from './baukasten/feld';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 import { Tabelle, type TabellenSteuer } from './baukasten/tabelle';
 import { Kacheln } from './baukasten/kacheln';
+import { Auswahlleiste, auswahlAnlegen, auswahlMenue, type AuswahlBefehl } from './baukasten/auswahl';
+import { Dialog } from './baukasten/dialog';
+import { spaltenFuer } from './baukasten/spalten';
+import { csv } from '../kern/csv';
+import { hinweis } from './unterbau/meldungen';
 
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const TRENNER = '\u0001';
@@ -185,6 +190,35 @@ export function ObjektAnsicht(p: {
     return i < 0 ? undefined : { nr: i + 1, anzahl: ids.length, onSchritt: (s: -1 | 1) => { const n = ids[i + s]; if (n) setGewaehlt(n); } };
   };
   const darfLoeschen = () => darf(m.name, 'loeschen') && !m.einzeln;
+  // ---------- Mehrere wählen (nur wo das Modul Befehle dafür einstellt) ----------
+  const auswahl = a.auswahl ? auswahlAnlegen() : undefined;
+  const reiheJetzt = () => ((!kacheln() && reihe()) || zeilen().map((z) => z.id));
+  const excel = (ids: string[]) => {
+    const menge = new Set(ids);
+    const inhalt = tabelle && !kacheln() ? tabelle.alsCsv(menge) : (() => { const sp = spaltenFuer(m).sichtbare(); return csv([sp.map((f) => f.titel), ...lebend().filter((z) => menge.has(z.id)).map((z) => sp.map((f) => anzeige(f, roh(z).werte[f.name])))]); })();
+    herunterladen(inhalt, `${m.titelMehrzahl} ${new Date().toLocaleDateString('sv')}.csv`, 'text/csv;charset=utf-8');
+  };
+  // Verwendet = ein anderes Objekt verweist darauf (außer eigenen Unterzeilen wie den Kontaktwegen, deren Verweis verborgen ist)
+  const verwendet = (ids: string[]) => {
+    const menge = new Set(ids), da = new Set<string>();
+    for (const x of zustand()!.module.flatMap((mo) => mo.objekte)) for (const f of x.felder.filter((f) => f.art === 'verweis' && f.ziel === m.name && !f.verborgen))
+      for (const z of lebende(x.name)) { const v = String(z.werte[f.name] ?? ''); if (menge.has(v)) da.add(v); }
+    return da;
+  };
+  const [wegFrage, setWegFrage] = createSignal<{ frei: string[]; bleiben: number } | null>(null);
+  const papierkorb: AuswahlBefehl = { titel: 'In den Papierkorb', gefahr: true, gesperrt: () => (darfLoeschen() ? undefined : 'Dazu fehlt dir das Recht'),
+    tun: (ids) => { const v = verwendet(ids), frei = ids.filter((i) => !v.has(i)); if (!frei.length) { hinweis(`Alle gewählten ${m.titelMehrzahl} werden verwendet – nichts gelöscht.`); return; } setWegFrage({ frei, bleiben: ids.length - frei.length }); } };
+  const wegLegen = (frei: string[]) => {
+    setWegFrage(null);
+    ausfuehrenMehrere(frei.map((id) => ({ objekt: m.name, art: 'loeschen' as const, objektId: id })), `${frei.length} ${frei.length === 1 ? m.titel : m.titelMehrzahl} in den Papierkorb`);
+    frei.forEach((id) => auswahl?.ids().has(id) && auswahl.umschalten(id));
+    hinweis(`${frei.length} ${frei.length === 1 ? m.titel : m.titelMehrzahl} im Papierkorb.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
+  };
+  const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel }), papierkorb] : []);
+  // Am Handy erscheinen die Haken erst, wenn etwas gewählt ist (lange tippen)
+  if (auswahl) { createEffect(() => document.documentElement.classList.toggle('auswahl-an', auswahl.anzahl() > 0)); onCleanup(() => document.documentElement.classList.remove('auswahl-an')); }
+  // Gelöschte fallen aus der Auswahl
+  if (auswahl) createEffect(() => { const da = new Set(lebend().map((z) => z.id)); untrack(() => { for (const id of auswahl.ids()) if (!da.has(id)) auswahl.umschalten(id); }); });
   const leer = () => lebend().length ? 'Kein Treffer für diese Auswahl.' : `Noch keine ${m.titelMehrzahl}.${darf(m.name, 'schreiben') ? ` Mit „+ ${m.titel}“ legst du den ersten Eintrag an.` : ''}`;
 
   return (
@@ -213,12 +247,14 @@ export function ObjektAnsicht(p: {
         baumTitel={a.linksTitel ?? 'Gliederung'}
         baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></> : baumFelder.length ? <Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /> : undefined}
         inhalt={a.mitte ? a.mitte(mitteP) : a.leer && !lebend().length ? a.leer(fest(), () => neuStart()) : kacheln() && a.kachel ?
-          <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()} /> :
+          <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()}
+            auswahl={auswahl} auswahlMenue={auswahl ? (e) => auswahlMenue(auswahl, auswahlBefehle(), e) : undefined} name={(z) => objektname(m, z.werte)} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={filter()} onFilter={(feld, text) => setFilter((alt) => ({ ...alt, [feld]: text }))} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
             onWahl={setGewaehlt} onOeffnen={insErsteFeld} onDoppelklick={a.details ? undefined : (z) => setSchwebend(z.id)} onSuche={() => suchfeld.focus()}
             onLoeschen={darfLoeschen() ? (z) => loesche(m, z) : undefined}
+            auswahl={auswahl} auswahlMenue={auswahl ? (e) => auswahlMenue(auswahl, auswahlBefehle(), e) : undefined}
             zeilenMenue={(z) => [
               { titel: 'Öffnen', tun: insErsteFeld },
               { titel: 'In eigenem Fenster öffnen', tun: () => inEigenemFenster(m, z.id) },
@@ -233,6 +269,14 @@ export function ObjektAnsicht(p: {
       <Show when={schwebZeile()}>{(z) => <Schwebefenster titel={objektname(m, z().werte) || m.titel} onZu={() => { setSchwebend(null); tabelle?.fokus(); }}>
         <Detailkarte modell={m} zeile={z()} onZu={() => setSchwebend(null)} zusatz={a.kartenZusatz} oben={a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />
       </Schwebefenster>}</Show>
+      <Show when={auswahl}>{(aw) => <Auswahlleiste auswahl={aw()} reihe={reiheJetzt} befehle={auswahlBefehle().filter((x) => !x.nurMenue)} />}</Show>
+      <Show when={wegFrage()}>{(w) => (
+        <Dialog titel="In den Papierkorb" onAbbrechen={() => setWegFrage(null)} knoepfe={<>
+          <button class="knopf" onClick={() => setWegFrage(null)}>Abbrechen</button>
+          <button class="knopf haupt gefahr" onClick={() => wegLegen(w().frei)}>In den Papierkorb</button></>}>
+          <p>{w().frei.length} {w().frei.length === 1 ? m.titel : m.titelMehrzahl} in den Papierkorb legen? Zurückholen geht mit „Zurück“ oder aus dem Verlauf.</p>
+          <Show when={w().bleiben}><p class="still-text">{w().bleiben} gewählte {w().bleiben === 1 ? 'bleibt, weil er' : 'bleiben, weil sie'} anderswo verwendet {w().bleiben === 1 ? 'wird' : 'werden'} (Projekt, Bautagebuch, Bauzeitenplan …).</p></Show>
+        </Dialog>)}</Show>
       <Show when={neu()}>{(start) => <NeuFenster modell={m} start={start()} verborgen={Object.keys(fest())} onZu={(id) => { setNeu(null); if (id) { setGewaehlt(id); rahmen.detailsZeigen(); } }} />}</Show>
     </div>
   );

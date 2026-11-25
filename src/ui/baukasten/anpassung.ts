@@ -1,6 +1,7 @@
 // Stellschrauben: Hier steht, was ein Modul an den fertigen Bausteinen verändern darf.
 // Ein Modul baut nichts über einen Baustein drüber – es stellt nur an diesen vorgesehenen Stellen.
 // Fehlt eine Stellschraube, kommt sie HIER dazu (und gilt dann für alle Module), nicht im Modul.
+import type { AuswahlBefehl } from './auswahl';
 import type { JSX } from 'solid-js';
 import type { Zeile } from '../../kern/befehl';
 import type { Feld } from '../../kern/modell';
@@ -44,6 +45,8 @@ export interface Anpassung {
   /** Eigene Darstellung einer Tabellenzelle; ohne Rückgabe gilt die übliche. */
   zelle?: (f: Feld, z: Zeile) => JSX.Element | undefined;
   /** Zusätzliche Punkte im Kontextmenü einer Zeile (insgesamt bleiben es höchstens 6). */
+  /** Mehrere wählen (Haken, schwebende Leiste unten): die Befehle des Moduls für die Gewählten – dazu kommen Excel und Papierkorb. */
+  auswahl?: (h: { excel: (ids: string[]) => void }) => AuswahlBefehl[];
   zeilenMenue?: (z: Zeile) => Menuepunkt[];
   // --- Links ---
   /** Statt des Baums eine eigene Darstellung links (z. B. Kalender und Abschnitte im Bautagebuch). */
