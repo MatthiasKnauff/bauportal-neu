@@ -3,7 +3,7 @@
 // Jede Wahl wirkt sofort und ist gespeichert; „Zurück“ nimmt sie zurück. „Design einfügen“ nimmt ein Theme im
 // shadcn-Format (tweakcn, shadcn.io …), übersetzt es (kern/design) und holt seine Schriften einmal auf den eigenen Server.
 import { For, Show, createSignal } from 'solid-js';
-import { AKZENTE, GROESSEN, SCHRIFTWAHL, STANDARD, STIL, STIL_PAKETE, satzFuer, schriften, themeLesen } from '../kern/design';
+import { AKZENTE, SCHRIFTMASS, SCHRIFTWAHL, schriftmass, STANDARD, STIL, STIL_PAKETE, satzFuer, schriften, themeLesen } from '../kern/design';
 import type { Werte } from '../kern/modell';
 import { ausfuehren, sicht } from './unterbau/abgleich';
 import { ich, neueKennung, ruf } from './unterbau/api';
@@ -118,8 +118,16 @@ export function Darstellungsseite() {
       <h3>Schrift</h3>
       <Wahl titel="Schriftart" werte={SCHRIFTWAHL.map(([k, t]) => [k, t])} wert={wert('schrift')} onWert={(v) => setzen({ schrift: v }, 'Schrift ändern')}
         stil={(k) => { const s = SCHRIFTWAHL.find(([x]) => x === k)?.[2]; return s ? { 'font-family': s } : ({} as Record<string, string>); }} />
-      <Wahl titel="Schriftgröße" werte={GROESSEN.map(([k, t]) => [k, t])} wert={wert('groesse')} onWert={(v) => setzen({ groesse: v }, 'Schriftgröße ändern')}
-        stil={(k) => ({ 'font-size': `${15 * (GROESSEN.find(([x]) => x === k)?.[2] ?? 1)}px` })} />
+      <div class="darstellung-reihe">
+        <span class="design-etikett">Schriftgröße</span>
+        <label class="design-rund">
+          <input type="range" min={SCHRIFTMASS.min} max={SCHRIFTMASS.max} step={SCHRIFTMASS.schritt} value={schriftmass(w()?.werte.schriftmass)} aria-label="Schriftgröße in Prozent"
+            onInput={(e) => { document.documentElement.style.zoom = String(Number(e.currentTarget.value) / 100); }}
+            onChange={(e) => setzen({ schriftmass: Number(e.currentTarget.value) }, 'Schriftgröße ändern')} />
+          <span class="darstellung-wert">{schriftmass(w()?.werte.schriftmass)} %</span>
+          <Show when={schriftmass(w()?.werte.schriftmass) !== 100}><button type="button" class="knopf klein still" title="Zurück auf 100 %" onClick={() => setzen({ schriftmass: null }, 'Schriftgröße 100 %')}>↺</button></Show>
+        </label>
+      </div>
 
       <h3>Stil</h3>
       <Wahl titel="Zusammenstellung" werte={STIL_PAKETE.map((pk) => [pk.titel, pk.titel])} wert={paket()}

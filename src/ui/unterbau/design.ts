@@ -1,7 +1,7 @@
 // Wendet das Design des angemeldeten Benutzers an: Standard, darüber das gewählte Design (hell/dunkel/wie das Gerät),
 // darüber eigene Rundung und Akzentfarbe. Schriften kommen vom eigenen Server (/api/schriften.css).
 import { createEffect, createSignal, onCleanup } from 'solid-js';
-import { GROESSEN, SCHRIFTWAHL, STIL, helligkeit, satzFuer, VARIABLEN, type Design } from '../../kern/design';
+import { schriftmass, SCHRIFTWAHL, STIL, helligkeit, satzFuer, VARIABLEN, type Design } from '../../kern/design';
 import { sicht } from './abgleich';
 import { ich } from './api';
 import type { Zeile } from '../../kern/befehl';
@@ -45,6 +45,6 @@ export function designBeobachten() {
 export function schriftUndStil(w: Record<string, unknown>, ziel: HTMLElement = document.documentElement) {
   const s = SCHRIFTWAHL.find(([k]) => k && k === w.schrift);
   if (s) ziel.style.setProperty('--schrift', s[2]);
-  ziel.style.zoom = String(GROESSEN.find(([k]) => k === (w.groesse ?? ''))?.[2] ?? 1);
+  ziel.style.zoom = String(schriftmass(w.schriftmass) / 100);
   for (const x of STIL) { const v = String(w[x.feld] ?? ''); if (v) ziel.dataset[x.feld] = v; else delete ziel.dataset[x.feld]; }
 }

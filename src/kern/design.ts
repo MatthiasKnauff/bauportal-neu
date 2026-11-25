@@ -117,8 +117,9 @@ export const SCHRIFTWAHL: [string, string, string][] = [
   ['arial', 'Arial', 'Arial, Helvetica, sans-serif'], ['verdana', 'Verdana', 'Verdana, Geneva, sans-serif'],
   ['calibri', 'Calibri', 'Calibri, Carlito, "Segoe UI", system-ui, sans-serif'], ['georgia', 'Georgia', 'Georgia, "Times New Roman", serif'],
 ];
-/** Schriftgröße: Maßstab der ganzen Oberfläche. */
-export const GROESSEN: [string, string, number][] = [['klein', 'klein', 0.92], ['', 'normal', 1], ['gross', 'groß', 1.1]];
+/** Schriftgröße: Maßstab der ganzen Oberfläche in Prozent (Schieberegler). */
+export const SCHRIFTMASS = { min: 80, max: 130, schritt: 5 };
+export const schriftmass = (w: unknown): number => { const n = Number(w); return Number.isFinite(n) && n > 0 ? Math.min(SCHRIFTMASS.max, Math.max(SCHRIFTMASS.min, n)) : 100; };
 /** Feinheiten des Stils (Feld der Design-Wahl → Werte); '' = Vorgabe. */
 export const STIL: { feld: string; titel: string; werte: [string, string][] }[] = [
   { feld: 'schatten', titel: 'Schatten', werte: [['', 'an'], ['aus', 'aus']] },
