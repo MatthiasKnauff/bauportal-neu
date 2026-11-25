@@ -493,7 +493,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 #b9cdf6; }
 .diktat-knopf { margin: 0 0 8px; }
 .diktat-text { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px; border: 1px solid var(--linie, #ccd); border-radius: 8px; resize: vertical; }
 .diktat-ki { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
-.diktat-ki select { flex: 1; }
+.diktat-ki .auswahlliste { flex: 1; }
 
 /* Tagesbericht: Werkzeuge und „Schritt für Schritt“ */
 .bericht-werkzeuge { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
