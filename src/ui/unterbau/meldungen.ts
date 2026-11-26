@@ -10,7 +10,8 @@ let zaehler = 0;
 export function hinweis(text: string, o: { art?: Hinweis['art']; aktion?: Hinweis['aktion'] } = {}): void {
   const nr = ++zaehler;
   const art = o.art ?? 'info';
-  setListe(produce((l) => { l.push({ nr, text, art, aktion: o.aktion }); if (l.length > 4) l.shift(); }));
+  // wie im bisherigen Bauportal immer nur eine Meldung: die neue ersetzt die vorige (nie ein Stapel)
+  setListe(produce((l) => { l.splice(0, l.length, { nr, text, art, aktion: o.aktion }); }));
   setTimeout(() => meldungSchliessen(nr), art === 'fehler' || o.aktion ? 12000 : 5000);
 }
 export function meldungSchliessen(nr: number): void { setListe((l) => l.filter((h) => h.nr !== nr)); }
