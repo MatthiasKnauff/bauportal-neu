@@ -26,8 +26,14 @@ export function lvVon(p: Mitte): Zeile | undefined {
   const z = sicht.lv?.[p.gewaehlt() ?? ''];
   return z && !z.geloescht && z.werte.projekt === projektId() ? z : gewaehltesLv();
 }
-/** Ein LV wählen – gilt dann in allen Ansichten der AVA. */
-export const lvWaehlen = (p: Mitte, id: string) => { setAktivesLv(id); p.onWahl(id); };
+/** Ansichten mit Einträgen eines LV (Angebote, Besprechungen, Nachträge, Rechnungen …): nur die des gewählten LV, neue gehören
+ *  zu ihm – wie im bisherigen Bauportal bezieht sich alles auf das LV oben (Entscheidung 26.11.2026). */
+export const nurGewaehltesLv = (): Record<string, string> => { const z = gewaehltesLv(); return z ? { lv: z.id } : {}; };
+/** Ein LV wählen – gilt dann in allen Ansichten der AVA (zeigt die Ansicht LVs, ist es dort auch gewählt). */
+export const lvWaehlen = (p: Mitte, id: string) => { setAktivesLv(id); if (p.alle().some((z) => z.id === id)) p.onWahl(id); };
+const lvListe = () => lebende('lv').filter((z) => z.werte.projekt === projektId())
+  .sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true }))
+  .map((z) => ({ wert: z.id, titel: [z.werte.nummer, z.werte.name].filter(Boolean).join(' · ') }));
 
 function AvaKopf(p: Mitte): JSX.Element {
   // in Ansichten, die LVs zeigen, gilt das dort gewählte für die ganze App
@@ -40,7 +46,8 @@ function AvaKopf(p: Mitte): JSX.Element {
   return (
     <Show when={lv()}>{(z) => (
       <div class="ansicht-kopf" aria-label="Leistungsverzeichnis">
-        <h2>{[z().werte.nummer, z().werte.name].filter(Boolean).join(' · ')}</h2>
+        {/* wie im bisherigen Bauportal: oben das LV wählen – gilt dann in allen Ansichten der AVA */}
+        <div class="kopf-lv"><Auswahlliste titel="Leistungsverzeichnis" wert={z().id} optionen={lvListe()} onWert={(id) => lvWaehlen(p, id)} /></div>
         <span class="kopf-angabe"><small>Stand</small><Auswahlliste titel="Stand" wert={String(z().werte.status ?? 'bearbeitung')} optionen={LV_STATUS} gesperrt={!darf('lv', 'schreiben')}
           onWert={(w) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: z().id, werte: { status: w } }, 'Stand des LV')} /></span>
         <Show when={auftrag()} fallback={<span class="kopf-firma offen">{z().werte.status === 'aufgehoben' ? 'aufgehoben – nicht vergeben' : 'noch nicht vergeben'}</span>}>

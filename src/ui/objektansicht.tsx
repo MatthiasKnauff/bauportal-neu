@@ -48,7 +48,7 @@ export function ObjektAnsicht(p: {
   const app = useContext(AppUmgebung);
   const baumFelder = (p.baum ?? []).map((n) => m.felder.find((f) => f.name === n)!);
   // Sammelfilter links: die Filter der Ansicht – oder, wo sie keine nennt, je Auswahl-/Verweisfeld der Liste einer (UND, ODER, NICHT)
-  const lfs: LinksFilter[] = p.linksFilter ?? sammelfilter(m, [...Object.keys(p.fest?.() ?? {}), ...(p.baum ?? [])]);
+  const lfs: LinksFilter[] = p.linksFilter ?? sammelfilter(m, [...Object.keys(p.fest?.() ?? {}), ...Object.keys(a.fest?.() ?? {}), ...(p.baum ?? [])]);
   const [suche, setSuche] = createSignal('');
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
@@ -67,7 +67,7 @@ export function ObjektAnsicht(p: {
   const formWechseln = () => { setKacheln(!kacheln()); try { localStorage.setItem(FORM, kacheln() ? 'kacheln' : 'tabelle'); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
   let rahmen!: RahmenSteuer, tabelle!: TabellenSteuer, suchfeld!: HTMLInputElement, wurzel!: HTMLDivElement;
 
-  const fest = () => p.fest?.() ?? {};
+  const fest = (): Werte => ({ ...p.fest?.(), ...a.fest?.() });
   // Listen hängen am Zähler der Objektart, nicht an jedem Feld jeder Zeile (siehe abgleich.ts) – gelesen wird ohne Abhören.
   const roh = (z: Zeile) => unwrap(z);
   const lebend = createMemo(() => {

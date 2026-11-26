@@ -43,6 +43,8 @@ export interface Anpassung {
   /** Abfolge-Leiste: die Schritte (id = Ansicht der App, die der Schritt öffnet), wie weit der Eintrag ist (stand) und welcher Schritt
    *  zur offenen Ansicht gehört (hier). Ein Klick öffnet die Ansicht des Schritts. */
   abfolge?: (p: Mitte, ansicht: string) => { schritte: Schritt[]; stand: string; hier?: string } | undefined;
+  /** Zusammenhang der Ansicht, zusätzlich zu Projekt und Version: nur Einträge mit diesen Werten, neue bekommen sie (z. B. das gewählte LV). */
+  fest?: () => Record<string, string>;
   // --- Oben (unter der Menüleiste) ---
   /** Einstellungen, die für alle Einträge der Ansicht gelten (z. B. Arbeitszeit des Plans). Bekommt den Zusammenhang (Projekt, Version). */
   oben?: (zusammenhang: Record<string, string | number | boolean | null>) => JSX.Element;

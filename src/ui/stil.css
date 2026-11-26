@@ -364,7 +364,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .abfolge li.weg button { opacity: .45; text-decoration: line-through; }
 /* Kopf einer Ansicht über Abfolge und Menüleiste (z. B. AVA: das gewählte LV, Stand, Vergabe, Eckdaten) */
 .ansicht-kopf { flex: none; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 8px 14px; background: var(--flaeche); border-bottom: 1px solid var(--rand); }
-.ansicht-kopf h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.ansicht-kopf .kopf-lv .auswahlliste-knopf { font-size: 16px; font-weight: 600; min-width: 220px; }
 .ansicht-kopf .auswahlliste { min-width: 170px; }
 .ansicht-kopf .kopf-angabe { display: flex; flex-direction: column; font-size: 13px; line-height: 1.2; }
 .ansicht-kopf .kopf-angabe small { color: var(--text-still); font-size: 11px; }

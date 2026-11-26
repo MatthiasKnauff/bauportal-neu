@@ -22,7 +22,7 @@ import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { hinweis } from './unterbau/meldungen';
 import type { Anpassung } from './baukasten/anpassung';
-import { AVA_OBEN } from './avakopf';
+import { AVA_OBEN, nurGewaehltesLv } from './avakopf';
 import { KatasterHolen } from './kataster';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
@@ -470,6 +470,8 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'ava.kostenkontrolle': { mitte: (m) => <Kostenkontrolle {...m} />, detailsHinweis: 'Eine Zeile anklicken – hier steht dann das Leistungsverzeichnis mit seinen Summen.' },
   'ava.aufmass': { mitte: (m) => <Aufmasspruefung {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Menge laut Firma und Rechenweg direkt in der Tabelle eintragen; Enter springt eine Zeile tiefer.' },
+  // Einträge eines LV: nur die des oben gewählten LV (Kopf und Abfolge zeigen es), neue gehören zu ihm
+  ...Object.fromEntries(['angebote', 'besprechungen', 'bauvertraege', 'nachtraege', 'rechnungen', 'positionen'].map((a) => [`ava.${a}`, { fest: nurGewaehltesLv }])),
   'gebaeudemodell.modell3d': { mitte: (m) => <Gebaeude3d {...m} />, detailsHinweis: 'Ein Bauteil in der 3D-Ansicht anklicken – hier steht dann seine Karte, direkt änderbar.' },
 };
 /** Unter der Karte: was das Modul dort ergänzt, und – für alles, was sich drucken lässt – der Weg zum Ausdruck. */
