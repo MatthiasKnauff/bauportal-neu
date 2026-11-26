@@ -36,6 +36,18 @@ export function ifcEinlesen(projekt: string, version: string): void {
   wahl.click();
 }
 
+/** GAEB einlesen: ohne LV ein neues LV (X83/X86), mit LV der Abgleich – oder ein Angebot (X84) zu diesem LV. */
+export function gaebEinlesen(projekt: string, lv?: string): void {
+  const wahl = document.createElement('input');
+  wahl.type = 'file'; wahl.accept = '.x83,.x84,.x86,.x81,.x82,.xml,.X83,.X84,.X86';
+  wahl.onchange = () => {
+    const datei = wahl.files?.[0];
+    if (datei) void vorschauZeigen({ titel: `GAEB einlesen – ${datei.name}`, wartetext: 'Die Datei wird gelesen und mit dem Projekt verglichen …', fertig: `„${datei.name}“ ist übernommen.` },
+      () => ruf<Vorschau>(`/api/ava/gaeb/vorschau?projekt=${projekt}${lv ? `&lv=${lv}` : ''}`, datei));
+  };
+  wahl.click();
+}
+
 // ---------- Assistent: Fragen zum Gebäude, daraus ein erstes geschätztes Modell ----------
 const FRAGEN = ['Gebäude', 'Größe', 'Bauweise', 'Technik und Ausbau', 'Bestand'];
 const NEU = '';

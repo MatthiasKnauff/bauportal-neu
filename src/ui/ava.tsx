@@ -3,6 +3,8 @@
 import { For, Show, createMemo, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { gp, guenstigster, nachOz, summeGeschaetzt, wertung, zaehlt, zahl } from '../module/ava/rechnung';
+import { gaebSchreiben, type GaebPosten } from '../module/ava/gaeb';
+import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Seitenliste } from './baukasten/seitenliste';
@@ -34,8 +36,25 @@ export function LvSummen(p: { lv: Zeile }): JSX.Element {
         <Show when={auftrag()}>{(x) => <><dt>Auftrag</dt><dd>{name(x().a.werte.bieter)} · {eur(x().w?.nachLass ?? 0)} €</dd></>}</Show>
         <Show when={rechnungen().length}><dt>abgerechnet</dt><dd>{eur(rechnungen().reduce((s, r) => s + zahl(r.werte.geprueft ?? r.werte.betrag), 0))} € in {rechnungen().length} {rechnungen().length === 1 ? 'Rechnung' : 'Rechnungen'}</dd></Show>
       </dl>
+      <h3>GAEB</h3>
+      <div class="reihe">
+        <button type="button" class="knopf" disabled={!pos().length} title="Angebotsaufforderung: das LV ohne Preise für die Bieter:innen" onClick={() => gaebAusgeben(p.lv, '83')}>X83 ausgeben</button>
+        <Show when={darf('lv_position', 'schreiben')}><button type="button" class="knopf" title="X83/X86: Positionen mit diesem LV abgleichen · X84: ein Angebot mit Preisen einlesen" onClick={() => gaebEinlesen(String(p.lv.werte.projekt), p.lv.id)}>Einlesen …</button></Show>
+      </div>
     </div>
   );
+}
+
+/** Das LV als GAEB-Datei herunterladen: X83 Angebotsaufforderung (ohne Preise). */
+function gaebAusgeben(lv: Zeile, dp: '83'): void {
+  const pos = positionenVon(lv.id).map((x): Omit<GaebPosten, 'kennung'> => ({ oz: String(x.werte.oz ?? ''), art: (x.werte.art || 'normal') as GaebPosten['art'], kurztext: String(x.werte.kurztext ?? ''), langtext: String(x.werte.langtext ?? ''),
+    menge: x.werte.menge == null ? null : zahl(x.werte.menge), einheit: String(x.werte.einheit ?? ''), ep: null }));
+  const projekt = sicht.projekt?.[String(lv.werte.projekt)]?.werte;
+  const xml = gaebSchreiben({ projekt: [projekt?.nummer, projekt?.name].filter(Boolean).join(' '), name: String(lv.werte.name ?? ''), nummer: String(lv.werte.nummer ?? '') }, pos, dp);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([xml], { type: 'application/xml' }));
+  a.download = `${[lv.werte.nummer, lv.werte.name].filter(Boolean).join(' ') || 'LV'}.X${dp}`.replace(/[\\/:*?"<>|]+/g, '-');
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
 /** Karte einer Position: der Gesamtpreis (und warum er nicht zählt). */

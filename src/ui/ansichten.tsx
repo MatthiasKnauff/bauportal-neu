@@ -24,7 +24,7 @@ import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
 import { AlleDateien, DateienAnsicht, OrdnerFenster } from './dateien';
-import { assistentStarten, ifcEinlesen } from './uebernahme';
+import { assistentStarten, gaebEinlesen, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
 import { Updates } from './updates';
 import { AufbauAnsicht } from './aufbau';
@@ -382,7 +382,8 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} />, auswahl: gemeinsam },
   // Ausschreibung: Summen in den Karten
-  lv: { kartenZusatz: (z) => <LvSummen lv={z} />, auswahl: gemeinsam },
+  lv: { kartenZusatz: (z) => <LvSummen lv={z} />, auswahl: gemeinsam,
+    knoepfe: (z) => (darf('lv_position', 'schreiben') ? [{ titel: 'GAEB einlesen', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => gaebEinlesen(String(z.projekt)) }] : []) },
   lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), auswahl: gemeinsam, neuVorgabe: () => ({ art: 'normal' }) },
   angebot: { kartenZusatz: (z) => <AngebotSumme angebot={z} /> },
   rechnung: { auswahl: gemeinsam },

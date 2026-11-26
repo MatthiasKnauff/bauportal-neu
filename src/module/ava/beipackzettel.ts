@@ -73,6 +73,7 @@ export const angebot: ObjektModell = {
     { name: 'beauftragt', titel: 'Beauftragt', art: 'ja_nein', inListe: true, breite: 100, gruppe: 'Wertung' },
     { name: 'auftragsdatum', titel: 'Auftrag vom', art: 'datum', gruppe: 'Wertung' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Notiz' },
+    { name: 'kennung', titel: 'Kennung (GAEB)', art: 'text', verborgen: true },
   ],
 };
 
@@ -84,6 +85,7 @@ export const angebotPreis: ObjektModell = {
     { name: 'angebot', titel: 'Angebot', art: 'verweis', ziel: 'angebot', pflicht: true },
     { name: 'position', titel: 'Position', art: 'verweis', ziel: 'lv_position', pflicht: true },
     { name: 'ep', titel: 'EP in €', art: 'zahl' },
+    { name: 'kennung', titel: 'Kennung (GAEB)', art: 'text', verborgen: true },
   ],
 };
 

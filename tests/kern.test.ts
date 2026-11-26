@@ -1118,3 +1118,24 @@ test('Ausschreibung: OZ sortieren, Summen, Preisspiegel und Rang', async () => {
   assert.equal(r.guenstigster(pos, ang, (a, q) => preise[`${a}:${q}`] ?? null).get('a'), 90, 'günstigster nur unter gewerteten');
   assert.equal(r.zahl('1.234,5'), 1234.5);
 });
+
+test('GAEB DA XML: schreiben und wieder lesen (X83 ohne, X84 mit Preisen)', async () => {
+  const g = await import('../src/module/ava/gaeb');
+  const posten = [
+    { oz: '01', art: 'titel' as const, kurztext: 'Innenwände', langtext: '', menge: null, einheit: '', ep: null },
+    { oz: '01.0010', art: 'normal' as const, kurztext: 'Wände streichen', langtext: 'Dispersionsfarbe, zweimal\nWeiß & matt', menge: 200, einheit: 'm²', ep: 8 },
+    { oz: '01.0020', art: 'bedarf' as const, kurztext: 'Risse schließen', langtext: '', menge: 10, einheit: 'm', ep: 20 },
+    { oz: '02', art: 'titel' as const, kurztext: 'Decken', langtext: '', menge: null, einheit: '', ep: null },
+    { oz: '02.0010', art: 'pauschal' as const, kurztext: 'Abdecken', langtext: '', menge: 1, einheit: 'psch', ep: 300 },
+  ];
+  const x83 = g.gaebSchreiben({ projekt: 'Haus A', name: 'Malerarbeiten', nummer: '034' }, posten, '83');
+  const lv = g.gaebLesen(x83);
+  assert.equal(lv.dp, '83'); assert.equal(lv.name, 'Malerarbeiten'); assert.equal(lv.projekt, 'Haus A');
+  assert.deepEqual(lv.posten.map((x) => [x.oz, x.art, x.kurztext, x.menge, x.einheit, x.ep]), [
+    ['01', 'titel', 'Innenwände', null, '', null], ['01.0010', 'normal', 'Wände streichen', 200, 'm2', null], ['01.0020', 'bedarf', 'Risse schließen', 10, 'm', null],
+    ['02', 'titel', 'Decken', null, '', null], ['02.0010', 'pauschal', 'Abdecken', 1, 'psch', null]], 'X83: Gliederung, Arten, Mengen – ohne Preise');
+  assert.equal(lv.posten[1]!.langtext, 'Dispersionsfarbe, zweimal\nWeiß & matt', 'Langtext mit Absätzen und Sonderzeichen');
+  const x84 = g.gaebLesen(g.gaebSchreiben({ projekt: 'Haus A', name: 'Malerarbeiten', nummer: '034' }, posten, '84', (oz) => ({ '01.0010': 7.5, '02.0010': 280 } as Record<string, number>)[oz] ?? null));
+  assert.deepEqual(x84.posten.filter((x) => x.ep != null).map((x) => [x.oz, x.ep]), [['01.0010', 7.5], ['02.0010', 280]], 'X84: Einheitspreise');
+  assert.throws(() => g.gaebLesen('<foo/>'), /GAEB/);
+});
