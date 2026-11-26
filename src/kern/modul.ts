@@ -50,6 +50,7 @@ export interface Ansicht {
   filter?: Werte;             // zeigt nur Einträge mit diesen Werten (z. B. nur die Mängel); neue Einträge bekommen sie
   nurAdmin?: boolean;
   hilfe?: string;             // Hilfe zur Ansicht (Knopf „?“ oben): was man hier tut und wie – Absätze mit Leerzeile getrennt
+  einstellungen?: string;     // eigene Seite, die dieses Objekt einstellt (z. B. „buero“) – die Suche findet dann jedes seiner Felder
   abschnitt?: string;         // Überschrift, unter der die Ansicht links steht (z. B. „Terminplan“, „Vorlagen“)
   zeichen?: string;           // Name des Symbols (Baustein „Zeichen“ der Oberfläche)
   /** Links statt des Baums: Filter in Abschnitten (wie im bisherigen Bauportal, z. B. Kontakte nach Art, Gewerke, Ämter). */
@@ -105,6 +106,7 @@ export class Modulregister {
       const m = a.objekt ? this.modelle.get(a.objekt) : undefined;
       const felder = [...(a.linksFilter ?? []).flatMap((l) => (l.feld ? [l.feld] : [])), ...(a.suchArten ?? []).flatMap((x) => x.felder)];
       for (const f of felder) if (!m?.felder.some((x) => x.name === f)) throw new Error(`Ansicht „${a.id}“: Feld „${f}“ für den Filter fehlt`);
+      if (a.einstellungen && !this.modelle.has(a.einstellungen)) throw new Error(`Ansicht „${a.id}“: Objekt „${a.einstellungen}“ für die Einstellungen fehlt`);
     }
     for (const z of module) for (const b of z.braucht) {
       if (!this.zettel.has(b)) throw new Error(`Modul „${z.id}“ braucht „${b}“, das fehlt`);

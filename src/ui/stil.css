@@ -1246,3 +1246,6 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .buero-logo { border: 0; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 8px; }
 .buero-logo-feld { min-height: 60px; display: flex; align-items: center; padding: 8px; border: 1px dashed var(--rand-stark); border-radius: calc(8px * var(--rund)); background: #fff; }
 .buero-logo-feld img { max-height: 80px; max-width: 100%; object-fit: contain; }
+@keyframes treffer-blink { 0%, 60% { background: var(--akzent-hell); box-shadow: 0 0 0 4px var(--akzent-hell); } 100% { background: transparent; box-shadow: none; } }
+.treffer-blink { animation: treffer-blink 2.4s ease-out; border-radius: 4px; }
+.suche-treffer li.seite strong::before { content: '⚙ '; color: var(--text-still); }

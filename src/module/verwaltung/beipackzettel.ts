@@ -199,17 +199,17 @@ export const verwaltung: Beipackzettel = {
   abgesetzt: ['Für mich'],   // wie im bisherigen Bauportal: „Für mich – <Name>“ farbig abgesetzt
   ansichten: [
     // „Für mich“: für jede:n – eigenes Konto und Darstellung (wie im bisherigen Bauportal)
-    { id: 'konto', titel: 'Mein Konto', abschnitt: 'Für mich', zeichen: 'schluessel' },
-    { id: 'darstellung', titel: 'Darstellung', abschnitt: 'Für mich', zeichen: 'kacheln' },
-    { id: 'buero', titel: 'Büro & Standort', abschnitt: 'Büro', zeichen: 'einstellungen' },
+    { id: 'konto', titel: 'Mein Konto', abschnitt: 'Für mich', zeichen: 'schluessel', hilfe: 'Dein Name, deine Anmeldung und dein Kennwort. Kennwort ändern: altes und neues Kennwort eintragen.' },
+    { id: 'darstellung', titel: 'Darstellung', abschnitt: 'Für mich', zeichen: 'kacheln', hilfe: 'Wie das Bauportal für dich aussieht: hell oder dunkel, Akzentfarbe (auch eine eigene Farbe), Design, Schrift und Schriftgröße, Ecken, Handyleiste. Gilt sofort und nur für dich.' },
+    { id: 'buero', titel: 'Büro & Standort', abschnitt: 'Büro', zeichen: 'einstellungen', einstellungen: 'buero', hilfe: 'Name, Anschrift, Telefon und E-Mail des Büros, Bundesland für die Feiertage und das Logo für den Briefkopf der Ausdrucke.' },
     { id: 'projekte', titel: 'Projekte', abschnitt: 'Büro', zeichen: 'projekte', objekt: 'projekt', baum: ['status'] },
     { id: 'benutzer', titel: 'Benutzer', abschnitt: 'Einstellungen', zeichen: 'personen', objekt: 'benutzer', baum: ['rolle'] },
-    { id: 'rechte', titel: 'Rechte', abschnitt: 'Einstellungen', zeichen: 'schluessel', nurAdmin: true },
-    { id: 'ablage', titel: 'Ablage & Server', abschnitt: 'Einstellungen', zeichen: 'dateien', nurAdmin: true },
+    { id: 'rechte', titel: 'Rechte', abschnitt: 'Einstellungen', zeichen: 'schluessel', nurAdmin: true, hilfe: 'Wer darf was: je Rolle sehen, ändern, löschen – für jede Art von Eintrag.' },
+    { id: 'ablage', titel: 'Ablage & Server', abschnitt: 'Einstellungen', zeichen: 'dateien', nurAdmin: true, einstellungen: 'ablage', hilfe: 'Verbindung zum Dateiserver (Freigabe, Benutzer, Kennwort) für Pläne & Dateien und die Projektordner.' },
     { id: 'ki', titel: 'KI', abschnitt: 'Einstellungen', zeichen: 'assistent', objekt: 'ki_anbindung', nurAdmin: true },
     { id: 'ratschlaege', titel: 'Ratschläge', abschnitt: 'Prüfung', zeichen: 'liste_aufgaben', objekt: 'pruefrat', nurAdmin: true, baum: ['stand'] },
     { id: 'pruefki', titel: 'Prüf-KI', abschnitt: 'Prüfung', zeichen: 'pruefung', objekt: 'pruefzugang', nurAdmin: true },
-    { id: 'updates', titel: 'Updates', abschnitt: 'System', zeichen: 'aktualisieren', nurAdmin: true },
+    { id: 'updates', titel: 'Updates', abschnitt: 'System', zeichen: 'aktualisieren', nurAdmin: true, hilfe: 'Kataloge einspielen und aktualisieren (Leistungen, Positionen, Gewerke, Baupreisindex) und der Stand des Programms.' },
     { id: 'aufbau', titel: 'Aufbau', abschnitt: 'System', zeichen: 'bausteine', nurAdmin: true },
     { id: 'uebernahme', titel: 'Übernahme', abschnitt: 'System', zeichen: 'import', nurAdmin: true },
   ],

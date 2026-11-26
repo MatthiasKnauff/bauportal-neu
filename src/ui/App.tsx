@@ -12,7 +12,7 @@ import { Kontextmenue } from './baukasten/kontextmenue';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Abfolgeleiste } from './baukasten/abfolgeleiste';
 import { Kopfleiste } from './baukasten/kopfleiste';
-import { Suche, type Treffer } from './suche';
+import { Suche, type Seite, type Treffer } from './suche';
 import { Hilfe } from './hilfe';
 import { Projektkacheln } from './startkacheln';
 import { springeZu, sprung } from './sprung';
@@ -198,6 +198,26 @@ function Portal() {
   const [hilfe, setHilfe] = createSignal(false);
   const oeffne = (id: string, ansichtId = '') => { setModulId(id); setAnsichtId(ansichtId); };
   // Treffer der Suche: Projekt und Version wählen, Ansicht öffnen, die Ansicht holt den Eintrag ab
+  // Seiten und Einstellungen für die Suche – aus den Beipackzetteln (Titel, Abschnitt, Hilfe; bei Einstellungsobjekten die Felder)
+  const seiten = createMemo((): Seite[] => module().flatMap(({ modul: z, ansichten }) => ansichten.flatMap((a) => {
+    const ort = [z.name, a.abschnitt].filter(Boolean).join(' → ');
+    const n = a.objekt ?? a.einstellungen, m = n ? z.objekte.find((o) => o.name === n) : undefined;
+    const klein = (t: string) => t.toLowerCase();
+    return [
+      { modul: z.id, ansicht: a.id, titel: a.titel, unter: `Seite · ${ort}`, worte: klein(`${a.titel} ${ort} ${a.hilfe ?? ''}`) },
+      // Einstellungen (ein Eintrag für alles, z. B. Büro, Ablage): jedes Feld einzeln
+      ...(m?.einzeln ? m.felder.filter((f) => !f.verborgen).map((f) => ({ modul: z.id, ansicht: a.id, titel: f.titel, unter: `Einstellung · ${ort} → ${a.titel}`, worte: klein(`${f.titel} ${f.gruppe ?? ''} ${a.titel} ${ort}`), stelle: f.titel })) : []),
+    ];
+  })));
+  // Treffer „Seite“: App und Ansicht öffnen, das Feld kurz hervorheben
+  const zurSeite = (s: Seite) => {
+    oeffne(s.modul, s.ansicht);
+    if (!s.stelle) return;
+    setTimeout(() => {
+      const l = [...document.querySelectorAll<HTMLElement>('.platz-mitte label, .platz-mitte legend, .platz-mitte h3')].find((x) => x.textContent?.trim().startsWith(s.stelle!));
+      if (l) { l.scrollIntoView({ block: 'center' }); l.classList.add('treffer-blink'); l.addEventListener('animationend', () => l.classList.remove('treffer-blink'), { once: true }); }
+    }, 350);
+  };
   const springe = (t: Treffer) => springeZu(t.m.name, t.id, { projekt: t.projekt, version: t.version, modul: t.modul.id, ansicht: t.ansicht });
   // Ein Sprung (aus der Suche oder aus einer Karte) öffnet Modul und Ansicht; den Eintrag holt die Ansicht selbst ab
   createEffect(() => { const s = sprung(); if (s) untrack(() => oeffne(s.modul, s.ansicht)); });
@@ -276,7 +296,7 @@ function Portal() {
           ? <button class="handyleiste-plus" aria-label={handyPlus()!.titel} title={handyPlus()!.titel} onClick={() => handyPlus()?.tun()}><i><Symbol name="plus" /></i></button>
           : <button classList={{ an: k === 'start' ? !modulId() : modulId() === k }} onClick={() => (k === 'suche' ? setSuche(true) : oeffne(k === 'start' ? '' : k))}><Symbol name={k} />{platzTitel(k)}</button>)}</For>
       </nav>
-      <Show when={suche()}><Suche onTreffer={springe} onZu={() => setSuche(false)} /></Show>
+      <Show when={suche()}><Suche onTreffer={springe} onZu={() => setSuche(false)} seiten={seiten()} onSeite={zurSeite} /></Show>
       <Show when={hilfe()}><Hilfe modul={modul()?.modul} ansicht={ansicht()} onZu={() => setHilfe(false)} /></Show>
     </div>
   );
