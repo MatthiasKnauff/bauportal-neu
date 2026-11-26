@@ -420,6 +420,7 @@ a.knopf { display: inline-flex; align-items: center; text-decoration: none; colo
 .ordnerliste li { border-bottom: 1px solid var(--rand); } .ordnerliste li:last-child { border-bottom: 0; } .ordnerliste li.still-text { padding: 10px; }
 .ordnerliste button { width: 100%; text-align: left; min-height: 38px; padding: 0 12px; border: 0; background: transparent; cursor: pointer; } .ordnerliste button:hover { background: var(--still-hell); }
 .hinweis-kasten { background: var(--warn-hell); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--flaeche)); border-radius: calc(8px * var(--rund)); padding: 8px 12px; margin: 0; font-size: 13px; }
+.hinweis-leiste { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 6px 12px; font-size: 13px; background: var(--flaeche); border-bottom: 1px solid var(--rand); }
 .gut-text { color: var(--gut); font-size: 13px; } .warn-text { color: color-mix(in srgb, var(--warn) 75%, var(--text)); font-size: 13px; }
 
 /* ---- Herkunft je Wert ---- */

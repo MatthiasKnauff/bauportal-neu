@@ -24,6 +24,7 @@ import { hinweis } from './unterbau/meldungen';
 import type { Anpassung } from './baukasten/anpassung';
 import { AVA_OBEN, nurGewaehltesLv } from './avakopf';
 import { KatasterHolen } from './kataster';
+import { TuerlisteOben, tuerKnoepfe } from './tuerliste';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
@@ -472,6 +473,8 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Menge laut Firma und Rechenweg direkt in der Tabelle eintragen; Enter springt eine Zeile tiefer.' },
   // Einträge eines LV: nur die des oben gewählten LV (Kopf und Abfolge zeigen es), neue gehören zu ihm
   ...Object.fromEntries(['angebote', 'besprechungen', 'bauvertraege', 'nachtraege', 'rechnungen', 'positionen'].map((a) => [`ava.${a}`, { fest: nurGewaehltesLv }])),
+  // Fenster- & Türliste: aus dem Gebäudemodell füllen, ins LV übernehmen, oben der Stand der LVs
+  'ava.tueren': { knoepfe: (z) => tuerKnoepfe(String(z.projekt)), oben: (z) => <TuerlisteOben projekt={String(z.projekt)} /> },
   'gebaeudemodell.modell3d': { mitte: (m) => <Gebaeude3d {...m} />, detailsHinweis: 'Ein Bauteil in der 3D-Ansicht anklicken – hier steht dann seine Karte, direkt änderbar.' },
 };
 /** Unter der Karte: was das Modul dort ergänzt, und – für alles, was sich drucken lässt – der Weg zum Ausdruck. */

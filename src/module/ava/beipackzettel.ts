@@ -1,6 +1,7 @@
 // Modul Ausschreibung (AVA): Leistungsverzeichnisse je Projekt mit Positionen, Angebote der Bieter:innen mit Preisen
 // (Preisspiegel, Vergabe), Rechnungen je Auftrag. Fachlich wie im bisherigen Bauportal: ein LV ist eine Vergabeeinheit
 // (Gewerk), die Positionen sind nach Ordnungszahl (OZ) gegliedert – Titel enthalten Positionen.
+import { AUSSTATTUNG, TUER_WERTE } from './tueren';
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';
@@ -75,6 +76,7 @@ export const lvPosition: ObjektModell = {
     { name: 'ep', titel: 'EP geschätzt in €', art: 'zahl', inListe: true, breite: 110, kartenBreite: 3, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'nachtrag', titel: 'Nachtrag', art: 'verweis', ziel: 'nachtrag', inListe: true, breite: 160, gruppe: 'Position' },   // leer: Position der Ausschreibung; mit Nachtrag: erst nach der Vergabe, nicht im Preisspiegel
     { name: 'bauteil', titel: 'Bauteil im Gebäudemodell', art: 'verweis', ziel: 'bauteil', gruppe: 'Herkunft' },
+    { name: 'tuerliste', titel: 'Aus der Fenster- & Türliste', art: 'text', verborgen: true },   // Schlüssel „Liste|Gruppe|Ausführung“ – hält LV und Liste abgleichbar
     { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
     { name: 'kennung', titel: 'Kennung (GAEB)', art: 'text', verborgen: true },
   ],
@@ -82,6 +84,46 @@ export const lvPosition: ObjektModell = {
 
 /** Rückmeldung einer Bieter:in vor der Abgabe (wie im bisherigen Bauportal); „abgegeben“ ist, wer ein Angebot eingereicht hat. */
 export const RUECKMELDUNGEN = [{ wert: 'offen', titel: 'noch offen' }, { wert: 'will_abgeben', titel: 'will abgeben' }, { wert: 'gibt_nicht_ab', titel: 'gibt nicht ab' }];   // eine Auswahl hat immer einen Wert: ab Werk „noch offen“
+
+// Fenster- & Türliste (wie im bisherigen Bauportal): mehrere Listen je Projekt, je Tür bzw. Fenster eine Zeile
+export const tuerliste: ObjektModell = {
+  name: 'tuerliste', titel: 'Fenster- & Türliste', titelMehrzahl: 'Fenster- & Türlisten', anzeigeFeld: 'name', sortierFeld: 'name',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'name', titel: 'Name der Liste', art: 'text', pflicht: true, inListe: true, breite: 240, gruppe: 'Liste' },
+    { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Liste' },
+  ],
+};
+const tw = (name: string, titel: string, gruppe: string, breite = 110, inListe = false) => ({ name, titel, art: 'auswahl' as const, optionen: TUER_WERTE[name]!, eigeneWerte: true, inListe, breite, gruppe });
+export const tuer: ObjektModell = {
+  name: 'tuer', titel: 'Tür / Fenster', titelMehrzahl: 'Türen und Fenster', anzeigeFeld: 'nr', ersatzName: ['raumname', 'art'], sortierFeld: 'nr',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'liste', titel: 'Liste', art: 'verweis', ziel: 'tuerliste', pflicht: true, breite: 180 },
+    { name: 'nr', titel: 'Einbaupos. / Tür-Nr.', art: 'text', inListe: true, breite: 110, kartenBreite: 2, gruppe: 'Lage' },
+    { name: 'geschoss', titel: 'Geschoss', art: 'text', vorschlagen: true, inListe: true, breite: 80, kartenBreite: 1, gruppe: 'Lage' },
+    { name: 'raum', titel: 'Raum-Nr.', art: 'text', inListe: false, breite: 80, kartenBreite: 1, gruppe: 'Lage' },
+    { name: 'raumname', titel: 'Raum', art: 'text', vorschlagen: true, inListe: true, breite: 140, kartenBreite: 2, gruppe: 'Lage' },
+    { name: 'zu', titel: 'zu Raum', art: 'text', inListe: false, breite: 100, gruppe: 'Lage' },
+    { name: 'typ', titel: 'Typ', art: 'text', vorschlagen: true, inListe: true, breite: 60, kartenBreite: 1, gruppe: 'Element' },
+    { name: 'anzahl', titel: 'Anzahl', art: 'zahl', inListe: true, breite: 60, kartenBreite: 1, gruppe: 'Element' },
+    tw('art', 'Art', 'Element', 130, true), tw('flg', 'Flügel', 'Element', 90), tw('din', 'Öffnungsrichtung (DIN)', 'Element', 80, true),
+    { name: 'b', titel: 'Breite (m oder mm)', art: 'zahl', inListe: true, breite: 80, kartenBreite: 2, gruppe: 'Maße' },
+    { name: 'h', titel: 'Höhe (m oder mm)', art: 'zahl', inListe: true, breite: 80, kartenBreite: 2, gruppe: 'Maße' },
+    { name: 'wand', titel: 'Wanddicke', art: 'zahl', inListe: false, breite: 80, kartenBreite: 2, gruppe: 'Maße' },
+    { name: 'bruestung', titel: 'Brüstungshöhe', art: 'zahl', inListe: false, breite: 80, kartenBreite: 2, gruppe: 'Maße' },
+    tw('oeffnung', 'Öffnungsart', 'Fenster', 110, false), tw('fb_innen', 'Innenfensterbank', 'Fenster', 120, false), tw('fb_aussen', 'Außenfensterbank', 'Fenster', 120, false), tw('rollo', 'Rollo', 'Fenster', 90, false),
+    tw('zarge', 'Zarge', 'Ausführung', 150), tw('blatt', 'Türblatt', 'Ausführung', 130), tw('oberfl', 'Oberfläche', 'Ausführung', 110),
+    { name: 'farbe', titel: 'Farbe / RAL', art: 'text', vorschlagen: true, inListe: false, breite: 90, gruppe: 'Ausführung' }, tw('glas', 'Verglasung', 'Ausführung', 110, false),
+    tw('brand', 'Brandschutz', 'Anforderungen', 90, true), tw('schall', 'Schallschutz', 'Anforderungen', 90, false), tw('rc', 'Einbruch (RC)', 'Anforderungen', 70, false), tw('klima', 'Klimaklasse', 'Anforderungen', 70, false),
+    tw('schloss', 'Schloss', 'Beschlag', 80), tw('beschlag', 'Beschlag', 'Beschlag', 150, false),
+    { name: 'ausstattung', titel: 'Ausstattung', art: 'mehrfach', optionen: AUSSTATTUNG, inListe: false, breite: 200, gruppe: 'Ausstattung' },
+    { name: 'bem', titel: 'Bemerkung', art: 'text', inListe: true, breite: 180, gruppe: 'Hinweis' },
+    { name: 'bauteil', titel: 'Bauteil im Gebäudemodell', art: 'verweis', ziel: 'bauteil', gruppe: 'Herkunft' },
+  ],
+};
 
 export const angebot: ObjektModell = {
   name: 'angebot', titel: 'Angebot', titelMehrzahl: 'Angebote', anzeigeFeld: 'bieter',
@@ -256,7 +298,7 @@ export const ava: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
-  objekte: [lv, lvPosition, angebot, angebotPreis, nachtrag, aufmass, rechnung, besprechung, bauvertrag],
+  objekte: [lv, lvPosition, tuerliste, tuer, angebot, angebotPreis, nachtrag, aufmass, rechnung, besprechung, bauvertrag],
   // Ins Fenster ziehen (PDF, Scan, Foto): vorbelegt nach der Seite, auf der man steht – erkannt am Text
   dokumentarten: [
     { art: 'angebot', titel: 'Angebot', objekt: 'angebot', ansichten: ['angebote', 'preisspiegel', 'versand', 'nachverfolgen', 'besprechungen'], ordner: 'Ausschreibung/{lv}/Angebote',
@@ -321,6 +363,8 @@ export const ava: Beipackzettel = {
       hilfe: 'Je Gewerk ein Leistungsverzeichnis (Vergabeeinheit) mit Stand, Kostenansatz und Terminen. Die Positionen stehen unter „Positionen“; rechts in der Karte die Summen: geschätzt, Angebote, Auftrag, abgerechnet.' },
     { id: 'lv', titel: 'LV bearbeiten', abschnitt: 'Ausschreibung', zeichen: 'ausschreibung', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: Titel und Positionen als Baum. Zelle anklicken und lostippen oder doppelklicken; Enter eine Zeile tiefer, Tab zur nächsten Spalte. Art: N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext. ¶ klappt den Langtext auf. Einfg legt eine Position unter der markierten an (Alt+Einfg einen Titel), Entf löscht. „Nummerieren“ vergibt die OZ neu. Nach der Vergabe gesperrt – 🔒 schaltet frei.' },
+    { id: 'tueren', titel: 'Fenster- & Türliste', abschnitt: 'Ausschreibung', zeichen: 'tuer', objekt: 'tuer', baum: ['liste', 'geschoss'], brauchtProjekt: true,
+      hilfe: 'Je Tür bzw. Fenster eine Zeile – direkt in der Tabelle bearbeiten. „Aus dem Gebäudemodell“ legt die Türen und Fenster des Modells an; „Ins LV“ macht aus gleicher Ausführung eine Position (Menge = Stückzahl) mit Systembeschreibung je Gruppe und gleicht ein LV mit Positionen aus dieser Liste ab.' },
     { id: 'positionen', titel: 'Positionen', abschnitt: 'Ausschreibung', zeichen: 'liste', objekt: 'lv_position', baum: ['lv', 'nachtrag'], brauchtProjekt: true,
       hilfe: 'Die Positionen aller LVs, links nach LV gegliedert. Ordnungszahl (OZ) wie 01.02.0010: Titel enthalten Positionen. Rechts in der Karte der Gesamtpreis (Menge × EP).' },
     { id: 'versand', titel: 'Versand & Rücklauf', abschnitt: 'Vergabe', zeichen: 'senden', objekt: 'lv', brauchtProjekt: true,

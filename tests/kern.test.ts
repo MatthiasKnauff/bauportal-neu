@@ -1756,3 +1756,31 @@ test('Druckwerk: mehrere Einträge in einem PDF – je eigene Seiten und Fußzei
   assert.ok(html.includes('@page s0') && html.includes('@page s1') && html.includes('Tagesbericht Nr. 2'), 'eigene Fußzeile je Bericht');
   assert.ok(html.includes('.seite + .seite { break-before: page; }'));
 });
+
+test('Fenster- & Türliste: gleiche Ausführung = eine Position, Systembeschreibung je Gruppe, Abgleich mit dem LV', async () => {
+  const t = await import('../src/module/ava/tueren');
+  const tuer = (id: string, w: Record<string, unknown>) => ({ id, werte: { liste: 'L', ...w } as Werte });
+  const T = [
+    tuer('1', { nr: 'T01', raumname: 'Bad', art: 'Innentür', din: 'DIN L', b: 885, h: 2135, zarge: 'Stahl-Umfassungszarge', blatt: 'Röhrenspan', ausstattung: 'licht,stopper' }),
+    tuer('2', { nr: 'T02', raumname: 'Flur', art: 'Innentür', din: 'DIN L', b: 885, h: 2135, zarge: 'Stahl-Umfassungszarge', blatt: 'Röhrenspan', ausstattung: 'stopper,licht' }),
+    tuer('3', { nr: 'T03', raumname: 'Küche', art: 'Innentür', din: 'DIN R', b: 885, h: 2135, zarge: 'Stahl-Umfassungszarge', blatt: 'Röhrenspan', ausstattung: 'licht,stopper' }),
+    tuer('4', { nr: 'F01', art: 'Fenster', b: 1.26, h: 1.38, anzahl: 2 }),
+  ];
+  const plan = t.tuerenInsLv(T, 'L');
+  assert.deepEqual(plan.map((z) => [z.art, z.kurztext, z.menge]), [
+    ['titel', 'Fenster', null], ['hinweis', 'Systembeschreibung Fenster', null], ['normal', 'Fenster gemäß vorangegangener Systembeschreibung', 2],
+    ['titel', 'Innentüren', null], ['hinweis', 'Systembeschreibung Innentüren', null],
+    ['normal', 'Innentür gemäß vorangegangener Systembeschreibung', 2], ['normal', 'Innentür gemäß vorangegangener Systembeschreibung', 1]]);
+  const innen = plan.filter((z) => z.art === 'normal' && z.tueren.includes('1'))[0]!;
+  assert.match(innen.langtext, /Einbauposition: T01, T02\nRaum: Bad, Flur\nTyp: Innentür\nMaße \(bxh\): 0,885x2,135/);
+  assert.match(innen.langtext, /Lichtausschnitt: ja/);
+  assert.match(plan.find((z) => z.kurztext === 'Systembeschreibung Innentüren')!.langtext, /Zarge: Stahl-Umfassungszarge\nTürblatt: Röhrenspan/, 'Gemeinsames steht in der Systembeschreibung');
+  assert.equal(t.tuerenInsLv(T, 'L', false).filter((z) => z.art === 'normal').length, 2, 'links/rechts nicht getrennt');
+  // Abgleich: LV hat den alten Stand
+  const lv = plan.map((z, i) => ({ id: `p${i}`, werte: { tuerliste: z.schluessel, art: z.art, kurztext: z.kurztext, langtext: z.langtext, menge: z.menge } as Werte }));
+  const neu = t.tuerenInsLv([...T.slice(0, 2), T[3]!, tuer('5', { nr: 'T05', art: 'Innentür', din: 'DIN L', b: 885, h: 2135, zarge: 'Stahl-Umfassungszarge', blatt: 'Röhrenspan', ausstattung: 'licht,stopper' })], 'L');
+  const a = t.abgleichen(neu, lv, 'L');
+  assert.equal(a.neu.length, 0);
+  assert.deepEqual(a.null, ['p6'], 'die DIN-R-Tür ist weg: Menge 0');
+  assert.ok(a.aendern.some((x) => x.id === 'p5' && x.werte.menge === 3), 'T05 dazu: Menge 3');
+});
