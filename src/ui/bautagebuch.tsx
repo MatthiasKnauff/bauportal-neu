@@ -463,14 +463,48 @@ createRoot(() => {
 });
 const HINWEIS_RECHTS = 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift im Kopf öffnet den ganzen Bericht.';
 
+/** Mehrere Berichte in einem PDF (wie im bisherigen Bautagebuch): ein Zeitraum oder alle Berichte des Projekts – weiter in die Druckvorschau. */
+function MehrereDrucken(p: { bericht: Zeile; ausdruck: string; zu: () => void }) {
+  const alle = () => lebende('tagesbericht').filter((z) => z.werte.projekt === p.bericht.werte.projekt && z.werte.datum)
+    .sort((a, b) => String(a.werte.datum).localeCompare(String(b.werte.datum)) || Number(a.werte.nummer ?? 0) - Number(b.werte.nummer ?? 0));
+  const datumFeld = (name: string, titel: string): Feld => ({ name, titel, art: 'datum' });
+  const [art, setArt] = createSignal<'zeit' | 'alle'>('zeit');
+  const [von, setVon] = createSignal<Wert>(String(p.bericht.werte.datum ?? ''));
+  const [bis, setBis] = createSignal<Wert>(String(p.bericht.werte.datum ?? ''));
+  const ids = () => {
+    if (art() === 'alle') return alle().map((z) => z.id);
+    const [a, b] = [String(von() ?? ''), String(bis() ?? '')].sort();
+    return alle().filter((z) => String(z.werte.datum) >= a! && String(z.werte.datum) <= (b || a)!).map((z) => z.id);
+  };
+  const weiter = () => { const l = ids(); if (!l.length) return; p.zu(); druckOeffnen(p.ausdruck, l[0]!, l); };
+  return (
+    <Dialog titel="Mehrere Berichte drucken" onAbbrechen={p.zu}
+      knoepfe={<><button class="knopf" onClick={p.zu}>Abbrechen</button><button class="knopf haupt" disabled={!ids().length} onClick={weiter}>Weiter zur Vorschau</button></>}>
+      <div class="formular">
+        <div class="auswahl segment" role="radiogroup" aria-label="Welche Berichte">
+          <For each={[['zeit', 'Zeitraum'], ['alle', 'Alle Berichte des Projekts']] as const}>{([k, t]) =>
+            <button type="button" role="radio" aria-checked={art() === k} classList={{ aktiv: art() === k }} onClick={() => setArt(k)}>{t}</button>}</For>
+        </div>
+        <Show when={art() === 'zeit'}>
+          <div class="reihe"><FeldEingabe feld={datumFeld('von', 'von')} wert={von()} onWert={setVon} /><FeldEingabe feld={datumFeld('bis', 'bis')} wert={bis()} onWert={setBis} /></div>
+        </Show>
+        <p class="still-text">{ids().length === 1 ? '1 Bericht' : `${ids().length} Berichte`} – alle in einem PDF, jeder auf eigenen Seiten.</p>
+      </div>
+    </Dialog>
+  );
+}
+
 function BerichtPdf(p: { bericht: Zeile }) {
   const a = () => ausdrucke('tagesbericht')[0];
   const [stand, setStand] = createSignal(0);   // „Neu erzeugen“
+  const [mehrere, setMehrere] = createSignal(false);
   const [pdf] = createResource(() => (a() ? { id: p.bericht.id, n: stand(), a: a()!.id } : false), async ({ id, a: ausdruck }) => (await holeDatei('/api/druck/pdf', { ausdruck, objekt: id })).blob);
   return (
     <div class="bt-pdf">
       <div class="reihe"><button class="knopf klein" disabled={pdf.loading} onClick={() => setStand(stand() + 1)}>{pdf.loading ? 'PDF wird erzeugt …' : 'Neu erzeugen'}</button>
-        <Show when={a()}><button class="knopf klein" onClick={() => druckOeffnen(a()!.id, p.bericht.id)}>Drucken / ablegen …</button></Show></div>
+        <Show when={a()}><button class="knopf klein" onClick={() => druckOeffnen(a()!.id, p.bericht.id)}>Drucken / ablegen …</button>
+          <button class="knopf klein" onClick={() => setMehrere(true)}>Mehrere Berichte drucken …</button></Show></div>
+      <Show when={mehrere()}><MehrereDrucken bericht={p.bericht} ausdruck={a()!.id} zu={() => setMehrere(false)} /></Show>
       <Show when={!pdf.error} fallback={<p class="fehler-text">{(pdf.error as Error)?.message}</p>}>
         <Show when={pdf.latest} fallback={<p class="still-text">PDF wird erzeugt …</p>}>{(b) => <PdfAnsicht inhalt={b()} titel="Tagesbericht als PDF" />}</Show>
       </Show>

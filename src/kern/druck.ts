@@ -272,12 +272,17 @@ export const fusszeile = (a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Einste
 export const dateiname = (a: Ausdruck, m: ObjektModell, d: Druckdaten) => (einsetzen(a.dateiname, m, d).replace(/[\\/:*?"<>|]+/g, '-') || a.titel) + '.pdf';
 
 /** Die ganze Seite für das PDF: A4, Ränder, Fußzeile mit Seitenzahl auf jeder Seite. Lädt nichts von außen. */
-export function druckSeite(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Einstellungen): string {
-  const fuss = fusszeile(a, m, d, e).replace(/[\\"]/g, '\\$&');
+export function druckSeite(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Einstellungen): string { return druckSeiten(a, m, [d], e); }
+
+/** Mehrere Einträge in einem PDF (z. B. ausgewählte Tagesberichte): jeder beginnt auf einer neuen Seite und hat seine eigene Fußzeile. */
+export function druckSeiten(a: Ausdruck, m: ObjektModell, alle: Druckdaten[], e: Einstellungen): string {
+  const schrift = '8pt Arial, "Liberation Sans", Helvetica, sans-serif';
+  const seiten = alle.map((d, i) => `@page s${i} { @bottom-left { content: "${fusszeile(a, m, d, e).replace(/[\\"]/g, '\\$&')}"; font: ${schrift}; color: #444; } }`).join('\n  ');
   return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"><title>${sicher(a.titel)}</title><style>
   @page { size: A4${querformat(a, e) ? ' landscape' : ''}; margin: ${RAND.oben}mm ${RAND.seite}mm ${RAND.unten}mm;
-    @bottom-left { content: "${fuss}"; font: 8pt Arial, "Liberation Sans", Helvetica, sans-serif; color: #444; }
-    @bottom-right { content: "Seite " counter(page) " von " counter(pages); font: 8pt Arial, "Liberation Sans", Helvetica, sans-serif; color: #444; } }
+    @bottom-right { content: "Seite " counter(page) " von " counter(pages); font: ${schrift}; color: #444; } }
+  ${seiten}
   html, body { margin: 0; padding: 0; }
-  ${CSS(schriftgroesse(e))}</style></head><body><div class="seite">${druckInhalt(a, m, d, e)}</div></body></html>`;
+  .seite + .seite { break-before: page; }
+  ${CSS(schriftgroesse(e))}</style></head><body>${alle.map((d, i) => `<div class="seite" style="page: s${i}">${druckInhalt(a, m, d, e)}</div>`).join('')}</body></html>`;
 }

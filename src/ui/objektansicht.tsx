@@ -11,7 +11,7 @@ import type { Zeile } from '../kern/befehl';
 import { ausfuehrenMehrere, geaendert, lebende, objektname, rueckgaengig, sicht } from './unterbau/abgleich';
 import { projektId } from './projekt';
 import { ausdrucke, darf, zustand } from './unterbau/api';
-import { verzeichnisDrucken } from './druck';
+import { druckOeffnen, verzeichnisDrucken } from './druck';
 import type { Anpassung } from './baukasten/anpassung';
 import type { Knopf } from './baukasten/menueleiste';
 import { Baum, type Knoten } from './baukasten/baum';
@@ -268,8 +268,12 @@ export function ObjektAnsicht(p: {
       { titel: `Alle ${m.titelMehrzahl}`, ids: alle, filter: '' },
     ]);
   };
-  const hilfen = () => ({ excel, drucken: verzeichnis() ? (ids: string[]) => drucken(ids) : undefined, aendern: (ids: string[]) => feldSetzenOeffnen(m.name, ids, Object.keys(fest()), 'gewählt') });
-  const standard = (h: ReturnType<typeof hilfen>): AuswahlBefehl[] => [{ titel: 'Gemeinsam bearbeiten …', tun: h.aendern }, { titel: 'Excel', tun: h.excel }];
+  // Einzelausdruck (z. B. Tagesbericht): die gewählten Einträge nacheinander in einem PDF
+  const einzeln = () => ausdrucke(m.name).find((x) => !x.verzeichnis);
+  const hilfen = () => ({ excel, drucken: verzeichnis() ? (ids: string[]) => drucken(ids) : undefined,
+    einzelnDrucken: einzeln() ? (ids: string[]) => druckOeffnen(einzeln()!.id, ids[0]!, ids) : undefined, aendern: (ids: string[]) => feldSetzenOeffnen(m.name, ids, Object.keys(fest()), 'gewählt') });
+  const standard = (h: ReturnType<typeof hilfen>): AuswahlBefehl[] => [{ titel: 'Gemeinsam bearbeiten …', tun: h.aendern }, { titel: 'Excel', tun: h.excel },
+    ...(h.einzelnDrucken ? [{ titel: 'Drucken', tun: h.einzelnDrucken }] : [])];
   const auswahlBefehle = (): AuswahlBefehl[] => (auswahl ? [...(a.auswahl ?? standard)(hilfen()), papierkorb] : []);
   // Am Handy erscheinen die Haken erst, wenn etwas gewählt ist (lange tippen)
   if (auswahl) { createEffect(() => document.documentElement.classList.toggle('auswahl-an', auswahl.anzahl() > 0)); onCleanup(() => document.documentElement.classList.remove('auswahl-an')); }

@@ -15,8 +15,9 @@ import { hinweis } from './unterbau/meldungen';
 /** Das Büro-Logo in der Vorschau – die Adresse ändert sich mit seinem Stand (dann lädt der Browser es neu). */
 export const logoAdresse = (): string => { const v = String(sicht.buero?.[BUERO_ID]?.werte.logo ?? ''); return v ? `/api/logo?v=${encodeURIComponent(v)}` : ''; };
 export interface Umfang { titel: string; ids: string[]; filter: string }
-const [offen, setOffen] = createSignal<{ ausdruck: string; objekt: string; umfaenge?: Umfang[] } | null>(null);
-export const druckOeffnen = (ausdruck: string, objekt: string) => setOffen({ ausdruck, objekt });
+const [offen, setOffen] = createSignal<{ ausdruck: string; objekt: string; umfaenge?: Umfang[]; mehrere?: string[] } | null>(null);
+/** Einen Eintrag drucken – oder mehrere (mehrere: alle Kennungen) nacheinander in einem PDF; die Vorschau zeigt den ersten. */
+export const druckOeffnen = (ausdruck: string, objekt: string, mehrere?: string[]) => setOffen({ ausdruck, objekt, mehrere: mehrere && mehrere.length > 1 ? mehrere : undefined });
 /** Verzeichnis drucken: gewählt ist der erste Umfang; im Fenster lässt sich ein anderer wählen. filter steht im Ausdruck. */
 export const verzeichnisDrucken = (ausdruck: string, umfaenge: Umfang[]) => setOffen({ ausdruck, objekt: '', umfaenge });
 
@@ -61,7 +62,7 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   return { titel: b.art === 'briefkopf' ? 'Briefkopf' : 'Angaben', felder: [zeigen(b.id)] };
 }
 
-function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang[] }) {
+function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang[]; mehrere?: string[] }) {
   const a = p.ausdruck;
   const [umfangNr, setUmfangNr] = createSignal(0);
   const umfang = () => p.umfaenge?.[umfangNr()];
@@ -127,7 +128,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
 
   const pdf = async () => {
     setLaeuft(true);
-    try { await ladeDatei('/api/druck/pdf', a.verzeichnis ? { ausdruck: a.id, ids: umfang()?.ids ?? [], filter: umfang()?.filter ?? '' } : { ausdruck: a.id, objekt: p.objekt }); }
+    try { await ladeDatei('/api/druck/pdf', a.verzeichnis ? { ausdruck: a.id, ids: umfang()?.ids ?? [], filter: umfang()?.filter ?? '' } : p.mehrere ? { ausdruck: a.id, ids: p.mehrere } : { ausdruck: a.id, objekt: p.objekt }); }
     catch (err) { hinweis((err as Error).message); }
     finally { setLaeuft(false); }
   };
@@ -141,8 +142,8 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   // Angeklickt ist ein Verzeichnis (Überschrift oder Spalte): dann lassen sich die Spalten frei wählen und ordnen
   const verzeichnisBlock = () => { const b = a.bloecke.find((x) => x.id === stelle().split('.')[0]); return b?.art === 'verzeichnis' ? b : undefined; };
   return (
-    <Dialog titel={`${a.titel} – Druckvorschau`} gross onAbbrechen={() => setOffen(null)}
-      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={pdf}>{laeuft() ? 'PDF wird erzeugt …' : 'PDF herunterladen'}</button></>}>
+    <Dialog titel={`${a.titel}${p.mehrere ? ` – ${p.mehrere.length} in einem PDF, Vorschau des ersten` : ' – Druckvorschau'}`} gross onAbbrechen={() => setOffen(null)}
+      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner && !p.mehrere}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={pdf}>{laeuft() ? 'PDF wird erzeugt …' : 'PDF herunterladen'}</button></>}>
       <div class="druck">
         <div class="druck-blatt" onClick={klick}><div ref={blatt} /></div>
         <Show when={einstellen() || (p.umfaenge?.length ?? 0) > 1}>
@@ -192,5 +193,5 @@ function SpaltenWahl(p: { block: { id: string; spalten: string[] }; m: ObjektMod
 
 export function Druck() {
   const ausdruck = () => { const o = offen(); return o ? zustand()!.module.flatMap((x) => x.ausdrucke ?? []).find((a) => a.id === o.ausdruck) : undefined; };
-  return <Show when={ausdruck()}>{(a) => <Druckfenster ausdruck={a()} objekt={offen()!.objekt} umfaenge={offen()!.umfaenge} />}</Show>;
+  return <Show when={ausdruck()}>{(a) => <Druckfenster ausdruck={a()} objekt={offen()!.objekt} umfaenge={offen()!.umfaenge} mehrere={offen()!.mehrere} />}</Show>;
 }

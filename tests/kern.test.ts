@@ -1722,3 +1722,15 @@ test('Druckwerk: Leistungsverzeichnis mit Titelsummen, Zusammenstellung, leer zu
   assert.ok(mit.includes('1.600,00') && mit.includes('800,00') && mit.includes('2.400,00') && mit.includes('2.856,00'), 'mit Preisen: GP, Summe ohne Bedarfsposition, brutto');
   assert.ok(!mit.includes('Zweimal deckend'), 'nur Kurztexte');
 });
+
+test('Druckwerk: mehrere Einträge in einem PDF – je eigene Seiten und Fußzeile', async () => {
+  const { druckSeiten } = await import('../src/kern/druck');
+  const bt = register.module.find((m) => m.id === 'bautagebuch')!;
+  const a = bt.ausdrucke!.find((x) => x.id === 'bautagebuch.tagesbericht')!;
+  const m = register.modell('tagesbericht')!;
+  const d = (nr: number) => ({ werte: { nummer: nr, datum: `2026-11-0${nr}` }, buero: { name: 'GK3' }, projekt: 'Haus', verweis: () => '', kinder: () => [], bild: () => '', modell: (o: string) => register.modell(o)! });
+  const html = druckSeiten(a, m, [d(1), d(2)], {});
+  assert.equal(html.match(/<div class="seite"/g)?.length, 2);
+  assert.ok(html.includes('@page s0') && html.includes('@page s1') && html.includes('Tagesbericht Nr. 2'), 'eigene Fußzeile je Bericht');
+  assert.ok(html.includes('.seite + .seite { break-before: page; }'));
+});
