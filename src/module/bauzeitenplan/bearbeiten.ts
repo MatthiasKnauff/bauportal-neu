@@ -416,3 +416,25 @@ export function unterbrechen(id: string, dauer: number, unterbrechung: string | 
   }
   return b;
 }
+
+/** Neue Zeile im Master → in jede Kopie an die entsprechende Stelle (hinter das Gegenstück der Zeile davor, gleiche Einrückung
+ *  relativ dazu), mit „kopie_von“. Verknüpfungen der neuen Zeile mit anderen Zeilen des Masters kommen in jeder Kopie mit.
+ *  v: Stand nach dem Anlegen (in Plan-Reihenfolge); master: Kennung des Masters; werte: Werte der neuen Zeile. */
+export function masterNeu(v: VM[], l: L[], master: string, neuId: string, werte: Record<string, Wert>, z: Record<string, Wert>, neu: Neu): Vorlage[] {
+  const i = v.findIndex((x) => x.id === neuId); if (i <= 0) return [];
+  const davor = v[i - 1]!, b: Vorlage[] = [];
+  for (const k of kopienVon(v, master)) {
+    const gegen = k.glieder.get(davor.id) ?? (davor.id === master ? k.top : undefined); if (!gegen) continue;
+    const gi = v.findIndex((x) => x.id === gegen), g = v[gi]!;
+    // hinter das Gegenstück – war die Zeile davor eine Gruppe, in die die neue Zeile hineinrückt, direkt dahinter, sonst hinter ihren Block
+    const nachGi = v[i]!.ebene > davor.ebene ? gi + 1 : block(v, gi);
+    const reihe = v[nachGi] ? (v[nachGi - 1]!.reihe + v[nachGi]!.reihe) / 2 : v[nachGi - 1]!.reihe + 1;
+    const id = neu();
+    b.push({ objekt: 'vorgang', art: 'anlegen', objektId: id, werte: { ...z, ...werte, reihe, ebene: g.ebene + (v[i]!.ebene - davor.ebene), master: false, kopie_von: neuId } });
+    for (const x of l) {
+      const von = x.von === neuId ? id : x.nach === neuId ? k.glieder.get(x.von) : undefined, nach = x.nach === neuId ? id : x.von === neuId ? k.glieder.get(x.nach) : undefined;
+      if (von && nach) b.push(linkNeu(neu, z, von, nach, x.art, x.abstand));
+    }
+  }
+  return b;
+}

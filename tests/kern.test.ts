@@ -1560,3 +1560,14 @@ test('Bauzeitenplan: Soll und Ist vergleichen', async () => {
   assert.deepEqual([v.endeSoll, v.endeIst, v.abweichung], ['2026-11-27', '2026-12-04', 7]);
   assert.deepEqual(sollLesen('kaputt'), []);
 });
+
+test('Bauzeitenplan: neue Zeile im Master kommt in die Kopien', async () => {
+  const { masterNeu } = await import('../src/module/bauzeitenplan/bearbeiten');
+  // Master M (a, NEU, b) und Kopie K (a2, b2)
+  const v = [{ id: 'M', reihe: 1, ebene: 0, master: true }, { id: 'a', reihe: 2, ebene: 1 }, { id: 'n', reihe: 2.5, ebene: 1 }, { id: 'b', reihe: 3, ebene: 1 },
+    { id: 'K', reihe: 4, ebene: 0, kopieVon: 'M' }, { id: 'a2', reihe: 5, ebene: 1, kopieVon: 'a' }, { id: 'b2', reihe: 6, ebene: 1, kopieVon: 'b' }];
+  let n = 0;
+  const r = masterNeu(v, [{ id: 'l1', von: 'a', nach: 'n', art: 'ea', abstand: 0 }], 'M', 'n', { name: 'Neu', dauer: 2 }, { projekt: 'p' }, () => `x${++n}`);
+  assert.deepEqual([r[0]!.werte!.reihe, r[0]!.werte!.ebene, r[0]!.werte!.kopie_von, r[0]!.werte!.name], [5.5, 1, 'n', 'Neu']);
+  assert.deepEqual([r[1]!.objekt, r[1]!.werte!.von, r[1]!.werte!.nach], ['verknuepfung', 'a2', 'x1']);
+});

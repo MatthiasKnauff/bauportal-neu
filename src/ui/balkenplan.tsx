@@ -15,7 +15,7 @@ import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenpla
 import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
-import { ablageAus, gruppeUm, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { ablageAus, gruppeUm, masterNeu, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { DuplizierenFenster } from './duplizieren';
 import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
@@ -408,10 +408,12 @@ export function Balkenplan(p: Mitte) {
   const MASTERFELDER = ['name', 'dauer', 'unterbrechung', 'gewerk', 'vob', 'unternehmer', 'firma', 'farbe', 'notiz'];
   const masterSchritt = ({ wieder, gegen }: { wieder: KernVorlage[]; gegen: KernVorlage[] }) => {
     const v = V_(), aenderungen = wieder.filter((b) => b.objekt === 'vorgang' && b.art === 'aendern' && Object.keys(b.werte ?? {}).some((k) => MASTERFELDER.includes(k)));
-    if (!aenderungen.length) return;
+    const neue = wieder.filter((b) => b.objekt === 'vorgang' && b.art === 'anlegen' && !b.werte?.kopie_von);
+    const weg = wieder.filter((b) => b.objekt === 'vorgang' && b.art === 'loeschen'), wegLinks = wieder.filter((b) => b.objekt === 'verknuepfung' && b.art === 'loeschen');
+    if (!aenderungen.length && !neue.length && !weg.length) return;
     // zu welchem Master gehört die geänderte Zeile? (der Master selbst oder eine Zeile darin)
     const masterVon = (id: string) => { let i = v.findIndex((x) => x.id === id); const e = v[i]!.ebene; for (; i >= 0; i--) if (v[i]!.master && v[i]!.ebene <= e && block(v, i) > v.findIndex((x) => x.id === id)) return v[i]!; return undefined; };
-    const befehle: KernVorlage[] = []; let kopien = 0; let mname = '';
+    const befehle: KernVorlage[] = [], spaeter: (() => KernVorlage[])[] = []; let kopien = 0; let mname = '';
     for (const b of aenderungen) {
       const m = masterVon(b.objektId); if (!m) continue;
       const K = kopienVon(v, m.id); if (!K.length) continue;
@@ -423,7 +425,26 @@ export function Balkenplan(p: Mitte) {
         if (Object.keys(w).length) befehle.push({ objekt: 'vorgang', art: 'aendern', objektId: z0.id, werte: w });
       }
     }
-    if (befehle.length) hinweis(`„${mname}“ ist Master von ${kopien} ${kopien === 1 ? 'Kopie' : 'Kopien'}.`, { aktion: { titel: `In ${kopien === 1 ? 'die Kopie' : `alle ${kopien} Kopien`} übernehmen`, tun: () => ausfuehrenMehrere(befehle, `Änderung am Master „${mname}“ in die Kopien übernehmen`) } });
+    // neue Zeilen im Master: in jede Kopie an die entsprechende Stelle; gelöschte: auch ihre Gegenstücke; gelöschte Verknüpfungen zwischen
+    // Zeilen des Masters: auch in den Kopien (sonst bliebe dort die Kette, die der Master gerade überbrückt hat)
+    for (const b of neue) {
+      const m = masterVon(b.objektId); if (!m || m.id === b.objektId) continue;
+      const K = kopienVon(v, m.id); if (!K.length) continue;
+      kopien = K.length; mname = String(vorgaenge().find((x) => x.id === m.id)?.werte.name ?? '');
+      // erst beim Übernehmen gerechnet: so kommt mit, was inzwischen an der neuen Zeile eingetragen wurde (z. B. ihr Name)
+      spaeter.push(() => { const jetzt = vorgaenge().find((x) => x.id === b.objektId); if (!jetzt) return [];
+        const w = Object.fromEntries(Object.entries(jetzt.werte).filter(([f]) => [...MASTERFELDER, 'fortschritt', 'anfang_nicht_vor', 'abschnitt', 'teil'].includes(f)));
+        return masterNeu(V_(), L_(), m.id, b.objektId, w, zu(), neueKennung); });
+      for (const x of wegLinks) { const alt = sicht.verknuepfung?.[x.objektId]?.werte; if (!alt) continue;
+        for (const k of K) { const von = k.glieder.get(String(alt.von)), nach = k.glieder.get(String(alt.nach));
+          const g = von && nach && L_().find((y) => y.von === von && y.nach === nach); if (g) befehle.push({ objekt: 'verknuepfung', art: 'loeschen', objektId: g.id }); } }
+    }
+    for (const b of weg) {
+      const gegen = vorgaenge().filter((x) => x.werte.kopie_von === b.objektId); if (!gegen.length) continue;
+      kopien = Math.max(kopien, gegen.length); mname = mname || 'Master';
+      befehle.push(...loeschen(V_(), L_(), gegen.map((g) => g.id), zu(), neueKennung, autom()));   // wie Entf: Kette überbrücken, Verknüpfungen mit weg
+    }
+    if (befehle.length || spaeter.length) hinweis(`„${mname}“ ist Master von ${kopien} ${kopien === 1 ? 'Kopie' : 'Kopien'}.`, { aktion: { titel: `In ${kopien === 1 ? 'die Kopie' : `alle ${kopien} Kopien`} übernehmen`, tun: () => ausfuehrenMehrere([...befehle, ...spaeter.flatMap((f) => f())], `Änderung am Master „${mname}“ in die Kopien übernehmen`) } });
   };
   nachEigenemSchritt.add(masterSchritt); onCleanup(() => nachEigenemSchritt.delete(masterSchritt));
   // Gruppieren …: Gliederung nach Gebäudeteil, Bauphase, Gewerk, Firma neu bilden (im Fenster mit Vorschau)
