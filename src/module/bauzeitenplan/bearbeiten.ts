@@ -259,3 +259,102 @@ export function duplizieren(v: VM[], l: L[], ids: Iterable<string>, n: number, a
   }
   return { befehle, tops: neueTops };
 }
+
+// ---------- Gruppieren (wie im bisherigen Bauportal): Ebenen Gebäudeteil, Bauphase, Gewerk, Firma in wählbarer Reihenfolge ----------
+// Die Gliederungszeilen werden neu gebildet; alles andere (Leistungen, eigene Gruppen mit allem darunter) bleibt, wie es ist, und
+// behält Dauer und Vorgänger. Bauphase und Gebäudeteil stehen an jeder Leistung (vom Assistenten gesetzt, sonst beim ersten
+// Gruppieren aus den Gruppen darüber gelesen und gespeichert). Gewerk und Firma bekommen nur eine Zeile, wo sie mindestens zwei
+// Leistungen zusammenfassen; eine Ebene mit nur einem Wert entfällt. Verknüpfungen an wegfallenden Gliederungszeilen gelten danach
+// für jede Leistung darunter – so bleibt der Ablauf wie berechnet.
+
+export type Gruppenebene = 'teil' | 'phase' | 'gewerk' | 'firma';
+export const GRUPPENEBENEN: { wert: Gruppenebene; titel: string }[] = [{ wert: 'teil', titel: 'Gebäudeteil' }, { wert: 'phase', titel: 'Bauphase' }, { wert: 'gewerk', titel: 'Gewerk' }, { wert: 'firma', titel: 'Firma' }];
+export interface GV extends V { kennung?: string; name: string; gewerk?: string; firma?: string; abschnitt?: string; teil?: string }
+
+/** Gliederungszeilen, die das Gruppieren selbst bildet (vom Assistenten oder einem früheren Gruppieren). */
+export const istGliederung = (x: { kennung?: string }) => /^(assistent:_(grp|unit|bau)|gruppe:)/.test(x.kennung ?? '');
+const festOben = (x: { kennung?: string }) => /^assistent:_start/.test(x.kennung ?? ''), festUnten = (x: { kennung?: string }) => /^assistent:_end/.test(x.kennung ?? '');
+
+/** Bauphase und Gebäudeteil einer Zeile: gespeichert, sonst aus den Gliederungszeilen darüber. */
+export function einordnung(v: GV[]): Map<string, { phase: string; teil: string }> {
+  const r = new Map<string, { phase: string; teil: string }>(), stapel: GV[] = [];
+  for (const x of v) {
+    while (stapel.length && stapel[stapel.length - 1]!.ebene >= x.ebene) stapel.pop();
+    const ueber = (re: RegExp) => [...stapel].reverse().find((a) => re.test(a.kennung ?? ''))?.name ?? '';
+    r.set(x.id, { phase: x.abschnitt || ueber(/^(assistent:_grp|gruppe:.*phase=)/), teil: x.teil || ueber(/^(assistent:_(unit|bau)|gruppe:.*teil=)/) });
+    stapel.push(x);
+  }
+  return r;
+}
+
+export function gruppieren(v: GV[], l: L[], ebenen: Gruppenebene[], z: Record<string, Wert>, neu: Neu): Vorlage[] {
+  const ein = einordnung(v);
+  // Einheiten: Zeilen, die keine Gliederungszeile sind und nur unter Gliederungszeilen stehen – mit allem darunter
+  const einheiten: { zeilen: GV[]; phase: string; teil: string; gewerk: string; firma: string }[] = [];
+  for (let i = 0; i < v.length; i++) {
+    const x = v[i]!;
+    if (istGliederung(x)) continue;
+    let k = i - 1, unterEigener = false, eb = x.ebene;
+    for (; k >= 0; k--) if (v[k]!.ebene < eb) { if (!istGliederung(v[k]!)) { unterEigener = true; break; } eb = v[k]!.ebene; }
+    if (unterEigener) continue;
+    const e = ein.get(x.id)!;
+    einheiten.push({ zeilen: v.slice(i, block(v, i)), ...e, gewerk: x.gewerk ?? '', firma: x.firma ?? '' });
+  }
+  const oben = einheiten.filter((u) => festOben(u.zeilen[0]!)), unten = einheiten.filter((u) => festUnten(u.zeilen[0]!));
+  const mitte = einheiten.filter((u) => !oben.includes(u) && !unten.includes(u));
+  // eine Ebene mit höchstens einem Wert entfällt (Gebäudeteil bei einem Haus)
+  const E = ebenen.filter((e) => new Set(mitte.map((u) => u[e]).filter(Boolean)).size > (e === 'teil' ? 1 : 0));
+  const alteGl = new Map(v.filter(istGliederung).map((x) => [x.kennung!, x]));
+  const out: { x: GV | null; kennung?: string; name?: string; ebene: number }[] = [];
+  const setze = (u: (typeof einheiten)[number], ebene: number) => { const d = ebene - u.zeilen[0]!.ebene; for (const x of u.zeilen) out.push({ x, ebene: x.ebene + d }); };
+  const rek = (U: typeof einheiten, rest: Gruppenebene[], ebene: number, pfad: string) => {
+    if (!rest.length) { U.forEach((u) => setze(u, ebene)); return; }
+    const [e, ...weiter] = rest as [Gruppenebene, ...Gruppenebene[]], innen = e === 'gewerk' || e === 'firma';
+    const G = new Map<string, typeof einheiten>();
+    for (const u of U) { const k = u[e]; G.set(k, [...(G.get(k) ?? []), u]); }
+    if (innen && (G.size < 2 || U.length < 2)) { rek(U, weiter, ebene, pfad); return; }
+    // ohne Wert: beim Gebäudeteil zuerst (Gemeinsames vorn), sonst zuletzt (z. B. „Wohnung 1 fertiggestellt“ hinter den Phasen);
+    // die Werte in der Reihenfolge des Plans
+    const leerZuerst = e === 'teil';
+    for (const [k, L] of [...G].sort(([a], [b]) => (Number(!!a) - Number(!!b)) * (leerZuerst ? 1 : -1))) {
+      if (!k || (innen && L.length < 2)) { rek(L, weiter, ebene, pfad); continue; }
+      const kennung = `gruppe:${pfad}${e}=${k}`;
+      out.push({ x: null, kennung, name: k, ebene });
+      rek(L, weiter, ebene + 1, `${kennung.slice(7)}|`);
+    }
+  };
+  oben.forEach((u) => setze(u, 0));
+  rek(mitte, E, 0, '');
+  unten.forEach((u) => setze(u, 0));
+  // Befehle: Gliederungszeilen wiederverwenden (gleiche Kennung) oder anlegen, Reihenfolge und Ebene setzen, übrige Gliederung weg
+  const b: Vorlage[] = [], bleibt = new Set<string>();
+  out.forEach((o, i) => {
+    const reihe = i + 1;
+    if (o.x) {
+      const e = ein.get(o.x.id)!, w: Record<string, Wert> = {};
+      if (o.x.reihe !== reihe) w.reihe = reihe;
+      if (o.x.ebene !== o.ebene) w.ebene = o.ebene;
+      if (!o.x.abschnitt && e.phase) w.abschnitt = e.phase;   // beim ersten Gruppieren gelesen – jetzt gespeichert
+      if (!o.x.teil && e.teil) w.teil = e.teil;
+      if (Object.keys(w).length) b.push({ objekt: 'vorgang', art: 'aendern', objektId: o.x.id, werte: w });
+      return;
+    }
+    const alt = alteGl.get(o.kennung!);
+    if (alt) { bleibt.add(alt.id); if (alt.reihe !== reihe || alt.ebene !== o.ebene) b.push({ objekt: 'vorgang', art: 'aendern', objektId: alt.id, werte: { reihe, ebene: o.ebene } }); }
+    else b.push({ objekt: 'vorgang', art: 'anlegen', objektId: neu(), werte: { ...z, name: o.name!, kennung: o.kennung!, reihe, ebene: o.ebene, dauer: 0, fortschritt: 0 } });
+  });
+  // wegfallende Gliederungszeilen: ihre Verknüpfungen gelten für jede Leistung darunter
+  const weg = v.filter((x) => istGliederung(x) && !bleibt.has(x.id)), wegIds = new Set(weg.map((x) => x.id));
+  const blattUnter = (g: GV) => { const i = v.indexOf(g); return v.slice(i + 1, block(v, i)).filter((x, k, arr) => !(arr[k + 1] && arr[k + 1]!.ebene > x.ebene) && !istGliederung(x)).map((x) => x.id); };
+  const da = new Set(l.map((x) => `${x.von}>${x.nach}`));
+  for (const g of weg) {
+    const unter = blattUnter(g);
+    for (const x of l) {
+      if (x.nach === g.id && !wegIds.has(x.von)) for (const u of unter) { const k = `${x.von}>${u}`; if (!da.has(k)) { da.add(k); b.push(linkNeu(neu, z, x.von, u, x.art, x.abstand)); } }
+      if (x.von === g.id && !wegIds.has(x.nach)) for (const u of unter) { const k = `${u}>${x.nach}`; if (!da.has(k)) { da.add(k); b.push(linkNeu(neu, z, u, x.nach, x.art, x.abstand)); } }
+    }
+  }
+  for (const x of l) if (wegIds.has(x.von) || wegIds.has(x.nach)) b.push(linkWeg(x));
+  for (const g of weg) b.push({ objekt: 'vorgang', art: 'loeschen', objektId: g.id });
+  return b;
+}

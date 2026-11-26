@@ -15,8 +15,9 @@ import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenpla
 import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
-import { ablageAus, ablageEinfuegen, bloeckeVon, block, kopienVon, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { ablageAus, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { DuplizierenFenster } from './duplizieren';
+import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
 import { darf, neueKennung, ruf } from './unterbau/api';
 import type { Mitte } from './baukasten/anpassung';
@@ -124,11 +125,13 @@ export function Balkenplan(p: Mitte) {
       { titel: 'Tiefer', zeichen: 'einruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('ein') },
       { titel: 'Nach oben', zeichen: 'nach_oben', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('hoch') },
       { titel: 'Nach unten', zeichen: 'nach_unten', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('runter') },
+      { titel: 'Gruppieren …', zeichen: 'baum', gruppe: 'Gliederung', gesperrt: !vorgaenge().length, tun: () => setGrp(true) },
     ] : []),
     ...(schreiben() ? [{ titel: 'Verknüpfen', zeichen: 'verknuepfen', gruppe: 'Planen', gesperrt: !markiert() || vorgaenge()[0]?.id === markiert(), tun: mitVorigerVerknuepfen },
       { titel: 'Lösen', zeichen: 'entkoppeln', gruppe: 'Planen', gesperrt: !links().some((l) => l.werte.von === markiert() || l.werte.nach === markiert()), tun: verknuepfungenLoesen },
       { titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
+    ...(gruppenIds().length ? (['grob', 'mittel', 'fein'] as const).map((d) => ({ titel: d[0]!.toUpperCase() + d.slice(1), zeichen: 'liste', gruppe: 'Detail', an: detailJetzt() === d, tun: () => detail(d) })) : []),
     { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
     { titel: `Pfeile: ${PFEILE.find((x) => x.wert === pfeile())?.titel ?? ''}`, zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
     { titel: 'Größer', zeichen: 'groesser', gruppe: 'Ansicht', gesperrt: zoom() === ZOOM.length - 1, tun: () => setZoom(zoom() + 1) },
@@ -347,6 +350,20 @@ export function Balkenplan(p: Mitte) {
     if (befehle.length) hinweis(`„${mname}“ ist Master von ${kopien} ${kopien === 1 ? 'Kopie' : 'Kopien'}.`, { aktion: { titel: `In ${kopien === 1 ? 'die Kopie' : `alle ${kopien} Kopien`} übernehmen`, tun: () => ausfuehrenMehrere(befehle, `Änderung am Master „${mname}“ in die Kopien übernehmen`) } });
   };
   nachEigenemSchritt.add(masterSchritt); onCleanup(() => nachEigenemSchritt.delete(masterSchritt));
+  // Gruppieren …: Gliederung nach Gebäudeteil, Bauphase, Gewerk, Firma neu bilden (im Fenster mit Vorschau)
+  const [grp, setGrp] = createSignal(false);
+  const GV_ = (): GV[] => vorgaenge().map((v) => ({ id: v.id, reihe: Number(v.werte.reihe ?? 0), ebene: Number(v.werte.ebene ?? 0), kennung: String(v.werte.kennung ?? ''), name: String(v.werte.name ?? ''),
+    gewerk: String(v.werte.gewerk ?? ''), firma: String((v.werte.firma && sicht.kontakt?.[String(v.werte.firma)]?.werte.name) || v.werte.unternehmer || ''), abschnitt: String(v.werte.abschnitt ?? ''), teil: String(v.werte.teil ?? '') }));
+  // Detail grob · mittel · fein: oberste Gruppen zu · innerste Gruppen zu · alles offen (die Leistungen bleiben darunter erhalten)
+  const gruppenIds = () => { const l = vorgaenge(); return l.filter((v, i) => Number(l[i + 1]?.werte.ebene ?? -1) > Number(v.werte.ebene ?? 0)); };
+  const detail = (stufe: 'grob' | 'mittel' | 'fein') => {
+    const l = vorgaenge(), g = gruppenIds();
+    if (stufe === 'fein') return setEingeklappt(new Set<string>());
+    if (stufe === 'grob') return setEingeklappt(new Set(g.filter((v) => Number(v.werte.ebene ?? 0) === 0).map((v) => v.id)));
+    // mittel: Gruppen, in denen keine weitere Gruppe steckt
+    setEingeklappt(new Set(g.filter((v) => { const i = l.indexOf(v), e = Number(v.werte.ebene ?? 0); for (let k = i + 1; k < l.length && Number(l[k]!.werte.ebene ?? 0) > e; k++) if (g.includes(l[k]!)) return false; return true; }).map((v) => v.id)));
+  };
+  const detailJetzt = () => { const z = eingeklappt(), g = gruppenIds(); return !z.size ? 'fein' : g.filter((v) => Number(v.werte.ebene ?? 0) === 0).every((v) => z.has(v.id)) ? 'grob' : 'mittel'; };
   // Duplizieren … (Strg+D): Kopien mit Master, Verknüpfung wählbar – im Fenster mit Vorschau
   const [dupl, setDupl] = createSignal<string[] | null>(null);
   const duplizieren = () => { const ids = gewaehlt(); if (ids.length && schreiben()) setDupl(ids); };
@@ -760,6 +777,8 @@ export function Balkenplan(p: Mitte) {
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
       <Show when={dupl()}>{(ids) => <DuplizierenFenster v={V_()} l={L_()} ids={ids()} vorgaenge={vorgaenge()} links={links()} plan={plan()} probe={probe} werteVon={werteVon} zu={zu()} neu={neueKennung}
         onZu={() => setDupl(null)} onFertig={(b, tops, t) => { tun(b, t); setDupl(null); if (tops[0]) { markieren(tops[0]); p.onWahl(tops[0]); setAuswahl(new Set(tops)); anker = tops[0]; } }} />}</Show>
+      <Show when={grp()}><GruppierenFenster v={GV_()} l={L_()} zu={zu()} neu={neueKennung} onZu={() => setGrp(false)}
+        onFertig={(b) => { tun(b, 'Gruppieren'); setGrp(false); setEingeklappt(new Set<string>()); }} /></Show>
       <Show when={spaltenFeld()}>{(o) => <Spaltenfeld spalten={spw} ort={o()} onZu={() => setSpaltenFeld(null)} />}</Show>
     </div>
   );

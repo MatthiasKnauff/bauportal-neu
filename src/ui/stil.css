@@ -1310,3 +1310,12 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .dup-pfeil { fill: none; stroke: var(--gefahr); stroke-width: 1.5; }
 #dupPf path { fill: var(--gefahr); }
 @media (max-width: 820px) { .dup-arten { grid-template-columns: 1fr; } }
+/* Gruppieren (Bauzeitenplan) */
+.grp { display: flex; flex-direction: column; gap: 10px; }
+.grp-vorschau { border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); max-height: 300px; overflow: auto; background: var(--flaeche); }
+.grp-zeile { padding: 4px 8px; border-bottom: 1px solid var(--rand); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.grp-zeile.gruppe { font-weight: 600; }
+.grp-regler { width: 100%; }
+.grp-stufen { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-still); margin-top: -6px; }
+.grp-stufen .an { color: var(--text); font-weight: 600; }
+.grp-aussen { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

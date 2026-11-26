@@ -210,19 +210,20 @@ export function assistent(k: Katalog, a: Angaben) {
     const zeile = (kennung: string, id: string, blk: number, werte: Record<string, Wert>) => Z.push({ kennung: `assistent:${kennung}`, id, blk, werte: { dauer: 0, fortschritt: 0, gewerk: '', unternehmer: '', notiz: '', farbe: '', unterbrechung: '', anfang_nicht_vor: null, ...werte } });
     zeile('_start', '_start', -1, { name: 'Projektstart', ebene: 0 });
     const liste = [...sel].sort((x, y) => reihe(x) - reihe(y)).map((id) => leistung(id)!);
+    let teilName = '';   // Gebäudeteil der Leistungen, die gerade entstehen (bei mehreren Einheiten)
     const gruppen = (l: KLeistung[], blk: number, ebene: number) => {
       for (const ph of k.abschnitte) {
         const t = l.filter((x) => x.ph === ph.k);
         if (!t.length) continue;
         zeile(`_grp:${ph.k}@${blk}`, '_grp', blk, { name: ph.n, ebene });
-        for (const x of t) zeile(`${x.id}@${x.sc === 'bau' ? -1 : blk < 0 ? 0 : blk}`, x.id, x.sc === 'bau' ? -1 : blk < 0 ? 0 : blk, { name: x.n, ebene: ebene + 1, dauer: dauer(x.id), gewerk: x.gw, notiz: x.info });
+        for (const x of t) zeile(`${x.id}@${x.sc === 'bau' ? -1 : blk < 0 ? 0 : blk}`, x.id, x.sc === 'bau' ? -1 : blk < 0 ? 0 : blk, { name: x.n, ebene: ebene + 1, dauer: dauer(x.id), gewerk: x.gw, notiz: x.info, abschnitt: ph.n, teil: teilName });
       }
     };
     if (!mehr) gruppen(liste, -1, 0);
     else {
       const bau = liste.filter((x) => x.sc === 'bau'), we = liste.filter((x) => x.sc === 'we');
-      if (bau.length) { zeile('_bau', '_bau', -1, { name: 'Gebäude / Allgemein', ebene: 0 }); gruppen(bau, -1, 1); }
-      namen.forEach((nm, b) => { zeile(`_unit@${b}`, '_unit', b, { name: nm, ebene: 0 }); gruppen(we, b, 1); zeile(`_fertig@${b}`, '_fertig', b, { name: `${nm} fertiggestellt`, ebene: 1 }); });
+      if (bau.length) { teilName = 'Gebäude / Allgemein'; zeile('_bau', '_bau', -1, { name: teilName, ebene: 0 }); gruppen(bau, -1, 1); }
+      namen.forEach((nm, b) => { teilName = nm; zeile(`_unit@${b}`, '_unit', b, { name: nm, ebene: 0 }); gruppen(we, b, 1); zeile(`_fertig@${b}`, '_fertig', b, { name: `${nm} fertiggestellt`, ebene: 1, teil: nm }); });
     }
     zeile('_end', '_end', -1, { name: mehr ? 'Gesamtabnahme / Übergabe' : 'Abnahme / Übergabe', ebene: 0 });
     Z.forEach((z, i) => (z.werte.reihe = i + 1));

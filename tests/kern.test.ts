@@ -1470,3 +1470,32 @@ test('Bauzeitenplan: Duplizieren mit Master – Ende→Anfang, Takt, parallel, K
   assert.deepEqual(links(k), ['n2>n3:ea', 'b2>n2:ea']);
   assert.ok(k.befehle.every((x) => x.art !== 'aendern'), 'Master ist schon Master');
 });
+
+test('Bauzeitenplan gruppieren: Gebäudeteil › Bauphase › Gewerk, eigene Gruppen bleiben, Verknüpfungen wegfallender Zeilen gehen auf die Leistungen', async () => {
+  const b = await import('../src/module/bauzeitenplan/bearbeiten');
+  // Assistent-Plan mit zwei Wohnungen: Einheit › Phase › Leistung
+  const z = (id: string, ebene: number, name: string, kennung = '', extra: Record<string, string> = {}) => ({ id, reihe: 0, ebene, name, kennung, ...extra });
+  const v = [z('s', 0, 'Projektstart', 'assistent:_start'),
+    z('u1', 0, 'Wohnung 1', 'assistent:_unit@0'), z('g1', 1, 'Rohbau', 'assistent:_grp:rohbau@0'), z('m1', 2, 'Mauern', '', { gewerk: 'Maurer' }), z('d1', 2, 'Decke', '', { gewerk: 'Maurer' }),
+    z('g2', 1, 'Ausbau', 'assistent:_grp:ausbau@0'), z('e1', 2, 'Elektro', '', { gewerk: 'Elektro' }), z('f1', 1, 'Wohnung 1 fertig', 'assistent:_fertig@0', { teil: 'Wohnung 1' }),
+    z('u2', 0, 'Wohnung 2', 'assistent:_unit@1'), z('g3', 1, 'Rohbau', 'assistent:_grp:rohbau@1'), z('m2', 2, 'Mauern', '', { gewerk: 'Maurer' }),
+    z('eg', 0, 'Eigene Gruppe'), z('x1', 1, 'Sonder 1'),
+    z('e', 0, 'Abnahme', 'assistent:_end')].map((x, i) => ({ ...x, reihe: i + 1 }));
+  const l = [{ id: 'L1', von: 'g1', nach: 'e1', art: 'ea' as const, abstand: 2 }];
+  let n = 0;
+  const cmds = b.gruppieren(v, l, ['phase', 'teil'], { projekt: 'p' }, () => `n${++n}`);
+  // anwenden und als Baum lesen
+  const zeilen = new Map(v.map((x) => [x.id, { ...x } as Record<string, unknown>]));
+  for (const c of cmds) { if (c.objekt !== 'vorgang') continue; if (c.art === 'loeschen') zeilen.delete(c.objektId); else zeilen.set(c.objektId, { ...(zeilen.get(c.objektId) ?? { id: c.objektId }), ...c.werte }); }
+  const baum = [...zeilen.values()].sort((p, q) => (p.reihe as number) - (q.reihe as number)).map((x) => `${'.'.repeat(x.ebene as number)}${x.name}`);
+  assert.deepEqual(baum, ['Projektstart', 'Rohbau', '.Wohnung 1', '..Mauern', '..Decke', '.Wohnung 2', '..Mauern', 'Ausbau', '.Wohnung 1', '..Elektro',
+    'Eigene Gruppe', '.Sonder 1', 'Wohnung 1', '.Wohnung 1 fertig', 'Abnahme'], 'ohne Phase hinten – darin ohne Teil zuerst');
+  assert.ok(cmds.some((c) => c.objekt === 'vorgang' && c.objektId === 'm1' && c.werte?.abschnitt === 'Rohbau' && c.werte?.teil === 'Wohnung 1'), 'Phase und Teil gespeichert');
+  const neueLinks = cmds.filter((c) => c.objekt === 'verknuepfung' && c.art === 'anlegen').map((c) => `${c.werte!.von}>${c.werte!.nach}+${c.werte!.abstand}`);
+  assert.deepEqual(neueLinks.sort(), ['d1>e1+2', 'm1>e1+2'], 'Vorgänger an der Phase „Rohbau“ (Wohnung 1) gilt für ihre Leistungen');
+  // Gewerk innen: nur, wo es mindestens zwei Leistungen zusammenfasst
+  n = 0;
+  const flach = [z('a', 0, 'A', '', { gewerk: 'Maurer' }), z('c', 0, 'C', '', { gewerk: 'Maurer' }), z('d', 0, 'D', '', { gewerk: 'Elektro' })].map((x, i) => ({ ...x, reihe: i + 1 }));
+  const g = b.gruppieren(flach, [], ['gewerk'], {}, () => `n${++n}`).filter((c) => c.art === 'anlegen').map((c) => c.werte!.name);
+  assert.deepEqual(g, ['Maurer'], 'Elektro hat nur eine Leistung: keine Zeile');
+});

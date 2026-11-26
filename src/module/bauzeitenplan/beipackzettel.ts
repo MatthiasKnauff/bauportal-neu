@@ -54,6 +54,8 @@ export const vorgang: ObjektModell = {
     { name: 'unternehmer', titel: 'Unternehmer', art: 'text', gruppe: 'Ausführung', vorschlagen: true },
     { name: 'firma', titel: 'Firma', art: 'verweis', ziel: 'kontakt', gruppe: 'Ausführung' },
     { name: 'farbe', titel: 'Eigene Balkenfarbe', art: 'text', gruppe: 'Ausführung' },
+    { name: 'abschnitt', titel: 'Bauphase', art: 'text', gruppe: 'Einordnung', vorschlagen: true },
+    { name: 'teil', titel: 'Gebäudeteil', art: 'text', gruppe: 'Einordnung', vorschlagen: true },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Notiz' },
     { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
     { name: 'ebene', titel: 'Gliederungsebene', art: 'zahl', verborgen: true },
