@@ -1509,3 +1509,15 @@ test('Darstellung aus dem bisherigen Bauportal übernehmen', async () => {
   const e = darstellungAusAlt({ theme: 'dunkel', farbschema: 'gibtsnicht', schrift: 'ubuntu', stil: { rahmen: 'quatsch' } });
   assert.deepEqual([e.design, e.werte.modus, e.werte.schrift, e.werte.rahmen, e.werte.akzent], ['bauportal_dunkel', 'dunkel', '', '', '']);
 });
+
+test('Bauzeitenplan aufräumen: überflüssige Verknüpfungen', async () => {
+  const { ueberfluessigeLinks } = await import('../src/module/bauzeitenplan/bearbeiten');
+  const v = ['a', 'b', 'c', 'd'].map((id, i) => ({ id, reihe: i, ebene: 0 }));
+  const L = (id: string, von: string, nach: string, abstand = 0, art: 'ea' | 'aa' = 'ea') => ({ id, von, nach, art, abstand });
+  // a→b→c und zusätzlich a→c: a→c ist überflüssig; c→d mit Abstand bleibt, a→d (über b, c) ist überflüssig
+  assert.deepEqual(ueberfluessigeLinks(v, [L('1', 'a', 'b'), L('2', 'b', 'c'), L('3', 'a', 'c'), L('4', 'c', 'd', 2), L('5', 'a', 'd')]).sort(), ['3', '5']);
+  // Anfang–Anfang trägt nicht: a→c bleibt, wenn b nur Anfang–Anfang an a hängt
+  assert.deepEqual(ueberfluessigeLinks(v, [L('1', 'a', 'b', 0, 'aa'), L('2', 'b', 'c'), L('3', 'a', 'c')]), []);
+  // zwei Wege, die sich gegenseitig stützen, fallen nicht beide weg
+  assert.deepEqual(ueberfluessigeLinks(v, [L('1', 'a', 'b'), L('2', 'b', 'c'), L('3', 'a', 'c'), L('6', 'a', 'b')]).length, 2);
+});

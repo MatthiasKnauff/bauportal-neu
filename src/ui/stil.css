@@ -315,7 +315,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .band-knopf.band-neu:disabled::after { opacity: .6; }
 .band-knopf.rot:not(:disabled), .band-knopf.rot:not(:disabled) .zeichen { color: var(--gefahr); }
 .band-knopf .band-text { font-size: 12px; white-space: nowrap; }
-.band-knopf .band-zeichen-text { font-size: 18px; line-height: 20px; }
+.band-knopf .band-zeichen-text { font-size: 15px; line-height: 20px; color: var(--akzent); font-weight: 600; } .band-knopf .band-zeichen-text:not(:empty) { min-width: 20px; text-align: center; }
 .band-knopf:hover:not(:disabled) { background: var(--still); }
 .band-knopf:disabled { opacity: .35; cursor: default; }
 .band-knopf.an { background: var(--akzent-hell); } .band-knopf.an .zeichen { color: var(--akzent); }

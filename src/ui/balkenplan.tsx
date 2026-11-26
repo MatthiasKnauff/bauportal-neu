@@ -15,7 +15,7 @@ import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenpla
 import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
-import { ablageAus, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { ablageAus, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { DuplizierenFenster } from './duplizieren';
 import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
@@ -39,7 +39,8 @@ const SPALTEN: Spalte[] = [
   { id: 'gewerk', titel: 'Gewerk', breite: 120 }, { id: 'pct', titel: '%', breite: 46, rechts: true },
 ];
 const BEARBEITBAR = new Set(['name', 'dauer', 'anfang', 'vorg', 'gewerk', 'pct']);
-const ZOOM = [3, 6, 12, 24, 40];   // Bildpunkte je Kalendertag
+const ZOOM = [3, 6, 12, 24, 40];
+const STUFEN: [number, string][] = [[0, '0'], [25, '25'], [50, '50'], [75, '75'], [100, '100']];   // Fortschritt in Stufen (Menüleiste; Zahl als Symbol)   // Bildpunkte je Kalendertag
 const tagname = (iso: string) => (iso ? `${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][wochentag(tagAus(iso))]} ${kurz(iso)}` : '');
 const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}` : '');
 const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -129,18 +130,49 @@ export function Balkenplan(p: Mitte) {
     ] : []),
     ...(schreiben() ? [{ titel: 'Verknüpfen', zeichen: 'verknuepfen', gruppe: 'Planen', gesperrt: !markiert() || vorgaenge()[0]?.id === markiert(), tun: mitVorigerVerknuepfen },
       { titel: 'Lösen', zeichen: 'entkoppeln', gruppe: 'Planen', gesperrt: !links().some((l) => l.werte.von === markiert() || l.werte.nach === markiert()), tun: verknuepfungenLoesen },
+      { titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Planen', gesperrt: !links().length, tun: aufraeumen },
       { titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
+    // Fortschritt der gewählten Leistungen in Stufen wie bisher (bei einer Gruppe: alle Leistungen darunter)
+    ...(schreiben() ? STUFEN.map(([w, z]) => ({ titel: `${w} %`, zeichen: z, gruppe: 'Fortschritt', gesperrt: !fortschrittIds().length, an: fortschrittIds().length > 0 && fortschrittJetzt() === w, tun: () => fortschrittSetzen(w) })) : []),
     ...(gruppenIds().length ? (['grob', 'mittel', 'fein'] as const).map((d) => ({ titel: d[0]!.toUpperCase() + d.slice(1), zeichen: 'liste', gruppe: 'Detail', an: detailJetzt() === d, tun: () => detail(d) })) : []),
     { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
     { titel: `Pfeile: ${PFEILE.find((x) => x.wert === pfeile())?.titel ?? ''}`, zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
     { titel: 'Größer', zeichen: 'groesser', gruppe: 'Ansicht', gesperrt: zoom() === ZOOM.length - 1, tun: () => setZoom(zoom() + 1) },
     { titel: 'Kleiner', zeichen: 'kleiner', gruppe: 'Ansicht', gesperrt: zoom() === 0, tun: () => setZoom(zoom() - 1) },
+    { titel: 'Ganzer Plan', zeichen: 'einpassen', gruppe: 'Ansicht', gesperrt: !vorgaenge().length, tun: ganzerPlan },
+    { titel: 'Heute', zeichen: 'kalender', gruppe: 'Ansicht', tun: () => zumTag(tagAus(new Date().toLocaleDateString('sv')), 0.3) },
+    { titel: 'Zur Leistung', zeichen: 'zielen', gruppe: 'Ansicht', gesperrt: !markiert(), tun: zurLeistung },
     { titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: (e) => setSpaltenFeld({ x: e.clientX, y: e.clientY + 12 }) },
     { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: (e) => austauschMenue(e) },
     ...(schreiben() ? [{ titel: 'Einlesen', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => dateiWahl.click() }] : []),
     { titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => setDrucken(true) },
   ]));
+  const fortschrittIds = () => { const l = vorgaenge(), ids = new Set(gewaehlt()); const aus: string[] = [];
+    l.forEach((v, i) => { if (!ids.has(v.id)) return; const e = Number(v.werte.ebene ?? 0); let k = i + 1; if (Number(l[k]?.werte.ebene ?? -1) <= e) { aus.push(v.id); return; }
+      for (; k < l.length && Number(l[k]!.werte.ebene ?? 0) > e; k++) if (!(Number(l[k + 1]?.werte.ebene ?? -1) > Number(l[k]!.werte.ebene ?? 0))) aus.push(l[k]!.id); });
+    return [...new Set(aus)]; };
+  const fortschrittJetzt = () => Math.round(Number(sicht.vorgang?.[fortschrittIds()[0] ?? '']?.werte.fortschritt ?? 0));
+  const fortschrittSetzen = (w: number) => tun(fortschrittIds().filter((id) => Number(sicht.vorgang?.[id]?.werte.fortschritt ?? 0) !== w)
+    .map((id) => ({ objekt: 'vorgang', art: 'aendern' as const, objektId: id, werte: { fortschritt: w } })), `Fortschritt ${w} %`);
+  // Aufräumen wie bisher: überflüssige Verknüpfungen entfernen – die Termine bleiben gleich
+  const aufraeumen = () => {
+    const weg = ueberfluessigeLinks(V_(), L_());
+    if (!weg.length) { hinweis('Keine überflüssigen Verknüpfungen gefunden.'); return; }
+    tun(weg.map((id) => ({ objekt: 'verknuepfung', art: 'loeschen' as const, objektId: id })), 'Aufräumen');
+    hinweis(`${weg.length} überflüssige Verknüpfung${weg.length === 1 ? '' : 'en'} entfernt – die Termine bleiben gleich.`);
+  };
+  // Ansicht wie bisher: zu einem Tag rollen (Anteil der Breite links davor), den ganzen Plan einpassen, zur markierten Leistung
+  const zumTag = (tag: number, anteil: number) => { flaeche.scrollLeft = Math.max(0, (tag - achse().t0) * px() - (flaeche.clientWidth - breiteL()) * anteil); };   // die Spalten links stehen fest (sticky)
+  const ganzerPlan = () => {
+    const t = [...erg().termine.values()]; if (!t.length) return;
+    const k = kal(); let a = Infinity, e = -Infinity;
+    for (const x of t) { a = Math.min(a, k.tag(x.s)); e = Math.max(e, k.tag(Math.max(x.s, x.f - 1)) + 1); }
+    const frei = flaeche.clientWidth - breiteL() - 40;
+    let z = 0; for (let i = ZOOM.length - 1; i >= 0; i--) if ((e - a) * ZOOM[i]! <= frei) { z = i; break; }
+    setZoom(z); queueMicrotask(() => zumTag(a, 0.02));
+  };
+  const zurLeistung = () => { const t = erg().termine.get(markiert() ?? ''); if (t) zumTag(kal().tag(t.s), 0.05); };
   const austauschMenue = (e: MouseEvent) => zeigeMenue(e, [
     { titel: 'Excel / CSV', tun: () => speichern(csvAus(plan()), 'csv', 'text/csv;charset=utf-8') },
     { titel: 'MS Project (XML)', tun: () => speichern(mspdiAus(plan(), titel()), 'xml', 'application/xml') },

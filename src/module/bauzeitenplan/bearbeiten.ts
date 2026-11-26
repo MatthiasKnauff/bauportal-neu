@@ -358,3 +358,28 @@ export function gruppieren(v: GV[], l: L[], ebenen: Gruppenebene[], z: Record<st
   for (const g of weg) b.push({ objekt: 'vorgang', art: 'loeschen', objektId: g.id });
   return b;
 }
+
+// ---------- Aufräumen: überflüssige Verknüpfungen ----------
+/** Eine Verknüpfung Ende → Anfang ohne Abstand ist überflüssig, wenn der Nachfolger über andere solche Verknüpfungen ohnehin
+ *  auf den Vorgänger wartet – entfernt ändern sich die Termine nicht (wie im bisherigen Bauzeitenplan). Nur zwischen Leistungen,
+ *  nicht an Gruppen und nicht an Teilen eines unterbrochenen Vorgangs. v in Reihenfolge des Plans. → Kennungen der Verknüpfungen */
+export function ueberfluessigeLinks(v: V[], l: L[]): string[] {
+  const reihe = [...v].sort((a, b) => a.reihe - b.reihe);
+  const blatt = new Set(reihe.filter((x, i) => !(i + 1 < reihe.length && reihe[i + 1]!.ebene > x.ebene)).map((x) => x.id));
+  const schlicht = (k: L) => k.art === 'ea' && k.abstand >= 0 && k.vonAbschnitt == null && k.nachAbschnitt == null && blatt.has(k.von) && blatt.has(k.nach);
+  const vor = new Map<string, L[]>();
+  for (const k of l) if (schlicht(k)) vor.set(k.nach, [...(vor.get(k.nach) ?? []), k]);
+  const weg = new Set<string>();
+  // wartet „von“ (rückwärts über Vorgänger) auf „ziel“, ohne die Verknüpfung „ohne“?
+  const wartet = (von: string, ziel: string, ohne: string, gesehen = new Set<string>()): boolean => {
+    for (const k of vor.get(von) ?? []) {
+      if (k.id === ohne || weg.has(k.id)) continue;
+      if (k.von === ziel) return true;
+      if (gesehen.has(k.von)) continue; gesehen.add(k.von);
+      if (wartet(k.von, ziel, ohne, gesehen)) return true;
+    }
+    return false;
+  };
+  for (const x of reihe) for (const k of vor.get(x.id) ?? []) if (k.abstand === 0 && wartet(k.nach, k.von, k.id)) weg.add(k.id);
+  return [...weg];
+}
