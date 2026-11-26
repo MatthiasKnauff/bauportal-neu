@@ -1642,3 +1642,64 @@ test('Anmeldung: Kennwort-Prüfwert aus dem bisherigen Bauportal (werkzeug scryp
     assert.equal((await anm('kurz')).statusCode, 200, 'pbkdf2, auch ein kurzes altes Kennwort');
   } finally { await app.close(); await weg(); }
 });
+
+test('Kataster: UTM 32, Flurstücke aus ALKIS-GML, Auswahl zur Baustelle, Werte, GeoTIFF', async () => {
+  const { utm32, flurstueckeLesen, flurstueckeDerBaustelle, katasterWerte } = await import('../src/kern/kataster');
+  const { tiffWerte } = await import('../src/server/kataster');
+  const { deflateSync } = await import('node:zlib');
+  const p = utm32(51.4556, 7.0116);
+  assert.ok(Math.abs(p.e - 361851.811) < 0.01 && Math.abs(p.n - 5702366.527) < 0.01, `UTM 32: ${p.e} ${p.n}`);
+  const fs = (id: string, zae: string, nen: string, lage: string, x0: number) => `<wfs:member><ave:Flurstueck gml:id="${id}"><ave:gemarkung>Altendorf</ave:gemarkung><ave:flur>Flur 3</ave:flur>
+    <ave:flstnrzae>${zae}</ave:flstnrzae><ave:flstnrnen>${nen}</ave:flstnrnen><ave:flaeche>412</ave:flaeche><ave:lagebeztxt>${lage}</ave:lagebeztxt>
+    <ave:geometrie><gml:Polygon><gml:exterior><gml:LinearRing><gml:posList srsDimension="2">${x0} 0 ${x0 + 10} 0 ${x0 + 10} 10 ${x0} 10 ${x0} 0</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></ave:geometrie></ave:Flurstueck></wfs:member>`;
+  const gml = `<?xml version="1.0"?><wfs:FeatureCollection xmlns:wfs="w" xmlns:ave="a" xmlns:gml="g">${fs('1', '0123', '0004', 'Grillostraße 24', 0)}${fs('2', '0125', '', 'Grillostr. 24', 10)}${fs('3', '0130', '', 'Grillostraße 26', 20)}</wfs:FeatureCollection>`;
+  const l = flurstueckeLesen(gml, 5, 5);
+  assert.deepEqual(l.map((f) => [f.flurstueck, f.flur, f.amPunkt]), [['123/4', '3', true], ['125', '3', false], ['130', '3', false]]);
+  const w = flurstueckeDerBaustelle(l, 'Grillostraße 24');
+  assert.deepEqual(w.map((f) => f.flurstueck), ['123/4', '125'], 'unter dem Punkt und dieselbe Hausnummer');
+  assert.deepEqual(katasterWerte(w), { gemarkung: 'Altendorf', flur: '3', flurstueck: '123/4, 125', flaeche: 824 });
+  assert.deepEqual(flurstueckeDerBaustelle(flurstueckeLesen(gml, 50, 5), '').map((f) => f.flurstueck), ['130'], 'Punkt daneben: das nächste');
+  assert.throws(() => flurstueckeLesen('<ows:ExceptionReport xmlns:ows="o"><ows:Exception>x</ows:Exception></ows:ExceptionReport>', 0, 0));
+  // GeoTIFF 2×2, Gleitkomma, Deflate, Streifen
+  const daten = Buffer.alloc(16); [51.25, 51.5, 51.75, 52].forEach((v, i) => daten.writeFloatLE(v, i * 4));
+  const z = deflateSync(daten), eintraege: [number, number, number, number][] = [[256, 3, 1, 2], [257, 3, 1, 2], [258, 3, 1, 32], [259, 3, 1, 8], [273, 4, 1, 8 + 2 + 12 * 9 + 4], [277, 3, 1, 1], [278, 3, 1, 2], [279, 4, 1, z.length], [339, 3, 1, 3]];
+  const kopf = Buffer.alloc(8 + 2 + 12 * eintraege.length + 4); kopf.write('II', 0); kopf.writeUInt16LE(42, 2); kopf.writeUInt32LE(8, 4); kopf.writeUInt16LE(eintraege.length, 8);
+  eintraege.slice(0, 9).forEach(([t, typ, n, v], i) => { const o = 10 + 12 * i; kopf.writeUInt16LE(t, o); kopf.writeUInt16LE(typ, o + 2); kopf.writeUInt32LE(n, o + 4); if (typ === 3) kopf.writeUInt16LE(v, o + 8); else kopf.writeUInt32LE(v, o + 8); });
+  assert.deepEqual(tiffWerte(Buffer.concat([kopf, z])), [51.25, 51.5, 51.75, 52]);
+});
+
+test('Kataster: Anschrift → Flurstück aus ALKIS und Geländehöhe aus dem DGM (Dienste nachgestellt)', async () => {
+  const { utm32 } = await import('../src/kern/kataster');
+  const { katasterFuer } = await import('../src/server/kataster');
+  const { deflateSync } = await import('node:zlib');
+  const { e, n } = utm32(51.4556, 7.0116);
+  const tiff = (() => {
+    const d = Buffer.alloc(16); [70.5, 70.6, 70.7, 99].forEach((v, i) => d.writeFloatLE(v, i * 4));
+    const z = deflateSync(d), t: [number, number, number][] = [[256, 3, 2], [257, 3, 2], [258, 3, 32], [259, 3, 8], [273, 4, 8 + 2 + 12 * 9 + 4], [277, 3, 1], [278, 3, 2], [279, 4, z.length], [339, 3, 3]];
+    const k = Buffer.alloc(8 + 2 + 12 * t.length + 4); k.write('II', 0); k.writeUInt16LE(42, 2); k.writeUInt32LE(8, 4); k.writeUInt16LE(t.length, 8);
+    t.forEach(([tag, typ, v], i) => { const o = 10 + 12 * i; k.writeUInt16LE(tag, o); k.writeUInt16LE(typ, o + 2); k.writeUInt32LE(1, o + 4); if (typ === 3) k.writeUInt16LE(v, o + 8); else k.writeUInt32LE(v, o + 8); });
+    return Buffer.concat([k, z]);
+  })();
+  const gesehen: string[] = [];
+  const netz = createServer((req, res) => {
+    gesehen.push(req.url!);
+    if (req.url!.startsWith('/search')) { res.setHeader('content-type', 'application/json'); return res.end(JSON.stringify([{ lat: '51.4556', lon: '7.0116' }])); }
+    if (req.url!.startsWith('/alkis')) return res.end(`<wfs:FeatureCollection xmlns:wfs="w" xmlns:ave="a" xmlns:gml="g"><wfs:member><ave:Flurstueck><ave:gemarkung>Altendorf</ave:gemarkung><ave:flur>3</ave:flur><ave:flstnrzae>123</ave:flstnrzae><ave:flstnrnen>4</ave:flstnrnen><ave:flaeche>412,5</ave:flaeche><ave:lagebeztxt>Musterweg 1</ave:lagebeztxt><ave:geom><gml:posList>${e - 20} ${n - 20} ${e + 20} ${n - 20} ${e + 20} ${n + 20} ${e - 20} ${n + 20} ${e - 20} ${n - 20}</gml:posList></ave:geom></ave:Flurstueck></wfs:member></wfs:FeatureCollection>`);
+    if (req.url!.includes('GetCapabilities')) return res.end('<Capabilities><Contents><CoverageSummary><CoverageId>nw_dgm_schummerung</CoverageId></CoverageSummary><CoverageSummary><CoverageId>nw_dgm</CoverageId></CoverageSummary></Contents></Capabilities>');
+    if (req.url!.includes('DescribeCoverage')) return res.end('<CoverageDescriptions><Envelope axisLabels="x y" /></CoverageDescriptions>');
+    res.end(tiff);
+  });
+  await new Promise<void>((r) => netz.listen(0, '127.0.0.1', r));
+  const basis = `http://127.0.0.1:${(netz.address() as { port: number }).port}`;
+  Object.assign(process.env, { WETTER_GEO_URL: basis, ALKIS_URL: `${basis}/alkis`, DGM_URL: `${basis}/dgm` });
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung } = await leute(db);
+    const p = randomUUID();
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus K', strasse: 'Musterweg 1', plz: '45143', ort: 'Essen-Kataster' } });
+    const r = await katasterFuer(db, { ...leitung, anmeldename: leitung.name, rolle: 'bueroleitung' }, p);
+    assert.deepEqual(r.werte, { gemarkung: 'Altendorf', flur: '3', flurstueck: '123/4', flaeche: 412.5, hoehe_nhn: 70.7 });
+    assert.ok(gesehen.some((u) => u.includes('COVERAGEID=nw_dgm&') && u.includes('SUBSET=x')), 'das Geländemodell, nicht die Schummerung');
+    assert.ok(!gesehen.join(' ').includes('Haus'), 'hinaus geht die Anschrift, nicht der Projektname');
+  } finally { await weg(); netz.close(); }
+});

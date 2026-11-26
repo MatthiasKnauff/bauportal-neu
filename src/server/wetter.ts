@@ -11,17 +11,18 @@ const geo = () => process.env.WETTER_GEO_URL ?? 'https://nominatim.openstreetmap
 const dienst = (alt: boolean) => process.env.WETTER_URL ?? (alt ? 'https://archive-api.open-meteo.com/v1/archive' : 'https://api.open-meteo.com/v1/forecast');
 const orte = new Map<string, { lat: number; lon: number; land: string }>();   // Anschrift -> Koordinaten und Bundesland; bleibt, solange das Programm läuft
 
-/** Anschrift -> Koordinaten (auf rund 100 m, genau genug fürs Wetter) und Bundesland (z. B. „NW“, für die Feiertage). */
-export async function ortSuchen(anschrift: string): Promise<{ lat: number; lon: number; land: string }> {
+/** Anschrift -> Koordinaten und Bundesland (z. B. „NW“, für die Feiertage). Fürs Wetter auf rund 100 m gerundet, genau für den Kataster. */
+export async function ortSuchen(anschrift: string, genau = false): Promise<{ lat: number; lon: number; land: string }> {
   let ort = orte.get(anschrift);
   if (!ort) {
     const t = await holen<{ lat: string; lon: string; address?: Record<string, string> }[]>(`${geo()}/search?format=jsonv2&limit=1&addressdetails=1&countrycodes=de,at,ch,lu&q=${encodeURIComponent(anschrift)}`);
     if (!t[0]) throw new Ablehnung(`Die Anschrift „${anschrift}“ wurde nicht gefunden`);
     const iso = t[0].address?.['ISO3166-2-lvl4'] ?? '';
-    ort = { lat: Math.round(Number(t[0].lat) * 1000) / 1000, lon: Math.round(Number(t[0].lon) * 1000) / 1000, land: /^DE-[A-Z]{2}$/.test(iso) ? iso.slice(3) : '' };
+    ort = { lat: Number(t[0].lat), lon: Number(t[0].lon), land: /^DE-[A-Z]{2}$/.test(iso) ? iso.slice(3) : '' };
     orte.set(anschrift, ort);
   }
-  return ort;
+  const r = (x: number) => Math.round(x * 1000) / 1000;
+  return genau ? ort : { ...ort, lat: r(ort.lat), lon: r(ort.lon) };
 }
 
 async function holen<T>(adresse: string): Promise<T> {

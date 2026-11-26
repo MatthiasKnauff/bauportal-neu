@@ -26,6 +26,7 @@ import { kiRouten } from './ki';
 import { updateRouten } from './updates';
 import { nachschlagRouten } from './nachschlagen';
 import { wetterRouten } from './wetter';
+import { katasterRouten } from './kataster';
 import { diktatRouten } from './diktat';
 import { adressenRouten } from './adressen';
 import { prueferRouten } from './pruefer';
@@ -227,6 +228,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   planAssistentRouten(app, { db, register, nurAngemeldet });
   kiRouten(app, { db, nurAngemeldet });
   wetterRouten(app, { db, nurAngemeldet });
+  katasterRouten(app, { db, nurAngemeldet });
   diktatRouten(app, { db, nurAngemeldet });
   adressenRouten(app, { db, register, nurAngemeldet });
   verlaufRouten(app, { db, register, nurAngemeldet });

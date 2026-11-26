@@ -23,6 +23,7 @@ import { Formular } from './baukasten/formular';
 import { hinweis } from './unterbau/meldungen';
 import type { Anpassung } from './baukasten/anpassung';
 import { AVA_OBEN } from './avakopf';
+import { KatasterHolen } from './kataster';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
@@ -374,6 +375,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   projekt: {
     kachel: (z) => <ProjektKachel projekt={z} />,   // Projekte als Karten (wie im bisherigen Bauportal)
     kartenZusatz: (z) => <><OrdnerWahl projekt={z} /><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
+    kartenEinschub: { Grundstück: (z) => <KatasterHolen projekt={z} /> },
     zelle: (f, z) => (f.name === 'status' ? <span class={`marke-${z.werte.status}`}>{f.optionen!.find((o) => o.wert === z.werte.status)?.titel}</span> : undefined),
   },
   // Gebäudemodell: in jeder seiner Ansichten lässt sich der Assistent starten und eine IFC-Datei einlesen
