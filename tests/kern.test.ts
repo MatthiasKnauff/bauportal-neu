@@ -784,7 +784,7 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
     const cookie = (await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } })).cookie!;
     const z = (await ruf('/api/zustand', { cookie })).daten;
     assert.equal(z.benutzer.rolle, 'admin');
-    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'gebaeudemodell', 'dateien', 'bautagebuch', 'bauzeitenplan', 'kataloge', 'verwaltung']);
+    assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'gebaeudemodell', 'dateien', 'bautagebuch', 'bauzeitenplan', 'ava', 'kataloge', 'verwaltung']);
     assert.equal(z.rechte.kontakt.loeschen, true);
     const s0 = (await ruf('/api/schnappschuss', { cookie })).daten;
     assert.equal(s0.objekte.buero[0].werte.name, 'GK3');
@@ -1103,4 +1103,18 @@ test('Verlauf: auf einen früheren Stand – nachgespielt aus dem Protokoll', as
   const r1 = rueckschritte(log, 1, felder, new Set(['foto']));
   assert.deepEqual(r1.find((x) => x.art === 'aendern')?.werte, { text: 'Riss' }, 'geänderte Felder bekommen den Wert von damals');
   assert.deepEqual(rueckschritte(log, 6, felder, new Set()), [], 'Stand jetzt: nichts zu tun');
+});
+
+test('Ausschreibung: OZ sortieren, Summen, Preisspiegel und Rang', async () => {
+  const r = await import('../src/module/ava/rechnung');
+  const p = (id: string, oz: string, art: string, menge: number, ep: number) => ({ id, werte: { oz, art, menge, ep } });
+  const pos = [p('t', '01', 'titel', 0, 0), p('b', '01.10', 'normal', 10, 5), p('a', '01.9', 'normal', 2, 100), p('e', '01.11', 'bedarf', 5, 1000)];
+  assert.deepEqual(r.nachOz(pos).map((x) => x.id), ['t', 'a', 'b', 'e'], '01.9 vor 01.10');
+  assert.equal(r.summeGeschaetzt(pos), 250, 'Bedarfsposition zählt nicht');
+  const ang = [{ id: 'x', werte: { nachlass: 10 } }, { id: 'y', werte: { nachlass: 0 } }, { id: 'z', werte: { ausgeschlossen: true } }] as { id: string; werte: Record<string, number | boolean> }[];
+  const preise: Record<string, number> = { 'x:a': 100, 'x:b': 6, 'y:a': 90, 'y:b': 5, 'z:a': 1, 'z:b': 1 };
+  const w = r.wertung(pos, ang, (a, q) => preise[`${a}:${q}`] ?? null);
+  assert.deepEqual(w.map((x) => [x.angebot, x.netto, x.nachLass, x.rang]), [['x', 260, 234, 2], ['y', 230, 230, 1], ['z', 12, 12, null]], 'Rang nach Nachlass, ausgeschlossen ohne Rang');
+  assert.equal(r.guenstigster(pos, ang, (a, q) => preise[`${a}:${q}`] ?? null).get('a'), 90, 'günstigster nur unter gewerteten');
+  assert.equal(r.zahl('1.234,5'), 1234.5);
 });

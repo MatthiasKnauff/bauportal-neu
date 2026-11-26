@@ -34,6 +34,8 @@ export interface ObjektModell {
   anzeigeFeld: string;     // Feld, mit dem ein Objekt benannt wird
   /** Benennt das Objekt, solange das Anzeigefeld leer ist (z. B. Nr. und Datum beim Tagesbericht ohne Kurzbeschreibung). */
   ersatzName?: string[];
+  /** Spalte, nach der Listen ab Werk sortiert sind (sonst das Anzeigefeld), z. B. die Ordnungszahl der Positionen. */
+  sortierFeld?: string;
   /** Gehört jeder Eintrag einem Benutzer (z. B. Favoriten)? Dann: Name des Verweisfelds auf den Benutzer – nur er sieht und ändert seine Einträge. */
   eigenFeld?: string;
   /** Abschnitte der Karte, die zunächst zugeklappt sind (z. B. „Firma / Rechnung“ bei Adressen). */

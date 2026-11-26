@@ -95,7 +95,7 @@ export function Tabelle(p: {
 }) {
   const m = p.modell;
   const spalten = spaltenFuer(m);
-  const [sort, setSort] = createSignal<{ feld: string; ab: boolean }>({ feld: m.anzeigeFeld, ab: false });
+  const [sort, setSort] = createSignal<{ feld: string; ab: boolean }>({ feld: m.sortierFeld ?? m.anzeigeFeld, ab: false });
   const [spaltenFeld, setSpaltenFeld] = createSignal<{ x: number; y: number } | null>(null);   // kleines Feld „Spalten“ am Tabellenkopf
   // ohne Mausposition (Knopf ☰): oben rechts an der Tabelle
   const spaltenAuf = (e?: MouseEvent) => { const r = kasten.getBoundingClientRect(); setSpaltenFeld(e ? { x: e.clientX, y: e.clientY } : { x: r.right - 250, y: r.top + 8 }); };

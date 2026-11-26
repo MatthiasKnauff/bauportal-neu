@@ -977,3 +977,33 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .ansicht3d-legende i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; border: 1px solid rgba(0,0,0,.15); }
 .ansicht3d-info { position: absolute; right: 10px; top: 50px; max-width: 320px; padding: 6px 10px; font-size: 12.5px; background: color-mix(in srgb, var(--flaeche) 94%, transparent); border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); pointer-events: none; }
 .ansicht3d-fehler { position: absolute; inset: 40% 10px auto; text-align: center; color: var(--text-still); }
+
+/* Ausschreibung: Summen und Preisspiegel */
+.ava-summen h3 { font-size: 13px; margin: 6px 0; }
+.ava-gp { margin: 4px 0; font-size: 13.5px; }
+.preisspiegel-flaeche { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.ps-kopf { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ps-kopf h2 { margin: 0; font-size: 17px; }
+.ps-dazu { width: 280px; }
+.ps-rollen { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); background: var(--flaeche); }
+.preisspiegel { border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 100%; }
+.preisspiegel th, .preisspiegel td { padding: 5px 8px; border-bottom: 1px solid var(--rand); border-right: 1px solid color-mix(in srgb, var(--rand) 70%, transparent); white-space: nowrap; }
+.preisspiegel thead th { position: sticky; top: 0; background: var(--still-hell); z-index: 1; text-align: left; font-weight: 600; }
+.preisspiegel thead tr:nth-child(2) th { top: 29px; }
+.preisspiegel .zahl { text-align: right; font-variant-numeric: tabular-nums; }
+.preisspiegel .ps-text { max-width: 340px; overflow: hidden; text-overflow: ellipsis; }
+.preisspiegel .ps-schaetzung { color: var(--text-still); }
+.preisspiegel th.ps-bieter { text-align: center; }
+.preisspiegel th.auftrag { color: var(--gut); }
+.preisspiegel th.aus { text-decoration: line-through; color: var(--text-still); }
+.preisspiegel tr.ps-titel td { font-weight: 700; background: var(--still-hell); }
+.preisspiegel tr.ps-ohne td { color: var(--text-still); }
+.preisspiegel td.ps-ep { padding: 2px 4px; }
+.preisspiegel td.ps-ep input { width: 92px; text-align: right; border: 1px solid transparent; border-radius: calc(5px * var(--rund)); background: transparent; padding: 3px 5px; font: inherit; color: var(--text); }
+.preisspiegel td.ps-ep input:hover { border-color: var(--rand-stark); }
+.preisspiegel td.ps-ep input:focus { border-color: var(--akzent); outline: none; background: var(--flaeche); }
+.preisspiegel td.guenstig { background: var(--gut-hell); }
+.preisspiegel td.guenstig input { font-weight: 700; color: var(--gut); }
+.preisspiegel tfoot td { background: var(--still-hell); font-weight: 600; position: sticky; }
+.preisspiegel tr.ps-summe td { font-size: 14px; }
+.ps-fehlt { color: var(--warn); font-weight: 400; }
