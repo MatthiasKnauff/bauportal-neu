@@ -1044,3 +1044,12 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .auftraege tr.nt-pos td { font-size: 12px; color: var(--text-still); padding-left: 18px; }
 .auftraege tr.nt-ab td { text-decoration: line-through; color: var(--text-still); }
 .auftraege td .auswahl, .auftraege td .auswahlliste { min-width: 150px; }
+.kostenkontrolle tbody tr { cursor: pointer; }
+.kostenkontrolle tbody tr:hover td { background: var(--still-hell); }
+.kostenkontrolle tbody tr.gewaehlt td { background: var(--akzent-hell); }
+.kostenkontrolle td.gefahr-text { color: var(--gefahr); } .kostenkontrolle td.gut-text { color: var(--gut); font-size: inherit; }
+.kostenkontrolle { width: 100%; }
+.kostenkontrolle th { white-space: normal; vertical-align: bottom; }
+.kostenkontrolle th, .kostenkontrolle td { padding: 5px 6px; }
+.kostenkontrolle td:nth-child(2), .kostenkontrolle td:nth-child(3) { white-space: normal; min-width: 80px; }
+.kostenkontrolle th { hyphens: auto; }

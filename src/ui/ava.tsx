@@ -2,10 +2,10 @@
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
 import { For, Show, createMemo, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { auftragsstand, ausgeschrieben, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, type Pruefstand } from '../module/ava/rechnung';
+import { auftragsstand, ausgeschrieben, type Auftragsstand, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, type Pruefstand } from '../module/ava/rechnung';
 import type { Werte } from '../kern/modell';
 import { rechenweg } from '../kern/rechenweg';
-import { NACHTRAGSSTAENDE } from '../module/ava/beipackzettel';
+import { LV_STATUS, NACHTRAGSSTAENDE } from '../module/ava/beipackzettel';
 import { gaebSchreiben, type GaebPosten } from '../module/ava/gaeb';
 import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
@@ -24,23 +24,38 @@ const angeboteVon = (lv: string) => lebende('angebot').filter((a) => a.werte.lv 
 /** Preise eines LV: „angebot:position“ → Eintrag. */
 const preiseVon = (angebote: Zeile[]) => { const ids = new Set(angebote.map((a) => a.id)); return new Map(lebende('angebot_preis').filter((x) => ids.has(String(x.werte.angebot))).map((x) => [`${x.werte.angebot}:${x.werte.position}`, x])); };
 
+/** Die Zahlen eines LV an einer Stelle (Karte, Aufträge, Kostenkontrolle): Schätzung, bestes Angebot, Auftrag, Nachträge, abgerechnet. */
+export interface LvZahlen { schaetzung: number; bestes: number | null; besterBieter: string; auftrag: Zeile | undefined; haupt: number; nachlass: number; stand: Auftragsstand; abgerechnet: number; rechnungen: number }
+export function lvZahlen(lvId: string): LvZahlen {
+  const pos = positionenVon(lvId), ang = angeboteVon(lvId), pr = preiseVon(ang);
+  const w = wertung(pos, ang, (a, q) => (pr.has(`${a}:${q}`) ? zahl(pr.get(`${a}:${q}`)!.werte.ep) : null));
+  const erster = w.find((x) => x.rang === 1), auftrag = ang.find((x) => x.werte.beauftragt === true);
+  const nachlass = zahl(auftrag?.werte.nachlass), haupt = auftrag ? w.find((x) => x.angebot === auftrag.id)?.nachLass ?? 0 : 0;
+  const nachtraege = lebende('nachtrag').filter((n) => n.werte.lv === lvId);
+  const rechnungen = lebende('rechnung').filter((r) => r.werte.lv === lvId).sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')));
+  const letzte = rechnungen.at(-1);
+  return {
+    schaetzung: summeGeschaetzt(pos), bestes: erster?.nachLass ?? null, besterBieter: name(ang.find((a) => a.id === erster?.angebot)?.werte.bieter),
+    auftrag, haupt, nachlass, stand: auftragsstand(haupt, auftrag ? nachtraege : [], allePositionenVon(lvId), nachlass),
+    abgerechnet: letzte ? Math.round(zahl(letzte.werte.geprueft ?? letzte.werte.betrag) * (1 - nachlass / 100) * 100) / 100 : 0, rechnungen: rechnungen.length,
+  };
+}
+
 /** Karte eines LV: die Summen – geschätzt, Angebote (günstigstes), Auftrag, abgerechnet. */
 export function LvSummen(p: { lv: Zeile }): JSX.Element {
-  const pos = () => positionenVon(p.lv.id), ang = () => angeboteVon(p.lv.id);
-  const w = createMemo(() => { const pr = preiseVon(ang()); return wertung(pos(), ang(), (a, q) => (pr.has(`${a}:${q}`) ? zahl(pr.get(`${a}:${q}`)!.werte.ep) : null)); });
-  const auftrag = () => { const a = ang().find((x) => x.werte.beauftragt === true); return a ? { a, w: w().find((x) => x.angebot === a.id) } : undefined; };
-  const rechnungen = () => lebende('rechnung').filter((r) => r.werte.lv === p.lv.id);
-  const erster = () => w().find((x) => x.rang === 1);
+  const pos = () => positionenVon(p.lv.id);
+  const z = createMemo(() => lvZahlen(p.lv.id));
   return (
     <div class="ava-summen">
       <h3>Summen netto</h3>
       <dl class="angaben">
         <dt>Positionen</dt><dd>{pos().filter((x) => x.werte.art !== 'titel').length}</dd>
-        <dt>geschätzt</dt><dd>{eur(summeGeschaetzt(pos()))} €</dd>
+        <dt>geschätzt</dt><dd>{eur(z().schaetzung)} €</dd>
         <Show when={zahl(p.lv.werte.budget)}><dt>Kostenansatz</dt><dd>{eur(zahl(p.lv.werte.budget))} €</dd></Show>
-        <Show when={ang().length}><dt>Angebote</dt><dd>{ang().length}{erster() ? ` · günstigstes ${eur(erster()!.nachLass)} € (${name(ang().find((a) => a.id === erster()!.angebot)?.werte.bieter)})` : ''}</dd></Show>
-        <Show when={auftrag()}>{(x) => <><dt>Auftrag</dt><dd>{name(x().a.werte.bieter)} · {eur(x().w?.nachLass ?? 0)} €</dd></>}</Show>
-        <Show when={rechnungen().length}><dt>abgerechnet</dt><dd>{eur(rechnungen().reduce((s, r) => s + zahl(r.werte.geprueft ?? r.werte.betrag), 0))} € in {rechnungen().length} {rechnungen().length === 1 ? 'Rechnung' : 'Rechnungen'}</dd></Show>
+        <Show when={angeboteVon(p.lv.id).length}><dt>Angebote</dt><dd>{angeboteVon(p.lv.id).length}{z().bestes != null ? ` · günstigstes ${eur(z().bestes!)} € (${z().besterBieter})` : ''}</dd></Show>
+        <Show when={z().auftrag}>{(a) => <><dt>Auftrag</dt><dd>{name(a().werte.bieter)} · {eur(z().haupt)} €</dd></>}</Show>
+        <Show when={z().stand.beauftragt || z().stand.offen}><dt>Nachträge</dt><dd>{eur(z().stand.beauftragt)} € beauftragt{z().stand.offen ? ` · ${eur(z().stand.offen)} € offen` : ''}</dd></Show>
+        <Show when={z().rechnungen}><dt>abgerechnet</dt><dd>{eur(z().abgerechnet)} € in {z().rechnungen} {z().rechnungen === 1 ? 'Rechnung' : 'Rechnungen'}</dd></Show>
       </dl>
       <h3>GAEB</h3>
       <div class="reihe">
@@ -288,20 +303,11 @@ export function Aufmasspruefung(p: Mitte): JSX.Element {
 /** Aufträge (wie im bisherigen Bauportal): Hauptauftrag und Nachträge mit Stand und Betrag, Prognose und abgerechnet. */
 export function Auftraege(p: Mitte): JSX.Element {
   const lv = () => { const id = p.gewaehlt() ?? p.alle()[0]?.id; return id ? sicht.lv?.[id] : undefined; };
-  const auftrag = createMemo(() => (lv() ? angeboteVon(lv()!.id).find((a) => a.werte.beauftragt === true) : undefined));
-  const nachlass = () => zahl(auftrag()?.werte.nachlass);
-  const haupt = createMemo(() => {
-    if (!lv() || !auftrag()) return 0;
-    const pr = preiseVon([auftrag()!]);
-    return wertung(positionenVon(lv()!.id), [auftrag()!], (a, q) => (pr.has(`${a}:${q}`) ? zahl(pr.get(`${a}:${q}`)!.werte.ep) : null))[0]?.nachLass ?? 0;
-  });
+  const z = createMemo(() => (lv() ? lvZahlen(lv()!.id) : undefined));
+  const auftrag = () => z()?.auftrag, nachlass = () => z()?.nachlass ?? 0, haupt = () => z()?.haupt ?? 0;
+  const stand = () => z()!.stand, abgerechnet = () => z()?.abgerechnet ?? 0;
   const nachtraege = createMemo(() => (lv() ? lebende('nachtrag').filter((n) => n.werte.lv === lv()!.id).sort((a, b) => ozVergleich(a.werte.nummer, b.werte.nummer)) : []));
   const alle = createMemo(() => (lv() ? allePositionenVon(lv()!.id) : []));
-  const stand = createMemo(() => auftragsstand(haupt(), nachtraege(), alle(), nachlass()));
-  const abgerechnet = createMemo(() => {
-    const r = lebende('rechnung').filter((x) => x.werte.lv === lv()?.id).sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? ''))).at(-1);
-    return r ? Math.round(zahl(r.werte.geprueft ?? r.werte.betrag) * (1 - nachlass() / 100) * 100) / 100 : 0;
-  });
   const STAND: Record<string, string> = Object.fromEntries(NACHTRAGSSTAENDE.map((x) => [x.wert, x.titel]));
   const neu = () => ausfuehren({ objekt: 'nachtrag', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, nummer: naechsterNachtrag(nachtraege()), name: 'Neuer Nachtrag', stand: 'angemeldet', angemeldet: new Date().toLocaleDateString('sv') } }, 'Neuer Nachtrag');
   const setzeStand = (n: Zeile, st: string) => ausfuehren({ objekt: 'nachtrag', art: 'aendern', objektId: n.id, werte: { stand: st, ...(st === 'beauftragt' && !n.werte.beauftragt_am ? { beauftragt_am: new Date().toLocaleDateString('sv') } : {}) } }, `Nachtrag ${String(n.werte.nummer ?? '')}: ${STAND[st] ?? st}`);
@@ -343,6 +349,42 @@ export function Auftraege(p: Mitte): JSX.Element {
           <p class="still-text klein-text">Nachtragspositionen unter „Positionen“ anlegen: links den Nachtrag wählen, dann „＋ Position“ – ihr EP ist der Nachtragspreis.</p>
         </Show>
       </Show>
+    </div>
+  );
+}
+
+/** Kostenkontrolle (wie im bisherigen Bauportal): alle Vergabeeinheiten des Projekts – Schätzung, bestes Angebot, Auftrag,
+ *  beauftragte Nachträge, abgerechnet, noch offen und die Abweichung zur Schätzung. Klick öffnet das LV. */
+export function Kostenkontrolle(p: Mitte): JSX.Element {
+  const zeilen = createMemo(() => [...p.zeilen()].sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true })).map((l) => ({ l, z: lvZahlen(l.id) })));
+  const vergeben = (z: LvZahlen) => z.auftrag ? z.stand.aktuell : null;
+  const offen = (z: LvZahlen) => z.auftrag ? Math.round((z.stand.aktuell - z.abgerechnet) * 100) / 100 : null;
+  // Abweichung zur Schätzung: mit Auftrag der aktuelle Auftrag, sonst das beste Angebot
+  const abw = (z: LvZahlen) => { const v = vergeben(z) ?? z.bestes; return v == null || !z.schaetzung ? null : Math.round((v - z.schaetzung) * 100) / 100; };
+  const summe = (f: (z: LvZahlen) => number | null) => Math.round(zeilen().reduce((s, x) => s + (f(x.z) ?? 0), 0) * 100) / 100;
+  const zelle = (n: number | null) => (n == null ? '–' : eur(n));
+  const STAND: Record<string, string> = Object.fromEntries(LV_STATUS.map((x) => [x.wert, x.titel]));
+  return (
+    <div class="preisspiegel-flaeche">
+      <p class="still-text klein-text">Alle Vergabeeinheiten des Projekts: Schätzung im LV, bestes Angebot, Auftrag und beauftragte Nachträge (nach Nachlass), anerkannte Abrechnung. Klick öffnet das LV.</p>
+      <div class="ps-rollen">
+        <table class="preisspiegel kostenkontrolle">
+          <thead><tr><th>Nr.</th><th>LV</th><th>Stand</th><th class="zahl">Schätzung</th><th class="zahl">bestes Angebot</th><th class="zahl">Auftrag</th><th class="zahl">Nachträge</th><th class="zahl">{"abge\u00ADrechnet"}</th><th class="zahl">noch offen</th><th class="zahl">{"Abw. zur Schät\u00ADzung"}</th></tr></thead>
+          <tbody>
+            <For each={zeilen()}>{(x) => (
+              <tr classList={{ gewaehlt: p.gewaehlt() === x.l.id }} onClick={() => { p.onWahl(x.l.id); p.onOeffnen(); }}>
+                <td>{String(x.l.werte.nummer ?? '')}</td><td>{String(x.l.werte.name ?? '')}</td><td>{STAND[String(x.l.werte.status ?? '')] ?? ''}</td>
+                <td class="zahl">{x.z.schaetzung ? eur(x.z.schaetzung) : '–'}</td><td class="zahl">{zelle(x.z.bestes)}</td>
+                <td class="zahl">{x.z.auftrag ? eur(x.z.haupt) : '–'}</td><td class="zahl">{x.z.auftrag && x.z.stand.beauftragt ? eur(x.z.stand.beauftragt) : '–'}</td>
+                <td class="zahl">{x.z.rechnungen ? eur(x.z.abgerechnet) : '–'}</td><td class="zahl">{zelle(offen(x.z))}</td>
+                <td class="zahl" classList={{ 'gefahr-text': (abw(x.z) ?? 0) > 0, 'gut-text': (abw(x.z) ?? 0) < 0 }}><Show when={abw(x.z) != null}>{`${abw(x.z)! > 0 ? '+' : ''}${eur(abw(x.z)!)}`}<br /><small>{`${abw(x.z)! > 0 ? '+' : ''}${(abw(x.z)! / x.z.schaetzung * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`}</small></Show></td>
+              </tr>
+            )}</For>
+          </tbody>
+          <tfoot><tr class="ps-summe"><td colSpan={3}>Summe netto in €</td><td class="zahl">{eur(summe((z) => z.schaetzung))}</td><td class="zahl">{eur(summe((z) => z.bestes))}</td><td class="zahl">{eur(summe((z) => (z.auftrag ? z.haupt : null)))}</td>
+            <td class="zahl">{eur(summe((z) => (z.auftrag ? z.stand.beauftragt : null)))}</td><td class="zahl">{eur(summe((z) => z.abgerechnet))}</td><td class="zahl">{eur(summe(offen))}</td><td /></tr></tfoot>
+        </table>
+      </div>
     </div>
   );
 }

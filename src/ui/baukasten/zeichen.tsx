@@ -7,7 +7,7 @@ import {
   FileDown, FileText, FileUp, Flag, Folder, FolderKanban, GitBranch, Grid3x3, History, House, ImagePlus, Info, KeyRound, LayoutGrid, Library,
   List, ListPlus, ListTree, Mail, MapPin, Merge, Mic, NotebookPen, NotebookText, PanelLeft, PanelRightClose, Paintbrush, Pencil, Plus, Printer,
   Redo2, RefreshCw, Search, Send, Settings, Share2, ShieldCheck, Sparkles, StickyNote, Table, Trash2, TriangleAlert, Undo2, Upload, UserPlus,
-  Users, Workflow, X, Route, Spline, ZoomIn, ZoomOut, Pin, PinOff, Scissors, ClipboardPaste, CopyPlus, Link, Unlink, Box, ScrollText, Receipt, Scale, Ruler, Handshake, FilePlus2, type IconNode,
+  Users, Workflow, X, Route, Spline, ZoomIn, ZoomOut, Pin, PinOff, Scissors, ClipboardPaste, CopyPlus, Link, Unlink, Box, ScrollText, Receipt, Scale, Ruler, Handshake, FilePlus2, ChartColumn, type IconNode,
 } from 'lucide';
 
 const ZEICHEN = {
@@ -25,7 +25,7 @@ const ZEICHEN = {
   bericht_neu: CalendarPlus, bericht: NotebookText, notiz: StickyNote, notiz_neu: NotebookPen, mangel: TriangleAlert, aufgabe: ClipboardCheck,
   weisung: Flag, personen: Users, person_neu: UserPlus, kontakt: Contact, adressen: BookUser, projekte: FolderKanban, dateien: Folder,
   gebaeude: Building2, katalog: BookOpen, kataloge: Library, baudaten: Database, einruecken: IndentIncrease, ausruecken: IndentDecrease, nach_oben: ArrowUp, nach_unten: ArrowDown, version: GitBranch, meilenstein: Diamond, gruppe_neu: ListPlus, plan: ChartGantt,
-  anheften: Pin, loesen: PinOff, ablauf: Workflow, kritisch: Route, pfeile: Spline, groesser: ZoomIn, kleiner: ZoomOut, bausteine: Blocks, modell3d: Box, ausschreibung: ScrollText, rechnung: Receipt, preisspiegel: Scale, aufmass: Ruler, vertrag: Handshake, nachtrag: FilePlus2, pruefung: ShieldCheck, liste_aufgaben: ClipboardList, start: House,
+  anheften: Pin, loesen: PinOff, ablauf: Workflow, kritisch: Route, pfeile: Spline, groesser: ZoomIn, kleiner: ZoomOut, bausteine: Blocks, modell3d: Box, ausschreibung: ScrollText, rechnung: Receipt, preisspiegel: Scale, aufmass: Ruler, vertrag: Handshake, nachtrag: FilePlus2, kosten: ChartColumn, pruefung: ShieldCheck, liste_aufgaben: ClipboardList, start: House,
 } satisfies Record<string, IconNode>;
 export type Zeichenname = keyof typeof ZEICHEN;
 export const istZeichen = (n: string): n is Zeichenname => n in ZEICHEN;

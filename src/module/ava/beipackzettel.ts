@@ -176,5 +176,7 @@ export const ava: Beipackzettel = {
     { id: 'aufmass', titel: 'Aufmaßprüfung', abschnitt: 'Abrechnung', zeichen: 'aufmass', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: je Position Menge laut Firma und dein Rechenweg (z. B. „Wand Nord: 2,5*3,1 - 0,8*2“, je Zeile ein Ansatz). Daneben ✓ stimmt, ✗ weicht ab, ○ noch offen, und der Betrag mit dem EP des Auftrags. „Übernehmen“ setzt die Menge der Firma als Rechenweg.' },
     { id: 'rechnungen', titel: 'Rechnungen', abschnitt: 'Abrechnung', zeichen: 'rechnung', objekt: 'rechnung', baum: ['lv', 'firma'], brauchtProjekt: true },
+    { id: 'kostenkontrolle', titel: 'Kostenkontrolle', abschnitt: 'Kostenübersicht', zeichen: 'kosten', objekt: 'lv', brauchtProjekt: true,
+      hilfe: 'Alle Vergabeeinheiten des Projekts in einer Tabelle: Schätzung, bestes Angebot, Auftrag, beauftragte Nachträge, abgerechnet, noch offen und die Abweichung zur Schätzung.' },
   ],
 };

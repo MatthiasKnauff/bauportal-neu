@@ -33,7 +33,7 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
-import { AngebotSumme, Auftraege, Aufmasspruefung, LvSummen, LvWahl, PositionSumme, Preisspiegel, RechnungLeiter } from './ava';
+import { AngebotSumme, Auftraege, Kostenkontrolle, Aufmasspruefung, LvSummen, LvWahl, PositionSumme, Preisspiegel, RechnungLeiter } from './ava';
 import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
 import { springeZu } from './sprung';
@@ -426,6 +426,7 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },
   'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein vergebenes Leistungsverzeichnis wählen. „＋ Nachtrag“ legt einen Nachtrag an; den Stand direkt in der Tabelle setzen.' },
+  'ava.kostenkontrolle': { mitte: (m) => <Kostenkontrolle {...m} />, detailsHinweis: 'Eine Zeile anklicken – hier steht dann das Leistungsverzeichnis mit seinen Summen.' },
   'ava.aufmass': { mitte: (m) => <Aufmasspruefung {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Menge laut Firma und Rechenweg direkt in der Tabelle eintragen; Enter springt eine Zeile tiefer.' },
   'gebaeudemodell.modell3d': { mitte: (m) => <Gebaeude3d {...m} />, detailsHinweis: 'Ein Bauteil in der 3D-Ansicht anklicken – hier steht dann seine Karte, direkt änderbar.' },
