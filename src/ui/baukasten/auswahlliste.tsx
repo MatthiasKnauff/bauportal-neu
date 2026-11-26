@@ -1,5 +1,8 @@
 // Baustein „Auswahlliste“: eigene Liste statt der Auswahl des Browsers – mit Suche und Tastatur.
+// Die aufgeklappte Liste liegt über allem (am Seitenende eingehängt, fest positioniert): In einem Fenster oder einer Karte,
+// die selbst rollt, würde sie sonst abgeschnitten. Reicht der Platz unter dem Knopf nicht, klappt sie nach oben auf.
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
+import { Portal } from 'solid-js/web';
 
 export interface Option { wert: string; titel: string }
 
@@ -8,17 +11,31 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
   const [suche, setSuche] = createSignal('');
   const [zeiger, setZeiger] = createSignal(0);
   let wurzel!: HTMLDivElement;
+  let fenster: HTMLDivElement | undefined;
+  const [lage, setLage] = createSignal<{ links: number; breite: number; oben?: number; unten?: number; hoehe: number }>({ links: 0, breite: 0, hoehe: 300 });
+  const messen = () => {
+    const r = wurzel.getBoundingClientRect(), unten = innerHeight - r.bottom - 8, oben = r.top - 8;
+    const nachOben = unten < 220 && oben > unten;
+    setLage({ links: r.left, breite: Math.max(r.width, 220), hoehe: Math.min(360, nachOben ? oben : unten), ...(nachOben ? { unten: innerHeight - r.top + 4 } : { oben: r.bottom + 4 }) });
+  };
   const treffer = createMemo(() => { const s = suche().toLowerCase(); return s ? p.optionen.filter((o) => o.titel.toLowerCase().includes(s)) : p.optionen; });
   const aktuell = () => p.optionen.find((o) => o.wert === p.wert)?.titel ?? '';
-  const draussen = (e: MouseEvent) => { if (!wurzel.contains(e.target as Node)) zu(); };
+  const draussen = (e: MouseEvent) => { if (!wurzel.contains(e.target as Node) && !fenster?.contains(e.target as Node)) zu(); };
+  // Rollt etwas außerhalb der Liste (Fenster, Seite), wandert sie mit ihrem Knopf mit; ist der Knopf nicht mehr zu sehen, schließt sie
+  const gerollt = (e: Event) => {
+    if (fenster?.contains(e.target as Node)) return;
+    const r = wurzel.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > innerHeight) zu(); else messen();
+  };
   const auf = () => {
     if (p.gesperrt) return;
-    setSuche(''); setZeiger(Math.max(0, p.optionen.findIndex((o) => o.wert === p.wert))); setOffen(true);
-    document.addEventListener('mousedown', draussen);
-    queueMicrotask(() => (wurzel.querySelector('input') ?? wurzel.querySelector<HTMLElement>('[role=listbox]'))?.focus());
+    setSuche(''); setZeiger(Math.max(0, p.optionen.findIndex((o) => o.wert === p.wert))); messen(); setOffen(true);
+    document.addEventListener('mousedown', draussen); document.addEventListener('scroll', gerollt, true); addEventListener('resize', zu);
+    queueMicrotask(() => { (fenster?.querySelector('input') ?? fenster?.querySelector<HTMLElement>('[role=listbox]'))?.focus(); fenster?.querySelector('.gewaehlt')?.scrollIntoView({ block: 'nearest' }); });
   };
-  const zu = () => { setOffen(false); document.removeEventListener('mousedown', draussen); };
-  onCleanup(() => document.removeEventListener('mousedown', draussen));
+  const weg = () => { document.removeEventListener('mousedown', draussen); document.removeEventListener('scroll', gerollt, true); removeEventListener('resize', zu); };
+  const zu = () => { setOffen(false); weg(); };
+  onCleanup(weg);
   const nimm = (o: Option | undefined) => { if (!o) return; zu(); if (o.wert !== p.wert) p.onWert(o.wert); wurzel.querySelector<HTMLElement>('.auswahlliste-knopf')?.focus(); };
   const taste = (e: KeyboardEvent) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setZeiger((z) => Math.min(treffer().length - 1, z + 1)); }
@@ -26,7 +43,7 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
     else if (e.key === 'Enter') { e.preventDefault(); nimm(treffer()[zeiger()]); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); zu(); }
     else return;
-    wurzel.querySelector('.zeiger')?.scrollIntoView({ block: 'nearest' });
+    fenster?.querySelector('.zeiger')?.scrollIntoView({ block: 'nearest' });
   };
   return (
     <div class="auswahlliste" ref={wurzel}>
@@ -35,7 +52,9 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
         <span classList={{ platzhalter: !aktuell() }}>{aktuell() || p.platzhalter || ''}</span><i>▾</i>
       </button>
       <Show when={offen()}>
-        <div class="auswahlliste-fenster" onKeyDown={taste}>
+        <Portal>
+        <div class="auswahlliste-fenster schwebt" ref={fenster} onKeyDown={taste}
+          style={{ left: `${lage().links}px`, width: `${lage().breite}px`, ...(lage().oben !== undefined ? { top: `${lage().oben}px` } : { bottom: `${lage().unten}px` }), '--liste-hoehe': `${lage().hoehe - (p.optionen.length > 8 ? 52 : 12)}px` }}>
           <Show when={p.optionen.length > 8}>
             <input type="search" placeholder="Suchen" aria-label={`${p.titel} suchen`} value={suche()} onInput={(e) => { setSuche(e.currentTarget.value); setZeiger(0); }} />
           </Show>
@@ -47,6 +66,7 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
             <Show when={!treffer().length}><div class="auswahlliste-leer">Kein Treffer</div></Show>
           </div>
         </div>
+        </Portal>
       </Show>
     </div>
   );

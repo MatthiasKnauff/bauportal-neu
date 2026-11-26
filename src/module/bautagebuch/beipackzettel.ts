@@ -39,6 +39,7 @@ export const tagesbericht: ObjektModell = {
     { name: 'masskontrolle', titel: 'Maßkontrolle', art: 'ja_nein', gruppe: 'Kontrollen' },
     { name: 'fotodoku', titel: 'Fotodokumentation', art: 'ja_nein', gruppe: 'Kontrollen' },
     { name: 'pdf', titel: 'Als PDF exportiert', art: 'text', verborgen: true },
+    { name: 'soll_aus', titel: 'Ausgeblendete Vorschläge laut Bauzeitenplan', art: 'langtext', verborgen: true },   // je Zeile eine Firmen-Kennung bzw. „g:Gewerk“
     { name: 'firmen_angesprochen', titel: 'Alle Firmen angesprochen', art: 'ja_nein', gruppe: 'Kontrollen' },
     { name: 'kennung', titel: 'Kennung aus der Übernahme', art: 'text', verborgen: true },
   ],
@@ -65,6 +66,8 @@ export const berichtEintrag: ObjektModell = {
     { name: 'text', titel: 'Text', art: 'langtext', inListe: true, breite: 380, gruppe: 'Eintrag' },
     { name: 'firma', titel: 'Firma', art: 'verweis', ziel: 'kontakt', inListe: true, breite: 220, gruppe: 'Eintrag', wenn: { art: ['anwesend', 'mangel', 'weisung'] } },
     { name: 'personen', titel: 'Personen', art: 'zahl', gruppe: 'Eintrag', wenn: { art: ['anwesend'] } },
+    // erwartet laut Bauzeitenplan, aber nicht gekommen – der Text ist dann die Begründung; zählt für die Terminrüge
+    { name: 'nicht_da', titel: 'Nicht da', art: 'ja_nein', gruppe: 'Eintrag', wenn: { art: ['anwesend'] } },
     { name: 'frist', titel: 'Frist', art: 'datum', inListe: true, breite: 120, gruppe: 'Erledigung', wenn: { art: MIT_FRIST } },
     { name: 'erledigt', titel: 'Erledigt', art: 'ja_nein', inListe: true, breite: 100, gruppe: 'Erledigung', wenn: { art: ['mangel', 'aufgabe'] } },
     { name: 'reihe', titel: 'Reihenfolge im Bericht', art: 'zahl', verborgen: true },

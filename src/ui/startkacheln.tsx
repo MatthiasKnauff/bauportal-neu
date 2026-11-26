@@ -1,11 +1,11 @@
 // Startseite: unter den Apps der Stand des oben gewählten Projekts – was im Bauzeitenplan gerade läuft und als Nächstes
 // kommt, der letzte Tagesbericht, offene Mängel und Aufgaben mit Frist. Ein Klick öffnet die App. Gelesen wird im Gerät.
 import { For, Show, createMemo, type JSX } from 'solid-js';
-import { planAus } from '../module/bauzeitenplan/plan';
 import { isoAus, tagAus } from '../module/bauzeitenplan/kalender';
 import { sicht, lebende } from './unterbau/abgleich';
 import { darf } from './unterbau/api';
 import { gewaehlteVersion } from './projekt';
+import { planDerVersion, planVersionen } from './plandaten';
 
 const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.` : '');
 
@@ -14,11 +14,10 @@ export function Projektkacheln(p: { projekt: string; onApp: (modul: string, ansi
   const name = () => { const w = sicht.projekt?.[p.projekt]?.werte; return [w?.nummer, w?.name].filter(Boolean).join(' · '); };
   const plan = createMemo(() => {
     if (!darf('vorgang', 'lesen')) return null;
-    const versionen = lebende('version').filter((v) => v.werte.projekt === p.projekt && v.werte.bereich === 'bauzeitenplan');
+    const versionen = planVersionen(p.projekt);
     const v = versionen.find((x) => x.id === gewaehlteVersion(p.projekt, 'bauzeitenplan')) ?? versionen.find((x) => x.werte.gueltig) ?? versionen[0];
     if (!v) return null;
-    const in_ = (o: string) => lebende(o).filter((x) => x.werte.version === v.id);
-    const pl = planAus({ vorgaenge: in_('vorgang'), links: in_('verknuepfung'), zeitplan: in_('zeitplan')[0]?.werte, frei: in_('freier_tag'), land: '', heute });
+    const pl = planDerVersion(v.id);
     const blatt = pl.zeilen.filter((z) => !z.termin.gruppe && z.termin.f > z.termin.s);
     const bis = isoAus(tagAus(heute) + 7);
     return { version: String(v.werte.name), ende: pl.erg.endeDatum, n: blatt.length,

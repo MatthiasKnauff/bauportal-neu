@@ -4,8 +4,10 @@
 import { Seitenliste } from './baukasten/seitenliste';
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import type { Feld } from '../kern/modell';
-import { ausfuehren, rueckgaengig, sicht, lebende, gemerkt } from './unterbau/abgleich';
+import type { Feld, Wert } from '../kern/modell';
+import { ausfuehren, ausfuehrenMehrere, rueckgaengig, sicht, lebende, gemerkt } from './unterbau/abgleich';
+import { RUEGE_AB, erwartet, laufendAm, type Laufend } from '../module/bautagebuch/soll';
+import { planDerVersion, planVersionen } from './plandaten';
 import { ausdrucke, darf, modell, neueKennung, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
@@ -89,8 +91,8 @@ export function BerichtLinks(p: Mitte) {
         </div>
       </Show>
       <Show when={gewaehlt()}>{(g) => (
-        <Seitenliste name="Abschnitte des Berichts" art="filter" aktiv="" onWahl={zumAbschnitt} abschnitte={[{ titel: `Tagesbericht Nr. ${String(g().werte.nummer ?? '')} · ${datumText(g().werte.datum)}`,
-          eintraege: [{ id: 'kopf', titel: 'Allgemein', zeichen: 'bericht' }, ...ABSCHNITTE.map((a) => ({ id: a.id, titel: a.titel, zeichen: a.zeichen, anzahl: anzahl(g().id, a) }))] }]} />
+        <Seitenliste name="Abschnitte des Berichts" aktiv="" onWahl={zumAbschnitt} abschnitte={[{ titel: `Tagesbericht Nr. ${String(g().werte.nummer ?? '')} · ${datumText(g().werte.datum)}`,
+          eintraege: [{ id: 'kopf', titel: 'Tagesbericht', zeichen: 'bericht' }, ...ABSCHNITTE.map((a) => ({ id: a.id, titel: a.titel, zeichen: a.zeichen, anzahl: anzahl(g().id, a) }))] }]} />
       )}</Show>
     </div>
   );
@@ -107,6 +109,93 @@ const firmenFuer = (projekt: unknown) => () => gemerkt(['kontakt', 'projekt_kont
 /** Anwesende wie im bisherigen Bautagebuch: je Firma Kürzel, Name (öffnet den Kontakt), Personen mit − / +, ✕ – darunter die
  *  Art der Tätigkeit. Unten „＋ Firma hinzufügen“ mit den Beteiligten des Projekts zuerst. */
 const kuerzel = (name: string) => name.replace(/\b(GmbH|AG|KG|UG|mbH|Co|e\.?\s?K|Fa\.?|Firma|und|u\.)\b/gi, ' ').split(/[\s\-&+.,]+/).filter((w) => /^[A-Za-zÄÖÜäöü]/.test(w)).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
+/** Der gültige Bauzeitenplan des Projekts (der zählt auf der Baustelle) – oder keiner. */
+function planZumBericht(b: Zeile) {
+  if (!darf('vorgang', 'lesen')) return null;
+  const v = planVersionen(String(b.werte.projekt ?? ''));
+  const g = v.find((x) => x.werte.gueltig) ?? v[0];
+  return g ? planDerVersion(g.id) : null;
+}
+const kurzDatum = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
+const atText = (n: number) => `${String(n).replace('.', ',')} AT`;
+
+/** Fortschritt einer Firma: ihre laufenden Leistungen mit Balken, „laut Plan“ und Prozent zum Anklicken – geht direkt in den Bauzeitenplan. */
+function Fortschritt(p: { leistungen: Laufend[] }) {
+  const schreiben = () => darf('vorgang', 'schreiben');
+  const setzen = (l: Laufend, w: number) => { const z = sicht.vorgang?.[l.id]; if (z) feldAendern(modell('vorgang'), z, modell('vorgang').felder.find((f) => f.name === 'fortschritt')!, w); };
+  return (
+    <For each={p.leistungen}>{(l) => (
+      <div class="fs-zeile">
+        <div class="fs-name"><b>{l.name}</b>
+          <span class="fs-balken" title={`gemeldet ${l.ist} %`}><i style={{ width: `${l.ist}%` }} classList={{ hinten: l.verzug >= RUEGE_AB, knapp: l.verzug >= 1 && l.verzug < RUEGE_AB }} /><em style={{ left: `${l.soll}%` }} title={`laut Plan ${l.soll} %`} /></span>
+          <small>laut Plan {l.soll} % · Ende {kurzDatum(l.ende)}{l.verzug >= RUEGE_AB ? <span class="fs-verzug"> · ≈ {atText(l.verzug)} im Verzug – Terminrüge möglich</span> : l.verzug >= 1 ? ` · ≈ ${atText(l.verzug)} hinterher` : ''}</small>
+        </div>
+        <div class="fs-prozent" role="radiogroup" aria-label={`Fortschritt ${l.name}`}>
+          <For each={[0, 25, 50, 75, 100]}>{(w) => (
+            <button type="button" role="radio" aria-checked={l.ist === w} classList={{ aktiv: l.ist === w, 'laut-plan': Math.round(l.soll / 25) * 25 === w }} disabled={!schreiben()}
+              title={Math.round(l.soll / 25) * 25 === w ? `${w} % – etwa laut Plan` : `${w} %`} onClick={() => setzen(l, w)}>{w}</button>
+          )}</For>
+        </div>
+      </div>
+    )}</For>
+  );
+}
+
+/** Anwesende laut Bauzeitenplan: erwartete Firmen als vorausgefüllte Zeilen – erst ✓ trägt sie ein. Leistungen ohne Firma je Gewerk:
+ *  Firma hier eintragen, dann steht sie auch im Bauzeitenplan. */
+function Vorschlaege(p: { bericht: Zeile; neu: (werte: Record<string, Wert>, titel: string) => void }) {
+  const plan = () => planZumBericht(p.bericht);
+  const tag = () => String(p.bericht.werte.datum ?? '');
+  const aus = () => new Set(String(p.bericht.werte.soll_aus ?? '').split('\n').filter(Boolean));
+  const ausblenden = (k: string) => feldAendern(modell('tagesbericht'), p.bericht, modell('tagesbericht').felder.find((f) => f.name === 'soll_aus')!, [...aus(), k].join('\n'));
+  const da = () => erwartet(plan()!, tag(), new Set(lebende('bericht_eintrag').filter((e) => e.werte.bericht === p.bericht.id && e.werte.art === 'anwesend' && e.werte.firma).map((e) => String(e.werte.firma))), aus());
+  const name = (k: string) => String(sicht.kontakt?.[k]?.werte.name ?? 'Firma');
+  return (
+    <Show when={plan() && tag() && darf('bericht_eintrag', 'schreiben') && (da().firmen.length || da().ohne.length)}>
+      <div class="soll">
+        <Show when={da().firmen.length}><div class="soll-h">Laut Bauzeitenplan vorausgefüllt – bestätigen, „nicht da“ oder löschen</div></Show>
+        <For each={da().firmen}>{(v) => {
+          const [text, setText] = createSignal(v.leistungen.join(', '));
+          const [anzahl, setAnzahl] = createSignal<number | null>(1);
+          return (
+            <div class="soll-zeile">
+              <div class="aw-kopf"><span class="aw-kuerzel" aria-hidden="true">{kuerzel(name(v.firma))}</span><span class="aw-name"><b>{name(v.firma)}</b> <small class="still-text">laut Bauzeitenplan</small></span>
+                <Zaehler titel="Personen" wert={anzahl()} onWert={(w) => setAnzahl(w == null ? null : Number(w))} /></div>
+              <textarea class="aw-taetigkeit" rows={1} aria-label={`Art der Tätigkeit ${name(v.firma)}`} value={text()} onInput={(e) => setText(e.currentTarget.value)} />
+              <div class="soll-knoepfe">
+                <button type="button" class="knopf klein haupt" title="Bestätigen – als anwesend eintragen" onClick={() => p.neu({ firma: v.firma, personen: anzahl() ?? 1, text: text() }, 'Anwesend laut Bauzeitenplan')}>✓ Bestätigen</button>
+                <button type="button" class="knopf klein" title="Nicht da – auf Wunsch mit Begründung (zählt für die Terminrüge)" onClick={() => p.neu({ firma: v.firma, personen: 0, text: '', nicht_da: true }, 'Nicht da')}>✗ nicht da</button>
+                <button type="button" class="knopf klein still" aria-label={`Vorschlag ${name(v.firma)} löschen`} title="Vorschlag löschen – nicht nötig, ohne Folgen" onClick={() => ausblenden(v.firma)}>🗑</button>
+              </div>
+            </div>
+          );
+        }}</For>
+        <Show when={da().ohne.length}>
+          <div class="soll-h">Laut Bauzeitenplan heute außerdem – dort ist keine Firma eingetragen. Firma hier eintragen, dann steht sie auch im Bauzeitenplan:</div>
+          <For each={da().ohne}>{(o) => (
+            <div class="soll-zeile ohne">
+              <div class="aw-name"><b>{o.gewerk}</b> <small class="still-text">{o.leistungen.join(', ')}</small></div>
+              <div class="soll-knoepfe">
+                <Show when={darf('vorgang', 'schreiben')}>
+                  <Auswahlliste titel={`Firma für ${o.gewerk}`} platzhalter="Firma eintragen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)()}
+                    onWert={(k) => { ausfuehrenMehrere([...o.ids.map((id) => ({ objekt: 'vorgang', art: 'aendern' as const, objektId: id, werte: { firma: k } })),
+                      { objekt: 'bericht_eintrag', art: 'anlegen' as const, objektId: neueKennung(), werte: neuWerte(p.bericht, { firma: k, personen: 1, text: o.leistungen.join(', ') }) }], 'Firma übernehmen – auch in den Bauzeitenplan'); }} />
+                </Show>
+                <button type="button" class="knopf klein still" title="Heute nicht – Hinweis ausblenden" aria-label={`${o.gewerk} heute nicht`} onClick={() => ausblenden(`g:${o.gewerk}`)}>–</button>
+              </div>
+            </div>
+          )}</For>
+        </Show>
+      </div>
+    </Show>
+  );
+}
+/** Werte eines neuen Anwesenden am Ende der Liste. */
+function neuWerte(b: Zeile, w: Record<string, Wert>): Record<string, Wert> {
+  const reihe = Math.max(0, ...lebende('bericht_eintrag').filter((e) => e.werte.bericht === b.id && e.werte.art === 'anwesend').map((z) => Number(z.werte.reihe ?? 0))) + 1;
+  return { projekt: b.werte.projekt ?? null, bericht: b.id, art: 'anwesend', reihe, ...w };
+}
+
 function Anwesende(p: { bericht: Zeile }) {
   const m = () => modell('bericht_eintrag');
   const feld = (n: string) => m().felder.find((f) => f.name === n)!;
@@ -114,29 +203,31 @@ function Anwesende(p: { bericht: Zeile }) {
   const zeilen = () => lebende('bericht_eintrag').filter((e) => e.werte.bericht === p.bericht.id && e.werte.art === 'anwesend')
     .sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0));
   const name = (z: Zeile) => { const k = z.werte.firma ? sicht.kontakt?.[String(z.werte.firma)] : undefined; return k ? String(k.werte.name ?? '') : String(z.werte.text ?? ''); };
-  const neu = (kontakt: string) => {
-    if (!kontakt) return;
-    const reihe = Math.max(0, ...zeilen().map((z) => Number(z.werte.reihe ?? 0))) + 1;
-    ausfuehren({ objekt: 'bericht_eintrag', art: 'anlegen', objektId: neueKennung(), werte: { projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id, art: 'anwesend', firma: kontakt, personen: 1, text: '', reihe } }, 'Firma eintragen');
-  };
+  const neu = (w: Record<string, Wert>, titel: string) => ausfuehren({ objekt: 'bericht_eintrag', art: 'anlegen', objektId: neueKennung(), werte: neuWerte(p.bericht, w) }, titel);
+  // laufende Leistungen je Firma (Fortschritt) – Leistungen ohne Firma gehören nicht zu den Anwesenden
+  const laufend = createMemo(() => { const pl = planZumBericht(p.bericht), t = String(p.bericht.werte.datum ?? ''); return pl && t ? laufendAm(pl, t) : []; });
   return (
     <div class="anwesende">
       <For each={zeilen()}>{(z) => (
-        <div class="aw-zeile">
+        <div class="aw-zeile" classList={{ 'nicht-da': z.werte.nicht_da === true }}>
           <div class="aw-kopf">
             <span class="aw-kuerzel" aria-hidden="true">{kuerzel(name(z))}</span>
             <Show when={z.werte.firma} fallback={<span class="aw-name">{name(z) || 'ohne Firma'}</span>}>
               <button type="button" class="aw-name verweis-knopf" title="Kontakt öffnen" onClick={() => inEigenemFenster(modell('kontakt'), String(z.werte.firma))}>{name(z)}</button>
             </Show>
-            <Zaehler titel="Personen" wert={z.werte.personen ?? null} gesperrt={!schreiben()} onWert={(w) => feldAendern(m(), z, feld('personen'), w)} />
-            <Show when={darf('bericht_eintrag', 'loeschen')}><button type="button" class="knopf klein still" aria-label={`${name(z)} entfernen`} title="Entfernen" onClick={() => loesche(m(), z)}>✕</button></Show>
+            <Show when={z.werte.nicht_da === true} fallback={<Zaehler titel="Personen" wert={z.werte.personen ?? null} gesperrt={!schreiben()} onWert={(w) => feldAendern(m(), z, feld('personen'), w)} />}>
+              <small class="aw-nicht-da">nicht da</small>
+            </Show>
+            <Show when={darf('bericht_eintrag', 'loeschen')}><button type="button" class="knopf klein still" aria-label={`${name(z)} entfernen`} title={z.werte.nicht_da === true ? 'Rückgängig – wieder als Vorschlag' : 'Entfernen'} onClick={() => loesche(m(), z)}>✕</button></Show>
           </div>
-          <textarea class="aw-taetigkeit" rows={1} placeholder="Art der Tätigkeit" aria-label={`Art der Tätigkeit ${name(z)}`} value={String(z.werte.text ?? '')} readOnly={!schreiben()}
+          <textarea class="aw-taetigkeit" rows={1} placeholder={z.werte.nicht_da === true ? 'Begründung (auf Wunsch), z. B. kommt nächste Woche' : 'Art der Tätigkeit'} aria-label={`${z.werte.nicht_da === true ? 'Begründung' : 'Art der Tätigkeit'} ${name(z)}`} value={String(z.werte.text ?? '')} readOnly={!schreiben()}
             onChange={(e) => feldAendern(m(), z, feld('text'), e.currentTarget.value)} />
+          <Show when={z.werte.firma && laufend().some((l) => l.firma === z.werte.firma)}><Fortschritt leistungen={laufend().filter((l) => l.firma === z.werte.firma)} /></Show>
         </div>
       )}</For>
+      <Vorschlaege bericht={p.bericht} neu={neu} />
       <Show when={schreiben()}>
-        <Auswahlliste titel="Firma hinzufügen" platzhalter="＋ Firma hinzufügen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)()} onWert={neu} />
+        <Auswahlliste titel="Firma hinzufügen" platzhalter="＋ Firma hinzufügen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)()} onWert={(k) => { if (k) neu({ firma: k, personen: 1, text: '' }, 'Firma eintragen'); }} />
       </Show>
     </div>
   );
@@ -250,7 +341,7 @@ function Abschnitt(p: { a: (typeof ABSCHNITTE)[number]; bericht: Zeile; inhalt: 
       <div class="bt-karte-kopf">
         <span class="bt-symbol"><Zeichen name={p.a.zeichen} groesse={18} /></span>
         <h3>{p.a.titel}</h3><span class="anzahl">{anzahl(p.bericht.id, p.a)}</span>
-        <Show when={p.a.id === 'anwesend' && personen(p.bericht.id)}><span class="still-text klein-text">{personen(p.bericht.id)} Personen</span></Show>
+        <Show when={p.a.id === 'anwesend' && personen(p.bericht.id)}><span class="still-text klein-text">{personen(p.bericht.id)} {personen(p.bericht.id) === 1 ? 'Person' : 'Personen'}</span></Show>
         <button class="knopf still" aria-label={zu() ? `${p.a.titel} aufklappen` : `${p.a.titel} zuklappen`} aria-expanded={!zu()} onClick={() => { setZu(!zu()); merke(schluessel, zu() ? 'zu' : ''); }}>{zu() ? '▸' : '▾'}</button>
         <Show when={darf(p.a.id === 'fotos' ? 'foto' : 'bericht_eintrag', 'schreiben')}><button class="knopf bt-plus" aria-label={`${p.a.titel}: neuer Eintrag`} onClick={neu}>+</button></Show>
       </div>

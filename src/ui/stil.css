@@ -248,6 +248,8 @@ main { flex: 1; min-height: 0; display: flex; }
 .auswahlliste-fenster { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--flaeche); color: var(--text); border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 6px; }
 .auswahlliste-fenster input { width: 100%; min-height: 34px; padding: 0 10px; border: 1px solid var(--rand-stark); border-radius: calc(6px * var(--rund)); margin-bottom: 6px; }
 .auswahlliste-fenster [role=listbox] { max-height: 240px; overflow: auto; outline: none; }
+.auswahlliste-fenster.schwebt { position: fixed; right: auto; top: auto; z-index: 60; }   /* über Fenstern (50) – am Seitenende eingehängt */
+.auswahlliste-fenster.schwebt [role=listbox] { max-height: max(120px, var(--liste-hoehe, 240px)); }
 .auswahlliste-fenster [role=option] { padding: 7px 10px; border-radius: calc(6px * var(--rund)); cursor: pointer; }
 .auswahlliste-fenster [role=option].zeiger { background: var(--still); }
 .auswahlliste-fenster [role=option].gewaehlt { color: var(--akzent); font-weight: 600; }
@@ -934,3 +936,27 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .spaltenwahl-druck { display: flex; flex-direction: column; gap: 2px; }
 .spaltenwahl-druck .spalte-zeile { display: flex; align-items: center; gap: 4px; }
 .spaltenwahl-druck .spalte-zeile label { flex: 1; display: flex; gap: 6px; align-items: center; min-height: 30px; cursor: pointer; }
+
+/* Bautagebuch: Anwesende laut Bauzeitenplan und Fortschritt je Firma */
+.soll { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1.5px dashed color-mix(in srgb, var(--akzent) 45%, var(--rand)); border-radius: calc(10px * var(--rund)); background: color-mix(in srgb, var(--akzent) 4%, var(--flaeche)); }
+.soll-h { font-size: 12.5px; color: var(--text-still); }
+.soll-zeile { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: var(--flaeche); }
+.soll-zeile.ohne { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.soll-zeile.ohne .aw-name { white-space: normal; }
+.soll-knoepfe { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.soll-zeile.ohne .soll-knoepfe .auswahlliste { min-width: 200px; }
+.aw-zeile.nicht-da { background: var(--warn-hell); }
+.aw-nicht-da { color: var(--warn); font-weight: 600; }
+.fs-zeile { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 2px 0; border-top: 1px dashed var(--rand); }
+.fs-name { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.fs-name small { color: var(--text-still); }
+.fs-verzug { color: var(--gefahr); font-weight: 600; }
+.fs-balken { position: relative; height: 6px; border-radius: 99px; background: var(--rand); }
+.fs-balken i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--gut); }
+.fs-balken i.knapp { background: var(--warn); } .fs-balken i.hinten { background: var(--gefahr); }
+.fs-balken em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); opacity: .55; }
+.fs-prozent { display: flex; gap: 2px; }
+.fs-prozent button { min-width: 36px; height: 28px; border: 1px solid var(--rand-stark); background: var(--flaeche); border-radius: calc(6px * var(--rund)); cursor: pointer; font: inherit; font-size: 12.5px; color: var(--text); }
+.fs-prozent button.laut-plan { border-style: dashed; border-color: var(--akzent); }
+.fs-prozent button.aktiv { background: var(--akzent); border-color: var(--akzent); color: #fff; font-weight: 700; }
+.fs-prozent button:disabled { cursor: default; opacity: .7; }

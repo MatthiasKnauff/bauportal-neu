@@ -1072,3 +1072,22 @@ test('Filterbedingung: UND, ODER, NICHT wie im bisherigen Bauportal', async () =
   assert.equal(s.gruppen[0]!.werte.length, 2, 'zwei Werte gesammelt');
   assert.deepEqual([dach, maler, amt].map((x) => f.erfuellt(s, x)), [true, true, false], 'enthält „dach“ ODER „Male“');
 });
+
+test('Bautagebuch laut Bauzeitenplan: erwartete Firmen, Soll und Verzug', async () => {
+  const { planAus } = await import('../src/module/bauzeitenplan/plan');
+  const s = await import('../src/module/bautagebuch/soll');
+  const v = (id: string, reihe: number, w: Record<string, unknown>) => ({ id, werte: { reihe, ebene: 0, ...w } as never });
+  // Mo 02.11.2026: Rohbau 10 AT (Firma k1), danach Dach 5 AT (ohne Firma, Gewerk Zimmerer), Elektro 10 AT parallel ab Anfang (Firma k2, fertig)
+  const plan = planAus({ vorgaenge: [v('a', 1, { name: 'Rohbau', dauer: 10, firma: 'k1', gewerk: 'Rohbau', fortschritt: 20 }), v('b', 2, { name: 'Dachstuhl', dauer: 5, gewerk: 'Zimmerer' }), v('c', 3, { name: 'Elektro', dauer: 10, firma: 'k2', fortschritt: 100 })],
+    links: [{ id: 'l', werte: { von: 'a', nach: 'b', art: 'ea', abstand: 0 } as never }], zeitplan: { anfang: '2026-11-02', arbeitswoche: 5, bundesland: 'NW' }, frei: [], land: 'NW', heute: '2026-11-02' });
+  const mi = s.erwartet(plan, '2026-11-11', new Set(), new Set());   // 8. Arbeitstag
+  assert.deepEqual(mi.firmen.map((f) => f.firma), ['k1'], 'nur laufende, nicht fertige Firmen');
+  assert.deepEqual(mi.ohne, [], 'Dach läuft noch nicht');
+  assert.deepEqual(s.erwartet(plan, '2026-11-11', new Set(['k1']), new Set()).firmen, [], 'schon eingetragen: kein Vorschlag');
+  const l = s.laufendAm(plan, '2026-11-11').find((x) => x.id === 'a')!;
+  assert.equal(l.soll, 80, '8 von 10 Arbeitstagen'); assert.equal(l.verzug, 6, '(80 − 20) % von 10 AT');
+  assert.ok(l.verzug >= s.RUEGE_AB, 'Terminrüge möglich');
+  const dach = s.erwartet(plan, '2026-11-17', new Set(), new Set());
+  assert.equal(dach.ohne[0]?.gewerk, 'Zimmerer', 'ohne Firma je Gewerk');
+  assert.deepEqual(s.erwartet(plan, '2026-11-17', new Set(), new Set(['g:Zimmerer'])).ohne, [], 'ausgeblendet');
+});
