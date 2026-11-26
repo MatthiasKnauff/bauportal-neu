@@ -14,7 +14,12 @@ export type Verbindung = pg.PoolClient;
 
 export function verbinden(url: string): Db {
   // Verbindungen zur Datenbank: einstellbar (DB_VERBINDUNGEN), Vorgabe 20 – gemessen mit tests/ui/last.mjs
-  return new pg.Pool({ connectionString: url, max: Number(process.env.DB_VERBINDUNGEN) || 20 });
+  const pool = new pg.Pool({ connectionString: url, max: Number(process.env.DB_VERBINDUNGEN) || 20 });
+  // Bricht eine ruhende Verbindung ab (Neustart der Datenbank, Verbindung gekappt), meldet der Pool das als Ereignis –
+  // ohne Empfänger beendet das den ganzen Server. Die Verbindung ist dann schon verworfen; laufende Abfragen bekommen
+  // ihren Fehler wie immer, die nächste holt sich eine neue Verbindung.
+  pool.on('error', (e) => console.warn(`Datenbankverbindung abgebrochen: ${e.message}`));
+  return pool;
 }
 
 /** Wartet, bis die Datenbank erreichbar ist (beim Start des Containers ist sie evtl. noch nicht so weit). */

@@ -5,6 +5,7 @@ import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';
 import { GRUNDLAGEN } from './besprechung';
+import { AG_ARTEN } from './vertrag';
 
 const rechte = { lesen: ALLE, schreiben: ['bueroleitung', 'bauleitung', 'mitarbeiter'], loeschen: ['bueroleitung', 'bauleitung'] };
 
@@ -202,6 +203,30 @@ export const besprechung: ObjektModell = {
   ],
 };
 
+
+// Bauvertrag je Auftrag: einmal aus Auftrag und Protokoll angelegt (vertrag.ts), danach ein eigenes Schriftstück
+export const bauvertrag: ObjektModell = {
+  name: 'bauvertrag', titel: 'Bauvertrag', titelMehrzahl: 'Bauverträge', anzeigeFeld: 'gegenstand', ersatzName: ['datum'], sortierFeld: 'datum',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'lv', titel: 'Auftrag (LV)', art: 'verweis', ziel: 'lv', pflicht: true, inListe: true, breite: 220, gruppe: 'Vertrag' },
+    { name: 'angebot', titel: 'Angebot (Auftragnehmer:in)', art: 'verweis', ziel: 'angebot', pflicht: true, inListe: true, breite: 220, gruppe: 'Vertrag' },
+    { name: 'datum', titel: 'Datum', art: 'datum', inListe: true, breite: 110, gruppe: 'Vertrag' },
+    { name: 'ag_art', titel: 'Auftraggeber:in ist', art: 'auswahl', optionen: AG_ARTEN, gruppe: 'Vertrag' },
+    { name: 'gegenstand', titel: '§ 1 Gegenstand', art: 'text', gruppe: 'Vertrag' },
+    { name: 'ag', titel: 'Auftraggeber:in', art: 'langtext', gruppe: 'Parteien' },
+    { name: 'an', titel: 'Auftragnehmer:in', art: 'langtext', gruppe: 'Parteien' },
+    { name: 'bestandteile', titel: '§ 2 Vertragsbestandteile', art: 'langtext', gruppe: 'Regelungen' },
+    { name: 'verguetung', titel: '§ 3 Vergütung', art: 'langtext', gruppe: 'Regelungen' },
+    { name: 'termine', titel: '§ 4 Ausführungsfristen', art: 'langtext', gruppe: 'Regelungen' },
+    { name: 'zahlung', titel: '§ 5 Abrechnung und Zahlung', art: 'langtext', gruppe: 'Regelungen' },
+    { name: 'sicherheiten', titel: '§ 6 Sicherheiten', art: 'langtext', gruppe: 'Regelungen' },
+    { name: 'abnahme', titel: '§ 7 Abnahme und Mängelansprüche', art: 'langtext', gruppe: 'Regelungen' },
+    { name: 'weiteres', titel: '§ 8 Weitere Vereinbarungen', art: 'langtext', gruppe: 'Regelungen' },
+  ],
+};
+
 export const ava: Beipackzettel = {
   id: 'ava',
   handy: 'ansicht',
@@ -210,8 +235,19 @@ export const ava: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
-  objekte: [lv, lvPosition, angebot, angebotPreis, nachtrag, aufmass, rechnung, besprechung],
+  objekte: [lv, lvPosition, angebot, angebotPreis, nachtrag, aufmass, rechnung, besprechung, bauvertrag],
   ausdrucke: [{
+    id: 'ava.bauvertrag', titel: 'Bauvertrag', objekt: 'bauvertrag',
+    dateiname: 'Bauvertrag {lv} {datum}', fuss: '{buero} · Bauvertrag {lv}', ordner: 'AVA/Vergabe',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Bauvertrag', unter: '{gegenstand}' },
+      { id: 'parteien', art: 'felder', felder: ['ag', 'an'] },
+      { id: 'gegenstand', art: 'felder', felder: ['gegenstand'] },
+      ...(['bestandteile', 'verguetung', 'termine', 'zahlung', 'sicherheiten', 'abnahme', 'weiteres'] as const).map((feld) => ({ id: feld, art: 'text' as const, feld })),
+      { id: 'unterschriften', art: 'unterschriften', parteien: ['Auftraggeber:in', 'Auftragnehmer:in'] },
+    ],
+  }, {
     id: 'ava.besprechung', titel: 'Protokoll Angebotsbesprechung', objekt: 'besprechung',
     dateiname: 'Angebotsbesprechung {lv} {datum}', fuss: '{buero} · Angebotsbesprechung {lv} vom {datum}', ordner: 'AVA/Vergabe',
     bloecke: [
@@ -242,6 +278,8 @@ export const ava: Beipackzettel = {
       hilfe: 'Links ein LV wählen: die Positionen mit den Preisen aller Bieter:innen nebeneinander, das günstigste Angebot je Position markiert, unten die Summen mit Nachlass und der Rang. Preise direkt eintragen; „Vergeben an …“ beauftragt das Angebot.' },
     { id: 'besprechungen', titel: 'Angebotsbesprechung', abschnitt: 'Vergabe', zeichen: 'vertrag', objekt: 'besprechung', baum: ['lv'], brauchtProjekt: true,
       hilfe: 'Protokoll der Angebotsbesprechung je Angebot – anlegen im Preisspiegel oder an der Karte des Angebots. Jedes Feld kommt aus den Daten (Projekt, Büro, Adressen, Angebot, LV, Bauzeitenplan, Vertragsgrundlagen); solange das Protokoll ein Entwurf ist, folgt es ihnen. Von Hand Geändertes bleibt, mit Hinweis, wenn sich die Quelle ändert. Drucken als PDF.' },
+    { id: 'bauvertraege', titel: 'Bauverträge', abschnitt: 'Vergabe', zeichen: 'vertrag', objekt: 'bauvertrag', baum: ['lv'], brauchtProjekt: true,
+      hilfe: 'Bauvertrag je Auftrag – anlegen an der Karte des beauftragten Angebots. Er entsteht einmal aus Auftrag und Protokoll der Angebotsbesprechung (alle Regelungen ausgeschrieben) und lässt sich danach ändern. Drucken als PDF zum Unterschreiben.' },
     { id: 'auftraege', titel: 'Aufträge', abschnitt: 'Abrechnung', zeichen: 'vertrag', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein vergebenes LV wählen: Hauptauftrag und Nachträge mit Stand und Betrag, darunter Prognose (Auftrag + Nachträge) und abgerechnet. Nachtragspositionen mit EP direkt eintragen.' },
     { id: 'nachtraege', titel: 'Nachträge', abschnitt: 'Abrechnung', zeichen: 'nachtrag', objekt: 'nachtrag', baum: ['lv', 'stand'], brauchtProjekt: true },

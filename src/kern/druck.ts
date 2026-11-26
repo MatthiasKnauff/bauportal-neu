@@ -15,7 +15,9 @@ export type Druckblock =
   // Bilder, die am Objekt hängen – zwei nebeneinander, nie beschnitten, mit Beschriftung
   | { id: string; art: 'bilder'; objekt: string; ueber: string; titel: string; beschriftung: string }
   // Verzeichnis: die gewählten bzw. gefilterten Einträge des Objekts selbst als Tabelle (z. B. Adressverzeichnis)
-  | { id: string; art: 'verzeichnis'; titel: string; spalten: string[] };
+  | { id: string; art: 'verzeichnis'; titel: string; spalten: string[] }
+  // Unterschriften (z. B. Bauvertrag): je Partei eine Linie mit „Ort, Datum“ und der Rolle darunter; {feld} wird ersetzt
+  | { id: string; art: 'unterschriften'; parteien: string[] };
 
 export interface Ausdruck {
   id: string;              // eindeutig, z. B. "bautagebuch.tagesbericht"
@@ -115,6 +117,10 @@ export const CSS = (schrift: number) => `
   .felder dt { flex: 0 0 38%; color: #444; }
   .felder dd { margin: 0; flex: 1; font-weight: 600; }
   .textblock { margin-bottom: 5mm; }
+  .unterschriften { display: flex; gap: 14mm; margin-top: 16mm; break-inside: avoid; }
+  .unterschriften > div { flex: 1; }
+  .unterschriften .linie { display: block; border-bottom: .3mm solid #111; height: 14mm; }
+  .unterschriften small { color: #444; }
   .textblock h2 { font-size: 1.05em; margin: 0 0 1mm; break-after: avoid; }
   .textblock p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .liste { margin-bottom: 5mm; }
@@ -157,6 +163,9 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       // Angaben ohne Wert stehen nicht im Ausdruck (in der Vorschau zum Einstellen bleiben sie sichtbar)
       const mitWert = (n: string) => bearbeiten || feld(n).art === 'ja_nein' || (d.werte[n] !== '' && d.werte[n] != null && feldtext(feld(n), d.werte[n], d.verweis) !== '');
       return huelle(b.id, 'felder', b.felder.filter(mitWert).map((n) => huelle(`${b.id}.${n}`, 'zeile', `<dt>${sicher(e[`${b.id}.${n}.titel`] || feld(n).titel)}</dt><dd>${sicher(feld(n).art === 'ja_nein' ? (d.werte[n] ? 'Ja' : 'Nein') : feldtext(feld(n), d.werte[n], d.verweis)) || '–'}</dd>`)).join(''), 'dl');
+    }
+    if (b.art === 'unterschriften') {
+      return huelle(b.id, 'unterschriften', b.parteien.map((t) => `<div><span class="linie"></span><small>Ort, Datum · ${sicher(einsetzen(t, m, d))}</small></div>`).join(''));
     }
     if (b.art === 'liste' || b.art === 'verzeichnis') {
       const k = b.art === 'liste' ? d.modell(b.objekt) : m;

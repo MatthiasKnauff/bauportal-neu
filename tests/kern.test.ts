@@ -1011,6 +1011,24 @@ test('Angebotsbesprechung: Protokoll aus den Daten, Abgleich folgt der Quelle, v
   assert.deepEqual(abgleich(jetzt, herkunft, neu, { ...d, nachlass: '4 %' }).hinweise, [], 'einmal entschieden: kein Hinweis mehr, bis sich die Quelle wieder ändert');
 });
 
+test('Bauvertrag aus Auftrag und Protokoll: Bestandteile, Vergütung, Termine, VOB/B oder BGB', async () => {
+  const { vertragAusDaten } = await import('../src/module/ava/vertrag');
+  const basis = { projekt: { nummer: 'A481', name: 'Tierheim' }, bieter: { name: 'Muster Rohbau GmbH', strasse: 'Weg 1', plz: '45127', ort: 'Essen' }, lv: { name: 'Rohbau' },
+    angebot: { nachlass: 3, skonto: 2, skonto_tage: 10 }, gewerkName: 'Mauerarbeiten', summe: 123456.7 };
+  const v = vertragAusDaten({ ...basis, agArt: 'unternehmen', protokoll: { datum: '2026-11-26', bauherr: 'Stadt Essen', beginn: '01.03.2027', fertig: '30.04.2027', bauzeitenplan: 'Version „Start“', vertragsstrafe: '0,2 % je Werktag' } });
+  assert.equal(v.ag, 'Stadt Essen');
+  assert.equal(v.an, 'Muster Rohbau GmbH\nWeg 1\n45127 Essen');
+  assert.equal(v.gegenstand, 'Mauerarbeiten für das Bauvorhaben A481 · Tierheim');
+  assert.ok(String(v.bestandteile).startsWith('1. dieser Vertrag\n2. das Protokoll der Angebotsbesprechung vom 26.11.2026'));
+  assert.ok(String(v.bestandteile).includes('VOB/B'));
+  assert.ok(String(v.verguetung).includes('abzüglich 3 % Nachlass') && String(v.verguetung).includes('123.456,70 €'));
+  assert.ok(String(v.termine).includes('Beginn der Ausführung: 01.03.2027') && String(v.termine).includes('Vertragsstrafe: 0,2 % je Werktag'));
+  assert.ok(String(v.zahlung).includes('2 % Skonto'));
+  const b = vertragAusDaten({ ...basis, agArt: 'privat' });
+  assert.ok(String(b.bestandteile).includes('§§ 650a ff. BGB') && !String(b.bestandteile).includes('Protokoll'), 'Verbraucher:in: BGB-Bauvertrag, ohne Protokoll');
+  assert.ok(String(b.abnahme).includes('5 Jahre'), 'Gewährleistung aus den Vertragsgrundlagen ab Werk');
+});
+
 test('Eigene Einträge: Projekt-Merker sieht und ändert nur, wem sie gehören', async () => {
   const { db, weg } = await frischeDb();
   try {

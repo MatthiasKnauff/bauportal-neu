@@ -5,6 +5,8 @@ import { For, Show, createMemo } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { abgleich, ausDenDaten, type Quellen } from '../module/ava/besprechung';
+import { vertragAusDaten } from '../module/ava/vertrag';
+import { lvZahlen } from './ava';
 import { einsatzAus } from '../module/bauzeitenplan/gewerke';
 import { isoAus } from '../module/bauzeitenplan/kalender';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
@@ -52,10 +54,27 @@ export function BesprechungKnopf(p: { angebot: Zeile }) {
     ], 'Angebotsbesprechung anlegen');
     oeffnen(id);
   };
+  // Bauvertrag: nach der Vergabe, einmal aus Auftrag und Protokoll (danach ein eigenes Schriftstück)
+  const vertrag = createMemo(() => lebende('bauvertrag').find((b) => b.werte.angebot === p.angebot.id));
+  const vertragOeffnen = (id: string) => springeZu('bauvertrag', id, { projekt: String(p.angebot.werte.projekt), modul: 'ava', ansicht: 'bauvertraege' });
+  const vertragAnlegen = () => {
+    const id = neueKennung(), a = p.angebot.werte, q = quellen(a);
+    const werte = vertragAusDaten({ agArt: 'unternehmen', projekt: q.projekt, bieter: q.bieter, lv: q.lv, angebot: a, gewerkName: q.gewerkName, summe: lvZahlen(String(a.lv)).haupt, protokoll: da()?.werte });
+    ausfuehrenMehrere([
+      { objekt: 'bauvertrag', art: 'anlegen', objektId: id, werte: { projekt: a.projekt ?? null, lv: a.lv ?? null, angebot: p.angebot.id, datum: new Date().toLocaleDateString('sv') } },
+      { objekt: 'bauvertrag', art: 'aendern', objektId: id, werte, herkunft: 'daten' },
+    ], 'Bauvertrag anlegen');
+    vertragOeffnen(id);
+  };
   return (
     <div class="karte-fuss">
       <Show when={da()} fallback={<Show when={darf('besprechung', 'schreiben')}><button type="button" class="knopf" onClick={anlegen}>Angebotsbesprechung anlegen</button></Show>}>
         {(b) => <button type="button" class="knopf" onClick={() => oeffnen(b().id)}>Angebotsbesprechung öffnen</button>}
+      </Show>
+      <Show when={p.angebot.werte.beauftragt === true}>
+        <Show when={vertrag()} fallback={<Show when={darf('bauvertrag', 'schreiben')}><button type="button" class="knopf" onClick={vertragAnlegen}>Bauvertrag anlegen</button></Show>}>
+          {(v) => <button type="button" class="knopf" onClick={() => vertragOeffnen(v().id)}>Bauvertrag öffnen</button>}
+        </Show>
       </Show>
     </div>
   );
