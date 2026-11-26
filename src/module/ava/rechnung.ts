@@ -60,31 +60,99 @@ export function guenstigster(positionen: E[], angebote: E[], preis: (angebot: st
 
 // ---------- Rechnungen: die Rechenleiter (wie im bisherigen Bauportal, Variante B – so rechnet die VOB/B) ----------
 export const UST = 0.19;
-export interface Leiterzeile { titel: string; betrag: number; summe?: boolean }
+export const BAUABZUG = 0.15;
+export interface Leiterzeile { titel: string; betrag: number; summe?: boolean; hinweis?: boolean }
+/** Was im LV (Vertragsbedingungen) und im Auftrag (Nachlass, Skonto) für die Rechnungen gilt. */
+export interface Bedingungen {
+  nachlass: number; skonto?: number; skontoTage?: number;
+  ve?: number; veForm?: string; ma?: number; maForm?: string;   // Sicherheiten in % (ohne Angabe: 5 % bzw. wie Vertragserfüllung); als Bürgschaft kein Einbehalt
+  bauabzug?: boolean; freistellungBis?: string;
+  strafe?: number; strafeMax?: number; strafeTagart?: string; fertigstellung?: string;
+}
+/** Die Bedingungen aus den Werten von LV und beauftragtem Angebot. */
+export const bedingungenAus = (lv: Werte = {}, auftrag: Werte = {}): Bedingungen => ({
+  nachlass: zahl(auftrag.nachlass), skonto: zahl(auftrag.skonto), skontoTage: zahl(auftrag.skonto_tage),
+  ve: lv.ve_prozent == null || lv.ve_prozent === '' ? undefined : zahl(lv.ve_prozent), veForm: String(lv.ve_form ?? 'einbehalt'),
+  ma: lv.ma_prozent == null || lv.ma_prozent === '' ? undefined : zahl(lv.ma_prozent), maForm: String(lv.ma_form ?? 'einbehalt'),
+  bauabzug: lv.bauabzug === true, freistellungBis: String(lv.freistellung_bis ?? ''),
+  strafe: zahl(lv.strafe_prozent), strafeMax: zahl(lv.strafe_max), strafeTagart: String(lv.strafe_tagart ?? 'wt'), fertigstellung: String(lv.ausfuehrung_ende ?? ''),
+});
+const prozent = (x: number) => String(x).replace('.', ',');
+/** Satz der Sicherheit für diese Rechnung: in der Schlussrechnung Mängelansprüche, sonst Vertragserfüllung; als Bürgschaft 0; von Hand eingetragen geht vor. */
+function sicherheit(r: E, b: Bedingungen): { satz: number; titel: string } {
+  const schluss = r.werte.art === 'schluss', ve = b.ve ?? 5, ma = b.ma ?? ve;
+  const titel = schluss ? 'Sicherheit Mängelansprüche' : 'Sicherheit Vertragserfüllung';
+  if (r.werte.einbehalt != null && r.werte.einbehalt !== '') return { satz: zahl(r.werte.einbehalt), titel };
+  if (r.werte.art === 'stundenlohn') return { satz: 0, titel };
+  return { satz: schluss ? (b.maForm === 'buergschaft' ? 0 : ma) : (b.veForm === 'buergschaft' ? 0 : ve), titel };
+}
+const tageNach = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
 /**
- * Erst die Abzüge netto (Nachlass), dann die Umsatzsteuer, dann die Abzüge brutto (Sicherheitseinbehalt, bisherige Zahlungen).
- * Leistungsstand: kumuliert (bei Abschlagsrechnungen der ganze Stand bis dahin) – geprüft, sonst wie angefordert.
- * Bisherige Zahlungen: die Zahlbeträge der früheren Rechnungen desselben Auftrags (nach Datum).
+ * Netto: Leistungsstand (kumuliert, geprüft sonst angefordert) − Nachlass − Sicherheitseinbehalt − bisherige Zahlungen = Zahlbetrag netto;
+ * dann die Umsatzsteuer; brutto danach: Vertragsstrafe (Schlussrechnung), Bauabzugsteuer 15 % (ans Finanzamt, ohne gültige
+ * Freistellungsbescheinigung) = Auszahlung. Bisherige Zahlungen: die Zahlbeträge der früheren Rechnungen derselben Folge
+ * (Abschlags- und Schlussrechnungen bzw. Nachträge; Stundenlohnrechnungen einzeln). Skonto steht als Hinweis darunter.
  */
-export function leiter(rechnungen: E[], id: string, nachlassProzent: number): Leiterzeile[] {
-  const reihe = [...rechnungen].sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')) || (a.id < b.id ? -1 : 1));
+export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | number): Leiterzeile[] {
+  const b: Bedingungen = typeof bedingungen === 'number' ? { nachlass: bedingungen } : bedingungen;
+  const reihe = [...rechnungen].sort((x, y) => String(x.werte.datum ?? '').localeCompare(String(y.werte.datum ?? '')) || (x.id < y.id ? -1 : 1));
   const r2 = (x: number) => Math.round(x * 100) / 100;
-  let gezahlt = 0;
+  const vorher: Record<string, number> = {};
   for (const r of reihe) {
+    const folge = r.werte.art === 'nachtrag' ? 'n' : r.werte.art === 'stundenlohn' ? '' : 'h';
     const stand = zahl(r.werte.geprueft ?? r.werte.betrag);
-    const nachlass = r2(stand * nachlassProzent / 100), netto = r2(stand - nachlass), ust = r2(netto * UST), brutto = r2(netto + ust);
-    const einbehalt = r2(brutto * zahl(r.werte.einbehalt) / 100), zahlbetrag = r2(brutto - einbehalt - gezahlt);
-    if (r.id === id) return [
+    const nachlass = r2(stand * b.nachlass / 100), netto = r2(stand - nachlass);
+    const si = sicherheit(r, b), einbehalt = r2(netto * si.satz / 100), anerkannt = r2(netto - einbehalt);
+    const bisher = folge ? (vorher[folge] ?? 0) : 0, zahlNetto = r2(anerkannt - bisher), ust = r2(zahlNetto * UST), brutto = r2(zahlNetto + ust);
+    if (r.id !== id) { if (folge) vorher[folge] = r2(bisher + zahlNetto); continue; }
+    const strafe = r.werte.art === 'schluss' ? zahl(r.werte.strafe) : 0;
+    const nachStrafe = r2(brutto - strafe);
+    const datum = String(r.werte.datum ?? r.werte.eingang ?? '');
+    const bau = b.bauabzug && !(b.freistellungBis && b.freistellungBis >= (datum || '0000')) && nachStrafe > 0 ? r2(nachStrafe * BAUABZUG) : 0;
+    const auszahlung = r2(nachStrafe - bau);
+    const z: Leiterzeile[] = [
       { titel: `Leistungsstand netto${r.werte.geprueft != null && r.werte.geprueft !== '' ? ' (geprüft)' : ' (angefordert)'}`, betrag: stand },
-      ...(nachlass ? [{ titel: `− Nachlass ${String(nachlassProzent).replace('.', ',')} %`, betrag: -nachlass }, { titel: 'netto nach Nachlass', betrag: netto, summe: true }] : []),
-      { titel: `+ Umsatzsteuer ${UST * 100} %`, betrag: ust }, { titel: 'brutto', betrag: brutto, summe: true },
-      ...(einbehalt ? [{ titel: `− Sicherheitseinbehalt ${String(r.werte.einbehalt).replace('.', ',')} %`, betrag: -einbehalt }] : []),
-      ...(gezahlt ? [{ titel: '− bisherige Zahlungen', betrag: -gezahlt }] : []),
-      { titel: 'Zahlbetrag', betrag: zahlbetrag, summe: true },
+      ...(nachlass ? [{ titel: `− Nachlass ${prozent(b.nachlass)} %`, betrag: -nachlass }, { titel: 'netto nach Nachlass', betrag: netto, summe: true }] : []),
+      ...(einbehalt ? [{ titel: `− ${si.titel} ${prozent(si.satz)} % (Einbehalt)`, betrag: -einbehalt }, { titel: 'anerkannt netto', betrag: anerkannt, summe: true }] : []),
+      ...(bisher ? [{ titel: '− bisherige Zahlungen netto', betrag: -bisher }] : []),
+      { titel: 'Zahlbetrag netto', betrag: zahlNetto, summe: true },
+      { titel: `+ Umsatzsteuer ${UST * 100} %`, betrag: ust }, { titel: 'Zahlbetrag', betrag: brutto, summe: true },
+      ...(strafe ? [{ titel: '− Vertragsstrafe', betrag: -strafe }] : []),
+      ...(bau ? [{ titel: '− Bauabzugsteuer 15 % (ans Finanzamt)', betrag: -bau }] : []),
+      ...(strafe || bau ? [{ titel: 'Auszahlung an die Firma', betrag: auszahlung, summe: true }] : []),
     ];
-    gezahlt = r2(gezahlt + zahlbetrag);
+    if (b.skonto && auszahlung > 0) {
+      const sk = r2(auszahlung * b.skonto / 100), eingang = String(r.werte.eingang ?? '');
+      z.push({ titel: `bei Zahlung ${b.skontoTage ? (eingang ? `bis ${tageNach(eingang, b.skontoTage).split('-').reverse().join('.')}` : `binnen ${b.skontoTage} Tagen`) : 'mit Skonto'}: − ${prozent(b.skonto)} % Skonto`, betrag: -sk, hinweis: true },
+        { titel: 'Auszahlung mit Skonto', betrag: r2(auszahlung - sk), summe: true, hinweis: true });
+    }
+    return z;
   }
   return [];
+}
+
+/** Vertragsstrafe vorschlagen (Schlussrechnung): Tage zwischen vertraglicher Fertigstellung und Abnahme × Satz der Abrechnungssumme netto, höchstens die Obergrenze. */
+export function strafeVorschlag(b: Bedingungen, abrechnungNetto: number, abnahme: string): { tage: number; betrag: number } | null {
+  if (!b.strafe || !b.fertigstellung || !abnahme || abnahme <= b.fertigstellung) return null;
+  const proWoche = b.strafeTagart === 'kt' ? 7 : b.strafeTagart === 'at' ? 5 : 6;
+  let tage = 0;
+  for (let d = tageNach(b.fertigstellung, 1); d <= abnahme; d = tageNach(d, 1)) { const wt = (new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7; if (wt < proWoche) tage++; }
+  let betrag = abrechnungNetto * b.strafe / 100 * tage;
+  if (b.strafeMax) betrag = Math.min(betrag, abrechnungNetto * b.strafeMax / 100);
+  return { tage, betrag: Math.round(betrag * 100) / 100 };
+}
+
+/** Text der Vertragsbedingungen für Protokoll und Bauvertrag – aus denselben Zahlen, kein zweites Textfeld. */
+export function vertragsbedingungenText(lv: Werte = {}): Record<string, string> {
+  const b = bedingungenAus(lv), aus: Record<string, string> = {};
+  const tag = ({ kt: 'Kalendertag', at: 'Arbeitstag' } as Record<string, string>)[b.strafeTagart ?? ''] ?? 'Werktag';
+  if (lv.vertragsart) aus.vertragsgrundlage = lv.vertragsart === 'bgb' ? 'BGB-Bauvertrag (§§ 650a ff. BGB)' : 'VOB/B (Fassung 2016)';
+  if (lv.strafe_prozent != null && lv.strafe_prozent !== '') aus.vertragsstrafe = b.strafe ? `${prozent(b.strafe)} % der Abrechnungssumme netto je ${tag} Verzug${b.strafeMax ? `, höchstens ${prozent(b.strafeMax)} %` : ''}` : 'keine';
+  if (lv.ve_prozent != null && lv.ve_prozent !== '') aus.erfuellung = b.ve ? `${prozent(b.ve)} % ${b.veForm === 'buergschaft' ? 'als Bürgschaft' : 'Einbehalt von jeder Abschlagszahlung'}` : 'entfällt';
+  if (lv.gewaehrleistung_jahre != null && lv.gewaehrleistung_jahre !== '') aus.gewaehrleistung = `${String(lv.gewaehrleistung_jahre)} Jahre ab Abnahme`;
+  if (lv.ma_prozent != null && lv.ma_prozent !== '') aus.einbehalt = b.ma ? `${prozent(b.ma)} % der Bruttoabrechnungssumme${b.maForm === 'buergschaft' ? ' als Bürgschaft' : ', ablösbar gegen Bürgschaft'}` : 'keiner';
+  return aus;
 }
 
 /** Aufmaßprüfung je Position: ✓ stimmt, ✗ weicht ab, ○ noch offen (kein Rechenweg). */

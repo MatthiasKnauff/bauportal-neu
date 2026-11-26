@@ -3,7 +3,7 @@
 import { AufmassEinlesen } from './aufmasseinlesen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, type Pruefstand } from '../module/ava/rechnung';
+import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, bedingungenAus, strafeVorschlag, type Pruefstand } from '../module/ava/rechnung';
 import type { Werte } from '../kern/modell';
 import { rechenweg } from '../kern/rechenweg';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
@@ -189,18 +189,27 @@ export function AngebotSumme(p: { angebot: Zeile }): JSX.Element {
   return <Show when={w()}>{(x) => <p class="ava-gp">Summe netto <b>{eur(x().netto)} €</b>, nach Nachlass <b>{eur(x().nachLass)} €</b>{x().rang ? ` · Rang ${x().rang}` : ''}{x().fehlend ? ` · ${x().fehlend} Positionen ohne Preis` : ''}</p>}</Show>;
 }
 
-/** Karte einer Rechnung: die Rechenleiter bis zum Zahlbetrag (Nachlass aus dem beauftragten Angebot des LV). */
+/** Karte einer Rechnung: die Rechenleiter bis zur Auszahlung – Nachlass und Skonto aus dem beauftragten Angebot, Sicherheiten,
+ *  Bauabzugsteuer und Vertragsstrafe aus den Vertragsbedingungen des LV. */
 export function RechnungLeiter(p: { rechnung: Zeile }): JSX.Element {
   const lvId = () => String(p.rechnung.werte.lv ?? '');
-  const zeilen = createMemo(() => {
-    if (!lvId()) return [];
-    const auftrag = angeboteVon(lvId()).find((a) => a.werte.beauftragt === true);
-    return leiter(lebende('rechnung').filter((r) => r.werte.lv === lvId()), p.rechnung.id, zahl(auftrag?.werte.nachlass));
+  const bed = createMemo(() => bedingungenAus(sicht.lv?.[lvId()]?.werte, angeboteVon(lvId()).find((a) => a.werte.beauftragt === true)?.werte));
+  const zeilen = createMemo(() => (lvId() ? leiter(lebende('rechnung').filter((r) => r.werte.lv === lvId()), p.rechnung.id, bed()) : []));
+  // Schlussrechnung mit Abnahme: Vertragsstrafe vorschlagen (Verzug nach der vertraglichen Fertigstellung), solange keine eingetragen ist
+  const vorschlag = createMemo(() => {
+    const w = p.rechnung.werte;
+    if (w.art !== 'schluss' || (w.strafe != null && w.strafe !== '') || !w.abnahme) return null;
+    const stand = zahl(w.geprueft ?? w.betrag);
+    return strafeVorschlag(bed(), Math.round(stand * (1 - bed().nachlass / 100) * 100) / 100, String(w.abnahme));
   });
   return (
-    <Show when={zeilen().length} fallback={<p class="still-text klein-text">Mit dem Auftrag (LV) rechnet die Karte den Zahlbetrag: Nachlass, Umsatzsteuer, Einbehalt, bisherige Zahlungen.</p>}>
+    <Show when={zeilen().length} fallback={<p class="still-text klein-text">Mit dem Auftrag (LV) rechnet die Karte die Auszahlung: Nachlass, Sicherheiten, bisherige Zahlungen, Umsatzsteuer, Bauabzugsteuer.</p>}>
       <h3 class="ava-leiter-titel">Rechenleiter</h3>
-      <table class="ava-leiter"><tbody><For each={zeilen()}>{(z) => <tr classList={{ summe: !!z.summe }}><td>{z.titel}</td><td class="zahl">{eur(z.betrag)} €</td></tr>}</For></tbody></table>
+      <table class="ava-leiter"><tbody><For each={zeilen()}>{(z) => <tr classList={{ summe: !!z.summe, hinweis: !!z.hinweis }}><td>{z.titel}</td><td class="zahl">{eur(z.betrag)} €</td></tr>}</For></tbody></table>
+      <Show when={vorschlag()}>{(v) => (
+        <p class="still-text klein-text">Vertragsstrafe laut Vertragsbedingungen: {v().tage} Tage Verzug bis zur Abnahme → {eur(v().betrag)} €.{' '}
+          <Show when={darf('rechnung', 'schreiben')}><button type="button" class="knopf klein" onClick={() => ausfuehren({ objekt: 'rechnung', art: 'aendern', objektId: p.rechnung.id, werte: { strafe: v().betrag } }, 'Vertragsstrafe übernehmen')}>übernehmen</button></Show></p>)}
+      </Show>
     </Show>
   );
 }

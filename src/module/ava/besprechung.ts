@@ -2,6 +2,7 @@
 // Projekt, Büro, Adressen (Bieter:in), Angebot, LV und Bauzeitenplan; die Vertragsgrundlagen sind die Vorgaben ab Werk.
 // Reine Rechnung auf Werten – im Browser (Anlegen, Abgleich) und in den Tests gleich. Solange das Protokoll ein Entwurf ist,
 // folgen Felder mit der Herkunft „daten“ ihrer Quelle; von Hand geänderte bleiben und bekommen einen Hinweis.
+import { vertragsbedingungenText } from './rechnung';
 import type { Werte } from '../../kern/modell';
 
 /** Vertragsgrundlagen ab Werk: (Feld, Beschriftung, Vorgabe) – wie im Vordruck des bisherigen Bauportals. */
@@ -48,6 +49,7 @@ export function ausDenDaten(q: Quellen): Werte {
     unterbrechung: q.termine?.unterbrechung ?? '',
     bauzeitenplan: q.termine?.plan ?? '',
     ...Object.fromEntries(GRUNDLAGEN.map(([n, , v]) => [n, v])),
+    ...vertragsbedingungenText(l),   // was im LV unter „Vertragsbedingungen“ steht, geht der Vorgabe vor
   };
   return Object.fromEntries(Object.entries(w).filter(([, x]) => String(x ?? '').trim() !== ''));
 }

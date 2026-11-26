@@ -14,6 +14,10 @@ export const LV_STATUS = [
   { wert: 'vergeben', titel: 'vergeben' }, { wert: 'aufgehoben', titel: 'aufgehoben' },
 ];
 
+export const VERTRAGSARTEN = [{ wert: 'vob', titel: 'VOB/B' }, { wert: 'bgb', titel: 'BGB' }];
+export const SICHERHEITSFORMEN = [{ wert: 'einbehalt', titel: 'Einbehalt' }, { wert: 'buergschaft', titel: 'Bürgschaft' }];
+export const TAGARTEN = [{ wert: 'wt', titel: 'Werktag' }, { wert: 'at', titel: 'Arbeitstag' }, { wert: 'kt', titel: 'Kalendertag' }];
+
 export const lv: ObjektModell = {
   name: 'lv', titel: 'Leistungsverzeichnis', titelMehrzahl: 'Leistungsverzeichnisse', anzeigeFeld: 'name', ersatzName: ['nummer'], sortierFeld: 'nummer',
   projektFeld: 'projekt', rechte,
@@ -31,6 +35,18 @@ export const lv: ObjektModell = {
     { name: 'bindefrist', titel: 'Bindefrist bis', art: 'datum', gruppe: 'Vergabe' },
     { name: 'ausfuehrung_beginn', titel: 'Ausführung ab', art: 'datum', gruppe: 'Vergabe' },
     { name: 'ausfuehrung_ende', titel: 'Ausführung bis', art: 'datum', gruppe: 'Vergabe' },
+    // Vertragsbedingungen (wie im bisherigen Bauportal: Zahlen, mit denen die Rechnungen rechnen – Protokoll und Vertrag nehmen den Text daraus)
+    { name: 'vertragsart', titel: 'Vertrag nach', art: 'auswahl', optionen: VERTRAGSARTEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 've_prozent', titel: 'Sicherheit Vertragserfüllung in %', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 've_form', titel: 'als', art: 'auswahl', optionen: SICHERHEITSFORMEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'ma_prozent', titel: 'Sicherheit Mängelansprüche in %', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'ma_form', titel: 'als', art: 'auswahl', optionen: SICHERHEITSFORMEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'gewaehrleistung_jahre', titel: 'Mängelansprüche verjähren nach Jahren', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'strafe_prozent', titel: 'Vertragsstrafe in % je Tag', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'strafe_tagart', titel: 'je', art: 'auswahl', optionen: TAGARTEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'strafe_max', titel: 'höchstens in %', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'bauabzug', titel: 'Bauabzugsteuer einbehalten (§ 48 EStG)', art: 'ja_nein', kartenBreite: 3, gruppe: 'Vertragsbedingungen' },
+    { name: 'freistellung_bis', titel: 'Freistellungsbescheinigung gültig bis', art: 'datum', kartenBreite: 3, gruppe: 'Vertragsbedingungen' },
     { name: 'vorbemerkungen', titel: 'Vorbemerkungen', art: 'langtext', gruppe: 'Vorbemerkungen' },   // stehen vor den Positionen (LV bearbeiten: „Vorbemerkungen“)
     { name: 'oz_maske', titel: 'OZ-Maske', art: 'text', verborgen: true },   // „2.2.2.2:4:10“ = Stellen je Titelebene : Stellen der Position : Schritt (Nummerieren)
     { name: 'notiz', titel: 'Bemerkung', art: 'langtext', gruppe: 'Notiz' },
@@ -158,7 +174,9 @@ export const rechnung: ObjektModell = {
     { name: 'eingang', titel: 'Eingang', art: 'datum', gruppe: 'Rechnung' },
     { name: 'betrag', titel: 'Leistungsstand netto, angefordert (kumuliert) in €', art: 'zahl', inListe: true, breite: 140, gruppe: 'Beträge' },
     { name: 'geprueft', titel: 'Leistungsstand netto, geprüft (kumuliert) in €', art: 'zahl', inListe: true, breite: 140, gruppe: 'Beträge' },
-    { name: 'einbehalt', titel: 'Sicherheitseinbehalt in %', art: 'zahl', gruppe: 'Beträge' },
+    { name: 'einbehalt', titel: 'Sicherheitseinbehalt in % (leer: wie im LV vereinbart)', art: 'zahl', gruppe: 'Beträge' },
+    { name: 'abnahme', titel: 'Abnahme am', art: 'datum', gruppe: 'Beträge', wenn: { art: ['schluss'] } },
+    { name: 'strafe', titel: 'Vertragsstrafe in €', art: 'zahl', gruppe: 'Beträge', wenn: { art: ['schluss'] } },
     { name: 'status', titel: 'Stand', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Prüfung', optionen: [{ wert: 'offen', titel: 'offen' }, { wert: 'geprueft', titel: 'geprüft' }, { wert: 'bezahlt', titel: 'bezahlt' }] },
     { name: 'faellig', titel: 'Zahlung fällig am', art: 'datum', gruppe: 'Prüfung' },
     { name: 'notiz', titel: 'Prüfvermerk', art: 'langtext', gruppe: 'Prüfung' },

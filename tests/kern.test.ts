@@ -1211,7 +1211,29 @@ test('Ausschreibung: Rechenleiter einer Abschlagsrechnung (Nachlass, USt, Einbeh
   assert.equal(zahlb(l1), 9971.01);
   // b: 20000 − 2 % = 19600; brutto 23324; − 5 % = 22157,80; − 9971,01 = 12186,79
   assert.equal(zahlb(l2), 12186.79);
-  assert.ok(l2.some((x) => x.titel === '− bisherige Zahlungen' && x.betrag === -9971.01));
+  assert.ok(l2.some((x) => x.titel === '− bisherige Zahlungen netto' && x.betrag === -8379));
+});
+
+test('Ausschreibung: Rechenleiter mit Vertragsbedingungen – Sicherheiten, Bauabzugsteuer, Vertragsstrafe, Skonto', async () => {
+  const r = await import('../src/module/ava/rechnung');
+  const re = [{ id: 'a', werte: { art: 'abschlag', datum: '2026-05-01', geprueft: 10000 } }, { id: 's', werte: { art: 'schluss', datum: '2026-08-01', eingang: '2026-08-03', geprueft: 30000, strafe: 500 } },
+    { id: 'n', werte: { art: 'nachtrag', datum: '2026-06-01', geprueft: 2000 } }] as { id: string; werte: Record<string, string | number> }[];
+  const b = r.bedingungenAus({ ve_prozent: 10, ma_prozent: 5, ma_form: 'einbehalt', bauabzug: true, freistellung_bis: '2026-06-30' }, { nachlass: 0, skonto: 2, skonto_tage: 14 });
+  const wert = (l: { titel: string; betrag: number }[], t: RegExp) => l.find((x) => t.test(x.titel))?.betrag;
+  const a = r.leiter(re, 'a', b);
+  assert.equal(wert(a, /Vertragserfüllung 10 %/), -1000);
+  assert.equal(wert(a, /^Zahlbetrag$/), 10710);
+  assert.equal(wert(a, /Bauabzugsteuer/), undefined, 'Freistellung gilt noch');
+  const s = r.leiter(re, 's', b);
+  // 30000 − 5 % Mängel = 28500 − 9000 bisher (nur Abschläge, nicht der Nachtrag) = 19500 netto → 23205 brutto − 500 Strafe = 22705; Bauabzug 15 % = 3405,75
+  assert.equal(wert(s, /Mängelansprüche 5 %/), -1500);
+  assert.equal(wert(s, /bisherige/), -9000);
+  assert.equal(wert(s, /Bauabzugsteuer/), -3405.75);
+  assert.equal(wert(s, /^Auszahlung an die Firma$/), 19299.25);
+  assert.ok(s.some((x) => /bis 17\.08\.2026: − 2 % Skonto/.test(x.titel)), 'Skonto mit Frist ab Eingang');
+  assert.equal(wert(r.leiter(re, 'n', r.bedingungenAus({ ve_form: 'buergschaft' })), /Einbehalt/), undefined, 'Bürgschaft: kein Einbehalt');
+  assert.deepEqual(r.strafeVorschlag({ nachlass: 0, strafe: 0.2, strafeMax: 5, strafeTagart: 'wt', fertigstellung: '2026-07-03' }, 30000, '2026-07-08'), { tage: 4, betrag: 240 }, 'Sa zählt als Werktag, So nicht');
+  assert.equal(r.vertragsbedingungenText({ ve_prozent: 5, ve_form: 'buergschaft', strafe_prozent: 0.2, strafe_max: 5 }).vertragsstrafe, '0,2 % der Abrechnungssumme netto je Werktag Verzug, höchstens 5 %');
 });
 
 test('Ausschreibung: OZ für eine neue Position', async () => {
