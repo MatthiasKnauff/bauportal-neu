@@ -1148,3 +1148,7 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .ph-firma { display: flex; align-items: center; gap: 10px; margin: 2px 12px 8px; font-size: 13px; }
 .ph-firma span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ph-firma a { font-size: 18px; text-decoration: none; }
+/* Verwaltung → Aufbau: Quelltext nur lesen */
+.aufbau-quelltext h3 { font-size: 13px; margin: 14px 0 6px; }
+.aufbau-code { margin: 8px 0 0; max-height: 60vh; overflow: auto; font-family: var(--schrift-mono); font-size: 11.5px; line-height: 1.45; background: var(--still-hell); border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); padding: 6px 0; white-space: pre; }
+.aufbau-code span { display: block; padding-right: 8px; } .aufbau-code i { display: inline-block; width: 3.2em; padding-right: .8em; text-align: right; color: var(--text-still); font-style: normal; user-select: none; }

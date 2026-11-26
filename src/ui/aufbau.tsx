@@ -7,7 +7,7 @@ import { For, Show, createMemo, createResource, createSignal, type JSX } from 's
 import type { ObjektModell } from '../kern/modell';
 import { REGELN, codeNetz, datenNetz, pruefen, umfeld, type Datei, type Netz, type Quelltext } from '../kern/aufbaunetz';
 import { sicht as daten } from './unterbau/abgleich';
-import { ruf, zustand } from './unterbau/api';
+import { ich, ruf, zustand } from './unterbau/api';
 import { Rahmen } from './baukasten/rahmen';
 
 interface Aufbau {
@@ -126,6 +126,7 @@ export function AufbauAnsicht() {
       <p class="aufbau-text">{d.beschreibung || 'Diese Datei hat noch keine Beschreibung am Anfang.'}</p>
       {befundListe(d.pfad)}
       {liste('Stellt bereit', d.stelltBereit, false)}
+      <Quelltext pfad={d.pfad} />
     </div></aside>
   );
   const details = () => {
@@ -201,5 +202,34 @@ export function AufbauAnsicht() {
           </>)}</Show>
         </Show>
       </section>} />
+  );
+}
+
+/** Quelltext einer Datei – nur lesen, mit Link zu GitHub; nur mit Debugging-Modus für die eigene Rolle (Verwaltung → Büro & Standort). */
+function Quelltext(p: { pfad: string }) {
+  const an = () => String(Object.values(daten.buero ?? {})[0]?.werte.debugging ?? '').split(',').includes(ich().rolle);
+  const [zeigen, setZeigen] = createSignal(false);
+  const [text] = createResource(() => (zeigen() && an() ? p.pfad : false), async (pfad) => {
+    const r = await fetch(`/api/aufbau/quelltext?pfad=${encodeURIComponent(pfad)}`, { credentials: 'same-origin' });
+    if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { fehler?: string }).fehler ?? `Fehler ${r.status}`);
+    return r.text();
+  });
+  return (
+    <div class="aufbau-quelltext">
+      <h3>Quelltext</h3>
+      <Show when={an()} fallback={<p class="still-text klein-text">Nur mit Debugging-Modus für deine Rolle (Verwaltung → Büro & Standort → Entwicklung).</p>}>
+        <div class="reihe">
+          <button type="button" class="knopf klein" onClick={() => setZeigen(!zeigen())}>{zeigen() ? 'Quelltext ausblenden' : 'Quelltext zeigen'}</button>
+          <a class="knopf klein" href={`https://github.com/MatthiasKnauff/bauportal-neu/blob/main/${p.pfad}`} target="_blank" rel="noopener noreferrer">Auf GitHub ↗</a>
+        </div>
+        <Show when={zeigen()}>
+          <Show when={!text.error} fallback={<p class="feld-fehler">{(text.error as Error).message}</p>}>
+            <Show when={text()} fallback={<p class="still-text">Wird geladen …</p>}>{(t) => (
+              <pre class="aufbau-code" aria-label={`Quelltext ${p.pfad}`}><For each={t().split('\n')}>{(z, i) => <span><i>{i() + 1}</i>{z}{'\n'}</span>}</For></pre>
+            )}</Show>
+          </Show>
+        </Show>
+      </Show>
+    </div>
   );
 }
