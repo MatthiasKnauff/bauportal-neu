@@ -82,8 +82,7 @@ export const lvPosition: ObjektModell = {
     { name: 'einheit', titel: 'Einheit', art: 'text', vorschlagen: true, inListe: true, breite: 70, kartenBreite: 1, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'ep', titel: 'EP geschätzt in €', art: 'zahl', inListe: true, breite: 110, kartenBreite: 3, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'nachtrag', titel: 'Nachtrag', art: 'verweis', ziel: 'nachtrag', inListe: true, breite: 160, gruppe: 'Position' },   // leer: Position der Ausschreibung; mit Nachtrag: erst nach der Vergabe, nicht im Preisspiegel
-    { name: 'bauteil', titel: 'Bauteil im Gebäudemodell', art: 'verweis', ziel: 'bauteil', gruppe: 'Herkunft' },
-    { name: 'tuerliste', titel: 'Aus der Fenster- & Türliste', art: 'text', verborgen: true },   // Schlüssel „Liste|Gruppe|Ausführung“ – hält LV und Liste abgleichbar
+    { name: 'quelle', titel: 'Aus Liste oder Modell', art: 'text', verborgen: true },   // Schlüssel „Quelle|Gruppe|…“ (module/ava/lvplan.ts) – hält LV und Quelle abgleichbar
     { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
     { name: 'kennung', titel: 'Kennung (GAEB)', art: 'text', verborgen: true },
   ],

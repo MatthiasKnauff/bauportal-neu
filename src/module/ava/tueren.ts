@@ -1,9 +1,10 @@
 // Fenster- & Türliste (wie im bisherigen Bauportal, neu gebaut): ausführliche Liste je Tür bzw. Fenster, kann sich aus dem
 // Gebäudemodell füllen und speist das LV. Gleiche Ausführung = eine LV-Position (Menge = Stückzahl); je Gruppe (Fenster,
 // Außentüren, Innentüren) ein Titel und davor eine Textposition „Systembeschreibung“ mit allem, was für alle gleich ist.
-// Die Positionen tragen einen Schlüssel (Liste | Gruppe | Ausführung) – so bleiben LV und Liste abgleichbar.
+// Die Positionen tragen einen Schlüssel (Liste | Gruppe | Ausführung) – so bleiben LV und Liste abgleichbar (module/ava/lvplan.ts).
 // Reine Rechnung: im Browser, auf dem Server und in den Tests gleich.
 import type { Werte } from '../../kern/modell';
+import { abdruck, type LvZeilePlan } from './lvplan';
 
 type E = { id: string; werte: Werte };
 // erste Wahl leer – sonst stünde in jeder neuen Tür schon der erste Vorschlag
@@ -57,13 +58,6 @@ export function tuerGruppe(w: Werte): (typeof GRUPPEN)[number] {
 export function ausfuehrung(w: Werte, dinTrennen = true): string {
   return JSON.stringify(Object.keys(w).filter((k) => !ORT.has(k) && (dinTrennen || k !== 'din') && w[k] !== null && w[k] !== '' && w[k] !== false).sort().map((k) => [k, k === 'ausstattung' ? [...ausstattung(w)].sort().join(',') : w[k]]));
 }
-/** Kurzer, fester Fingerabdruck eines Textes (FNV-1a, 8 Hex-Zeichen). */
-function abdruck(s: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
-  return h.toString(16).padStart(8, '0');
-}
-
 const zeileMerkmal = (k: string, titel: string, v: string) => `${titel}: ${k === 'din' ? ({ 'DIN L': 'L', 'DIN R': 'R' } as Record<string, string>)[v] ?? v : k === 'bruestung' ? mass(v) : k === 'brand' ? v.replace('-', '') : v}`;
 
 /** Text der Systembeschreibung: was für alle Türen der Gruppe gleich ist. */
@@ -88,8 +82,6 @@ function positionsText(liste: E[], gemeinsam: Werte, gruppe: string): string {
   return z.join('\n');
 }
 
-export interface LvZeilePlan { schluessel: string; art: 'titel' | 'hinweis' | 'normal'; kurztext: string; langtext: string; menge: number | null; einheit: string; tueren: string[] }
-
 /** Türen → Zeilen fürs LV, je Gruppe: Titel, Systembeschreibung (Hinweistext), Positionen „… gemäß vorangegangener Systembeschreibung“. */
 export function tuerenInsLv(tueren: E[], listeId: string, dinTrennen = true): LvZeilePlan[] {
   const aus: LvZeilePlan[] = [];
@@ -108,37 +100,17 @@ export function tuerenInsLv(tueren: E[], listeId: string, dinTrennen = true): Lv
         else if (w0 && T.every((x) => t(x.werte, k) === w0)) gemeinsam[k] = w0;
       }
     }
-    aus.push({ schluessel: `${listeId}|${gruppe}`, art: 'titel', kurztext: gruppe, langtext: '', menge: null, einheit: '', tueren: [] });
-    aus.push({ schluessel: `${listeId}|${gruppe}|system`, art: 'hinweis', kurztext: `Systembeschreibung ${gruppe}`, langtext: systemText(gruppe, gemeinsam), menge: null, einheit: '', tueren: [] });
+    aus.push({ schluessel: `${listeId}|${gruppe}`, art: 'titel', kurztext: gruppe, langtext: '', menge: null, einheit: '', herkunft: [] });
+    aus.push({ schluessel: `${listeId}|${gruppe}|system`, art: 'hinweis', kurztext: `Systembeschreibung ${gruppe}`, langtext: systemText(gruppe, gemeinsam), menge: null, einheit: '', herkunft: [] });
     for (const [k, zeilen] of je) {
       const w = zeilen[0]!.werte;
       aus.push({
         schluessel: `${listeId}|${gruppe}|${abdruck(k)}`, art: 'normal',
         kurztext: `${t(w, 'art') || (gruppe === 'Fenster' ? 'Fenster' : 'Tür')} gemäß vorangegangener Systembeschreibung`,
         langtext: positionsText(zeilen, gemeinsam, gruppe), menge: zeilen.reduce((s, x) => s + Math.max(1, Math.round(Number(x.werte.anzahl ?? 1)) || 1), 0), einheit: 'St',
-        tueren: zeilen.map((x) => x.id),
+        herkunft: zeilen.map((x) => x.id),
       });
     }
   }
   return aus;
-}
-
-export interface Abgleich { neu: LvZeilePlan[]; aendern: { id: string; werte: Werte }[]; null: string[]; gleich: number }
-/** Was sich im LV ändern muss, damit es zur Liste passt: neue Zeilen, geänderte Mengen und Texte, weggefallene Positionen auf Menge 0
- *  (OZ, Preise und Vergabe bleiben – gelöscht wird nichts). Nur Zeilen mit dem Schlüssel dieser Liste zählen. */
-export function abgleichen(plan: LvZeilePlan[], vorhanden: E[], listeId: string): Abgleich {
-  const da = new Map(vorhanden.filter((p) => String(p.werte.tuerliste ?? '').split('|')[0] === listeId).map((p) => [String(p.werte.tuerliste), p]));
-  const erg: Abgleich = { neu: [], aendern: [], null: [], gleich: 0 };
-  const geplant = new Set(plan.map((z) => z.schluessel));
-  for (const z of plan) {
-    const p = da.get(z.schluessel);
-    if (!p) { erg.neu.push(z); continue; }
-    const w: Werte = {};
-    if (String(p.werte.kurztext ?? '') !== z.kurztext) w.kurztext = z.kurztext;
-    if (z.art !== 'titel' && String(p.werte.langtext ?? '') !== z.langtext) w.langtext = z.langtext;
-    if (z.menge != null && Number(p.werte.menge ?? 0) !== z.menge) w.menge = z.menge;
-    if (Object.keys(w).length) erg.aendern.push({ id: p.id, werte: w }); else erg.gleich++;
-  }
-  for (const [k, p] of da) if (!geplant.has(k) && p.werte.art !== 'titel' && p.werte.art !== 'hinweis' && Number(p.werte.menge ?? 0) !== 0) erg.null.push(p.id);
-  return erg;
 }

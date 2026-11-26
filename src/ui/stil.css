@@ -420,6 +420,8 @@ a.knopf { display: inline-flex; align-items: center; text-decoration: none; colo
 .ordnerliste li { border-bottom: 1px solid var(--rand); } .ordnerliste li:last-child { border-bottom: 0; } .ordnerliste li.still-text { padding: 10px; }
 .ordnerliste button { width: 100%; text-align: left; min-height: 38px; padding: 0 12px; border: 0; background: transparent; cursor: pointer; } .ordnerliste button:hover { background: var(--still-hell); }
 .hinweis-kasten { background: var(--warn-hell); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--flaeche)); border-radius: calc(8px * var(--rund)); padding: 8px 12px; margin: 0; font-size: 13px; }
+.modell-lv-kg { margin: 8px 0 4px; } .modell-lv-aufbau { margin: 2px 0 6px 22px; }
+.modell-lv-pos { display: flex; gap: 8px; margin-left: 22px; } .modell-lv-pos.still { color: var(--text-still); } .modell-lv-menge { margin-left: auto; font-variant-numeric: tabular-nums; }
 .hinweis-leiste { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 6px 12px; font-size: 13px; background: var(--flaeche); border-bottom: 1px solid var(--rand); }
 .gut-text { color: var(--gut); font-size: 13px; } .warn-text { color: color-mix(in srgb, var(--warn) 75%, var(--text)); font-size: 13px; }
 
@@ -1426,7 +1428,7 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lvt-zelle { flex: none; height: 30px; line-height: 30px; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border-right: 1px solid var(--rand); font-size: 13px; }
 .lvt-zelle.rechts { text-align: right; } .lvt-zelle.zeiger { box-shadow: inset 0 0 0 1px var(--akzent); }
 .lvt-zeile.titel { font-weight: 600; background: color-mix(in srgb, var(--still) 55%, transparent); }
-.lvt-zeile.hinweis { color: var(--text-still); font-style: italic; }
+.lvt-zeile.lvt-hinweis { color: var(--text-still); font-style: italic; }
 .lvt-zeile.gewaehlt, .lvt-zeile.gewaehlt .lvt-zelle { background: var(--akzent-hell); }
 .lvt-baum { display: inline-flex; align-items: center; gap: 4px; }
 .lvt-lang-knopf { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--text-still); cursor: pointer; font-size: 13px; line-height: 20px; }

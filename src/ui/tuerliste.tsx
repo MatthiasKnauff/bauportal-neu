@@ -1,13 +1,11 @@
 // Fenster- & Türliste (AVA): aus dem Gebäudemodell füllen, ins LV übernehmen und das LV auf dem Stand der Liste halten.
-// Die Rechnung (Gruppen, gleiche Ausführung, Systembeschreibung, Abgleich) steht in module/ava/tueren.ts.
+// Die Rechnung (Gruppen, gleiche Ausführung, Systembeschreibung) steht in module/ava/tueren.ts, das Speisen des LV in lvquelle.tsx.
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
-import type { Werte } from '../kern/modell';
-import { lvZeilen, maskeLesen, nummerieren, type LvZeile } from '../module/ava/lvbaum';
-import { abgleichen, tuerenInsLv, type Abgleich } from '../module/ava/tueren';
+import { quelleVon } from '../module/ava/lvplan';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
-import { gewaehlteVersion } from './projekt';
+import { lvAbgleichen, lvName, modellBauteile, neuesLv, offenIm, positionenVon, tuerQuelle } from './lvquelle';
 import { springeZu } from './sprung';
 import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { darf, neueKennung } from './unterbau/api';
@@ -15,9 +13,8 @@ import { hinweis } from './unterbau/meldungen';
 
 const listenVon = (projekt: string) => lebende('tuerliste').filter((z) => z.werte.projekt === projekt).sort((a, b) => String(a.werte.name).localeCompare(String(b.werte.name), 'de'));
 const tuerenVon = (liste: string) => lebende('tuer').filter((z) => z.werte.liste === liste);
-const positionenVon = (lv: string) => lebende('lv_position').filter((z) => z.werte.lv === lv && !z.werte.nachtrag);
 /** LVs, in denen schon Zeilen aus dieser Liste stehen. */
-const verbundeneLvs = (projekt: string, liste: string) => lebende('lv').filter((l) => l.werte.projekt === projekt && positionenVon(l.id).some((p) => String(p.werte.tuerliste ?? '').split('|')[0] === liste));
+const verbundeneLvs = (projekt: string, liste: string) => lebende('lv').filter((l) => l.werte.projekt === projekt && positionenVon(l.id).some((p) => quelleVon(p) === liste));
 
 /** „1,26 × 1,38 m, Brüstung 0,9 m“ → Breite, Höhe, Brüstung in m. */
 function masse(t: unknown): { b?: number; h?: number; bruestung?: number } {
@@ -27,9 +24,7 @@ function masse(t: unknown): { b?: number; h?: number; bruestung?: number } {
 
 /** Türen und Fenster des Gebäudemodells (gewählte Version) in die Liste – nur die, die noch nicht drinstehen. */
 export function ausDemModell(projekt: string, listeGewaehlt?: string): void {
-  const versionen = lebende('version').filter((v) => v.werte.projekt === projekt && v.werte.bereich === 'gebaeudemodell');
-  const version = versionen.find((v) => v.id === gewaehlteVersion(projekt, 'gebaeudemodell')) ?? versionen.find((v) => v.werte.gueltig) ?? versionen[0];
-  const bauteile = lebende('bauteil').filter((b) => b.werte.projekt === projekt && (!version || b.werte.version === version.id) && (b.werte.art === 'tuer' || b.werte.art === 'fenster'));
+  const bauteile = modellBauteile(projekt).filter((b) => b.werte.art === 'tuer' || b.werte.art === 'fenster');
   if (!bauteile.length) { hinweis('Im Gebäudemodell gibt es keine Türen und Fenster (IFC einlesen oder Bauteile anlegen).', { art: 'fehler' }); return; }
   const befehle: Vorlage[] = [];
   let liste = listeGewaehlt ?? listenVon(projekt)[0]?.id;
@@ -50,49 +45,9 @@ export function ausDemModell(projekt: string, listeGewaehlt?: string): void {
   hinweis(`${neu.length} ${neu.length === 1 ? 'Tür/Fenster' : 'Türen und Fenster'} aus dem Gebäudemodell übernommen – Ausführung jetzt in der Liste ergänzen.`);
 }
 
-/** Befehle, die ein LV auf den Stand der Liste bringen: neue Zeilen (an ihrer Stelle in der Gruppe), Änderungen, weggefallene auf Menge 0; dann Nummern. */
-function lvBefehle(lv: Zeile, liste: string, a: Abgleich): Vorlage[] {
-  const vorhanden = positionenVon(lv.id);
-  const ordnung: LvZeile[] = lvZeilen(vorhanden);
-  const schluessel = (id: string) => String(vorhanden.find((p) => p.id === id)?.werte.tuerliste ?? '');
-  const befehle: Vorlage[] = [], neuWerte = new Map<string, Werte>();
-  let letzteGruppe = new Map<string, string>();   // Gruppe → Kennung ihres Titels
-  for (const z of ordnung) { const k = schluessel(z.id).split('|'); if (k[0] === liste && k.length === 2) letzteGruppe.set(k[1]!, z.id); }
-  for (const z of a.neu) {
-    const id = neueKennung(), [, gruppe] = z.schluessel.split('|');
-    const titelId = z.art === 'titel' ? null : letzteGruppe.get(gruppe!) ?? null;
-    const neueZeile: LvZeile = { id, ebene: z.art === 'titel' ? 0 : 1, titel: z.art === 'titel', oz: '', eltern: titelId };
-    if (z.art === 'titel') { letzteGruppe.set(gruppe!, id); ordnung.push(neueZeile); }
-    else {   // hinter die letzte Zeile derselben Gruppe
-      let i = -1; ordnung.forEach((x, k) => { if (x.id === titelId || x.eltern === titelId) i = k; });
-      ordnung.splice(i >= 0 ? i + 1 : ordnung.length, 0, neueZeile);
-    }
-    neuWerte.set(id, { projekt: lv.werte.projekt ?? null, lv: lv.id, art: z.art, kurztext: z.kurztext, langtext: z.langtext || null, menge: z.menge, einheit: z.einheit || null, tuerliste: z.schluessel });
-  }
-  letzteGruppe = new Map();
-  const oz = nummerieren(ordnung, maskeLesen(lv.werte.oz_maske));
-  for (const [id, w] of neuWerte) befehle.push({ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { ...w, oz: oz.get(id) ?? '' } });
-  const aendern = new Map(a.aendern.map((x) => [x.id, { ...x.werte }]));
-  for (const id of a.null) aendern.set(id, { ...aendern.get(id), menge: 0 });
-  for (const [id, neu] of oz) if (!neuWerte.has(id)) aendern.set(id, { ...aendern.get(id), oz: neu });
-  for (const [id, werte] of aendern) befehle.push({ objekt: 'lv_position', art: 'aendern', objektId: id, werte });
-  return befehle;
-}
-
-/** Wie weit das LV vom Stand der Liste abweicht (für den Hinweis über der Liste). */
-export function lvStand(projekt: string, liste: string): { lv: Zeile; offen: number }[] {
-  const tueren = tuerenVon(liste);
-  return verbundeneLvs(projekt, liste).map((lv) => { const a = abgleichen(tuerenInsLv(tueren, liste), positionenVon(lv.id), liste); return { lv, offen: a.neu.length + a.aendern.length + a.null.length }; });
-}
-/** Ein verbundenes LV auf den Stand der Liste bringen – nur, solange es nicht versandt ist (danach: Nachtrag). */
-export function lvAbgleichen(lv: Zeile, liste: string): void {
-  if (String(lv.werte.status ?? 'bearbeitung') !== 'bearbeitung') { hinweis(`Das LV ist ${lv.werte.status === 'versendet' ? 'versandt' : 'vergeben'} – Änderungen nach dem Versand gehen über einen Nachtrag.`, { art: 'fehler' }); return; }
-  const a = abgleichen(tuerenInsLv(tuerenVon(liste), liste), positionenVon(lv.id), liste);
-  const b = lvBefehle(lv, liste, a);
-  if (!b.length) { hinweis('Das LV ist schon auf dem Stand der Liste.'); return; }
-  ausfuehrenMehrere(b, 'LV an die Fenster- & Türliste angleichen');
-  hinweis(`LV ${[lv.werte.nummer, lv.werte.name].filter(Boolean).join(' ')}: ${a.neu.length} neu, ${a.aendern.length} angepasst${a.null.length ? `, ${a.null.length} auf Menge 0 (nicht mehr in der Liste)` : ''}.`);
-}
+const quelle = (liste: string) => tuerQuelle(sicht.tuerliste![liste]!);
+/** Wie weit die verbundenen LVs vom Stand der Liste abweichen (für den Hinweis über der Liste). */
+export const lvStand = (projekt: string, liste: string): { lv: Zeile; offen: number }[] => verbundeneLvs(projekt, liste).map((lv) => ({ lv, offen: offenIm(lv, quelle(liste)) }));
 
 const [insLvOffen, setInsLvOffen] = createSignal(false);
 /** Die Knöpfe der Ansicht (Menüleiste). */
@@ -111,8 +66,8 @@ export function TuerlisteOben(p: { projekt: string }) {
     <Show when={stand().length}>
       <div class="hinweis-leiste">
         <For each={stand()}>{(s) => (
-          <span>LV {[s.lv.werte.nummer, s.lv.werte.name].filter(Boolean).join(' · ')}: {s.offen ? `${s.offen} ${s.offen === 1 ? 'Änderung' : 'Änderungen'} aus der Liste noch nicht im LV` : 'auf dem Stand der Liste'}
-            <Show when={s.offen && darf('lv_position', 'schreiben')}> <button type="button" class="knopf klein" onClick={() => lvAbgleichen(s.lv, liste()!)}>Abgleichen</button></Show>
+          <span>LV {lvName(s.lv)}: {s.offen ? `${s.offen} ${s.offen === 1 ? 'Änderung' : 'Änderungen'} aus der Liste noch nicht im LV` : 'auf dem Stand der Liste'}
+            <Show when={s.offen && darf('lv_position', 'schreiben')}> <button type="button" class="knopf klein" onClick={() => lvAbgleichen(s.lv, quelle(liste()!))}>Abgleichen</button></Show>
             {' '}<button type="button" class="knopf klein still" onClick={() => springeZu('lv', s.lv.id, { modul: 'ava', ansicht: 'lv' })}>Zum LV</button></span>)}</For>
       </div>
     </Show>
@@ -126,17 +81,14 @@ export function InsLv(p: { projekt: string; zu: () => void }) {
   const lvs = () => lebende('lv').filter((l) => l.werte.projekt === p.projekt && String(l.werte.status ?? 'bearbeitung') === 'bearbeitung');
   const [ziel, setZiel] = createSignal<string>(verbundeneLvs(p.projekt, liste())[0]?.id ?? '');
   const tueren = () => tuerenVon(liste());
-  const plan = createMemo(() => tuerenInsLv(tueren(), liste()));
+  const plan = createMemo(() => (liste() ? quelle(liste()).plan() : []));
   const ok = () => {
     if (!tueren().length) { hinweis('In der Liste stehen noch keine Türen.', { art: 'fehler' }); return; }
-    if (ziel()) { p.zu(); lvAbgleichen(sicht.lv![ziel()]!, liste()); return; }
-    const lvId = neueKennung(), nr = String(lebende('lv').filter((l) => l.werte.projekt === p.projekt).length + 1).padStart(2, '0');
-    const lv = { id: lvId, werte: { projekt: p.projekt, nummer: nr, name: 'Fenster und Türen', status: 'bearbeitung' } } as unknown as Zeile;
-    const a = abgleichen(plan(), [], liste());
-    ausfuehrenMehrere([{ objekt: 'lv', art: 'anlegen', objektId: lvId, werte: lv.werte }, ...lvBefehle(lv, liste(), a)], 'Neues LV aus der Fenster- & Türliste');
     p.zu();
-    hinweis(`${tueren().length} Türen/Fenster → ${plan().filter((z) => z.art === 'normal').length} Positionen im neuen LV „Fenster und Türen“. Systembeschreibung und Preise jetzt im LV ergänzen.`);
-    springeZu('lv', lvId, { modul: 'ava', ansicht: 'lv' });
+    if (ziel()) { lvAbgleichen(sicht.lv![ziel()]!, quelle(liste())); return; }
+    const lv = neuesLv(p.projekt, 'Fenster und Türen');
+    lvAbgleichen(lv, quelle(liste()), undefined, [{ objekt: 'lv', art: 'anlegen', objektId: lv.id, werte: lv.werte }]);
+    springeZu('lv', lv.id, { modul: 'ava', ansicht: 'lv' });
   };
   return (
     <Dialog titel="Ins LV übernehmen" onAbbrechen={p.zu}

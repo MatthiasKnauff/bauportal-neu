@@ -8,6 +8,8 @@ import type { Wert } from '../kern/modell';
 import { lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, titelSumme, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
 import { Dialog } from './baukasten/dialog';
 import { langtextMenue, ErgaenzungFenster } from './textergaenzung';
+import { LvQuellenLeiste } from './lvquelle';
+import { ModellInsLv } from './modellinslv';
 import { gp, zaehlt, zahl } from '../module/ava/rechnung';
 import { lvVon } from './avakopf';
 import { druckOeffnen } from './druck';
@@ -161,10 +163,12 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     ausfuehrenMehrere(a.map((x, i) => ({ objekt: 'lv_position', art: 'anlegen' as const, objektId: neueIds[i]!, werte: { ...x.werte, projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(neueIds[i]!) ?? vorl[i]! } })), a.length === 1 ? 'Zeile einfügen' : `${a.length} Zeilen einfügen`);
     wahl.mehrere(neueIds);
   };
+  const [modellFenster, setModellFenster] = createSignal(false);
   const freischalten = () => { const id = lv()?.id; if (!id) return; if (FREI.has(id)) FREI.delete(id); else FREI.add(id); setFrei(frei() + 1); };
   createEffect(() => p.setKnoepfe([
     ...(darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Titel', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(true) },
       { titel: 'Position', zeichen: 'neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(false) },
+      { titel: 'Aus dem Gebäudemodell …', zeichen: 'modell3d', gruppe: 'Neu', gesperrt: String(lv()!.werte.status ?? 'bearbeitung') !== 'bearbeitung', tun: () => setModellFenster(true) },
       { titel: 'Nummerieren …', zeichen: 'liste', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !zeilen().length, tun: () => setNumFenster(true) },
       { titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bearbeiten', gesperrt: gesperrt() || !wahl.markiert(), tun: loeschen }] : []),
     ...(lv() ? [{ titel: 'Vorbemerkungen', zeichen: 'bericht', gruppe: 'Ansicht', an: vorbem(), tun: () => setVorbem(!vorbem()) }] : []),
@@ -229,6 +233,8 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
             <textarea id="lvt-vorbem" rows={6} value={String(lv()!.werte.vorbemerkungen ?? '')} readOnly={!darf('lv', 'schreiben') || gesperrt()} placeholder="Vorbemerkungen zum LV – gelten für alle Positionen (Baustelle, Ausführung, Abrechnung …)"
               onChange={(e) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { vorbemerkungen: e.currentTarget.value } }, 'Vorbemerkungen')} /></div>
         </Show>
+        <LvQuellenLeiste lv={lv()!} />
+        <Show when={modellFenster()}><ModellInsLv lv={lv()!} onZu={() => setModellFenster(false)} /></Show>
         <Show when={numFenster()}><NummerierenFenster maske={maske()} beispiel={zeilen()} onZu={() => setNumFenster(false)} onFertig={(m) => { setNumFenster(false); neuNummerieren(m); }} /></Show>
         <ErgaenzungFenster />
         <div class="lvt-tabelle">
@@ -239,7 +245,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
           <div class="lvt-zeilen">
             <Show when={zug()}>{(g) => <div class="lvt-ziel" style={{ top: `${g().y - 1}px` }} />}</Show>
             <For each={sichtbar().map((x) => x.id)} fallback={<p class="still-text lvt-leer">Noch keine Positionen. Mit „Titel“ und „Position“ oben anfangen oder eine GAEB-Datei einlesen.</p>}>{(id) => { const z = () => nachZeile().get(id)!; return (<>
-              <div class="lvt-zeile" data-id={id} role="row" aria-level={z().ebene + 1} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, hinweis: nachId(z().id)?.werte.art === 'hinweis' }}
+              <div class="lvt-zeile" data-id={id} role="row" aria-level={z().ebene + 1} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, 'lvt-hinweis': nachId(z().id)?.werte.art === 'hinweis' }}
                 onClick={(e) => { if (!edit()) wahl.klick(e, z().id); }} onContextMenu={(e) => menue(e, z())}>
                 <For each={spalten()}>{(s) => (
                   <div class="lvt-zelle" role="gridcell" classList={{ rechts: !!s.rechts, zeiger: wahl.markiert() === z().id && spalte() === s.id }} style={{ width: `${s.breite}px` }}

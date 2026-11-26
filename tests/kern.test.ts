@@ -1764,7 +1764,7 @@ test('Druckwerk: mehrere Einträge in einem PDF – je eigene Seiten und Fußzei
 });
 
 test('Fenster- & Türliste: gleiche Ausführung = eine Position, Systembeschreibung je Gruppe, Abgleich mit dem LV', async () => {
-  const t = await import('../src/module/ava/tueren');
+  const t = { ...(await import('../src/module/ava/tueren')), ...(await import('../src/module/ava/lvplan')) };
   const tuer = (id: string, w: Record<string, unknown>) => ({ id, werte: { liste: 'L', ...w } as Werte });
   const T = [
     tuer('1', { nr: 'T01', raumname: 'Bad', art: 'Innentür', din: 'DIN L', b: 885, h: 2135, zarge: 'Stahl-Umfassungszarge', blatt: 'Röhrenspan', ausstattung: 'licht,stopper' }),
@@ -1777,18 +1777,51 @@ test('Fenster- & Türliste: gleiche Ausführung = eine Position, Systembeschreib
     ['titel', 'Fenster', null], ['hinweis', 'Systembeschreibung Fenster', null], ['normal', 'Fenster gemäß vorangegangener Systembeschreibung', 2],
     ['titel', 'Innentüren', null], ['hinweis', 'Systembeschreibung Innentüren', null],
     ['normal', 'Innentür gemäß vorangegangener Systembeschreibung', 2], ['normal', 'Innentür gemäß vorangegangener Systembeschreibung', 1]]);
-  const innen = plan.filter((z) => z.art === 'normal' && z.tueren.includes('1'))[0]!;
+  const innen = plan.filter((z) => z.art === 'normal' && z.herkunft.includes('1'))[0]!;
   assert.match(innen.langtext, /Einbauposition: T01, T02\nRaum: Bad, Flur\nTyp: Innentür\nMaße \(bxh\): 0,885x2,135/);
   assert.match(innen.langtext, /Lichtausschnitt: ja/);
   assert.match(plan.find((z) => z.kurztext === 'Systembeschreibung Innentüren')!.langtext, /Zarge: Stahl-Umfassungszarge\nTürblatt: Röhrenspan/, 'Gemeinsames steht in der Systembeschreibung');
   assert.equal(t.tuerenInsLv(T, 'L', false).filter((z) => z.art === 'normal').length, 2, 'links/rechts nicht getrennt');
   // Abgleich: LV hat den alten Stand
-  const lv = plan.map((z, i) => ({ id: `p${i}`, werte: { tuerliste: z.schluessel, art: z.art, kurztext: z.kurztext, langtext: z.langtext, menge: z.menge } as Werte }));
+  const lv = plan.map((z, i) => ({ id: `p${i}`, werte: { quelle: z.schluessel, art: z.art, kurztext: z.kurztext, langtext: z.langtext, menge: z.menge } as Werte }));
   const neu = t.tuerenInsLv([...T.slice(0, 2), T[3]!, tuer('5', { nr: 'T05', art: 'Innentür', din: 'DIN L', b: 885, h: 2135, zarge: 'Stahl-Umfassungszarge', blatt: 'Röhrenspan', ausstattung: 'licht,stopper' })], 'L');
   const a = t.abgleichen(neu, lv, 'L');
   assert.equal(a.neu.length, 0);
   assert.deepEqual(a.null, ['p6'], 'die DIN-R-Tür ist weg: Menge 0');
   assert.ok(a.aendern.some((x) => x.id === 'p5' && x.werte.menge === 3), 'T05 dazu: Menge 3');
+});
+
+test('Gebäudemodell → LV: Titel je KG, Aufbau als Hinweis, je Schicht eine Position; Teilabgleich je LV', async () => {
+  const m = await import('../src/module/ava/modellplan');
+  const l = await import('../src/module/ava/lvplan');
+  const z = (id: string, w: Record<string, unknown>) => ({ id, werte: w as Werte });
+  const kgs = { k330: z('k330', { nummer: '330', name: 'Außenwände' }), k350: z('k350', { nummer: '350', name: 'Decken' }) };
+  const aufbauten = { aw: z('aw', { name: 'AW 01 Kalksandstein WDVS' }), de: z('de', { name: 'Decke Stahlbeton' }) };
+  const S = [z('s2', { aufbau: 'aw', material: 'WDVS Mineralwolle', dicke: 16, reihe: 2 }), z('s1', { aufbau: 'aw', material: 'Kalksandstein', dicke: 17.5, reihe: 1 }), z('s3', { aufbau: 'de', material: 'Stahlbeton C25/30', dicke: 20, reihe: 1 })];
+  const B = [z('b1', { name: 'Wand Nord', kostengruppe: 'k330', aufbau: 'aw', menge: 40.5, einheit: 'm2' }), z('b2', { name: 'Wand Süd', kostengruppe: 'k330', aufbau: 'aw', menge: 38, einheit: 'm2' }),
+    z('b3', { name: 'Decke EG', kostengruppe: 'k350', aufbau: 'de', menge: 120, einheit: 'm2' }), z('b4', { name: 'Innenwand', kostengruppe: 'k340' }), z('b5', { name: 'Fenster 1', art: 'fenster', aufbau: 'aw', menge: 1 })];
+  const plan = m.bauteileInsLv(B, aufbauten, S, kgs);
+  assert.deepEqual(plan.map((x) => [x.art, x.kurztext, x.menge, x.einheit]), [
+    ['titel', '330 Außenwände', null, ''], ['hinweis', 'Aufbau AW 01 Kalksandstein WDVS', null, ''],
+    ['normal', 'Kalksandstein, d = 17,5 cm', 78.5, 'm²'], ['normal', 'WDVS Mineralwolle, d = 16 cm', 78.5, 'm²'],
+    ['titel', '350 Decken', null, ''], ['hinweis', 'Aufbau Decke Stahlbeton', null, ''], ['normal', 'Stahlbeton C25/30, d = 20 cm', 120, 'm²']]);
+  assert.match(plan[1]!.langtext, /1\. Kalksandstein, d = 17,5 cm\n2\. WDVS Mineralwolle, d = 16 cm\nGesamtdicke 33,5 cm/);
+  assert.match(plan[2]!.langtext, /Schicht 1 von 2\.\nBauteile: Wand Nord, Wand Süd/);
+  assert.deepEqual(m.ohneAufbau(B).map((b) => b.id), ['b4'], 'ohne Aufbau, Fenster gehen über die Türliste');
+  // Rohbau-LV übernimmt nur das Mauerwerk: Titel und Hinweis kommen mit, Dämmung und Decke nicht
+  const mw = plan.find((x) => x.kurztext.startsWith('Kalksandstein'))!.schluessel;
+  const teil = l.teilplan(plan, [], m.MODELL, new Set([mw]));
+  assert.deepEqual(teil.map((x) => x.kurztext), ['330 Außenwände', 'Aufbau AW 01 Kalksandstein WDVS', 'Kalksandstein, d = 17,5 cm']);
+  const lv = teil.map((x, i) => ({ id: `p${i}`, werte: { quelle: x.schluessel, art: x.art, kurztext: x.kurztext, langtext: x.langtext, menge: x.menge } as Werte }));
+  // Wand Süd wird größer: nur die übernommene Position ändert sich, nichts Neues kommt ungefragt dazu
+  const plan2 = m.bauteileInsLv([{ ...B[0]! }, z('b2', { ...B[1]!.werte, menge: 40 }), B[2]!], aufbauten, S, kgs);
+  const a = l.abgleichen(l.teilplan(plan2, lv, m.MODELL), lv, m.MODELL);
+  assert.deepEqual([a.neu.length, a.aendern.map((x) => [x.id, x.werte.menge]), a.null], [0, [['p2', 80.5]], []]);
+  // Aufbau weg: die Position bekommt Menge 0
+  const a2 = l.abgleichen(l.teilplan(m.bauteileInsLv([B[2]!], aufbauten, S, kgs), lv, m.MODELL), lv, m.MODELL);
+  assert.deepEqual(a2.null, ['p2']);
+  // Aufbau ohne Schichten (vom Assistenten geschätzt): eine Position für den Aufbau, kein Hinweis
+  assert.deepEqual(m.bauteileInsLv([B[2]!], aufbauten, [], kgs).map((x) => [x.art, x.kurztext, x.menge]), [['titel', '350 Decken', null], ['normal', 'Decke Stahlbeton', 120]]);
 });
 
 test('Bietertextergänzung: im Langtext, im Ausdruck und in GAEB (TextComplement) hin und zurück', async () => {
