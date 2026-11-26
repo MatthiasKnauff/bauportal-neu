@@ -188,6 +188,7 @@ export const bauteil: ObjektModell = {
 
 export const gebaeudemodell: Beipackzettel = {
   id: 'gebaeudemodell',
+  handy: 'lesen',
   zeichen: 'gebaeude',
   name: 'Gebäudemodell',
   version: '0.1.0',

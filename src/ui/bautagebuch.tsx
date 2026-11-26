@@ -22,6 +22,8 @@ import { Verlauf } from './baukasten/verlauf';
 import { Diktieren } from './diktat';
 import { druckOeffnen } from './druck';
 import { Zeichen, type Zeichenname } from './baukasten/zeichen';
+import { Dialog } from './baukasten/dialog';
+import { handy } from './unterbau/geraet';
 
 const heute = () => new Date().toLocaleDateString('sv');
 const datumText = (d: unknown) => (d ? new Date(`${String(d)}T12:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
@@ -42,6 +44,11 @@ const ABSCHNITTE: { id: string; titel: string; zeichen: Zeichenname; art?: strin
   { id: 'aufgabe', titel: 'Zu erledigen', zeichen: 'aufgabe', art: 'aufgabe' },
   { id: 'weisung', titel: 'Weisungen', zeichen: 'weisung', art: 'weisung' },
 ];
+const offen = (bericht: string, a: (typeof ABSCHNITTE)[number]) =>
+  a.art === 'mangel' || a.art === 'aufgabe' ? lebende('bericht_eintrag').filter((e) => e.werte.bericht === bericht && e.werte.art === a.art && e.werte.erledigt !== true).length : 0;
+// Am Handy (wie im bisherigen Bautagebuch): die Abschnitte als Kacheln; ein angetippter Abschnitt steht allein, „‹ Bericht“ führt zurück
+const [fokus, setFokus] = createSignal<string | null>(null);
+const [hinzu, setHinzu] = createSignal(false);   // Blatt „Hinzufügen“ – das ＋ unten in der Leiste
 const anzahl = (bericht: string, a: (typeof ABSCHNITTE)[number]) =>
   a.art ? lebende('bericht_eintrag').filter((e) => e.werte.bericht === bericht && e.werte.art === a.art).length : lebende('foto').filter((f) => f.werte.bericht === bericht).length;
 // Das „+“ jedes Abschnitts – auch aus dem Menüband erreichbar (Eintrag, Foto, Mangel)
@@ -357,13 +364,15 @@ export function Berichtsseite(p: Mitte) {
     const neu = [...p.alle()].sort((a, b) => String(b.werte.datum ?? '').localeCompare(String(a.werte.datum ?? '')) || Number(b.werte.nummer ?? 0) - Number(a.werte.nummer ?? 0))[0];
     if (neu) p.onWahl(neu.id);
   });
-  createEffect(on(() => p.gewaehlt(), () => { setEintrag(null); setBearbeiten(false); setFoto(null); }, { defer: true }));
+  createEffect(on(() => p.gewaehlt(), () => { setEintrag(null); setBearbeiten(false); setFoto(null); setFokus(null); }, { defer: true }));
   const bericht = () => (p.gewaehlt() ? sicht.tagesbericht?.[p.gewaehlt()!] : undefined);
   const werkzeuge: Werkzeuge = {};
   // Menüleiste wie im bisherigen Bauportal: NEU Eintrag, Foto, Mangel, Diktieren · BERICHT Schritt für Schritt, Löschen · AUSGABE PDF
   createEffect(() => {
     const b = bericht();
     p.setKnoepfe(b ? [
+      // am Handy das ＋ unten: Blatt mit den Abschnitten (Foto, Notiz, Mangel …)
+      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Foto, Notiz, Mangel … hinzufügen', zeichen: 'neu', gruppe: 'Neu', nurHandy: true, handyPlus: true, tun: () => setHinzu(true) }] : []),
       ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Eintrag', zeichen: 'notiz', gruppe: 'Neu', tun: () => neuIn.get('notiz')?.() }] : []),
       ...(darf('foto', 'schreiben') ? [{ titel: 'Foto', zeichen: 'foto', gruppe: 'Neu', tun: () => neuIn.get('fotos')?.() }] : []),
       ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Mangel', zeichen: 'mangel', gruppe: 'Neu', tun: () => neuIn.get('mangel')?.() },
@@ -378,9 +387,42 @@ export function Berichtsseite(p: Mitte) {
       <Show when={bericht()} fallback={<p class="leer">{p.alle().length ? 'Links einen Bericht wählen.' : darf('tagesbericht', 'schreiben') ? 'Noch kein Tagesbericht. Mit „+ Tagesbericht“ legst du den ersten an.' : 'Noch kein Tagesbericht.'}</p>}>{(b) => {
         const l = listen(b(), true);
         return (<>
-          <Kopf bericht={b()} werkzeuge={werkzeuge} />
-          <Show when={darf('bericht_eintrag', 'lesen')}>
-            <For each={ABSCHNITTE}>{(a) => <Abschnitt a={a} bericht={b()} inhalt={l[a.id]!} />}</For>
+          <Show when={handy() ? fokus() : null} keyed fallback={<>
+            <Kopf bericht={b()} werkzeuge={werkzeuge} />
+            <Show when={darf('bericht_eintrag', 'lesen')}>
+              <Show when={handy()} fallback={<For each={ABSCHNITTE}>{(a) => <Abschnitt a={a} bericht={b()} inhalt={l[a.id]!} />}</For>}>
+                <div class="bt-kacheln">
+                  <For each={ABSCHNITTE}>{(a) => (
+                    <button type="button" class="bt-kachel" onClick={() => setFokus(a.id)}>
+                      <span class="bt-symbol"><Zeichen name={a.zeichen} groesse={18} /></span><b>{a.titel}</b>
+                      <Show when={anzahl(b().id, a)} fallback={<small class="still-text">{a.id === 'fotos' ? 'noch keine' : 'leer'}</small>}>
+                        <span class="anzahl">{anzahl(b().id, a)}</span><Show when={offen(b().id, a)}><small class="gefahr-text">{offen(b().id, a)} offen</small></Show>
+                      </Show>
+                    </button>
+                  )}</For>
+                </div>
+              </Show>
+            </Show>
+          </>}>
+            {/* je Abschnitt neu aufgebaut (keyed): beim Zurück fragt nichts mehr nach dem geschlossenen Abschnitt */}
+            {(f) => { const a = ABSCHNITTE.find((x) => x.id === f)!; return (<>
+              <button type="button" class="knopf still bt-zurueck" onClick={() => setFokus(null)}>‹ Bericht</button>
+              <Abschnitt a={a} bericht={b()} inhalt={l[a.id]!} />
+            </>); }}
+          </Show>
+          <Show when={hinzu()}>
+            <Dialog titel="Hinzufügen" onAbbrechen={() => setHinzu(false)} knoepfe={<button class="knopf" onClick={() => setHinzu(false)}>Abbrechen</button>}>
+              <div class="bt-kacheln">
+                <For each={ABSCHNITTE.filter((a) => darf(a.id === 'fotos' ? 'foto' : 'bericht_eintrag', 'schreiben'))}>{(a) => (
+                  <button type="button" class="bt-kachel" onClick={() => { setHinzu(false); setFokus(a.id); queueMicrotask(() => neuIn.get(a.id)?.()); }}>
+                    <span class="bt-symbol"><Zeichen name={a.zeichen} groesse={18} /></span><b>{a.id === 'fotos' ? 'Foto' : a.titel}</b>
+                  </button>
+                )}</For>
+                <Show when={darf('bericht_eintrag', 'schreiben')}>
+                  <button type="button" class="bt-kachel" onClick={() => { setHinzu(false); werkzeuge.diktat?.(); }}><span class="bt-symbol"><Zeichen name="diktieren" groesse={18} /></span><b>Diktieren</b></button>
+                </Show>
+              </div>
+            </Dialog>
           </Show>
         </>);
       }}</Show>

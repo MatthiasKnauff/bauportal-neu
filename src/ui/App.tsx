@@ -1,6 +1,7 @@
 // Das Portal: Einrichtung, Anmeldung, Startseite mit den Kacheln und der Rahmen um jedes Modul (Kopfleiste, Reiter, Rückgängig).
 import { AppSymbol } from './baukasten/zeichen';
-import { designBeobachten } from './unterbau/design';
+import { designBeobachten, meineWahl } from './unterbau/design';
+import { ERSATZ, handyPlus, handyleistePlaetze, setHandystufe } from './unterbau/geraet';
 import { Projektwahl } from './projektwahl';
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { createStore } from 'solid-js/store';
@@ -198,8 +199,21 @@ function Portal() {
   const springe = (t: Treffer) => springeZu(t.m.name, t.id, { projekt: t.projekt, version: t.version, modul: t.modul.id, ansicht: t.ansicht });
   // Ein Sprung (aus der Suche oder aus einer Karte) öffnet Modul und Ansicht; den Eintrag holt die Ansicht selbst ab
   createEffect(() => { const s = sprung(); if (s) untrack(() => oeffne(s.modul, s.ansicht)); });
-  // Handy-Leiste unten: Start, die wichtigsten Apps für die Baustelle, Suche
-  const leiste = () => ['bautagebuch', 'bauzeitenplan', 'adressen'].map((id) => module().find((m) => m.modul.id === id)).filter((m): m is NonNullable<typeof m> => !!m);
+  // Handystufe der geöffneten App (Startseite: alles) – danach richten sich Rechte, Hinweis und das ＋ unten
+  createEffect(() => setHandystufe(modul()?.modul.handy ?? (modulId() ? 'lesen' : 'voll')));
+  // Leiste unten am Handy (wie im bisherigen Bauportal): bis zu fünf Plätze, je Person in der Darstellung gewählt.
+  // Hat die geöffnete App ein ＋, steht es in der Mitte und nimmt den Platz der App selbst ein.
+  const plaetze = () => {
+    const da = (k: string) => k === 'start' || k === 'suche' || module().some((m) => m.modul.id === k);
+    const L = handyleistePlaetze(meineWahl()?.werte.handyleiste).filter(da).slice(0, 5);
+    for (const k of ERSATZ) { if (L.length >= 5) break; if (da(k) && !L.includes(k)) L.splice(L.includes('suche') ? L.indexOf('suche') : L.length, 0, k); }
+    return L;
+  };
+  const leiste = () => {
+    const P = handyPlus(), L = plaetze().filter((k) => !P || k !== modulId()).slice(0, P ? 4 : 5);
+    return P ? [...L.slice(0, Math.ceil(L.length / 2)), '+', ...L.slice(Math.ceil(L.length / 2))] : L;
+  };
+  const platzTitel = (k: string) => (k === 'start' ? 'Start' : k === 'suche' ? 'Suche' : (module().find((m) => m.modul.id === k)?.modul.name ?? k).replace(/ und .*$/, ''));
 
   const taste = (e: KeyboardEvent) => {
     const ziel = e.target as HTMLElement;
@@ -255,10 +269,10 @@ function Portal() {
           </Show>
         </AppUmgebung.Provider>
       </main>
-      <nav class="handyleiste" aria-label="Schnellzugriff">
-        <button classList={{ an: !modulId() }} onClick={() => oeffne('')}><Symbol name="start" />Start</button>
-        <For each={leiste()}>{(m) => <button classList={{ an: modulId() === m.modul.id }} onClick={() => oeffne(m.modul.id)}><Symbol name={m.modul.id} />{m.modul.name}</button>}</For>
-        <button onClick={() => setSuche(true)}><Symbol name="suche" />Suche</button>
+      <nav class="handyleiste" aria-label="Schnellzugriff" style={{ 'grid-template-columns': `repeat(${leiste().length}, minmax(0, 1fr))` }}>
+        <For each={leiste()}>{(k) => (k === '+'
+          ? <button class="handyleiste-plus" aria-label={handyPlus()!.titel} title={handyPlus()!.titel} onClick={() => handyPlus()?.tun()}><i><Symbol name="plus" /></i></button>
+          : <button classList={{ an: k === 'start' ? !modulId() : modulId() === k }} onClick={() => (k === 'suche' ? setSuche(true) : oeffne(k === 'start' ? '' : k))}><Symbol name={k} />{platzTitel(k)}</button>)}</For>
       </nav>
       <Show when={suche()}><Suche onTreffer={springe} onZu={() => setSuche(false)} /></Show>
       <Show when={hilfe()}><Hilfe modul={modul()?.modul} ansicht={ansicht()} onZu={() => setHilfe(false)} /></Show>
@@ -273,6 +287,12 @@ const PFADE: Record<string, string> = {
   bauzeitenplan: 'M4 5h7M7 10h9M10 15h10M4 20h16',
   adressen: 'M5 4h14v16H5zM12 11a2.5 2.5 0 1 0 0-.01M8 17c1-2.5 7-2.5 8 0',
   suche: 'M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM15.5 15.5 20 20',
+  dateien: 'M3 6h6l2 2h10v11H3z',
+  ava: 'M6 3h12v18H6zM9 8h6M9 12h6M9 16h3',
+  gebaeudemodell: 'M4 20V9l8-5 8 5v11H4zM9 20v-6h6v6',
+  kataloge: 'M5 4h14v16H5zM5 9h14M5 14h14',
+  verwaltung: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3',
+  plus: 'M12 5v14M5 12h14',
 };
 function Symbol(p: { name: string }) {
   return <svg class="symbol" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d={PFADE[p.name] ?? PFADE.start} fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>;

@@ -1,6 +1,7 @@
 // Die eine Stelle, an der die Oberfläche mit dem Server spricht – und der Zustand des Programms für diesen Benutzer
 // (wer bin ich, welche Module, was darf ich).
 import { createSignal } from 'solid-js';
+import { nurAnsehen } from './geraet';
 import type { Beipackzettel } from '../../kern/modul';
 import type { Rechtart } from '../../kern/modell';
 import type { Rechte, Rolle } from '../../kern/rechte';
@@ -17,7 +18,8 @@ export const [zustand, setZustand] = createSignal<Zustand | null>(null);
 export const ich = () => zustand()!.benutzer!;
 export const istAdmin = () => zustand()?.benutzer?.rolle === 'admin';
 /** Für die Oberfläche: Knopf zeigen oder nicht. Entschieden wird in der Datenbank. */
-export const darf = (objekt: string, art: Rechtart) => zustand()?.rechte?.[objekt]?.[art] === true;
+// Am Handy in Apps, die dort nur zum Ansehen sind, gilt kein Recht zum Ändern – so blenden alle Bausteine das Bearbeiten von selbst aus.
+export const darf = (objekt: string, art: Rechtart) => zustand()?.rechte?.[objekt]?.[art] === true && (art === 'lesen' || !nurAnsehen());
 export const ausdrucke = (objekt: string) => zustand()!.module.flatMap((m) => m.ausdrucke ?? []).filter((a) => a.objekt === objekt);
 export const modell = (name: string) => zustand()!.module.flatMap((m) => m.objekte).find((m) => m.name === name)!;
 export const MERKER = 'bp_zustand';

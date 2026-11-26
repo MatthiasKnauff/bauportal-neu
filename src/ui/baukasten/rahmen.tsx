@@ -7,6 +7,7 @@ import { Zeichen } from './zeichen';
 import { Seitenliste, type SeitenAbschnitt } from './seitenliste';
 import { Abfolgeleiste, type Schritt } from './abfolgeleiste';
 import { Menueleiste, type Knopf, type Reiter, type Rueckgaengig } from './menueleiste';
+import { handy, handystufe, nurAnsehen, setHandyPlus } from '../unterbau/geraet';
 
 /** Was das Portal jeder Ansicht mitgibt: die Reiter der App und Rückgängig/Wiederholen. */
 export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => string; onReiter: (id: string) => void; rueckgaengig: Rueckgaengig }>();
@@ -109,10 +110,15 @@ export function Rahmen(p: {
   const breiteMerken = (seite: string, w: number) => { try { localStorage.setItem(`bp_rahmen_${p.schluessel}_breite_${seite}`, String(Math.round(w))); } catch { /* gesperrt */ } };
 
   // Am Handy stehen die Plätze nacheinander: der Baum ist dort ein eigener Schritt, unabhängig vom Zuklappen am großen Bildschirm.
-  const schmal = () => matchMedia('(max-width: 860px)').matches;
+  const schmal = handy;
   const rechtsWeg = () => rechtsZu() && !schmal();   // am Handy gibt es kein Zuklappen: Details sind dort ein eigener Schritt
+  // Am Handy (wie im bisherigen Bauportal): der Hauptknopf „Neu“ wandert als ＋ in die Leiste unten – nur in Apps, die dort alles können;
+  // in Apps zum Ansehen mit Handgriffen gibt es dort nichts Neues anzulegen.
+  const plusDa = () => schmal() && ['voll', 'eigen'].includes(handystufe());
+  createEffect(() => { const l = p.knoepfe ?? [], h = l.find((k) => k.handyPlus && !k.gesperrt) ?? l.find((k) => k.haupt && !k.gesperrt); setHandyPlus(plusDa() && h ? { titel: h.titel, tun: () => h.tun(new MouseEvent('click')) } : null); });
+  onCleanup(() => setHandyPlus(null));
   const knoepfe = (): Knopf[] => [
-    ...(p.knoepfe ?? []),
+    ...(p.knoepfe ?? []).filter((k) => !k.nurHandy).filter((k) => !schmal() || !(k.haupt || k.gruppe === 'Neu') || (!plusDa() && handystufe() !== 'ansicht')),
     ...(p.baum || ansichten().length > 1 ? [{ titel: p.baumTitel ?? 'Links', zeichen: 'gliederung', gruppe: 'Ansicht', an: schmal() ? baumAmHandy() : !linksZu(), tun: () => (schmal() ? setBaumAmHandy(!baumAmHandy()) : setLinksZu(!linksZu())) }] : []),
   ];
   const linksTitel = () => ansichten().find((a) => a.id === app?.aktiv())?.titel ?? p.baumTitel ?? 'Gliederung';
@@ -149,6 +155,7 @@ export function Rahmen(p: {
         ende={<button type="button" class="heftzwecke oben-heftzwecke nur-breit-flex" classList={{ geloest: oben() !== 0 }} aria-label={OBEN_TEXT[oben()]} title={OBEN_TEXT[oben()]} onClick={obenWeiter}>
           <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={HEFT_GROESSE} />
         </button>}>{p.menueMitte}</Menueleiste>
+      <Show when={nurAnsehen()}><p class="handy-hinweis" role="note">Am Handy nur zum Ansehen – bearbeiten am Rechner.</p></Show>
       {p.unterMenue}
       <div class="plaetze" classList={{ 'mit-details': !!p.details && !rechtsWeg(), 'baum-offen': baumAmHandy() }}
         style={{ '--links-breite': `${linksBreite()}px`, '--rechts-breite': `${rechtsBreite()}px` }}>

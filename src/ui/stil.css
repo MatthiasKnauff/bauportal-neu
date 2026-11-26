@@ -197,7 +197,7 @@ main { flex: 1; min-height: 0; display: flex; }
 }
 .fenster h2 { padding: 18px 20px 0; }
 .fenster-titel { cursor: move; user-select: none; touch-action: none; }
-@media (max-width: 860px) { .fenster-titel { cursor: default; } .fenster.gross { resize: none; min-width: 0; } }
+@media (max-width: 820px) { .fenster-titel { cursor: default; } .fenster.gross { resize: none; min-width: 0; } }
 .fenster-inhalt { flex: 1 1 auto; min-height: 0; padding: 14px 20px; overflow: auto; }   /* lange Masken rollen im Fenster; die Knöpfe bleiben unten stehen */
 .fenster-knoepfe { flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 12px 20px 18px; }
 .fenster:focus { outline: none; }
@@ -217,7 +217,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .hinweis .knopf { background: transparent; color: inherit; border-color: rgba(255,255,255,.4); }
 .hinweis .knopf:hover { background: rgba(255,255,255,.12); }
 
-@media (max-width: 860px) {
+@media (max-width: 820px) {
   .liste-rahmen { padding: 0; } .liste, .karte { border-radius: 0; border-left: 0; border-right: 0; }
   .liste-rahmen.mit-karte .liste { display: none; }
   .karte { width: auto; flex: 1; }
@@ -296,7 +296,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .beteiligt select { min-height: 30px; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); font-size: 13px; background: var(--flaeche); }
 .kartenfenster { flex: 1; min-height: 0; display: flex; flex-direction: column; } .kartenfenster .karte { flex: 1; width: auto; border: 0; border-radius: 0; }
 .kartenfenster .status { padding: 6px 14px; border-top: 1px solid var(--rand); background: var(--flaeche); }
-@media (max-width: 860px) { .karten-halter { flex: 1; } .reiter { display: none; } .tabelle th .griff { display: none; } }
+@media (max-width: 820px) { .karten-halter { flex: 1; } .reiter { display: none; } .tabelle th .griff { display: none; } }
 
 /* ---- Rahmen: Abfolge-Leiste · Menüleiste · Baum | Inhalt | Details ---- */
 .ansicht, .rahmen { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -357,13 +357,12 @@ main { flex: 1; min-height: 0; display: flex; }
 .marke-aktiv::before, .marke-ruht::before, .marke-archiviert::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--gut); }
 .marke-ruht::before { background: var(--warn); } .marke-archiviert::before { background: var(--rand-stark); }
 .marke-gesperrt { font-size: 12px; font-weight: 600; color: var(--gefahr); background: var(--gefahr-hell); border-radius: 99px; padding: 2px 8px; }
-@media (max-width: 860px) {
+@media (max-width: 820px) {
   .plaetze { padding: 0; gap: 0; } .platz-links, .platz-mitte { border-radius: 0; border-left: 0; border-right: 0; }
   .platz-links { display: none; } .plaetze.baum-offen .platz-links { display: flex; flex: 1; width: auto; } .plaetze.baum-offen .platz-mitte { display: none; }
   .plaetze.mit-details .platz-mitte, .plaetze.mit-details .platz-links { display: none; } .platz-rechts { flex: 1; }
   .menueleiste { flex-wrap: wrap; margin: 0; border-radius: 0; border-width: 0 0 1px; min-height: 0; } .menue-reiter { margin: 0; align-self: auto; min-height: 36px; order: 9; flex: 1 1 100%; }   /* Handy: Reiter als eigene Zeile unter den Knöpfen */
-  .nur-schmal-flex { display: flex !important; } .band-titel, .band-knopf .band-text { display: none; } .band-knopf { min-width: 38px; min-height: 38px; } .band-gruppe { border-right: 0; padding: 0 2px; } .band-mitte { flex: 1 1 150px; }
-  .menue-mitte:has(.suche) { min-width: 150px; }   /* Handy: die Suche bleibt lesbar breit – reicht der Platz nicht, rücken die Knöpfe in die nächste Zeile */
+  .nur-schmal-flex { display: flex !important; } .band-titel, .band-knopf .band-text { display: none; } .band-knopf { min-width: 38px; min-height: 38px; } .band-gruppe { border-right: 0; padding: 0 2px; } .band-mitte { flex: none; min-width: 0; }
 }
 .menue-verlauf { display: flex; gap: 2px; padding-right: 8px; margin-right: 4px; border-right: 1px solid var(--rand); }
 
@@ -499,9 +498,9 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .hilfe kbd { font: 12px/1 inherit; padding: 3px 6px; border: 1px solid var(--rand-stark); border-radius: calc(4px * var(--rund)); background: var(--still-hell); white-space: nowrap; }
 /* Handy-Leiste unten: nur auf schmalen Bildschirmen */
 .handyleiste { display: none; }
-@media (max-width: 860px) {
+@media (max-width: 820px) {
   .kopf-suche, .kopf-rund { display: none; }   /* auf dem Handy: Suche und Start unten in der Leiste, Hilfe im Benutzermenü */
-  .handyleiste { display: flex; flex: none; border-top: 1px solid var(--rand); background: var(--flaeche); padding-bottom: env(safe-area-inset-bottom); }
+  .handyleiste { display: grid; flex: none; border-top: 1px solid var(--rand); background: var(--flaeche); padding-bottom: env(safe-area-inset-bottom); }
   .handyleiste button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: 0; background: none; font-size: 11px; color: var(--text-still); cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .handyleiste button.an { color: var(--akzent); }
 }
@@ -564,7 +563,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .kontakt-kachel strong { font-size: 15px; overflow-wrap: anywhere; }
 .kontakt-wege { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .kontakt-wege a { color: var(--akzent); text-decoration: none; overflow-wrap: anywhere; }
-@media (max-width: 860px) { .kachelliste { grid-template-columns: 1fr; padding: 8px; } }
+@media (max-width: 820px) { .kachelliste { grid-template-columns: 1fr; padding: 8px; } }
 
 /* Adressen aufräumen */
 .doppelt-gruppe { border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); padding: 6px 10px 8px; margin: 10px 0 0; }
@@ -645,7 +644,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .verlauf-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
 .verlauf-liste li { display: flex; flex-direction: column; gap: 1px; border-bottom: 1px solid var(--rand); padding-bottom: 6px; }
 .verlauf-liste li .knopf { align-self: flex-start; margin-top: 2px; }
-@media (max-width: 860px) { .bt-seite { padding: 8px; } .bt-schalter { margin-left: 0; } }
+@media (max-width: 820px) { .bt-seite { padding: 8px; } .bt-schalter { margin-left: 0; } }
 /* Baustein Tabelle: kleines Feld „Spalten“ am Kopf */
 .spaltenfeld { position: fixed; z-index: 60; width: 230px; max-height: 70vh; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand-stark); border-radius: calc(10px * var(--rund)); box-shadow: 0 8px 24px rgba(0, 0, 0, .14); font-size: 13.5px; }
 .spaltenfeld-kopf { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px 4px 12px; }
@@ -657,7 +656,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .spaltenfeld-fuss { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--rand); padding: 6px 12px; }
 .karte-hinweis .karte-inhalt { padding-top: 6px; }
 
-@media (max-width: 860px) { .griff-trenner { display: none; } }
+@media (max-width: 820px) { .griff-trenner { display: none; } }
 .plaetze > .reiter.links { margin-right: 12px; } .plaetze > .reiter:not(.links) { margin-left: 12px; }
 
 /* Rahmen links: die Ansichten der App in Abschnitten */
@@ -668,7 +667,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .ansichten-nav button:hover { background: var(--still); }
 .ansichten-nav button.aktiv { background: var(--akzent-hell); font-weight: 600; }
 .ansichten-zeichen { width: 28px; height: 28px; flex: none; border-radius: calc(8px * var(--rund)); display: inline-flex; align-items: center; justify-content: center; color: var(--text-still); font-weight: 700; }
-@media (max-width: 860px) { .ansichten-nav:not(.seitenliste-filter) { display: none; } }
+@media (max-width: 820px) { .ansichten-nav:not(.seitenliste-filter) { display: none; } }
 
 .bzp-warnung { margin: 0; padding: 4px 12px; border-bottom: 1px solid var(--rand); }
 .umfang-leiste { display: flex; align-items: center; gap: 12px; padding: 8px 12px 0; }
@@ -681,7 +680,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .nur-breit-flex { display: flex; }
 .platz-links.schwebend { position: absolute; z-index: 30; left: 12px; top: 12px; bottom: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
 .platz-rechts.schwebend { position: absolute; z-index: 30; right: 12px; top: 12px; bottom: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
-@media (max-width: 860px) { .nur-breit-flex { display: none; } }
+@media (max-width: 820px) { .nur-breit-flex { display: none; } }
 /* Baustein Schwebefenster: frei beweglich über der Seite */
 .schwebefenster { position: fixed; z-index: 70; width: 460px; max-height: calc(100vh - 20px); min-width: 300px; min-height: 160px; resize: both; overflow: hidden; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand-stark); border-radius: calc(12px * var(--rund)); box-shadow: var(--schatten); }
 .schwebefenster-kopf { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--rand); cursor: move; user-select: none; background: var(--still-hell); border-radius: calc(12px * var(--rund)) calc(12px * var(--rund)) 0 0; }
@@ -784,7 +783,7 @@ details.feldgruppe > summary { cursor: pointer; font-weight: 600; padding: 6px 0
 /* Speicherstand in der Kopfleiste: nur ein Punkt, die Erklärung beim Darüberfahren (und für Vorleseprogramme) */
 .nur-vorlesen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .kopf-status { position: relative; padding: 6px; cursor: help; }
-@media (max-width: 860px) { .kopf { padding: 4px 8px; gap: 4px; } .kopf-name, .marke-text { display: none; } .kopf .modulname { flex: none; padding: 0 4px; } .kopf .projektwahl { margin-left: 4px; } .kopf .projektwahl .auswahlliste-knopf { padding: 2px 4px; } }
+@media (max-width: 820px) { .kopf { padding: 4px 8px; gap: 4px; } .kopf-name, .marke-text { display: none; } .kopf .modulname { flex: none; padding: 0 4px; } .kopf .projektwahl { margin-left: 4px; } .kopf .projektwahl .auswahlliste-knopf { padding: 2px 4px; } }
 .kopf-status i { width: 13px; height: 13px; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 0%, transparent); }
 .leer-seite { padding: 28px 24px; display: flex; flex-direction: column; gap: 8px; } .leer-seite h2 { margin: 0; font-size: 24px; color: var(--akzent); }
 .bzp-zoom { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--text-still); } .bzp-zoom input { width: 110px; }
@@ -810,7 +809,7 @@ html[data-oben] .kopf { display: none; }
 html[data-oben="2"] .menueleiste { display: none; }
 html[data-oben][data-oben-zeigen] .kopf { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 70; box-shadow: var(--schatten); }
 html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fixed; top: calc(var(--kopf-h, 52px) + 4px); left: 12px; right: 12px; margin: 0; z-index: 70; box-shadow: var(--schatten); }
-@media (max-width: 860px) { html[data-oben] .kopf { display: flex; } html[data-oben="2"] .menueleiste { display: flex; } }
+@media (max-width: 820px) { html[data-oben] .kopf { display: flex; } html[data-oben="2"] .menueleiste { display: flex; } }
 
 /* Kontaktkarte: Schnellknöpfe oben, weitere Kontaktwege als kleine Blöcke (wie im bisherigen Bauportal) */
 .kontakt-oben { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; } .kontakt-oben a { text-decoration: none; }
@@ -885,19 +884,19 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .tabelle tbody tr.markiert.gewaehlt { background: color-mix(in srgb, var(--akzent) 18%, var(--flaeche)); }
 .kachelliste-eintrag.mit-haken { position: relative; padding-left: 36px; } .kachelliste-eintrag > .auswahl-haken { position: absolute; left: 12px; top: 14px; }
 .kachelliste-eintrag.markiert { background: color-mix(in srgb, var(--akzent) 8%, var(--flaeche)); }
-@media (max-width: 860px) { html:not(.auswahl-an) .kachelliste-eintrag > .auswahl-haken { display: none; } html:not(.auswahl-an) .kachelliste-eintrag.mit-haken { padding-left: 14px; } }
+@media (max-width: 820px) { html:not(.auswahl-an) .kachelliste-eintrag > .auswahl-haken { display: none; } html:not(.auswahl-an) .kachelliste-eintrag.mit-haken { padding-left: 14px; } }
 .auswahlleiste { position: fixed; left: 50%; transform: translateX(-50%); bottom: 22px; z-index: 40;   /* unter den Fenstern (50) – sie verdeckt nie deren Knöpfe */ display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; width: min(1100px, calc(100vw - 48px));
   background: var(--flaeche); border: 2px solid var(--akzent); border-radius: calc(14px * var(--rund)); padding: 14px 20px; box-shadow: 0 10px 32px rgba(0, 0, 0, .22); font-size: 15px; }
 .auswahlleiste > b { font-size: 16px; }
 .auswahlleiste-platz { flex: 1; min-width: 8px; }
-@media (max-width: 860px) { .auswahlleiste { left: 8px; right: 8px; width: auto; padding: 10px 12px; transform: none; bottom: calc(var(--handyleiste-h, 64px) + 8px); } }
+@media (max-width: 820px) { .auswahlleiste { left: 8px; right: 8px; width: auto; padding: 10px 12px; transform: none; bottom: calc(var(--handyleiste-h, 64px) + 8px); } }
 .wahl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .wahl-chips button { border: 1px solid var(--rand-stark); background: var(--flaeche); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit; }
 .wahl-chips button.aktiv { border-color: var(--akzent); background: var(--akzent-hell); font-weight: 600; }
 /* Darstellung direkt auf der Seite: Abschnitte Farben, Schrift, Stil – je Zeile Bezeichnung links, Wahl rechts */
 .darstellung { max-width: 980px; } .darstellung h3 { margin: 18px 0 4px; font-size: 15px; border-bottom: 1px solid var(--rand); padding-bottom: 4px; }
 .darstellung-reihe { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; align-items: center; }
-@media (max-width: 860px) { .darstellung-reihe { grid-template-columns: 1fr; gap: 4px; } }
+@media (max-width: 820px) { .darstellung-reihe { grid-template-columns: 1fr; gap: 4px; } }
 .design-raster.offen { max-height: none; overflow: visible; }
 /* Stil je Person (Verwaltung → Darstellung) */
 html[data-schatten="aus"] { --schatten: none !important; }
@@ -1117,3 +1116,30 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .gf-tabelle .auswahlliste-knopf span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gf-firma, .gf-einsatz, .gf-kontakt { width: auto; min-width: 0; max-width: none; }
 .gf-tabelle tr.gf-leistung td:first-child { white-space: normal; }
+
+/* Handy: das ＋ der App in der Mitte der Leiste (wie im bisherigen Bauportal) */
+.handyleiste .handyleiste-plus { justify-content: center; }
+.handyleiste-plus i { display: grid; place-items: center; width: 46px; height: 38px; border-radius: calc(12px * var(--rund)); background: var(--still); border: 1px solid var(--rand-stark); color: var(--akzent); }   /* wie im bisherigen Bauportal: hell, feiner Rahmen, Akzent nur im Zeichen */
+.handyleiste-plus i .symbol { width: 24px; height: 24px; }
+/* Am Handy nur zum Ansehen: Hinweis über dem Inhalt */
+.handy-hinweis { margin: 0 8px 6px; padding: 6px 10px; border-radius: calc(8px * var(--rund)); background: var(--warn-hell); color: var(--text); font-size: 13px; }
+/* Kopfleiste am Handy (wie im bisherigen Bauportal): unter 640 px nur noch Projekt – der Name der App steht unten in der Leiste */
+@media (max-width: 640px) { .kopf .modulname, .kopf .trenner { display: none; } }
+/* Bautagebuch am Handy: Abschnitte als Kacheln (zwei Spalten, mit Anzahl) */
+.bt-kacheln { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.bt-kachel { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 2px 8px; align-items: center; text-align: left; padding: 12px; border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); background: var(--flaeche); font: inherit; cursor: pointer; min-height: 64px; }
+.bt-kachel .bt-symbol { grid-row: 1 / 3; }
+.bt-kachel .anzahl, .bt-kachel small { grid-column: 2; font-size: 12px; }
+.bt-kachel .gefahr-text { color: var(--gefahr); }
+.bt-zurueck { margin-bottom: 6px; }
+.bt-zurueck { align-self: flex-start; }
+/* Handy (wie im bisherigen Bautagebuch): die Suche in der Menüleiste als Lupe – beim Antippen über die ganze Zeile */
+@media (max-width: 820px) {
+  .menueleiste { position: relative; }
+  .menueleiste input.suche { flex: none; width: 38px; max-width: 38px; padding: 0; color: transparent; cursor: pointer;
+    background: var(--flaeche) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") center / 18px no-repeat; }
+  .menueleiste input.suche::placeholder { color: transparent; }
+  .menueleiste input.suche:is(:focus, :not(:placeholder-shown)) { position: absolute; left: 8px; right: 8px; top: 6px; width: auto; max-width: none; z-index: 5; color: var(--text); padding: 0 12px 0 34px; background-position: 10px center; cursor: text; }
+  .menueleiste input.suche:focus::placeholder { color: var(--text-still); }
+}
+@media (max-width: 820px) { .menueleiste .menue-mitte, .menueleiste .filtersuche { flex: none; min-width: 0; } .menueleiste .menue-mitte .zaehler { display: none; } }   /* die Suche ist dort eine Lupe */

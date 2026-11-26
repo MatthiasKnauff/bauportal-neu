@@ -5,6 +5,7 @@
 import type { JSX } from 'solid-js';
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { Portal } from 'solid-js/web';
+import { handy } from '../unterbau/geraet';
 
 export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.Element; onAbbrechen?: () => void; geaendert?: () => boolean; breit?: boolean; gross?: boolean }) {
   let kasten!: HTMLDivElement;
@@ -12,7 +13,7 @@ export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.E
   const [versatz, setVersatz] = createSignal({ x: 0, y: 0 });
   // Am Titel ziehen: das Fenster folgt der Maus, bleibt aber mit dem Titel im Bild
   const ziehen = (e: PointerEvent) => {
-    if (e.button !== 0 || matchMedia('(max-width: 860px)').matches) return;
+    if (e.button !== 0 || handy()) return;
     e.preventDefault();
     const start = { x: e.clientX, y: e.clientY }, v0 = versatz(), r0 = kasten.getBoundingClientRect();
     const bewegt = (x: PointerEvent) => {

@@ -163,6 +163,7 @@ export const rechnung: ObjektModell = {
 
 export const ava: Beipackzettel = {
   id: 'ava',
+  handy: 'ansicht',
   zeichen: 'ausschreibung',
   name: 'Ausschreibung',
   version: '0.1.0',

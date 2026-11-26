@@ -113,6 +113,7 @@ export const planregel: ObjektModell = {
 
 export const bauzeitenplan: Beipackzettel = {
   id: 'bauzeitenplan',
+  handy: 'ansicht',
   zeichen: 'plan',
   name: 'Bauzeitenplan',
   version: '0.2.0',

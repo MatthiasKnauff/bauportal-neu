@@ -24,6 +24,9 @@ TypeScript (Server und Oberfläche, SolidJS), PostgreSQL; Python nur für Hilfsd
 - Push auf `main` → Testserver (bauportal-test.knauff.info, docker2). Produktion (bauportal.knauff.info, docker3) nur über ein Release, das Matthias selbst freigibt.
 - Nach jedem Push melden: Liste der Änderungen, welcher Build grün ist und was damit auf dem Testserver ist, dazu der Freigabe-Link mit der nächsten Versionsnummer: `https://github.com/MatthiasKnauff/bauportal-neu/releases/new?tag=v<nächste Version>&target=main`. Wenn der Build fertig ist, eine Push-Nachricht schicken.
 - Fragen an Matthias zum Anklicken stellen, gesammelt am Anfang eines Blocks; nach seinem GO ohne Rückfrage bis zur ersten fertigen Version durcharbeiten.
+- **Nicht anhalten** (26.11.2026): ohne Pause weiterarbeiten, Rückfragen sammeln – Matthias fragt regelmäßig selbst, ob Fragen offen sind.
+- **Zwischenstände etwa halbstündlich** auf den Testserver pushen (wenn grün).
+- **Alle Apps nachbauen** (26.11.2026): Alle Apps des alten Bauportals dürfen nachgebaut werden, außer es widerspricht diesen Regeln oder dem neuen Konzept (dann als Frage sammeln).
 - Zeitangaben nicht in Entwickler-Tagen/Wochen.
 - Handbuch und Dokumentation nicht nach jedem Build neu erstellen – nur auf Zuruf.
 - Umstieg Modul für Modul: das alte Bauportal läuft weiter, bis das jeweilige Modul hier fertig ist.

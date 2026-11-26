@@ -85,6 +85,7 @@ export const kontaktweg: ObjektModell = {
 
 export const adressen: Beipackzettel = {
   id: 'adressen',
+  handy: 'voll',
   zeichen: 'adressen',
   name: 'Adressen',
   version: '0.1.0',

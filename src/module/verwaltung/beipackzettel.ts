@@ -180,11 +180,13 @@ export const designWahl: ObjektModell = {
     { name: 'schatten', titel: 'Schatten', art: 'auswahl', optionen: [{ wert: '', titel: 'an' }, { wert: 'aus', titel: 'aus' }] },
     { name: 'scrollbalken', titel: 'Rollbalken', art: 'auswahl', optionen: [{ wert: '', titel: 'wie das Gerät' }, { wert: 'faden', titel: 'Faden' }, { wert: 'pille', titel: 'Pille' }] },
     { name: 'bewegung', titel: 'Bewegung', art: 'auswahl', optionen: [{ wert: '', titel: 'an' }, { wert: 'aus', titel: 'aus' }] },
+    { name: 'handyleiste', titel: 'Leiste unten am Handy', art: 'text' },   // bis zu fünf Plätze, z. B. „start,bautagebuch,adressen,dateien,suche“ – leer = Vorgabe
   ],
 };
 
 export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
+  handy: 'keine',
   zeichen: 'einstellungen',
   name: 'Verwaltung',
   version: '0.1.0',

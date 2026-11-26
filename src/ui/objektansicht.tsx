@@ -29,6 +29,7 @@ import { Dialog } from './baukasten/dialog';
 import { spaltenFuer } from './baukasten/spalten';
 import { xlsxSchreiben } from '../kern/xlsx';
 import { hinweis } from './unterbau/meldungen';
+import { handy } from './unterbau/geraet';
 
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const TRENNER = '\u0001';
@@ -54,7 +55,7 @@ export function ObjektAnsicht(p: {
   const [reihe, setReihe] = createSignal<string[] | null>(null);   // Reihenfolge, die Tabelle oder eigene Mitte (Balkenplan) gerade zeigen
   // Tabelle oder Kacheln – nur, wo das Modul Kacheln einstellt; gemerkt je Objektart, am Handy zuerst Kacheln
   const FORM = `bp.form.${m.name}`;
-  const [kacheln, setKacheln] = createSignal(!!a.kachel && (() => { try { const x = localStorage.getItem(FORM); return x ? x === 'kacheln' : !!a.kachelnZuerst || matchMedia('(max-width: 860px)').matches; } catch { return false; } })());
+  const [kacheln, setKacheln] = createSignal(!!a.kachel && (() => { try { const x = localStorage.getItem(FORM); return x ? x === 'kacheln' : !!a.kachelnZuerst || handy(); } catch { return false; } })());
   const formWechseln = () => { setKacheln(!kacheln()); try { localStorage.setItem(FORM, kacheln() ? 'kacheln' : 'tabelle'); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
   let rahmen!: RahmenSteuer, tabelle!: TabellenSteuer, suchfeld!: HTMLInputElement, wurzel!: HTMLDivElement;
 

@@ -100,6 +100,7 @@ const liste = (art: string, spalten: string[]) => ({ id: art, art: 'liste' as co
 
 export const bautagebuch: Beipackzettel = {
   id: 'bautagebuch',
+  handy: 'eigen',
   zeichen: 'bericht',
   name: 'Bautagebuch',
   version: '0.2.0',

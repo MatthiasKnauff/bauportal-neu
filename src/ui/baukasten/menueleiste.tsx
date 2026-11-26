@@ -12,6 +12,8 @@ export interface Knopf {
   gruppe?: string;             // Überschrift der Gruppe, z. B. „Neu“, „Ansicht“, „Ausgabe“
   rechts?: boolean;            // hinter der Suche (Ausgabe, Teilen)
   haupt?: boolean; gesperrt?: boolean; an?: boolean;   // an = eingeschaltet (z. B. Kacheln statt Tabelle)
+  handyPlus?: boolean;         // am Handy das ＋ unten in der Leiste (sonst der Hauptknopf)
+  nurHandy?: boolean;          // nur am Handy (dort ohnehin unten als ＋) – nicht in der Menüleiste
 }
 
 /** Knöpfe zu Gruppen zusammenfassen – aufeinanderfolgende mit derselben Überschrift bilden eine Gruppe. */

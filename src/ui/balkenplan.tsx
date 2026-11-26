@@ -27,6 +27,7 @@ import { PlanHandy } from './planhandy';
 import { herunterladen } from './baukasten/herunterladen';
 import { csvAus, mspdiAus, planJsonAus } from '../module/bauzeitenplan/austausch';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
+import { handy as geraetHandy } from './unterbau/geraet';
 
 const H = 30, KOPF = 46;
 type Spalte = { id: 'nr' | 'name' | 'dauer' | 'anfang' | 'ende' | 'vorg' | 'gewerk' | 'pct'; titel: string; breite: number; rechts?: boolean };
@@ -143,9 +144,7 @@ export function Balkenplan(p: Mitte) {
     void vorschauZeigen({ titel: `Plan einlesen – ${d.name}`, wartetext: 'Die Datei wird gelesen und mit dieser Version verglichen …', fertig: 'Der Plan ist übernommen.' }, () => ruf<Vorschau>('/api/bauzeitenplan/einlesen', { version: z().version, inhalt }));
   };
   // Auf dem Handy nur Nummer und Leistung links – der Platz gehört den Balken
-  const schmalAbfrage = typeof matchMedia === 'function' ? matchMedia('(max-width: 760px)') : null;
-  const [schmal, setSchmal] = createSignal(!!schmalAbfrage?.matches);
-  schmalAbfrage?.addEventListener('change', (e) => setSchmal(e.matches));
+  const schmal = geraetHandy;
   const [handy, setHandy] = createSignal<'jetzt' | 'ablauf' | 'gewerke' | 'plan'>(holen('bzp.handy', 'jetzt'));
   createEffect(() => merken('bzp.handy', handy()));
   // Spalten wählen und ordnen: derselbe Baustein wie bei jeder Tabelle (Spaltenwahl, Spaltenfeld)

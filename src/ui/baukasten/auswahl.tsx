@@ -5,6 +5,7 @@
 // (nichts schiebt die Liste) und, auf eine gewählte Zeile mit der rechten Maustaste, im Kontextmenü (höchstens 6 Punkte).
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
+import { handy } from '../unterbau/geraet';
 
 export interface Auswahl {
   ids: () => Set<string>;
@@ -47,7 +48,7 @@ export function auswahlKlick(a: Auswahl | undefined, e: MouseEvent, id: string, 
   a.anker(id);
   return false;
 }
-const schmal = () => matchMedia('(max-width: 860px)').matches;
+const schmal = handy;
 
 /** Lange tippen (Handy) beginnt die Auswahl. Liefert die Ereignisse für die Zeile/Karte. */
 export function langTippen(a: Auswahl | undefined, id: string) {

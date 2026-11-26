@@ -8,7 +8,8 @@ import type { Werte } from '../kern/modell';
 import { ausfuehren, rueckgaengig, sicht } from './unterbau/abgleich';
 import { Dialog } from './baukasten/dialog';
 import { zeigeMenue } from './baukasten/kontextmenue';
-import { darf, ich, neueKennung, ruf } from './unterbau/api';
+import { darf, ich, istAdmin, neueKennung, ruf, zustand } from './unterbau/api';
+import { handyleistePlaetze } from './unterbau/geraet';
 import { designAus, meineWahl, schriftenNeu } from './unterbau/design';
 import { hinweis } from './unterbau/meldungen';
 import type { Zeile } from '../kern/befehl';
@@ -194,6 +195,27 @@ export function Darstellungsseite() {
         </label>
       </div>
       <For each={STIL}>{(x) => <Wahl titel={x.titel} werte={x.werte} wert={wert(x.feld)} onWert={(v) => setzen({ [x.feld]: v }, `${x.titel} ändern`)} />}</For>
+      <h3>Leiste unten am Handy</h3>
+      <p class="still-text klein-text">Bis zu fünf Plätze, in der Reihenfolge des Antippens. In Apps mit ＋ steht das ＋ in der Mitte und nimmt den Platz der App selbst ein.</p>
+      <Handyleiste wert={wert('handyleiste')} onWert={(v) => setzen({ handyleiste: v }, 'Leiste unten am Handy')} />
     </section>
+  );
+}
+
+/** Plätze der Leiste unten wählen: Start, die Apps, Suche – angetippt kommt hinten dazu, nochmal tippen nimmt heraus. */
+function Handyleiste(p: { wert: string; onWert: (v: string | null) => void }) {
+  const gewaehlt = () => handyleistePlaetze(p.wert).filter((k) => moeglich().some((m) => m.k === k));
+  const moeglich = () => [{ k: 'start', t: 'Start' }, ...zustand()!.module.filter((m) => m.ansichten.some((a) => !a.nurAdmin || istAdmin())).map((m) => ({ k: m.id, t: m.name })), { k: 'suche', t: 'Suche' }];
+  const tippen = (k: string) => { const g = gewaehlt(); p.onWert(g.includes(k) ? g.filter((x) => x !== k).join(',') || null : g.length < 5 ? [...g, k].join(',') : g.join(',')); };
+  return (
+    <div class="darstellung-reihe">
+      <span class="design-etikett">Plätze ({gewaehlt().length} von 5)</span>
+      <div class="wahl-chips" role="group" aria-label="Leiste unten am Handy">
+        <For each={moeglich()}>{(m) => { const i = () => gewaehlt().indexOf(m.k); return (
+          <button type="button" class="chip" aria-pressed={i() >= 0} classList={{ aktiv: i() >= 0 }} disabled={i() < 0 && gewaehlt().length >= 5} onClick={() => tippen(m.k)}>
+            <Show when={i() >= 0}><b>{i() + 1}</b> </Show>{m.t}</button>); }}</For>
+        <Show when={p.wert}><button type="button" class="knopf klein still" title="Leiste wie ab Werk" onClick={() => p.onWert(null)}>↺</button></Show>
+      </div>
+    </div>
   );
 }

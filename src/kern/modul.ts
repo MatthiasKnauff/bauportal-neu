@@ -17,7 +17,11 @@ export interface Beipackzettel {
   nachschlagen?: Nachschlag[];   // große Kataloge, die nur am Server liegen und seitenweise gesucht werden
   ausdrucke?: Ausdruck[];     // was das Modul drucken kann (Druckwerk)
   versionen?: Versionsbereich[];   // Bereiche mit benannten Versionen (z. B. der Bauzeitenplan eines Projekts)
+  /** Was die App am Handy kann (wie im bisherigen Bauportal): voll – alles · eigen – eigene Handyansicht, alles ·
+   *  ansicht – ansehen und kleine Handgriffe, nichts Neues anlegen · lesen – nur ansehen · keine – am Handy nur ein Hinweis. Ohne Angabe: lesen. */
+  handy?: Handystufe;
 }
+export type Handystufe = 'voll' | 'eigen' | 'ansicht' | 'lesen' | 'keine';
 
 /** Ein Katalog füllt ein Objekt (seine Einträge erkennt man an der Kennung, Feld „kennung“) – oder einen Nachschlag. */
 export interface Katalog { id: string; titel: string; objekt?: string; nachschlag?: string }
