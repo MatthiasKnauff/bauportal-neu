@@ -2,6 +2,7 @@
 // Farben (hell/dunkel, Akzent, Design), Schrift (Art, Größe) und Stil (fertige Zusammenstellung, Ecken, Feinheiten).
 // Jede Wahl wirkt sofort und ist gespeichert; „Zurück“ nimmt sie zurück. „Design einfügen“ nimmt ein Theme im
 // shadcn-Format (tweakcn, shadcn.io …), übersetzt es (kern/design) und holt seine Schriften einmal auf den eigenen Server.
+import { Farbwahl } from './baukasten/farbwahl';
 import { For, Show, createSignal } from 'solid-js';
 import { AKZENTE, SCHRIFTMASS, SCHRIFTWAHL, schriftmass, STANDARD, STIL, STIL_PAKETE, satzFuer, schriften, themeLesen } from '../kern/design';
 import type { Werte } from '../kern/modell';
@@ -126,8 +127,7 @@ export function Darstellungsseite() {
         <div class="design-akzente" role="radiogroup" aria-label="Akzentfarbe">
           <button type="button" role="radio" class="design-akzent ohne" aria-checked={!wert('akzent')} classList={{ aktiv: !wert('akzent') }} title="wie das Design" onClick={() => setzen({ akzent: '' }, 'Akzentfarbe wie das Design')}>∅</button>
           <For each={AKZENTE}>{([c, n]) => <button type="button" role="radio" class="design-akzent" aria-checked={wert('akzent') === c} classList={{ aktiv: wert('akzent') === c }} style={{ background: c }} title={n} aria-label={n} onClick={() => setzen({ akzent: c }, `Akzentfarbe ${n}`)} />}</For>
-          <input class="design-hex" value={AKZENTE.some(([c]) => c === wert('akzent')) ? '' : wert('akzent')} placeholder="#eigene" maxLength={7} aria-label="Eigene Akzentfarbe (#rrggbb)"
-            onChange={(e) => { const v = e.currentTarget.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) setzen({ akzent: v.toLowerCase() }, 'Eigene Akzentfarbe'); }} />
+          <Farbwahl titel="Eigene Akzentfarbe" wert={wert('akzent') || '#1d4ed8'} aktiv={!!wert('akzent') && !AKZENTE.some(([c]) => c === wert('akzent'))} onWert={(c) => setzen({ akzent: c }, 'Eigene Akzentfarbe')} />
         </div>
       </div>
       <div class="design-raster offen" role="radiogroup" aria-label="Designs">
