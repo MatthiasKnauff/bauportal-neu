@@ -484,6 +484,11 @@ test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man seh
       'Haus &lt;A&gt; &amp; Söhne', '45127 Essen', '&lt;b&gt;fett?&lt;/b&gt;', 'GK3 · Tagesbericht Nr. 7 vom 24.11.2026', 'counter(pages)', '<h2>Mängel</h2>', '<h2>Anwesende</h2>', 'Rohbau Schmitz GmbH</td>', '01.12.2026', '>✓</td>']) assert.ok(s.html.includes(t), t);
     assert.ok(s.html.indexOf('Abstandhalter fehlen') < s.html.indexOf('Riss in der Sohle'), 'Einträge stehen in der Reihenfolge des Berichts');
     assert.ok(!s.html.includes('<h2>Weisungen</h2>'), 'leere Abschnitte fallen weg');
+    // Büro-Logo im Briefkopf: im PDF als Bild selbst (der Druckdienst holt keine Adressen)
+    assert.ok(!s.html.includes('class="logo"'), 'ohne Logo kein Bild');
+    await db.query('insert into kern_logo (id, bild) values (1, $1)', [Buffer.from('89504e470d0a1a0a00', 'hex')]);
+    s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
+    assert.ok(s.html.includes('<img class="logo" src="data:image/png;base64,'), 'Logo im Briefkopf');
     // Das Büro stellt ein: andere Überschrift, Temperatur aus, Mängel auch leer zeigen, kleine Schrift
     for (const [stelle, wert] of [['titel.text', 'Bautagesbericht {nummer}'], ['angaben.temperatur.aus', 'ja'], ['weisung.leer', 'ja'], ['angaben.wetter.titel', 'Witterung'], ['mangel.frist.aus', 'ja'], ['mangel.text.titel', 'Mangel'], ['seite.schrift', 'klein']] as [string, string][]) {
       await tun(db, leitung, { objekt: 'druckeinstellung', art: 'anlegen', werte: { ausdruck: A, stelle, wert } });

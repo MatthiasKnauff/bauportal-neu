@@ -1,5 +1,6 @@
 // Ansichten der Module. Die Ansicht eines Objekts kommt von selbst (ObjektAnsicht: Baum, Tabelle, Detailkarte im Rahmen).
 // Hier steht nur, was ein Modul darüber hinaus zeigt – und was es an den Bausteinen über die Stellschrauben einstellt.
+import { BueroLogo } from './buerologo';
 import { KatalogListe, KatalogNetz } from './katalognetz';
 import { Darstellungsseite } from './designwahl';
 import { GebaeudeAssistent, GebaeudeTeile } from './gebaeudeschritte';
@@ -340,7 +341,7 @@ function Rechte() {
 function Buero() {
   const m = () => modell('buero');
   const z = () => sicht.buero?.[m().einzeln!];
-  return <Rahmen schluessel="verwaltung.buero" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} />}</Show></section>} />;
+  return <Rahmen schluessel="verwaltung.buero" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} zusatz={() => <BueroLogo />} />}</Show></section>} />;
 }
 
 // Für mich: eigenes Konto (Kennwort) und Darstellung (Design) – für jede:n, wie im bisherigen Bauportal

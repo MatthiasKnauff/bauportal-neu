@@ -54,6 +54,7 @@ export const buero: ObjektModell = {
     { name: 'ort', titel: 'Ort', art: 'text', gruppe: 'Anschrift' },
     { name: 'telefon', titel: 'Telefon', art: 'telefon', gruppe: 'Anschrift' },
     { name: 'email', titel: 'E-Mail', art: 'email', gruppe: 'Anschrift' },
+    { name: 'logo', titel: 'Logo', art: 'text', verborgen: true },   // Stand des Logos (Zeit) – das Bild selbst: Verwaltung → Büro, /api/logo
     // Debugging-Modus (Entscheidung 25.11.2026): nur diese Rollen sehen in Verwaltung → Aufbau den Quelltext eines Bausteins
     { name: 'debugging', titel: 'Debugging-Modus: Quelltext im Aufbau sehen dürfen', art: 'mehrfach', optionen: ROLLEN_OPTIONEN, gruppe: 'Entwicklung' },
   ],

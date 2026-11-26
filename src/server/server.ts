@@ -1,4 +1,5 @@
 // Der Server: ein Programm für Oberfläche, Anmeldung, Befehle und Abgleich.
+import { logoRouten } from './logo';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import statisch from '@fastify/static';
@@ -216,6 +217,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
   ifcRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
   netzRouten(app, { db, nurAngemeldet });
+  logoRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
   avaRouten(app, { db, register, nurAngemeldet });
   assistentRouten(app, { db, register, nurAngemeldet });
   druckRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });

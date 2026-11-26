@@ -12,6 +12,8 @@ import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './unterbau/meldungen';
 
 /** Was ein Verzeichnis drucken kann: z. B. die Auswahl, die gefilterte Liste, alle – je mit Einträgen in ihrer Reihenfolge. */
+/** Das Büro-Logo in der Vorschau – die Adresse ändert sich mit seinem Stand (dann lädt der Browser es neu). */
+export const logoAdresse = (): string => { const v = String(sicht.buero?.[BUERO_ID]?.werte.logo ?? ''); return v ? `/api/logo?v=${encodeURIComponent(v)}` : ''; };
 export interface Umfang { titel: string; ids: string[]; filter: string }
 const [offen, setOffen] = createSignal<{ ausdruck: string; objekt: string; umfaenge?: Umfang[] } | null>(null);
 export const druckOeffnen = (ausdruck: string, objekt: string) => setOffen({ ausdruck, objekt });
@@ -69,14 +71,14 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   const daten = createMemo((): Druckdaten | null => {
     if (a.verzeichnis) {   // viele Einträge: die übergebenen, in ihrer Reihenfolge
       const zeilen = (umfang()?.ids ?? []).map((id) => sicht[a.objekt]?.[id]).filter((z) => z && !z.geloescht).map((z) => ({ id: z!.id, werte: { ...z!.werte } }));
-      return { werte: {}, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, projekt: '', verweis: verweisname, modell, bild: () => '',
+      return { werte: {}, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: '', verweis: verweisname, modell, bild: () => '',
         kinder: (blockId) => (a.bloecke.find((x) => x.id === blockId)?.art === 'verzeichnis' ? zeilen : []),
         extra: { anzahl: `${zeilen.length} ${zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: umfang()?.filter ?? '', datum: new Date().toLocaleDateString('de-DE') } };
     }
     const z = sicht[a.objekt]?.[p.objekt];
     if (!z || z.geloescht) return null;
     const pid = m.projektFeld && m.projektFeld !== 'id' ? String(z.werte[m.projektFeld] ?? '') : '';
-    return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, projekt: pid ? verweisname('projekt', pid) : '', verweis: verweisname, modell,
+    return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: pid ? verweisname('projekt', pid) : '', verweis: verweisname, modell,
       kinder: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder') return [];
         return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && Object.entries(b.art === 'liste' ? b.filter ?? {} : {}).every(([n, w]) => k.werte[n] === w)).sort(listenfolge).map((k) => ({ id: k.id, werte: { ...k.werte } })); },
       bild: (id) => `/api/foto/vorschau/${id}` };

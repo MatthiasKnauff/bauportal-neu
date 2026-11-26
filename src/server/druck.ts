@@ -9,6 +9,7 @@ import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, spalte, tabelle, type Db } from './db';
 import { Ablehnung, befehlAusfuehren } from './protokoll';
+import { logoDaten } from './logo';
 import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
 import type { Benutzer } from './anmeldung';
 
@@ -62,7 +63,7 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
   // Im PDF steckt das Vorschaubild selbst – der Druckdienst lädt nichts nach
   const bilder = new Map<string, string>();
   if (t.bildIds.length) for (const v of (await db.query('select id, bild from kern_vorschau where id = any($1)', [t.bildIds])).rows) bilder.set(v.id, `data:image/jpeg;base64,${(v.bild as Buffer).toString('base64')}`);
-  const d: Druckdaten = { werte: t.werte, buero: t.buero, projekt: t.projekt, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '' };
+  const d: Druckdaten = { werte: t.werte, buero: t.buero, logo: await logoDaten(db), projekt: t.projekt, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '' };
   return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d), projekt: t.projektId, projektordner: t.projektordner, ordner: (t.e['seite.ordner'] || a.ordner || '').trim() };
 }
 
@@ -87,7 +88,7 @@ export async function verzeichnisBauen(db: Db, register: Modulregister, wer: Ben
     const buero = werteAus(register.modell('buero')!, (await c.query('select * from o_buero where id = $1', [BUERO_ID])).rows[0]);
     return { zeilen, namen, buero, e };
   });
-  const d: Druckdaten = { werte: {}, buero: t.buero, projekt: '', verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', modell: (o) => register.modell(o)!, bild: () => '',
+  const d: Druckdaten = { werte: {}, buero: t.buero, logo: await logoDaten(db), projekt: '', verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', modell: (o) => register.modell(o)!, bild: () => '',
     kinder: (id) => (a.bloecke.find((b) => b.id === id)?.art === 'verzeichnis' ? t.zeilen : []),
     extra: { anzahl: `${t.zeilen.length} ${t.zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: filter.slice(0, 500), datum: new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) } };
   return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d) };

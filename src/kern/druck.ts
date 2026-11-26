@@ -50,6 +50,7 @@ export type Einstellungen = Record<string, string>;
 export interface Druckdaten {
   werte: Werte;                                    // das Objekt
   buero: Werte;
+  logo?: string;                                   // Büro-Logo für den Briefkopf (im Browser eine Adresse, im PDF das Bild selbst)
   projekt: string;                                 // Name des Projekts, '' wenn es keins gibt
   verweis: (ziel: string, id: string) => string;   // Anzeigename eines verwiesenen Objekts
   kinder: (blockId: string) => { id: string; werte: Werte }[];   // die Einträge eines Listen- oder Bilder-Blocks, in der Reihenfolge des Ausdrucks
@@ -101,7 +102,9 @@ export const platzhalter = (m: ObjektModell): string[] => ['buero', 'projekt', .
 export const CSS = (schrift: number) => `
   .seite { font: ${schrift}pt/1.4 Arial, "Liberation Sans", Helvetica, sans-serif; color: #111; }
   .seite * { box-sizing: border-box; }
-  .briefkopf { display: flex; justify-content: space-between; gap: 12mm; padding-bottom: 3mm; border-bottom: .4mm solid #111; margin-bottom: 7mm; }
+  .briefkopf { display: flex; justify-content: space-between; align-items: center; gap: 12mm; padding-bottom: 3mm; border-bottom: .4mm solid #111; margin-bottom: 7mm; }
+  .briefkopf .logo { max-height: 16mm; max-width: 45mm; object-fit: contain; margin-right: -6mm; }
+  .briefkopf .buero { flex: 1; }
   .briefkopf b { display: block; font-size: 1.15em; }
   .briefkopf .rechts { text-align: right; }
   .briefkopf small, .unter { color: #444; font-size: .9em; }
@@ -144,7 +147,7 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
     if (b.art === 'briefkopf') {
       const anschrift = [d.buero.strasse, [d.buero.plz, d.buero.ort].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
       const draht = [d.buero.telefon, d.buero.email].filter(Boolean).join(' · ');
-      return huelle(b.id, 'briefkopf', `<div><b>${sicher(String(d.buero.name || 'Büro'))}</b><small>${sicher(anschrift)}${anschrift && draht ? '<br>' : ''}${sicher(draht)}</small></div>${d.projekt ? `<div class="rechts"><small>Projekt</small><b>${sicher(d.projekt)}</b></div>` : ''}`);
+      return huelle(b.id, 'briefkopf', `${d.logo ? `<img class="logo" src="${sicher(d.logo)}" alt="">` : ''}<div class="buero"><b>${sicher(String(d.buero.name || 'Büro'))}</b><small>${sicher(anschrift)}${anschrift && draht ? '<br>' : ''}${sicher(draht)}</small></div>${d.projekt ? `<div class="rechts"><small>Projekt</small><b>${sicher(d.projekt)}</b></div>` : ''}`);
     }
     if (b.art === 'titel') {
       const unter = einsetzen(e[`${b.id}.unter`] ?? b.unter ?? '', m, d);
