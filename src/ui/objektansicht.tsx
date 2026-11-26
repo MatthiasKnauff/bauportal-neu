@@ -66,7 +66,13 @@ export function ObjektAnsicht(p: {
     const f = Object.entries(fest());
     return untrack(() => Object.values(sicht[m.name] ?? {}).filter((z) => { const r = roh(z); return !r.geloescht && f.every(([k, w]) => r.werte[k] === w); }));
   });
-  const neuStart = (werte: Werte = {}) => setNeu({ ...(a.neuVorgabe?.(lebend()) ?? {}), ...werte, ...fest() });
+  // Neu im gewählten Ast des Baums: bekommt dessen Werte (z. B. eine neue Position im gewählten LV) – abgelesen an einem Eintrag dort
+  const ausAst = (): Werte => {
+    if (!ast()) return {};
+    const soll = ast().slice(2), tiefe = soll.split(TRENNER).length, z = lebend().find((x) => pfad(x, tiefe) === soll);
+    return z ? Object.fromEntries(baumFelder.slice(0, tiefe).map((f) => [f.name, roh(z).werte[f.name] ?? null])) : {};
+  };
+  const neuStart = (werte: Werte = {}) => { const da = { ...ausAst(), ...werte, ...fest() }; setNeu({ ...(a.neuVorgabe?.(lebend(), da) ?? {}), ...da }); };
   const pfad = (z: Zeile, tiefe: number) => baumFelder.slice(0, tiefe).map((f) => anzeige(f, roh(z).werte[f.name])).join(TRENNER);
   // Baum: Gliederung nach den Feldern, die der Beipackzettel nennt – mit Anzahl je Knoten.
   const knoten = createMemo((): Knoten[] => {

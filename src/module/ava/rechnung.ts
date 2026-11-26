@@ -17,6 +17,15 @@ export function ozVergleich(a: unknown, b: unknown): number {
   }
   return 0;
 }
+/** OZ für eine neue Position: hinter der letzten Position des LV, in Zehnerschritten mit gleicher Stellenzahl (01.0030 → 01.0040). */
+export function naechsteOz(positionen: E[]): string {
+  const letzte = nachOz(positionen.filter((p) => p.werte.oz)).at(-1);
+  if (!letzte) return '01.0010';
+  const teile = String(letzte.werte.oz).split('.');
+  if (letzte.werte.art === 'titel') return `${teile.join('.')}.${'0010'}`;
+  const ende = teile.pop()!, n = Number(ende);
+  return Number.isNaN(n) ? '' : [...teile, String(n + 10).padStart(ende.length, '0')].join('.');
+}
 export const nachOz = <T extends E>(l: T[]) => [...l].sort((a, b) => ozVergleich(a.werte.oz, b.werte.oz) || Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0));
 
 /** Summe eines LV mit den geschätzten Preisen. */

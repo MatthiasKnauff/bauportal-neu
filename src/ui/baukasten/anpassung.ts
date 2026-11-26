@@ -66,7 +66,7 @@ export interface Anpassung {
   baumSymbol?: (k: Knoten) => string | undefined;
   // --- Anlegen ---
   /** Vorbelegung für einen neuen Eintrag (z. B. nächste Nummer, heutiges Datum). Bekommt die Einträge, die gerade zur Auswahl gehören. */
-  neuVorgabe?: (vorhandene: Zeile[]) => Record<string, string | number | boolean | null>;
+  neuVorgabe?: (vorhandene: Zeile[], schon: Record<string, unknown>) => Record<string, string | number | boolean | null>;   // schon: was der neue Eintrag ohnehin bekommt (Zusammenhang, Ast des Baums)
   // --- Menüleiste ---
   /** Zusätzliche Knöpfe in der Menüleiste dieser Ansicht. Bekommt den Zusammenhang (Projekt, Version). */
   knoepfe?: (zusammenhang: Record<string, string | number | boolean | null>) => Knopf[];

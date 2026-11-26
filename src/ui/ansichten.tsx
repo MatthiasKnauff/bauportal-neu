@@ -34,6 +34,7 @@ import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
 import { AngebotSumme, LvSummen, LvWahl, PositionSumme, Preisspiegel, RechnungLeiter } from './ava';
+import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
 import { springeZu } from './sprung';
 import { Arbeitszeit } from './arbeitszeit';
@@ -384,7 +385,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   // Ausschreibung: Summen in den Karten
   lv: { kartenZusatz: (z) => <LvSummen lv={z} />, auswahl: gemeinsam,
     knoepfe: (z) => (darf('lv_position', 'schreiben') ? [{ titel: 'GAEB einlesen', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => gaebEinlesen(String(z.projekt)) }] : []) },
-  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), auswahl: gemeinsam, neuVorgabe: () => ({ art: 'normal' }) },
+  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), auswahl: gemeinsam, neuVorgabe: (vorh, schon) => ({ art: 'normal', oz: naechsteOz(vorh.filter((x) => x.werte.lv === schon.lv)) }) },
   angebot: { kartenZusatz: (z) => <AngebotSumme angebot={z} /> },
   rechnung: { auswahl: gemeinsam, kartenZusatz: (z) => <RechnungLeiter rechnung={z} /> },
   // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)

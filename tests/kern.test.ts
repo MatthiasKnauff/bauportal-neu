@@ -1151,3 +1151,12 @@ test('Ausschreibung: Rechenleiter einer Abschlagsrechnung (Nachlass, USt, Einbeh
   assert.equal(zahlb(l2), 12186.79);
   assert.ok(l2.some((x) => x.titel === '− bisherige Zahlungen' && x.betrag === -9971.01));
 });
+
+test('Ausschreibung: OZ für eine neue Position', async () => {
+  const r = await import('../src/module/ava/rechnung');
+  const p = (oz: string, art = 'normal') => ({ id: oz, werte: { oz, art } });
+  assert.equal(r.naechsteOz([]), '01.0010');
+  assert.equal(r.naechsteOz([p('01', 'titel'), p('01.0010'), p('01.0030')]), '01.0040');
+  assert.equal(r.naechsteOz([p('02', 'titel')]), '02.0010');
+  assert.equal(r.naechsteOz([p('1.9'), p('1.10')]), '1.20');
+});
