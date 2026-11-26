@@ -1233,3 +1233,18 @@ test('Versand & Rücklauf: Stand je Bieter:in, Zähler, fälliges Nachfassen', a
   assert.deepEqual(a.ruecklaufZaehlen(l), { abgegeben: 1, will_abgeben: 1, gibt_nicht_ab: 1, offen: 1, angeschrieben: 3 });
   assert.deepEqual(l.map((x) => a.nachfassenFaellig(x, '2026-11-26')), [false, true, false, false]);
 });
+
+test('Werte aufräumen: ähnliche Gewerke und Stichwörter finden, zusammenführen ohne Doppelte', async () => {
+  const w = await import('../src/module/adressen/werte');
+  const k = (id: string, gewerk: string, stichworte = '') => ({ id, werte: { gewerk, stichworte } });
+  const l = [k('1', 'Elektro'), k('2', 'elektro'), k('3', 'Elektroinstallation'), k('4', 'Maler'), k('5', 'Malerarbeiten'), k('6', 'Dachdecker'), k('7', 'Elektro', 'Fliesen, fliesen ,  Bad'), k('8', 'Sanitär', 'Bad, Fliessen')];
+  const z = w.werteZaehlen(l, 'gewerk', false);
+  assert.deepEqual(z.find((x) => x.wert === 'Elektro'), { wert: 'Elektro', anzahl: 2 });
+  const g = w.aehnlicheGruppen(z);
+  assert.deepEqual(g.map((x) => x.map((y) => y.wert)), [['Elektro', 'Elektroinstallation', 'elektro'], ['Maler', 'Malerarbeiten']], 'häufigster vorn, dann groß vor klein; Dachdecker und Sanitär allein');
+  const s = w.werteZaehlen(l, 'stichworte', true);
+  assert.deepEqual(s.map((x) => x.wert), ['Bad', 'fliesen', 'Fliesen', 'Fliessen']);
+  assert.deepEqual(w.aehnlicheGruppen(s).map((x) => x.length), [3], 'Fliesen, fliesen, Fliessen – Bad bleibt allein');
+  assert.deepEqual(w.umbenennen(l, 'stichworte', true, ['fliesen', 'Fliessen'], 'Fliesen'), [{ id: '7', werte: { stichworte: 'Fliesen, Bad' } }, { id: '8', werte: { stichworte: 'Bad, Fliesen' } }]);
+  assert.deepEqual(w.umbenennen(l, 'gewerk', false, ['elektro', 'Elektroinstallation'], 'Elektro'), [{ id: '2', werte: { gewerk: 'Elektro' } }, { id: '3', werte: { gewerk: 'Elektro' } }]);
+});

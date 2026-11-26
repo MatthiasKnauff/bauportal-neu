@@ -1,8 +1,9 @@
-// Adressen aufräumen: doppelte Kontakte zeigen, je Gruppe wählen, welcher bleibt, und zusammenführen.
-// Übernommen wird erst nach der Vorschau (Baustein Übernahme).
-import { For, Show, createSignal } from 'solid-js';
+// Adressen aufräumen (wie im bisherigen Bauportal): doppelte Kontakte zusammenführen (übernommen erst nach der Vorschau,
+// Baustein Übernahme) – und Werte aufräumen: ähnliche Gewerke, Stichwörter und Tags auf einen Wert bringen, Werte umbenennen.
+import { For, Show, createMemo, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { sicht } from './unterbau/abgleich';
+import { aehnlicheGruppen, umbenennen, werteZaehlen } from '../module/adressen/werte';
+import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { ruf } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
@@ -11,8 +12,11 @@ interface Gruppe { ids: string[]; grund: string[] }
 interface Wahl { behalten: string; mit: Record<string, boolean> }
 const [offen, setOffen] = createSignal(false);
 const [vorgabe, setVorgabe] = createSignal<string[] | null>(null);   // gewählte Kontakte (Auswahl) statt der Suche nach Doppelten
+type Was = 'kontakte' | 'gewerk' | 'stichworte' | 'tags';
+const WAS: { wert: Was; titel: string }[] = [{ wert: 'kontakte', titel: 'Doppelte Kontakte' }, { wert: 'gewerk', titel: 'Gewerke' }, { wert: 'stichworte', titel: 'Stichwörter' }, { wert: 'tags', titel: 'Tags' }];
+const [was, setWas] = createSignal<Was>('kontakte');
 /** Ohne Angabe: Doppelte suchen. Mit Kennungen: genau diese zusammenführen (Auswahl in den Adressen). */
-export const aufraeumenOeffnen = (ids?: string[]) => { setVorgabe(ids && ids.length > 1 ? ids : null); setOffen(true); };
+export const aufraeumenOeffnen = (ids?: string[]) => { setVorgabe(ids && ids.length > 1 ? ids : null); setWas('kontakte'); setOffen(true); };
 
 const kontakt = (id: string) => sicht.kontakt?.[id]?.werte ?? {};
 const gefuellt = (id: string) => Object.values(kontakt(id)).filter((w) => w != null && w !== '').length;
@@ -41,6 +45,7 @@ function AufraeumenFenster() {
         <button class="knopf" onClick={() => setOffen(false)}>Abbrechen</button>
         <button class="knopf haupt" disabled={!auftrag().length} onClick={weiter}>Zusammenführen …</button>
       </>}>
+      <WasWahl />
       <Show when={!fehler()} fallback={<p class="fehler">{fehler()}</p>}>
         <Show when={gruppen()} fallback={<p class="leise">Doppelte werden gesucht …</p>}>{(g) => (
           <Show when={g().length} fallback={<p>Keine doppelten Kontakte gefunden – die Adressen sind aufgeräumt.</p>}>
@@ -69,6 +74,75 @@ function AufraeumenFenster() {
   );
 }
 
+/** Werte eines Felds aufräumen: oben die Gruppen ähnlicher Werte (je Gruppe den richtigen wählen, zusammenführen), darunter alle Werte A–Z zum Umbenennen. */
+function WerteFenster(p: { feld: 'gewerk' | 'stichworte' | 'tags'; titel: string }) {
+  const liste = p.feld !== 'gewerk';
+  const kontakte = () => lebende('kontakt');
+  const werte = createMemo(() => werteZaehlen(kontakte(), p.feld, liste));
+  const gruppen = createMemo(() => aehnlicheGruppen(werte()));
+  const [ziel, setZiel] = createStore<Record<number, string>>({});
+  const [ohne, setOhne] = createStore<Record<string, boolean>>({});   // Werte, die in ihrer Gruppe nicht mitgehen
+  const [neuName, setNeuName] = createStore<Record<string, string>>({});
+  const fuehren = (von: string[], nach: string, titel: string) => {
+    const aenderungen = umbenennen(kontakte(), p.feld, liste, von.filter((v) => v !== nach), nach);
+    if (aenderungen.length) ausfuehrenMehrere(aenderungen.map((x) => ({ objekt: 'kontakt', art: 'aendern' as const, objektId: x.id, werte: x.werte })), titel);
+  };
+  return (
+    <div class="werte-aufraeumen">
+      <Show when={gruppen().length} fallback={<p class="leise">Keine ähnlichen {p.titel} – {werte().length} verschiedene Werte.</p>}>
+        <p class="leise">{gruppen().length} {gruppen().length === 1 ? 'Gruppe sieht' : 'Gruppen sehen'} ähnlich aus. Je Gruppe wählen, wie es heißen soll; angehakte Werte werden darauf umbenannt – bei allen Kontakten, mit einem Rückgängig.</p>
+        <For each={gruppen()}>{(g, gi) => {
+          const nach = () => ziel[gi()] ?? g[0]!.wert;
+          return (
+            <fieldset class="doppelt-gruppe">
+              <legend>{g.map((x) => x.wert).join(' · ')}</legend>
+              <For each={g}>{(x) => (
+                <div class="doppelt-zeile" classList={{ bleibt: nach() === x.wert }}>
+                  <label class="doppelt-bleibt"><input type="radio" name={`${p.feld}-${gi()}`} checked={nach() === x.wert} onChange={() => setZiel(gi(), x.wert)} /> so heißt es</label>
+                  <label class="doppelt-mit"><input type="checkbox" disabled={nach() === x.wert} checked={nach() === x.wert || !ohne[x.wert]} onChange={(e) => setOhne(x.wert, !e.currentTarget.checked)} aria-label={`${x.wert} mitnehmen`} /></label>
+                  <span class="doppelt-text"><strong>{x.wert}</strong><span class="leise">{x.anzahl} {x.anzahl === 1 ? 'Kontakt' : 'Kontakte'}</span></span>
+                </div>
+              )}</For>
+              <div class="reihe"><button type="button" class="knopf klein" onClick={() => fuehren(g.filter((x) => !ohne[x.wert] || x.wert === nach()).map((x) => x.wert), nach(), `${p.titel}: zu „${nach()}“ zusammengeführt`)}>Zusammenführen zu „{nach()}“</button></div>
+            </fieldset>
+          );
+        }}</For>
+      </Show>
+      <h3>Alle {p.titel} A–Z</h3>
+      <div class="werte-liste">
+        <For each={werte()}>{(x) => (
+          <div class="werte-zeile">
+            <input aria-label={`${x.wert} umbenennen`} value={neuName[x.wert] ?? x.wert} onInput={(e) => setNeuName(x.wert, e.currentTarget.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); const n = (neuName[x.wert] ?? x.wert).trim(); if (n && n !== x.wert) { fuehren([x.wert], n, `${p.titel}: „${x.wert}“ umbenannt`); setNeuName(x.wert, undefined!); } } }} />
+            <span class="leise">{x.anzahl}</span>
+            <Show when={(neuName[x.wert] ?? x.wert).trim() && (neuName[x.wert] ?? x.wert).trim() !== x.wert}>
+              <button type="button" class="knopf klein" onClick={() => { fuehren([x.wert], neuName[x.wert]!.trim(), `${p.titel}: „${x.wert}“ umbenannt`); setNeuName(x.wert, undefined!); }}>Umbenennen</button>
+            </Show>
+          </div>
+        )}</For>
+      </div>
+    </div>
+  );
+}
+
+function Fenster() {
+  return (
+    <Show when={was() !== 'kontakte'} fallback={<AufraeumenFenster />}>
+      <Dialog titel="Adressen aufräumen" breit onAbbrechen={() => setOffen(false)} knoepfe={<button class="knopf haupt" onClick={() => setOffen(false)}>Fertig</button>}>
+        <WasWahl />
+        {/* je Feld neu aufgebaut (keyed): Gruppen, gewählte Ziele und Namen gehören zu einem Feld */}
+        <Show when={was() as 'gewerk' | 'stichworte' | 'tags'} keyed>{(f) => <WerteFenster feld={f} titel={WAS.find((w) => w.wert === f)!.titel} />}</Show>
+      </Dialog>
+    </Show>
+  );
+}
+/** Was aufräumen? – oben im Fenster, nicht bei gewählten Kontakten (die werden zusammengeführt). */
+function WasWahl() {
+  return <Show when={!vorgabe()}><div class="wahl-chips" role="radiogroup" aria-label="Was aufräumen?">
+    <For each={WAS}>{(w) => <button type="button" class="chip" role="radio" aria-checked={was() === w.wert} classList={{ aktiv: was() === w.wert }} onClick={() => setWas(w.wert)}>{w.titel}</button>}</For>
+  </div></Show>;
+}
+
 export function Aufraeumen() {
-  return <Show when={offen()}><AufraeumenFenster /></Show>;
+  return <Show when={offen()}><Fenster /></Show>;
 }
