@@ -88,8 +88,11 @@ export function PositionSumme(p: { pos: Zeile }): JSX.Element | undefined {
 
 /** Links im Preisspiegel: die LVs des Projekts. */
 export function LvWahl(p: Mitte): JSX.Element {
+  // wie im bisherigen Bauportal: archivierte LVs stehen nicht mehr in der Liste, sondern darunter unter „Archiv“
+  const eintraege = (archiv: boolean) => [...p.alle()].filter((l) => !!l.werte.archiviert === archiv).sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true }))
+    .map((l) => ({ id: l.id, titel: [l.werte.nummer, l.werte.name].filter(Boolean).join(' · '), zeichen: 'ausschreibung' as const, anzahl: angeboteVon(l.id).length }));
   return <Seitenliste name="Leistungsverzeichnisse" aktiv={lvVon(p)?.id ?? ''} onWahl={(id) => lvWaehlen(p, id)}
-    abschnitte={[{ titel: 'Leistungsverzeichnisse', eintraege: [...p.alle()].sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true })).map((l) => ({ id: l.id, titel: [l.werte.nummer, l.werte.name].filter(Boolean).join(' · '), zeichen: 'ausschreibung', anzahl: angeboteVon(l.id).length })) }]} />;
+    abschnitte={[{ titel: 'Leistungsverzeichnisse', eintraege: eintraege(false) }, ...(eintraege(true).length ? [{ titel: 'Archiv', eintraege: eintraege(true) }] : [])]} />;
 }
 
 export function Preisspiegel(p: Mitte): JSX.Element {
@@ -368,7 +371,7 @@ export function Auftraege(p: Mitte): JSX.Element {
 /** Kostenkontrolle (wie im bisherigen Bauportal): alle Vergabeeinheiten des Projekts – Schätzung, bestes Angebot, Auftrag,
  *  beauftragte Nachträge, abgerechnet, noch offen und die Abweichung zur Schätzung. Klick öffnet das LV. */
 export function Kostenkontrolle(p: Mitte): JSX.Element {
-  const zeilen = createMemo(() => [...p.zeilen()].sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true })).map((l) => ({ l, z: lvZahlen(l.id) })));
+  const zeilen = createMemo(() => [...p.zeilen()].filter((l) => !l.werte.archiviert).sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true })).map((l) => ({ l, z: lvZahlen(l.id) })));   // wie bisher: ohne archivierte
   const vergeben = (z: LvZahlen) => z.auftrag ? z.stand.aktuell : null;
   const offen = (z: LvZahlen) => z.auftrag ? Math.round((z.stand.aktuell - z.abgerechnet) * 100) / 100 : null;
   // Abweichung zur Schätzung: mit Auftrag der aktuelle Auftrag, sonst das beste Angebot

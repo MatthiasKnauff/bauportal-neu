@@ -15,11 +15,13 @@ import { darf, modell } from './unterbau/api';
 
 const [aktivesLv, setAktivesLv] = createSignal<string | null>(null);
 
+/** Reihenfolge der LVs: nach Nummer, archivierte am Ende. */
+const lvFolge = (a: Zeile, b: Zeile) => Number(!!a.werte.archiviert) - Number(!!b.werte.archiviert) || String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true });
 /** Das gewählte LV des Projekts – sonst sein erstes (nach Nummer). */
 function gewaehltesLv(): Zeile | undefined {
   const pr = projektId(), imProjekt = (z: Zeile | undefined) => (z && !z.geloescht && z.werte.projekt === pr ? z : undefined);
   return imProjekt(sicht.lv?.[aktivesLv() ?? ''])
-    ?? lebende('lv').filter((z) => z.werte.projekt === pr).sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true }))[0];
+    ?? lebende('lv').filter((z) => z.werte.projekt === pr).sort(lvFolge)[0];
 }
 /** Das LV, um das es in der Ansicht geht: das dort gewählte (wenn die Ansicht LVs zeigt), sonst das gewählte LV der AVA. */
 export function lvVon(p: Mitte): Zeile | undefined {
@@ -32,8 +34,15 @@ export const nurGewaehltesLv = (): Record<string, string> => { const z = gewaehl
 /** Ein LV wählen – gilt dann in allen Ansichten der AVA (zeigt die Ansicht LVs, ist es dort auch gewählt). */
 export const lvWaehlen = (p: Mitte, id: string) => { setAktivesLv(id); if (p.alle().some((z) => z.id === id)) p.onWahl(id); };
 const lvListe = () => lebende('lv').filter((z) => z.werte.projekt === projektId())
-  .sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true }))
-  .map((z) => ({ wert: z.id, titel: [z.werte.nummer, z.werte.name].filter(Boolean).join(' · ') }));
+  .sort(lvFolge)
+  .map((z) => ({ wert: z.id, titel: `${[z.werte.nummer, z.werte.name].filter(Boolean).join(' · ')}${z.werte.archiviert ? ' (Archiv)' : ''}` }));
+
+/** Archivieren (wie im bisherigen Bauportal): das LV verschwindet aus den Listen, oben steht dann das nächste; zurückholen über „Archiv“. */
+function archivUmschalten(p: Mitte, lv: Zeile): void {
+  const rein = !lv.werte.archiviert;
+  ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv.id, werte: { archiviert: rein } }, rein ? 'LV archiviert' : 'LV aus dem Archiv geholt');
+  if (rein) { const naechstes = lebende('lv').filter((z) => z.werte.projekt === projektId() && !z.werte.archiviert && z.id !== lv.id).sort(lvFolge)[0]; if (naechstes) lvWaehlen(p, naechstes.id); }
+}
 
 function AvaKopf(p: Mitte): JSX.Element {
   // in Ansichten, die LVs zeigen, gilt das dort gewählte für die ganze App
@@ -56,6 +65,8 @@ function AvaKopf(p: Mitte): JSX.Element {
         {angaben().map(([k, w]) => <span class="kopf-angabe"><small>{k}</small>{w}</span>)}
         <span class="kopf-rechts">
           <button type="button" class="knopf klein" title="Projektdaten: Bauherr:in, Baustelle, Beteiligte, Termine – gelten für alle Apps des Projekts" onClick={() => springeZu('projekt', String(z().werte.projekt))}><Zeichen name="bearbeiten" groesse={14} /> Projektdaten</button>
+          <Show when={darf('lv', 'schreiben')}><button type="button" class="knopf klein still" title={z().werte.archiviert ? 'Wieder in die Listen holen' : 'Aus allen Listen nehmen – alles bleibt erhalten und lässt sich zurückholen'}
+            onClick={() => archivUmschalten(p, z())}>{z().werte.archiviert ? 'Aus dem Archiv holen' : 'Archivieren'}</button></Show>
           <button type="button" class="knopf klein" title="Ausschreibungsdaten dieses LV: Vergabenummer, Fristen, Ausführung, Kostenansatz" onClick={() => springeZu('lv', z().id, { modul: 'ava', ansicht: 'lvs' })}><Zeichen name="bearbeiten" groesse={14} /> Ausschreibungsdaten</button>
         </span>
       </div>

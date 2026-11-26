@@ -29,6 +29,7 @@ export const lv: ObjektModell = {
     { name: 'gewerk', titel: 'Gewerk nach VOB/C', art: 'verweis', ziel: 'gewerk', inListe: true, breite: 200, gruppe: 'Leistungsverzeichnis' },
     { name: 'kostengruppe', titel: 'Kostengruppe (DIN 276)', art: 'verweis', ziel: 'kostengruppe', gruppe: 'Leistungsverzeichnis' },
     { name: 'status', titel: 'Stand', art: 'auswahl', optionen: LV_STATUS, inListe: true, breite: 150, gruppe: 'Leistungsverzeichnis' },
+    { name: 'archiviert', titel: 'Im Archiv (aus den Listen genommen, alles bleibt erhalten)', art: 'ja_nein', gruppe: 'Leistungsverzeichnis' },
     { name: 'vergabenummer', titel: 'Vergabenummer', art: 'text', gruppe: 'Vergabe' },
     { name: 'budget', titel: 'Kostenansatz netto in €', art: 'zahl', inListe: true, breite: 130, gruppe: 'Vergabe' },
     { name: 'abgabe', titel: 'Angebotsabgabe bis', art: 'datum', gruppe: 'Vergabe' },
