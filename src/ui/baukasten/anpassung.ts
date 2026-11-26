@@ -53,7 +53,7 @@ export interface Anpassung {
   // --- Links ---
   /** Statt des Baums eine eigene Darstellung links (z. B. Kalender und Abschnitte im Bautagebuch). */
   links?: (p: Mitte) => JSX.Element;
-  linksTitel?: string;
+  linksTitel?: string | ((p: Mitte) => string);   // Überschrift links (Funktion: z. B. Projekt und Anzahl)
   /** Die eigene Darstellung links steht über den Ansichten der App (wie im bisherigen Bautagebuch: Kalender und Berichte oben). */
   linksZuerst?: boolean;
   // --- Details (rechts), eigene ---

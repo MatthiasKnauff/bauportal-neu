@@ -105,6 +105,17 @@ def main() -> None:
         assert d["uebersprungen"] == {"IfcFurniture": 1}
         r = c.post("/auswerten", content=b"das ist keine IFC-Datei", headers={"X-Schluessel": "test"})
         assert r.status_code == 400 and "nicht als IFC lesen" in r.json()["fehler"]
+        # 3D: Dreiecke je Bauteil mit Kennung, Art und Geschoss; Höhen der Geschosse in Metern
+        with open(pfad, "rb") as datei:
+            r = c.post("/netz", content=datei.read(), headers={"X-Schluessel": "test"})
+        import gzip
+        import json
+        n = json.loads(gzip.decompress(r.content))
+        arten = {e["t"] for e in n["elemente"]}
+        assert "w" in arten, arten   # in der Testdatei haben nur die Wände Geometrie
+        assert [g["ebene"] for g in n["geschosse"]] == [0.0, 2.85], n["geschosse"]
+        assert all(e["g"] for e in n["elemente"] if e["t"] == "w") and all(len(e["v"]) % 3 == 0 and e["i"] for e in n["elemente"])
+        assert not any(e["k"] == "" for e in n["elemente"])
         print("IFC-Dienst: alle Prüfungen bestanden")
 
 

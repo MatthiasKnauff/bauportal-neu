@@ -271,7 +271,7 @@ export function ObjektAnsicht(p: {
         </>}
         unterMenue={<>{p.unterMenue}{a.oben?.(fest())}</>}
         linksOben={p.linksOben}
-        baumTitel={a.linksTitel ?? 'Gliederung'}
+        baumTitel={typeof a.linksTitel === 'function' ? a.linksTitel(mitteP) : a.linksTitel ?? 'Gliederung'}
         baumZuerst={a.linksZuerst}
         // links über der Gliederung immer die Filterkästen: Filter links, aus dem Suchfeld und aus den Spaltenköpfen – verknüpfbar
         baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><div class="filter-dazu"><Filtersuche text={dazuText()} onText={setDazuText} arten={arten()} ids={() => lebend().map((z) => z.id)} onNehmen={nimm} onWeiter={() => undefined} platzhalter="Filter hinzufügen: Gewerk, Projekt, Ort …" name="Filter hinzufügen" /></div><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></>

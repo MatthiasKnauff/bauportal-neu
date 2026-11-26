@@ -13,7 +13,7 @@ import ifcopenshell.util.element as el
 import numpy as np
 import ifcopenshell.util.unit as einheit
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 SCHLUESSEL = os.environ.get("DIENST_SCHLUESSEL", "")
 app = FastAPI(title="Bauportal IFC-Dienst", docs_url=None, redoc_url=None)
@@ -415,6 +415,50 @@ def auswerten(pfad: str) -> dict:
             "uebersprungen": uebersprungen, "flaechen_aus_geometrie": gerechnet + raum_gerechnet, "lage_aus_geometrie": lage_gerechnet, "teile_in_oeffnungen": len(in_oeffnung)}
 
 
+# Art je Klasse für die 3D-Darstellung: w Wand, f Fenster, d Tür, s Decke/Platte, r Dach, x Sonstiges
+_NETZART = {"IfcWall": "w", "IfcWallStandardCase": "w", "IfcCurtainWall": "w", "IfcWindow": "f", "IfcDoor": "d", "IfcSlab": "s", "IfcRoof": "r",
+            "IfcPlate": "f", "IfcMember": "x", "IfcColumn": "x", "IfcBeam": "x", "IfcStair": "x", "IfcStairFlight": "x", "IfcRailing": "x", "IfcCovering": "x"}
+
+
+def netz(pfad: str) -> dict:
+    """Das Gebäude als Dreiecke für die 3D-Ansicht: je Bauteil Kennung (GlobalId), Art, Geschoss, Punkte in cm und Dreiecke.
+    Hier mit ausgeschnittenen Öffnungen (Fenster sitzen sichtbar in der Wand) – das kostet Zeit, läuft aber nach dem Einlesen
+    für sich allein, die Übernahme wartet nicht darauf."""
+    import multiprocessing
+
+    import ifcopenshell.geom
+    f = ifcopenshell.open(pfad)
+    einst = ifcopenshell.geom.settings()
+    einst.set("use-world-coords", True)
+    teile = [e for e in f.by_type("IfcElement") if not e.is_a("IfcOpeningElement") and not e.is_a("IfcVirtualElement") and not e.is_a("IfcFurnishingElement")]
+    geschosse = {}
+
+    def geschoss(e):
+        c = el.get_container(e)
+        while c is None and (a := el.get_aggregate(e)) is not None:
+            e, c = a, el.get_container(a)
+        return c.GlobalId if c is not None and c.is_a("IfcBuildingStorey") else ""
+
+    aus = []
+    lauf = ifcopenshell.geom.iterator(einst, f, max(1, min(4, multiprocessing.cpu_count())), include=teile) if teile else None
+    if lauf and lauf.initialize():
+        while True:
+            k = lauf.get()
+            v = np.array(k.geometry.verts).reshape(-1, 3)
+            if len(v):
+                e = f.by_id(k.id)
+                art = next((a for kl, a in _NETZART.items() if e.is_a(kl)), "x")
+                if art == "s" and getattr(e, "PredefinedType", None) == "ROOF":
+                    art = "r"
+                aus.append({"k": e.GlobalId, "t": art, "g": geschoss(e), "v": np.round(v * 100).astype(int).ravel().tolist(), "i": list(k.geometry.faces)})
+            if not lauf.next():
+                break
+    masz = einheit.calculate_unit_scale(f)   # Höhen der Geschosse stehen in der Einheit der Datei (oft mm)
+    for s in f.by_type("IfcBuildingStorey"):
+        geschosse[s.GlobalId] = {"k": s.GlobalId, "name": (s.Name or "").strip() or "Geschoss", "ebene": round(float(s.Elevation or 0) * masz, 2)}
+    return {"elemente": aus, "geschosse": sorted(geschosse.values(), key=lambda g: g["ebene"])}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "version": os.environ.get("APP_VERSION", "dev"), "ifcopenshell": ifcopenshell.version}
@@ -434,3 +478,23 @@ async def route_auswerten(req: Request, x_schluessel: str | None = Header(defaul
             return auswerten(t.name)
         except Exception as e:  # noqa: BLE001
             return JSONResponse({"fehler": f"Die Datei lässt sich nicht als IFC lesen ({str(e)[:160]})"}, status_code=400)
+
+
+@app.post("/netz")
+async def route_netz(req: Request, x_schluessel: str | None = Header(default=None)):
+    """Die Dreiecke für die 3D-Ansicht, gepackt (gzip) – kann bei großen Plänen eine Weile dauern."""
+    import gzip
+    import json
+    if not SCHLUESSEL or x_schluessel != SCHLUESSEL:
+        raise HTTPException(status_code=403)
+    with tempfile.NamedTemporaryFile(suffix=".ifc") as t:
+        async for teil in req.stream():
+            t.write(teil)
+        t.flush()
+        if t.tell() == 0:
+            return JSONResponse({"fehler": "Die Datei ist leer"}, status_code=400)
+        try:
+            d = netz(t.name)
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse({"fehler": f"Die Datei lässt sich nicht als IFC lesen ({str(e)[:160]})"}, status_code=400)
+    return Response(gzip.compress(json.dumps(d, separators=(",", ":")).encode(), 6), media_type="application/gzip")

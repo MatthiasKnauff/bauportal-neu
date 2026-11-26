@@ -32,6 +32,7 @@ import { Altdaten } from './altdaten';
 import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
+import { Gebaeude3d } from './gebaeude3d';
 import { Balkenplan } from './balkenplan';
 import { springeZu } from './sprung';
 import { Arbeitszeit } from './arbeitszeit';
@@ -372,7 +373,9 @@ const ANPASSUNG: Record<string, Anpassung> = {
     neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv'), uhrzeit: new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' }), bauleitung: ich().id }),
     mitte: (m) => <Berichtsseite {...m} />,
     links: (m) => <BerichtLinks {...m} />,
-    linksTitel: 'Kalender', linksZuerst: true,
+    // wie im bisherigen Bautagebuch: oben links das Projekt und wie viele Berichte es hat
+    linksTitel: (m) => { const n = m.alle().length, pr = sicht.projekt?.[projektId() ?? '']?.werte; return `${pr ? [pr.nummer, pr.name].filter(Boolean).join(' ') + ' · ' : ''}${n} ${n === 1 ? 'Bericht' : 'Berichte'}`; },
+    linksZuerst: true,
     detailsHinweis: 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift ✎ im Kopf öffnet den ganzen Bericht.',
     details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },
@@ -402,7 +405,11 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
 };
 
-const anpassung = (objekt: string): Anpassung => ({ ...ANPASSUNG[objekt], kartenZusatz: kartenZusatz(objekt) });
+// Anpassung je Objekt; eine einzelne Ansicht kann darüber eigene Stellschrauben haben (Schlüssel „modul.ansicht“, z. B. die 3D-Ansicht der Bauteile)
+const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSUNG[objekt], ...(ansicht ? ANSICHT_ANPASSUNG[ansicht] : {}), kartenZusatz: kartenZusatz(objekt) });
+const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
+  'gebaeudemodell.modell3d': { mitte: (m) => <Gebaeude3d {...m} />, detailsHinweis: 'Ein Bauteil in der 3D-Ansicht anklicken – hier steht dann seine Karte, direkt änderbar.' },
+};
 /** Unter der Karte: was das Modul dort ergänzt, und – für alles, was sich drucken lässt – der Weg zum Ausdruck. */
 export const kartenZusatz = (objekt: string) => (z: Zeile): JSX.Element => <>
   {ANPASSUNG[objekt]?.kartenZusatz?.(z)}
@@ -457,7 +464,7 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
     </div>
   );
   // Listen ohne Versionen und ohne eigene Seite: auch über alle Projekte (Schalter über der Liste, gemerkt je Ansicht)
-  const umfangMoeglich = !bereich && !ANPASSUNG[m.name]?.mitte;
+  const umfangMoeglich = !bereich && !anpassung(m.name, schluessel).mitte;
   const [alle, setAlle] = createSignal(umfangMoeglich && (() => { try { return localStorage.getItem(`bp.umfang.${schluessel}`) === 'alle'; } catch { return false; } })());
   const umfang = (a: boolean) => { setAlle(a); try { localStorage.setItem(`bp.umfang.${schluessel}`, a ? 'alle' : 'projekt'); } catch { /* gesperrt */ } };
   const umfangLeiste = () => (
@@ -471,12 +478,12 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   );
   return (
     <Show when={!alle()} fallback={
-      <ObjektAnsicht schluessel={`${schluessel}.alle`} modell={m} baum={[m.projektFeld!, ...(p.ansicht.baum ?? [])]} anpassung={anpassung(m.name)} unterMenue={umfangLeiste()}
+      <ObjektAnsicht schluessel={`${schluessel}.alle`} modell={m} baum={[m.projektFeld!, ...(p.ansicht.baum ?? [])]} anpassung={anpassung(m.name, schluessel)} unterMenue={umfangLeiste()}
         fest={() => ({ ...p.ansicht.filter })} />}>
     <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} unterMenue={umfangMoeglich ? umfangLeiste() : undefined} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
       <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={versionen_!.Dialoge()} linksOben={versionen_!.Wahl}
         inhalt={leerAnlegen()} />}>
-        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(m.name)} unterMenue={bereich ? versionen_!.Dialoge() : umfangMoeglich ? umfangLeiste() : undefined} linksOben={versionen_?.Wahl}
+        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(m.name, schluessel)} unterMenue={bereich ? versionen_!.Dialoge() : umfangMoeglich ? umfangLeiste() : undefined} linksOben={versionen_?.Wahl}
           fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}), ...p.ansicht.filter })} />
       </Show>
     </Show>
@@ -489,5 +496,5 @@ export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   if (eigene) return eigene();
   if (p.ansicht.brauchtProjekt) return <ProjektAnsicht modul={p.modul} ansicht={p.ansicht} />;
   if (p.ansicht.nachschlag) return <Nachschlagen schluessel={`${p.modul.id}.${p.ansicht.id}`} nachschlag={p.modul.nachschlagen!.find((n) => n.name === p.ansicht.nachschlag)!} />;
-  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(p.ansicht.objekt!)} fest={p.ansicht.filter ? () => p.ansicht.filter! : undefined} />;
+  return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(p.ansicht.objekt!, `${p.modul.id}.${p.ansicht.id}`)} fest={p.ansicht.filter ? () => p.ansicht.filter! : undefined} />;
 }

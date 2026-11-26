@@ -11,6 +11,7 @@ import { ASSISTENT, abgleicher, merken, versionPruefen, type Vorschau, type Zahl
 import { KEIN_KG_KATALOG, aufbautenAusPlan, kostengruppen, type Schicht } from './gebaeudemodell';
 import { BAUTEILARTEN, kostengruppeNummer } from '../module/gebaeudemodell/beipackzettel';
 import type { Benutzer } from './anmeldung';
+import { netzDa, netzRechnen, netzSpeichern } from './netz';
 
 interface Gelesen {
   schema: string;
@@ -102,6 +103,12 @@ export function ifcRouten(app: FastifyInstance, e: { db: Db; register: Modulregi
     const q = req.query as { projekt?: string; version?: string };
     if (!KENNUNG.test(q.projekt ?? '') || !KENNUNG.test(q.version ?? '')) throw new Ablehnung('Projekt und Version fehlen');
     if (!Buffer.isBuffer(req.body) || !req.body.length) throw new Ablehnung('Die Datei fehlt');
-    return merken(req.benutzer!.id, await planen(e.db, e.register, req.benutzer!, q.projekt!, q.version!, await lies(req.body)));
+    // Die 3D-Ansicht rechnet der IFC-Dienst nebenher; gespeichert wird sie mit der Übernahme (ohne auf sie zu warten).
+    // Stimmt das Modell schon mit dem Plan überein, gibt es nichts zu übernehmen – dann zählt der Plan sofort, wenn noch keine 3D-Ansicht da ist.
+    const netz = netzRechnen(req.body);
+    const ablegen = () => { void netz.then((b) => (b ? netzSpeichern(q.version!, b) : undefined)).catch(() => undefined); };
+    const plan = await planen(e.db, e.register, req.benutzer!, q.projekt!, q.version!, await lies(req.body));
+    if (!plan.liste.length && !(await netzDa(q.version!))) ablegen();
+    return merken(req.benutzer!.id, plan, async () => ablegen());
   });
 }

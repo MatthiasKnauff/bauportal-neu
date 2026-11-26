@@ -15,6 +15,7 @@ import { versionKopieren, versionsregelnAnmelden } from './versionen';
 import { gebaeudemodellRegelnAnmelden } from './gebaeudemodell';
 import { ablageRouten } from './ablage';
 import { ifcRouten } from './ifc';
+import { netzRouten } from './netz';
 import { assistentRouten } from './assistent';
 import { uebernahmeRouten } from './uebernahme';
 import { druckRouten } from './druck';
@@ -212,6 +213,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
 
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
   ifcRouten(app, { db, register, nurAngemeldet });
+  netzRouten(app, { db, nurAngemeldet });
   assistentRouten(app, { db, register, nurAngemeldet });
   druckRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   bauzeitenplanRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet });

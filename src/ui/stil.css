@@ -919,13 +919,13 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .seitenliste-chips { padding: 4px 8px 10px; gap: 4px; }
 .seitenliste-chips h3 { margin: 10px 2px 4px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-still); background: none; padding: 0; }
 .seitenliste-chips .chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.seitenliste-chips .chip { border: 1px solid var(--rand-stark); background: var(--flaeche); color: var(--text); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 13px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seitenliste-chips .chip:hover { border-color: var(--akzent); }
-.seitenliste-chips .chip.aktiv { border-color: var(--akzent); background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
-.seitenliste-chips .chip.nicht { border-color: var(--gefahr); color: var(--gefahr); text-decoration: line-through; }
-.seitenliste-chips .chip.still { border-style: dashed; color: var(--text-still); }
-.seitenliste-chips .chip-anzahl { color: var(--text-still); font-weight: 400; }
-.seitenliste-chips .chip.aktiv .chip-anzahl { color: inherit; }
+.chip { border: 1px solid var(--rand-stark); background: var(--flaeche); color: var(--text); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 13px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip:hover { border-color: var(--akzent); }
+.chip.aktiv { border-color: var(--akzent); background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
+.chip.nicht { border-color: var(--gefahr); color: var(--gefahr); text-decoration: line-through; }
+.chip.still { border-style: dashed; color: var(--text-still); }
+.chip-anzahl { color: var(--text-still); font-weight: 400; }
+.chip.aktiv .chip-anzahl { color: inherit; }
 .seitenliste-chips .chip-kasten { border: 1px dashed var(--rand-stark); border-radius: calc(8px * var(--rund)); padding: 4px 8px; display: flex; flex-direction: column; gap: 2px; }
 .seitenliste-chips .chip-kasten.aktiv { border-style: solid; border-color: var(--akzent); background: var(--akzent-hell); }
 .seitenliste-chips .chip-kasten > button { display: flex; justify-content: space-between; gap: 8px; border: 0; background: none; padding: 2px 0; font: inherit; text-align: left; cursor: pointer; }
@@ -960,3 +960,19 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .fs-prozent button.laut-plan { border-style: dashed; border-color: var(--akzent); }
 .fs-prozent button.aktiv { background: var(--akzent); border-color: var(--akzent); color: #fff; font-weight: 700; }
 .fs-prozent button:disabled { cursor: default; opacity: .7; }
+
+/* 3D-Ansicht (Baustein ansicht3d) */
+.mitte-3d { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px; }
+.ansicht3d { position: relative; flex: 1; min-height: 320px; border-radius: calc(10px * var(--rund)); overflow: hidden; background: linear-gradient(#f6f7f8, #e6e9ec); border: 1px solid var(--rand); }
+.ansicht3d canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.ansicht3d canvas:active { cursor: grabbing; }
+.ansicht3d-oben, .ansicht3d-faerbung { position: absolute; left: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; pointer-events: none; }
+.ansicht3d-oben { top: 10px; } .ansicht3d-faerbung { bottom: 10px; justify-content: flex-end; }
+.ansicht3d-oben > *, .ansicht3d-faerbung > * { pointer-events: auto; }
+.ansicht3d .chip:not(.aktiv) { background: color-mix(in srgb, var(--flaeche) 90%, transparent); }
+.ansicht3d-regler { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 2px 10px; border: 1px solid var(--rand); border-radius: 99px; background: color-mix(in srgb, var(--flaeche) 90%, transparent); }
+.ansicht3d-regler input { width: 90px; accent-color: var(--akzent); }
+.ansicht3d-legende { position: absolute; left: 10px; bottom: 10px; margin: 0; padding: 6px 10px; list-style: none; font-size: 12px; background: color-mix(in srgb, var(--flaeche) 90%, transparent); border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); display: flex; flex-direction: column; gap: 2px; }
+.ansicht3d-legende i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; border: 1px solid rgba(0,0,0,.15); }
+.ansicht3d-info { position: absolute; right: 10px; top: 50px; max-width: 320px; padding: 6px 10px; font-size: 12.5px; background: color-mix(in srgb, var(--flaeche) 94%, transparent); border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); pointer-events: none; }
+.ansicht3d-fehler { position: absolute; inset: 40% 10px auto; text-align: center; color: var(--text-still); }
