@@ -1278,3 +1278,16 @@ test('Gewerke & Firmen: Gewerke aus dem Plan mit Einsatz (Pausen bleiben Lücken
   assert.deepEqual(g.firmaInDenPlan(ls, 'Rohbau', 'k9', null), [{ id: 'b', werte: { firma: 'k9' } }], 'nur leere – k1 bleibt (Nachunternehmer)');
   assert.deepEqual(g.firmaInDenPlan(ls, 'Rohbau', 'k9', 'k1').map((x) => x.id), ['a', 'b'], 'die bisherige Firma des Gewerks wird ersetzt');
 });
+
+test('Handbuch aus dem Programm: drei Stufen, Admin-Ansichten und Rechte nur für Admins', async () => {
+  const { handbuchHtml } = await import('../src/kern/handbuch');
+  const MODULE = (await import('../src/module/index')).register.module;
+  const a = handbuchHtml(MODULE, 'anwender', { buero: 'GK3', version: 'v1', erzeugt: 'heute' });
+  const ad = handbuchHtml(MODULE, 'admin', { buero: 'GK3', version: 'v1', erzeugt: 'heute' });
+  const en = handbuchHtml(MODULE, 'entwickler', { buero: 'GK3', version: 'v1', erzeugt: 'heute', aufbau: '# Aufbau <test>' });
+  assert.match(a, /Handbuch für Anwender:innen/); assert.match(a, /<h2 id="bautagebuch">Bautagebuch<\/h2>/); assert.match(a, /Strg\+K/);
+  assert.ok(!a.includes('id="rollen"') && !a.includes('(nur Administrator:innen)</small>'), 'Anwender:innen: keine Rechte, keine Admin-Ansichten');
+  assert.ok(ad.includes('(nur Administrator:innen)</small>'));
+  assert.ok(ad.includes('id="rollen"') && !ad.includes('Aufbau des Programms'));
+  assert.ok(en.includes('Aufbau des Programms') && en.includes('# Aufbau &lt;test&gt;') && en.includes('<code>kontakt.name</code>'), 'Entwickler:innen: Aufbau und technische Namen');
+});

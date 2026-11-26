@@ -3,14 +3,10 @@
 import { For, Show } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import { Dialog } from './baukasten/dialog';
+import { STUFEN, UEBERALL } from '../kern/handbuch';
+import { istAdmin } from './unterbau/api';
 
-const UEBERALL: [string, string][] = [
-  ['Strg+K', 'Suche über alles – Projekte, Firmen, Berichte, Leistungen …'],
-  ['Strg+Z / Strg+Y', 'Rückgängig und Wiederholen, auch für mehrere Änderungen in einem Schritt'],
-  ['Pfeiltasten, Enter', 'in Tabellen bewegen und öffnen; in Zellen tippen ändert sofort'],
-  ['Esc', 'Fenster schließen, Eingabe abbrechen'],
-  ['Rechtsklick', 'Menü zu einem Eintrag (Öffnen, Duplizieren, Löschen …)'],
-];
+
 
 export function Hilfe(p: { modul?: Beipackzettel; ansicht?: Ansicht; onZu: () => void }) {
   return (
@@ -20,6 +16,11 @@ export function Hilfe(p: { modul?: Beipackzettel; ansicht?: Ansicht; onZu: () =>
         <Show when={p.ansicht?.hilfe}><For each={p.ansicht!.hilfe!.split(/\n\s*\n/)}>{(absatz) => <p>{absatz}</p>}</For></Show>
         <h3>Überall gleich</h3>
         <dl class="hilfe-tasten"><For each={UEBERALL}>{([t, w]) => <><dt><kbd>{t}</kbd></dt><dd>{w}</dd></>}</For></dl>
+        <h3>Handbuch</h3>
+        <p class="still-text klein-text">Entsteht aus dem Programm selbst und wird nachts neu erzeugt, wenn sich etwas geändert hat.</p>
+        <div class="reihe"><For each={STUFEN.filter((x) => x.wert === 'anwender' || istAdmin())}>{(x) => <>
+          <a class="knopf klein" href={`/api/handbuch?stufe=${x.wert}`} target="_blank" rel="noopener">Handbuch {x.titel}</a>
+          <a class="knopf klein still" href={`/api/handbuch?stufe=${x.wert}&format=pdf`}>PDF</a></>}</For></div>
       </div>
     </Dialog>
   );
