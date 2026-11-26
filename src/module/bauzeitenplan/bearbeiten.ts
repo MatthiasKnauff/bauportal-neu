@@ -383,3 +383,15 @@ export function ueberfluessigeLinks(v: V[], l: L[]): string[] {
   for (const x of reihe) for (const k of vor.get(x.id) ?? []) if (k.abstand === 0 && wartet(k.nach, k.von, k.id)) weg.add(k.id);
   return [...weg];
 }
+
+/** „Neu → Gruppe“ wie bisher: eine Leistungsgruppe über die gewählten Zeilen (mit allem darunter) – sie rücken eine Ebene tiefer.
+ *  v in Reihenfolge des Plans. Ohne Wahl: eine leere Gruppe am Ende. */
+export function gruppeUm(v: V[], ids: string[], z: Record<string, Wert>, neu: Neu, name = 'Neue Leistungsgruppe'): { befehle: Vorlage[]; id: string } {
+  const bl = bloeckeVon(v, ids), id = neu();
+  if (!bl.length) return { befehle: [{ objekt: 'vorgang', art: 'anlegen', objektId: id, werte: { ...z, name, dauer: 1, fortschritt: 0, reihe: (v[v.length - 1]?.reihe ?? 0) + 1, ebene: 0 } }], id };
+  const a = bl[0]![0], e = Math.max(...bl.map(([, x]) => x));
+  const ebene = Math.min(...v.slice(a, e).map((x) => x.ebene));
+  const reihe = a > 0 ? (v[a - 1]!.reihe + v[a]!.reihe) / 2 : v[a]!.reihe - 1;
+  return { befehle: [{ objekt: 'vorgang', art: 'anlegen', objektId: id, werte: { ...z, name, dauer: 1, fortschritt: 0, reihe, ebene } },
+    ...v.slice(a, e).map((x): Vorlage => ({ objekt: 'vorgang', art: 'aendern', objektId: x.id, werte: { ebene: x.ebene + 1 } }))], id };
+}

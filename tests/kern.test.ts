@@ -1521,3 +1521,11 @@ test('Bauzeitenplan aufräumen: überflüssige Verknüpfungen', async () => {
   // zwei Wege, die sich gegenseitig stützen, fallen nicht beide weg
   assert.deepEqual(ueberfluessigeLinks(v, [L('1', 'a', 'b'), L('2', 'b', 'c'), L('3', 'a', 'c'), L('6', 'a', 'b')]).length, 2);
 });
+
+test('Bauzeitenplan: Gruppe um die gewählten Zeilen', async () => {
+  const { gruppeUm } = await import('../src/module/bauzeitenplan/bearbeiten');
+  const v = [{ id: 'a', reihe: 1, ebene: 0 }, { id: 'b', reihe: 2, ebene: 0 }, { id: 'c', reihe: 3, ebene: 1 }, { id: 'd', reihe: 4, ebene: 0 }];
+  const r = gruppeUm(v, ['b'], {}, () => 'g');
+  assert.deepEqual(r.befehle.map((b) => [b.objektId, b.werte?.ebene, b.werte?.reihe]), [['g', 0, 1.5], ['b', 1, undefined], ['c', 2, undefined]]);
+  assert.equal(gruppeUm(v, [], {}, () => 'g').befehle[0]!.werte!.reihe, 5);
+});

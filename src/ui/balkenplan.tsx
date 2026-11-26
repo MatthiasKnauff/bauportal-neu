@@ -15,7 +15,7 @@ import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenpla
 import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
-import { ablageAus, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { ablageAus, gruppeUm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { DuplizierenFenster } from './duplizieren';
 import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
@@ -116,6 +116,9 @@ export function Balkenplan(p: Mitte) {
     tun(b, art === 'ein' ? 'Einrücken' : art === 'aus' ? 'Ausrücken' : 'Verschieben');
   };
   createEffect(() => p.setKnoepfe([
+    // Neu wie bisher: nach „Leistung“ auch Gruppe (um die gewählten Zeilen) und Meilenstein
+    ...(schreiben() ? [{ titel: 'Gruppe', zeichen: 'gruppe_neu', gruppe: 'Neu', tun: neueGruppe },
+      { titel: 'Meilenstein', zeichen: 'meilenstein', gruppe: 'Neu', tun: () => neuDarunter({ name: 'Neuer Meilenstein', dauer: 0 }) }] : []),
     ...(schreiben() ? [
       { titel: 'Kopieren', zeichen: 'kopieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: kopieren },
       { titel: 'Ausschneiden', zeichen: 'ausschneiden', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: ausschneiden },
@@ -155,6 +158,10 @@ export function Balkenplan(p: Mitte) {
   const fortschrittJetzt = () => Math.round(Number(sicht.vorgang?.[fortschrittIds()[0] ?? '']?.werte.fortschritt ?? 0));
   const fortschrittSetzen = (w: number) => tun(fortschrittIds().filter((id) => Number(sicht.vorgang?.[id]?.werte.fortschritt ?? 0) !== w)
     .map((id) => ({ objekt: 'vorgang', art: 'aendern' as const, objektId: id, werte: { fortschritt: w } })), `Fortschritt ${w} %`);
+  const neueGruppe = () => {
+    const r = gruppeUm(V_(), gewaehlt(), zu(), neueKennung);
+    tun(r.befehle, 'Gruppe einfügen'); setMarkiert(r.id); queueMicrotask(() => bearbeiten(r.id, 'name'));
+  };
   // Aufräumen wie bisher: überflüssige Verknüpfungen entfernen – die Termine bleiben gleich
   const aufraeumen = () => {
     const weg = ueberfluessigeLinks(V_(), L_());
