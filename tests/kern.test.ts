@@ -1353,3 +1353,25 @@ test('Handbuch aus dem Programm: drei Stufen, Admin-Ansichten und Rechte nur fü
   assert.ok(ad.includes('id="rollen"') && !ad.includes('Aufbau des Programms'));
   assert.ok(en.includes('Aufbau des Programms') && en.includes('# Aufbau &lt;test&gt;') && en.includes('<code>kontakt.name</code>'), 'Entwickler:innen: Aufbau und technische Namen');
 });
+
+test('Aufmaß einlesen: Kopfzeile finden, OZ zuordnen (01.0010 = 1.10), Zeilen addieren, fremde OZ melden', async () => {
+  const a = await import('../src/module/ava/aufmasslesen');
+  assert.equal(a.mengeLesen('1.234,5'), 1234.5);
+  assert.equal(a.mengeLesen('12.5'), 12.5);
+  assert.equal(a.mengeLesen('3,2 m²'), 3.2);
+  assert.equal(a.mengeLesen('–'), null);
+  const pos = [{ id: 'p1', werte: { oz: '01.0010' } }, { id: 'p2', werte: { oz: '01.0020' } }];
+  const l = a.aufmassAusZeilen([
+    ['Aufmaß Rohbau', '', '', ''],
+    ['Pos.', 'Text', 'Menge LV', 'Menge'],
+    ['1.10', 'Wand Nord', '20', '12,5'],
+    ['1.10.', 'Wand Süd', '', '7,5'],
+    ['01.0020', 'Decke', '5', '4'],
+    ['01.0099', 'Zusatz', '', '1'],
+    ['', 'Summe', '', '24'],
+  ], pos);
+  assert.equal(l.mengeSpalte, 'Menge');
+  assert.deepEqual(l.treffer.map((t) => [t.position, t.menge, t.zeilen]), [['p1', 20, 2], ['p2', 4, 1]]);
+  assert.deepEqual(l.fremd, ['01.0099']);
+  assert.throws(() => a.aufmassAusZeilen([['a', 'b']], pos), /Kopfzeile/);
+});

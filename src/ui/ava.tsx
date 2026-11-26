@@ -1,5 +1,6 @@
 // Ausschreibung in der Oberfläche: Summen in den Karten (LV, Position) und der Preisspiegel – Positionen mit den Preisen
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
+import { AufmassEinlesen } from './aufmasseinlesen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, type Pruefstand } from '../module/ava/rechnung';
@@ -247,6 +248,7 @@ export function Aufmasspruefung(p: Mitte): JSX.Element {
         <div class="ps-kopf">
           <h2>Aufmaß · {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
           <span class="still-text">{auftrag() ? `Auftrag: ${name(auftrag()!.werte.bieter)}` : 'noch nicht vergeben – Beträge erst mit Auftrag'}</span>
+          <Show when={schreiben() && pos().length}><AufmassEinlesen lv={lv()!} positionen={pos()} aufmasse={aufmasse()} /></Show>
         </div>
         <Show when={pos().length} fallback={<p class="still-text">Dieses LV hat noch keine Positionen.</p>}>
           <div class="ps-rollen">
