@@ -286,6 +286,8 @@ export const ava: Beipackzettel = {
   ansichten: [
     { id: 'lvs', titel: 'Leistungsverzeichnisse', abschnitt: 'Ausschreibung', zeichen: 'liste_aufgaben', objekt: 'lv', baum: ['status'], brauchtProjekt: true,
       hilfe: 'Je Gewerk ein Leistungsverzeichnis (Vergabeeinheit) mit Stand, Kostenansatz und Terminen. Die Positionen stehen unter „Positionen“; rechts in der Karte die Summen: geschätzt, Angebote, Auftrag, abgerechnet.' },
+    { id: 'lv', titel: 'LV bearbeiten', abschnitt: 'Ausschreibung', zeichen: 'ausschreibung', objekt: 'lv', brauchtProjekt: true,
+      hilfe: 'Links ein LV wählen: Titel und Positionen als Baum. Zelle anklicken und lostippen oder doppelklicken; Enter eine Zeile tiefer, Tab zur nächsten Spalte. Art: N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext. ¶ klappt den Langtext auf. Einfg legt eine Position unter der markierten an (Alt+Einfg einen Titel), Entf löscht. „Nummerieren“ vergibt die OZ neu. Nach der Vergabe gesperrt – 🔒 schaltet frei.' },
     { id: 'positionen', titel: 'Positionen', abschnitt: 'Ausschreibung', zeichen: 'liste', objekt: 'lv_position', baum: ['lv', 'nachtrag'], brauchtProjekt: true,
       hilfe: 'Die Positionen aller LVs, links nach LV gegliedert. Ordnungszahl (OZ) wie 01.02.0010: Titel enthalten Positionen. Rechts in der Karte der Gesamtpreis (Menge × EP).' },
     { id: 'versand', titel: 'Versand & Rücklauf', abschnitt: 'Vergabe', zeichen: 'senden', objekt: 'lv', brauchtProjekt: true,

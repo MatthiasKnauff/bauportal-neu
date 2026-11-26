@@ -30,6 +30,7 @@ import { assistentStarten, gaebEinlesen, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
 import { handy } from './unterbau/geraet';
 import { ansehen } from './baukasten/ansehen';
+import { LvBearbeiten, lvZeiger, setLvZeiger } from './lvbearbeiten';
 import { Updates } from './updates';
 import { AufbauAnsicht } from './aufbau';
 import { Altdaten } from './altdaten';
@@ -449,6 +450,9 @@ const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSU
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
+  'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
+    detailsHinweis: 'Eine Zeile anklicken – hier stehen dann alle Angaben der Position (Kurz- und Langtext, Menge, Einheit, Preis), direkt änderbar.',
+    details: (_, heftzwecke) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={z} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : undefined; } },
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },
   'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',

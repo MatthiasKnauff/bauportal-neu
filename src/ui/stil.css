@@ -1393,3 +1393,23 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .ansehen-inhalt { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px 12px; }
 .ansehen-inhalt img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; }
 .ansehen-inhalt .pdf-ansicht { align-self: stretch; width: min(100%, 1000px); margin: 0 auto; background: transparent; }
+
+/* LV bearbeiten: Baum aus Titeln und Positionen, Zellen wie im Balkenplan */
+.lvt { flex: 1; min-height: 0; overflow: auto; outline: none; padding: 10px 14px 20px; }
+.lvt-kopf-lv { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; } .lvt-kopf-lv h2 { margin: 0; font-size: 17px; } .lvt-summe { margin-left: auto; color: var(--text-still); } .lvt-summe b { color: var(--text); }
+.lvt-tabelle { width: max-content; min-width: 100%; }
+.lvt-zeile { display: flex; height: 30px; border-bottom: 1px solid var(--rand); user-select: none; }
+.lvt-kopf { position: sticky; top: -10px; z-index: 2; background: var(--still-hell); font-size: 12px; font-weight: 600; color: var(--text-still); }
+.lvt-kopf .lvt-zelle { position: relative; cursor: grab; } .lvt-kopf .griff { position: absolute; right: -1px; top: 0; bottom: 0; width: 8px; cursor: col-resize; }
+.lvt-kopf .griff:hover { background: var(--akzent-hell); border-right: 2px solid var(--akzent); }
+.lvt-zelle { flex: none; height: 30px; line-height: 30px; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border-right: 1px solid var(--rand); font-size: 13px; }
+.lvt-zelle.rechts { text-align: right; } .lvt-zelle.zeiger { box-shadow: inset 0 0 0 1px var(--akzent); }
+.lvt-zeile.titel { font-weight: 600; background: color-mix(in srgb, var(--still) 55%, transparent); }
+.lvt-zeile.hinweis { color: var(--text-still); font-style: italic; }
+.lvt-zeile.gewaehlt, .lvt-zeile.gewaehlt .lvt-zelle { background: var(--akzent-hell); }
+.lvt-baum { display: inline-flex; align-items: center; gap: 4px; }
+.lvt-lang-knopf { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--text-still); cursor: pointer; font-size: 13px; line-height: 20px; }
+.lvt-lang-knopf.an { color: var(--akzent); font-weight: 700; } .lvt-lang-knopf:hover { background: var(--still); }
+.lvt-edit { width: 100%; height: 26px; border: 1px solid var(--akzent); border-radius: 4px; padding: 0 4px; font: inherit; }
+.lvt-lang { padding: 6px 10px 10px; border-bottom: 1px solid var(--rand); background: var(--still-hell); } .lvt-lang textarea { width: min(100%, 900px); font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--rand-stark); border-radius: calc(6px * var(--rund)); }
+.lvt-leer { padding: 14px; }
