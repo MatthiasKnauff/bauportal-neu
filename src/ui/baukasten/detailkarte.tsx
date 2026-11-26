@@ -83,7 +83,8 @@ export function Detailkarte(p: {
           <button class="knopf still nur-breit" aria-label="In eigenem Fenster öffnen" title="In eigenem Fenster öffnen" onClick={() => inEigenemFenster(p.modell, p.zeile.id)}>{p.symbole?.fenster ?? '⧉'}</button>
           <span class="nur-breit-flex">{p.heftzwecke}</span>
         </Show>
-        <Show when={p.onZu}><button class="knopf still nur-breit" aria-label="Karte schließen" title="Schließen (Esc)" onClick={p.onZu}>{p.symbole?.schliessen ?? '×'}</button></Show>
+        {/* rechts angeheftet: die Heftzwecke entscheidet über den Platz, die Karte schließt mit Esc oder „‹ Liste“ – ein Kreuz nur im eigenen Fenster */}
+        <Show when={p.onZu && !p.heftzwecke}><button class="knopf still nur-breit" aria-label="Karte schließen" title="Schließen (Esc)" onClick={p.onZu}>{p.symbole?.schliessen ?? "×"}</button></Show>
       </div>
       <Show when={p.blaettern && p.blaettern.anzahl > 1}>{(_) => { const b = () => p.blaettern!; return (
         <div class="karte-blaettern">
