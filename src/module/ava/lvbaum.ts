@@ -65,3 +65,26 @@ export function titelSumme(zeilen: LvZeile[], titel: string, gpVon: (id: string)
   const t = zeilen.find((z) => z.id === titel); if (!t) return 0;
   return Math.round(zeilen.filter((z) => !z.titel && z.oz.startsWith(`${t.oz}.`)).reduce((s, z) => s + (gpVon(z.id) ?? 0), 0) * 100) / 100;
 }
+
+/** Zeilen an eine andere Stelle (wie im bisherigen Bauportal an der OZ gezogen): die gewählten – ein Titel mit allem darunter –
+ *  hinter „nach“ (null: an den Anfang). Bewegt werden nur ihre OZ; die übrigen Zeilen behalten ihre. → Kennung → neue OZ. */
+export function verschieben(zeilen: LvZeile[], ids: string[], nach: string | null, m: OzMaske = MASKE_VORGABE): Map<string, string> {
+  const gewaehlt = new Set(ids), unter = (z: LvZeile, t: LvZeile) => z.oz.startsWith(`${t.oz}.`);
+  const wurzeln = zeilen.filter((z) => gewaehlt.has(z.id) && !zeilen.some((t) => t.titel && gewaehlt.has(t.id) && unter(z, t)));
+  if (!wurzeln.length || wurzeln.some((w) => w.id === nach || (nach && w.titel && unter(zeilen.find((z) => z.id === nach)!, w)))) return new Map();
+  const mit = new Set(wurzeln.flatMap((w) => [w.id, ...(w.titel ? zeilen.filter((z) => unter(z, w)).map((z) => z.id) : [])]));
+  // der Stand ohne die bewegten Zeilen; jede Wurzel kommt hinter die vorige
+  let rest = zeilen.filter((z) => !mit.has(z.id));
+  const neu = new Map<string, string>(), art = (z: LvZeile) => (z.titel ? 'titel' : 'normal');
+  let anker = nach;
+  for (const w of wurzeln) {
+    const oz = anker ? neueOz(rest, { nach: anker, titel: w.titel }, m) : (w.titel ? '00' : '0000');
+    neu.set(w.id, oz);
+    const dazu = [w, ...(w.titel ? zeilen.filter((z) => unter(z, w)) : [])].map((z) => ({ id: z.id, werte: { oz: z.id === w.id ? oz : oz + z.oz.slice(w.oz.length), art: art(z) } }));
+    for (const d of dazu) if (d.id !== w.id) neu.set(d.id, String(d.werte.oz));
+    rest = lvZeilen([...rest.map((z) => ({ id: z.id, werte: { oz: z.oz, art: art(z) } })), ...dazu]);
+    anker = w.id;
+  }
+  for (const z of zeilen) if (neu.get(z.id) === z.oz) neu.delete(z.id);
+  return neu;
+}

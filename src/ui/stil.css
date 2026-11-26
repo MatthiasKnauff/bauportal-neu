@@ -1413,3 +1413,5 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lvt-edit { width: 100%; height: 26px; border: 1px solid var(--akzent); border-radius: 4px; padding: 0 4px; font: inherit; }
 .lvt-lang { padding: 6px 10px 10px; border-bottom: 1px solid var(--rand); background: var(--still-hell); } .lvt-lang textarea { width: min(100%, 900px); font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--rand-stark); border-radius: calc(6px * var(--rund)); }
 .lvt-leer { padding: 14px; }
+.lvt { position: relative; } .lvt-ziel { position: absolute; left: 14px; right: 14px; height: 2px; background: var(--akzent); z-index: 3; pointer-events: none; }
+.lvt-baum { cursor: grab; }

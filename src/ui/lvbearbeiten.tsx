@@ -5,7 +5,7 @@
 // 🔒 schaltet es bis zum Neuladen frei (Positionen sind dann Vertragsinhalt).
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Wert } from '../kern/modell';
-import { lvZeilen, neueOz, nummerieren, titelSumme, type LvZeile } from '../module/ava/lvbaum';
+import { lvZeilen, neueOz, nummerieren, titelSumme, verschieben, type LvZeile } from '../module/ava/lvbaum';
 import { gp, zaehlt, zahl } from '../module/ava/rechnung';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
@@ -107,6 +107,50 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     ausfuehrenMehrere([...n].map(([id, oz]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: id, werte: { oz } })), 'Nummerieren');
     hinweis(`${n.size} Ordnungszahl${n.size === 1 ? '' : 'en'} neu vergeben (Titel zweistellig, Positionen in Zehnerschritten).`);
   };
+  // ---------- Zeilen ziehen (an der OZ greifen) und Zwischenablage (Strg+C/X/V) ----------
+  const ozSetzen = (neu: Map<string, string>, titel: string) => { if (neu.size) ausfuehrenMehrere([...neu].map(([id, oz]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: id, werte: { oz } })), titel); };
+  const [zug, setZug] = createSignal<{ ids: string[]; nach: string | null; y: number } | null>(null);
+  const zugStart = (e: PointerEvent, id: string) => {
+    if (e.button !== 0 || !schreiben()) return;
+    e.preventDefault(); e.stopPropagation();
+    if (!wahl.istGewaehlt(id)) wahl.setMarkiert(id);
+    const ids = wahl.gewaehlt(), y0 = e.clientY;
+    const ziel = (ev: PointerEvent) => {
+      const r = (document.elementFromPoint(ev.clientX, ev.clientY) as Element | null)?.closest<HTMLElement>('.lvt-zeile[data-id]');
+      if (!r) return null;
+      const b = r.getBoundingClientRect(), unten = ev.clientY > b.top + b.height / 2, l = sichtbar(), i = l.findIndex((z) => z.id === r.dataset.id);
+      return { nach: unten ? r.dataset.id! : l[i - 1]?.id ?? null, y: (unten ? b.bottom : b.top) - flaeche.getBoundingClientRect().top + flaeche.scrollTop };
+    };
+    const bewegt = (ev: PointerEvent) => { if (Math.abs(ev.clientY - y0) < 4 && !zug()) return; const z = ziel(ev); if (z) setZug({ ids, ...z }); };
+    const los = () => {
+      removeEventListener('pointermove', bewegt); removeEventListener('pointerup', los);
+      const z = zug(); setZug(null); if (!z) return;
+      const neu = verschieben(zeilen(), z.ids, z.nach);
+      if (!neu.size) { hinweis('Dorthin geht es nicht – ein Titel lässt sich nicht in sich selbst ziehen.', { art: 'fehler' }); return; }
+      ozSetzen(neu, z.ids.length === 1 ? 'Zeile verschieben' : `${z.ids.length} Zeilen verschieben`);
+    };
+    addEventListener('pointermove', bewegt); addEventListener('pointerup', los);
+  };
+  type Ablage = { titel: boolean; oz: string; werte: Record<string, Wert> }[];
+  const KOPIERT = ['art', 'kurztext', 'langtext', 'menge', 'einheit', 'ep'];
+  const kopieren = (weg = false) => {
+    const ids = new Set(wahl.gewaehlt()); if (!ids.size) return;
+    for (const z of zeilen()) if (z.eltern && ids.has(z.eltern)) ids.add(z.id);
+    const a: Ablage = zeilen().filter((z) => ids.has(z.id)).map((z) => ({ titel: z.titel, oz: z.oz, werte: Object.fromEntries(KOPIERT.map((f) => [f, (nachId(z.id)?.werte[f] ?? null) as Wert])) }));
+    try { localStorage.setItem('bp.lv.ablage', JSON.stringify(a)); } catch { /* ohne Speicher */ }
+    if (weg) loeschen(); else hinweis(`${a.length === 1 ? 'Zeile' : `${a.length} Zeilen`} kopiert – Strg+V fügt sie unter der markierten ein.`);
+  };
+  const einfuegen = () => {
+    let a: Ablage = []; try { a = JSON.parse(localStorage.getItem('bp.lv.ablage') ?? '[]') as Ablage; } catch { /* unlesbar */ }
+    if (!a.length || !schreiben() || !lv()) return;
+    // vorläufige OZ „~k…“ (Gliederung bleibt), dann wie beim Ziehen hinter die markierte Zeile
+    const wurzeln = a.filter((x) => !a.some((t) => t.titel && t !== x && x.oz.startsWith(`${t.oz}.`)));
+    const neueIds = a.map(() => neueKennung()), vorl = a.map((x) => { const w = wurzeln.findIndex((r) => r === x || x.oz.startsWith(`${r.oz}.`)); return `~${w}${x.oz.slice(wurzeln[w]!.oz.length)}`; });
+    const tmp = lvZeilen([...zeilen().map((z) => ({ id: z.id, werte: { oz: z.oz, art: z.titel ? 'titel' : 'normal' } })), ...a.map((x, i) => ({ id: neueIds[i]!, werte: { oz: vorl[i]!, art: x.titel ? 'titel' : 'normal' } }))]);
+    const oz = verschieben(tmp, wurzeln.map((r) => neueIds[a.indexOf(r)]!), wahl.markiert());
+    ausfuehrenMehrere(a.map((x, i) => ({ objekt: 'lv_position', art: 'anlegen' as const, objektId: neueIds[i]!, werte: { ...x.werte, projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(neueIds[i]!) ?? vorl[i]! } })), a.length === 1 ? 'Zeile einfügen' : `${a.length} Zeilen einfügen`);
+    wahl.mehrere(neueIds);
+  };
   const freischalten = () => { const id = lv()?.id; if (!id) return; if (FREI.has(id)) FREI.delete(id); else FREI.add(id); setFrei(frei() + 1); };
   createEffect(() => p.setKnoepfe([
     ...(darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Titel', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(true) },
@@ -123,8 +167,11 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     const l = sichtbar(), i = l.findIndex((z) => z.id === wahl.markiert()), m = l[i];
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = l[Math.max(0, Math.min(l.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))]; if (n) { if (e.shiftKey) wahl.erweitern(n.id); else wahl.setMarkiert(n.id); } return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); wahl.alle(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); einfuegen(); return; }
     if (e.key === 'Escape') { wahl.setMarkiert(m?.id ?? null); return; }
     if (!m) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); kopieren(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x' && schreiben()) { e.preventDefault(); kopieren(true); return; }
     if (e.key === 'Delete') { e.preventDefault(); loeschen(); return; }
     if (e.key === 'Insert') { e.preventDefault(); neu(e.altKey); return; }
     if (e.key === 'F2' || e.key === 'Enter') { e.preventDefault(); bearbeiten(m.id, spalte()); return; }
@@ -146,6 +193,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     e.preventDefault(); if (!wahl.istGewaehlt(z.id)) wahl.setMarkiert(z.id);
     zeigeMenue(e, [
       ...(schreiben() ? [{ titel: 'Position darunter', tun: () => neu(false) }, { titel: 'Titel darunter', tun: () => neu(true) }] : []),
+      { titel: 'Kopieren', tun: () => kopieren() }, ...(schreiben() ? [{ titel: 'Einfügen darunter', tun: einfuegen }] : []),
       ...(!z.titel ? [{ titel: lang().has(z.id) ? 'Langtext zuklappen' : 'Langtext zeigen', tun: () => umschaltenLang(z.id) }] : []),
       ...(z.titel ? [{ titel: zu().has(z.id) ? 'Aufklappen' : 'Zuklappen', tun: () => umschalten(z.id) }] : []),
       ...(schreiben() && darf('lv_position', 'loeschen') ? [{ titel: wahl.gewaehlt().length > 1 ? `${wahl.gewaehlt().length} Zeilen löschen` : z.titel ? 'Titel mit Inhalt löschen' : 'Position löschen', gefahr: true, tun: loeschen }] : []),
@@ -170,14 +218,15 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
               <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: alle Spalten passend zum Inhalt" onPointerDown={(e) => spw.breiteZiehen(e, s.id)} onDblClick={(e) => { e.stopPropagation(); spaltenPassend(); }} /></div>}</For>
           </div>
           <div class="lvt-zeilen">
+            <Show when={zug()}>{(g) => <div class="lvt-ziel" style={{ top: `${g().y - 1}px` }} />}</Show>
             <For each={sichtbar().map((x) => x.id)} fallback={<p class="still-text lvt-leer">Noch keine Positionen. Mit „Titel“ und „Position“ oben anfangen oder eine GAEB-Datei einlesen.</p>}>{(id) => { const z = () => nachZeile().get(id)!; return (<>
-              <div class="lvt-zeile" role="row" aria-level={z().ebene + 1} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, hinweis: nachId(z().id)?.werte.art === 'hinweis' }}
+              <div class="lvt-zeile" data-id={id} role="row" aria-level={z().ebene + 1} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, hinweis: nachId(z().id)?.werte.art === 'hinweis' }}
                 onClick={(e) => { if (!edit()) wahl.klick(e, z().id); }} onContextMenu={(e) => menue(e, z())}>
                 <For each={spalten()}>{(s) => (
                   <div class="lvt-zelle" role="gridcell" classList={{ rechts: !!s.rechts, zeiger: wahl.markiert() === z().id && spalte() === s.id }} style={{ width: `${s.breite}px` }}
                     onClick={() => setSpalte(s.id as Sp)} onDblClick={() => bearbeiten(z().id, s.id as Sp)}>
                     <Show when={edit()?.id === z().id && edit()?.spalte === s.id} fallback={
-                      s.id === 'oz' ? <span class="lvt-baum" style={{ 'padding-left': `${z().ebene * 16}px` }}>
+                      s.id === 'oz' ? <span class="lvt-baum" style={{ 'padding-left': `${z().ebene * 16}px` }} title="Zum Verschieben hier greifen und ziehen" onPointerDown={(e) => zugStart(e, id)}>
                         <Show when={z().titel} fallback={<button type="button" class="lvt-lang-knopf" classList={{ an: lang().has(z().id) || !!nachId(z().id)?.werte.langtext }} title="Langtext" onClick={(e) => { e.stopPropagation(); umschaltenLang(z().id); }}>¶</button>}>
                           <Klappe zu={zu().has(z().id)} onKlick={() => umschalten(z().id)} /><Ordner offen={!zu().has(z().id)} /></Show>{z().oz}</span> : wert(z(), s.id as Sp)}>
                       <input class="lvt-edit" value={edit()!.text} ref={(el) => queueMicrotask(() => { el.focus(); el.setSelectionRange(el.value.length, el.value.length); })}

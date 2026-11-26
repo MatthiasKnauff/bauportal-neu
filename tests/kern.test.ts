@@ -1585,3 +1585,13 @@ test('LV als Baum: Ebenen aus der OZ, Nummerieren, neue OZ', async () => {
   assert.equal(neueOz(z, { nach: 't3', titel: true }), '03');             // Titel hinter Titel 02
   assert.equal(titelSumme(z, 't1', (id) => ({ p1: 10, p2: 5, p3: 2.5, p4: 99 } as Record<string, number>)[id] ?? null), 17.5);
 });
+
+test('LV: Zeilen an eine andere Stelle ziehen', async () => {
+  const { lvZeilen, verschieben } = await import('../src/module/ava/lvbaum');
+  const P = (id: string, oz: string, art = 'normal') => ({ id, werte: { oz, art } });
+  const z = lvZeilen([P('t1', '01', 'titel'), P('a', '01.0010'), P('b', '01.0020'), P('c', '01.0030'), P('t2', '02', 'titel'), P('d', '02.0010')]);
+  assert.deepEqual([...verschieben(z, ['a'], 'c')], [['a', '01.0040']]);                 // ans Ende von Titel 01
+  assert.deepEqual([...verschieben(z, ['c'], 'd')], [['c', '02.0020']]);                 // in Titel 02
+  assert.deepEqual([...verschieben(z, ['t1'], 't2')].sort(), [['a', '03.0010'], ['b', '03.0020'], ['c', '03.0030'], ['t1', '03']]);   // Titel nimmt seinen Inhalt mit
+  assert.equal(verschieben(z, ['t1'], 'b').size, 0);                                      // nicht in sich selbst
+});
