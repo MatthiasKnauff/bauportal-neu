@@ -89,6 +89,20 @@ export const angebotPreis: ObjektModell = {
   ],
 };
 
+/** Aufmaß je Position (kumuliert, wie im bisherigen Bauportal): Menge laut Firma und der eigene Rechenweg; geprüft ist die Summe des Rechenwegs. */
+export const aufmass: ObjektModell = {
+  name: 'aufmass', titel: 'Aufmaß', titelMehrzahl: 'Aufmaße', anzeigeFeld: 'menge_firma',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'lv', titel: 'Leistungsverzeichnis', art: 'verweis', ziel: 'lv', pflicht: true },
+    { name: 'position', titel: 'Position', art: 'verweis', ziel: 'lv_position', pflicht: true },
+    { name: 'menge_firma', titel: 'Menge laut Firma', art: 'zahl' },
+    { name: 'rechenweg', titel: 'Rechenweg (geprüft)', art: 'langtext' },
+    { name: 'bemerkung', titel: 'Prüfvermerk', art: 'text' },
+  ],
+};
+
 export const RECHNUNGSARTEN = [{ wert: 'abschlag', titel: 'Abschlagsrechnung' }, { wert: 'schluss', titel: 'Schlussrechnung' }, { wert: 'nachtrag', titel: 'Nachtrag' }, { wert: 'stundenlohn', titel: 'Stundenlohnrechnung' }];
 
 export const rechnung: ObjektModell = {
@@ -118,7 +132,7 @@ export const ava: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
-  objekte: [lv, lvPosition, angebot, angebotPreis, rechnung],
+  objekte: [lv, lvPosition, angebot, angebotPreis, aufmass, rechnung],
   ansichten: [
     { id: 'lvs', titel: 'Leistungsverzeichnisse', abschnitt: 'Ausschreibung', zeichen: 'liste_aufgaben', objekt: 'lv', baum: ['status'], brauchtProjekt: true,
       hilfe: 'Je Gewerk ein Leistungsverzeichnis (Vergabeeinheit) mit Stand, Kostenansatz und Terminen. Die Positionen stehen unter „Positionen“; rechts in der Karte die Summen: geschätzt, Angebote, Auftrag, abgerechnet.' },
@@ -127,6 +141,8 @@ export const ava: Beipackzettel = {
     { id: 'angebote', titel: 'Angebote', abschnitt: 'Vergabe', zeichen: 'personen', objekt: 'angebot', baum: ['lv'], brauchtProjekt: true },
     { id: 'preisspiegel', titel: 'Preisspiegel', abschnitt: 'Vergabe', zeichen: 'preisspiegel', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: die Positionen mit den Preisen aller Bieter:innen nebeneinander, das günstigste Angebot je Position markiert, unten die Summen mit Nachlass und der Rang. Preise direkt eintragen; „Vergeben an …“ beauftragt das Angebot.' },
+    { id: 'aufmass', titel: 'Aufmaßprüfung', abschnitt: 'Abrechnung', zeichen: 'aufmass', objekt: 'lv', brauchtProjekt: true,
+      hilfe: 'Links ein LV wählen: je Position Menge laut Firma und dein Rechenweg (z. B. „Wand Nord: 2,5*3,1 - 0,8*2“, je Zeile ein Ansatz). Daneben ✓ stimmt, ✗ weicht ab, ○ noch offen, und der Betrag mit dem EP des Auftrags. „Übernehmen“ setzt die Menge der Firma als Rechenweg.' },
     { id: 'rechnungen', titel: 'Rechnungen', abschnitt: 'Abrechnung', zeichen: 'rechnung', objekt: 'rechnung', baum: ['lv', 'firma'], brauchtProjekt: true },
   ],
 };

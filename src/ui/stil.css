@@ -1028,3 +1028,16 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .einlesen-aktion { display: flex; align-items: center; gap: 4px; min-height: 36px; }
 .einlesen-tabelle tr.schon td { background: var(--warn-hell); }
 .einlesen-tabelle tr.aus td { opacity: .45; }
+
+/* Aufmaßprüfung */
+.aufmass .am-weg { min-width: 150px; }
+.aufmass .am-weg textarea { width: 100%; min-width: 130px; font: inherit; font-family: var(--schrift-mono); font-size: .9em; resize: vertical; border: 1px solid var(--rand); border-radius: 4px; padding: 2px 4px; }
+.aufmass .am-weg textarea.fehler { border-color: var(--gefahr); background: var(--gefahr-hell); }
+.aufmass .am-weg .knopf { margin-top: 2px; }
+.aufmass .am-stand { width: 28px; text-align: center; font-weight: 700; }
+.am-stimmt { color: var(--gut); } .am-abweichend { color: var(--gefahr); } .am-offen { color: var(--text-still); }
+/* passt in die Standardbreite auch mit offenen Details: Kurztext bricht um, schmale Mengenfelder */
+.aufmass { width: 100%; }
+.aufmass td.ps-text { white-space: normal; max-width: none; min-width: 110px; }
+.aufmass td.ps-ep input { width: 64px; }
+.aufmass th { white-space: normal; }

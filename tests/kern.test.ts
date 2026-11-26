@@ -1183,3 +1183,21 @@ test('Adressen einlesen: Spalten zuordnen, Vorhandenes erkennen, nur Leeres erg�
   assert.deepEqual(v.map((x) => [x.werte.name, x.aktion, x.vorhanden ?? null, x.werte.anrede ?? null]), [['Kunz GmbH', 'ergaenzen', 'k1', 'Herr'], ['Neu AG', 'neu', null, null]], 'leere Zeilen fallen weg');
   assert.deepEqual(e.ergaenzung({ name: 'kunz gmbh', ort: '', telefon: '0201' }, v[0]!.werte), { ort: 'Essen', email: 'info@kunz.de', anrede: 'Herr' }, 'Name und Telefon bleiben, Leeres wird gefüllt');
 });
+
+test('Aufmaß: Rechenweg ohne eval, je Zeile ein Ansatz mit Beschriftung; Prüfstand', async () => {
+  const r = await import('../src/kern/rechenweg');
+  assert.equal(r.ausdruck('2,5 * 3,10 - 0,8*2'), 2.5 * 3.1 - 1.6);
+  assert.equal(r.ausdruck('(1+2)*3'), 9);
+  assert.equal(r.ausdruck('-2+5'), 3);
+  assert.equal(r.ausdruck('2*'), null);
+  assert.equal(r.ausdruck('alert(1)'), null);
+  assert.equal(r.ausdruck('1/0'), null);
+  const w = r.rechenweg('Wand Nord: 2,5*3\nWand Süd: 2,5*3 - 1\n4');
+  assert.equal(w.summe, 18); assert.equal(w.fehler, false);
+  assert.equal(r.rechenweg('2*3\nquatsch').fehler, true);
+  assert.equal(r.rechenweg('').summe, null);
+  const a = await import('../src/module/ava/rechnung');
+  assert.equal(a.pruefstand(12, 12), 'stimmt');
+  assert.equal(a.pruefstand('12,5', 12), 'abweichend');
+  assert.equal(a.pruefstand(12, null), 'offen');
+});

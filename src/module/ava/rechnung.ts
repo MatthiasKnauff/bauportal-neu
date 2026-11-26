@@ -86,3 +86,11 @@ export function leiter(rechnungen: E[], id: string, nachlassProzent: number): Le
   }
   return [];
 }
+
+/** Aufmaßprüfung je Position: ✓ stimmt, ✗ weicht ab, ○ noch offen (kein Rechenweg). */
+export type Pruefstand = 'stimmt' | 'abweichend' | 'offen';
+export function pruefstand(mengeFirma: unknown, geprueft: number | null): Pruefstand {
+  if (geprueft == null) return 'offen';
+  if (mengeFirma == null || mengeFirma === '') return 'abweichend';
+  return Math.abs(zahl(mengeFirma) - geprueft) < 0.0005 ? 'stimmt' : 'abweichend';
+}
