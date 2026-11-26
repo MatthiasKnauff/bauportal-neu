@@ -1529,3 +1529,16 @@ test('Bauzeitenplan: Gruppe um die gewählten Zeilen', async () => {
   assert.deepEqual(r.befehle.map((b) => [b.objektId, b.werte?.ebene, b.werte?.reihe]), [['g', 0, 1.5], ['b', 1, undefined], ['c', 2, undefined]]);
   assert.equal(gruppeUm(v, [], {}, () => 'g').befehle[0]!.werte!.reihe, 5);
 });
+
+test('Bauzeitenplan: Unterbrechen an einem Tag im Balken', async () => {
+  const { unterbrechen } = await import('../src/module/bauzeitenplan/bearbeiten');
+  const r = unterbrechen('x', 10, '', [{ s: 0, f: 10 }], 4, [{ id: 'k', von: 'x', nach: 'y', art: 'ea', abstand: 0, vonAbschnitt: null }]);
+  assert.ok(Array.isArray(r)); assert.equal(r[0]!.werte!.unterbrechung, '4+(5)+6');
+  // schon unterbrochen: zweiter Abschnitt (s 9–15) wird geteilt, Verknüpfung am zweiten Abschnitt rückt weiter
+  const r2 = unterbrechen('x', 10, '4+(5)+6', [{ s: 0, f: 4 }, { s: 9, f: 15 }], 11, []);
+  assert.ok(Array.isArray(r2)); assert.equal(r2[0]!.werte!.unterbrechung, '4+(5)+2+(5)+4');
+  const r3 = unterbrechen('x', 10, '4+(5)+6', [{ s: 0, f: 4 }, { s: 9, f: 15 }], 2, [{ id: 'k', von: 'x', nach: 'y', art: 'ea', abstand: 0, vonAbschnitt: 1 }]);
+  assert.ok(Array.isArray(r3)); assert.equal(r3[0]!.werte!.unterbrechung, '2+(5)+2+(5)+6'); assert.equal(r3[1]!.werte!.von_abschnitt, 2);
+  assert.equal(typeof unterbrechen('x', 10, '', [{ s: 0, f: 10 }], 0, []), 'string');
+  assert.equal(typeof unterbrechen('x', 1, '', [{ s: 0, f: 1 }], 0, []), 'string');
+});

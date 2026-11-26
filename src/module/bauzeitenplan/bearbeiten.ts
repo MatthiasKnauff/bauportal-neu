@@ -2,7 +2,7 @@
 // verschieben) liefert die Befehle, die das Bauportal dann als einen Schritt ausführt – Strg+Z nimmt alles zusammen zurück.
 // „Automatisch verknüpfen“ wie gewohnt: Einfügen setzt den neuen Vorgang in die Kette, Löschen überbrückt sie.
 import type { Wert } from '../../kern/modell';
-import type { Art } from './rechnung';
+import { abschnitteLesen, abschnitteSchreiben, type Art } from './rechnung';
 import type { Vorgaenger } from './schreibweise';
 
 export interface V { id: string; reihe: number; ebene: number; name?: string }
@@ -394,4 +394,25 @@ export function gruppeUm(v: V[], ids: string[], z: Record<string, Wert>, neu: Ne
   const reihe = a > 0 ? (v[a - 1]!.reihe + v[a]!.reihe) / 2 : v[a]!.reihe - 1;
   return { befehle: [{ objekt: 'vorgang', art: 'anlegen', objektId: id, werte: { ...z, name, dauer: 1, fortschritt: 0, reihe, ebene } },
     ...v.slice(a, e).map((x): Vorlage => ({ objekt: 'vorgang', art: 'aendern', objektId: x.id, werte: { ebene: x.ebene + 1 } }))], id };
+}
+
+/** „Unterbrechen“ wie bisher: an Arbeitstag w (innerhalb des Balkens, nicht am ersten Tag eines Abschnitts) beginnt eine Pause
+ *  von „pause“ Arbeitstagen. teile: die Abschnitte des Vorgangs in Arbeitstagen (Ergebnis der Terminrechnung), unterbrechung: sein
+ *  Feld. Verknüpfungen an späteren Abschnitten rücken um eins weiter. → Befehle oder ein Hinweis, warum es nicht geht. */
+export function unterbrechen(id: string, dauer: number, unterbrechung: string | null | undefined, teile: { s: number; f: number }[], w: number, l: L[], pause = 5): Vorlage[] | string {
+  if (!(dauer > 1)) return 'Nur Leistungen mit mindestens 2 Tagen Dauer lassen sich unterbrechen.';
+  const k = teile.findIndex((t) => w >= t.s && w < t.f);
+  if (k < 0 || w <= teile[k]!.s) return 'Bitte auf einen Tag innerhalb des Balkens klicken – nicht auf den ersten Tag eines Abschnitts.';
+  const ab = abschnitteLesen(unterbrechung) ?? [{ dauer, pause: 0 }];
+  const d1 = w - teile[k]!.s, d2 = ab[k]!.dauer - d1;
+  if (d2 <= 0) return 'Bitte auf einen Tag innerhalb des Balkens klicken.';
+  ab.splice(k, 1, { dauer: d1, pause: ab[k]!.pause }, { dauer: d2, pause: Math.max(1, pause) });
+  const b: Vorlage[] = [{ objekt: 'vorgang', art: 'aendern', objektId: id, werte: { unterbrechung: abschnitteSchreiben(ab) } }];
+  for (const x of l) {
+    const w2: Record<string, Wert> = {};
+    if (x.nach === id && x.nachAbschnitt != null && x.nachAbschnitt > k) w2.nach_abschnitt = x.nachAbschnitt + 1;
+    if (x.von === id && x.vonAbschnitt != null && x.vonAbschnitt > k) w2.von_abschnitt = x.vonAbschnitt + 1;
+    if (Object.keys(w2).length) b.push({ objekt: 'verknuepfung', art: 'aendern', objektId: x.id, werte: w2 });
+  }
+  return b;
 }

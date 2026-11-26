@@ -420,6 +420,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .vorschau-hinweise { margin: 0; padding-left: 18px; color: var(--text-still); font-size: 13px; line-height: 1.5; }
 
 /* Balkenplan (Bauzeitenplan): Tabelle links (beim waagerechten Blättern fest), Balken rechts, Kopf oben fest */
+.bzp-flaeche.teilen .bzp-balken-teil { cursor: crosshair; }
 .bzp { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--flaeche); }
 .bzp-flaeche { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
 .bzp-flaeche:focus-visible .bzp-zelle.zeiger { box-shadow: inset 0 0 0 2px var(--akzent); }

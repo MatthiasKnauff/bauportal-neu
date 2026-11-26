@@ -15,7 +15,7 @@ import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenpla
 import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
-import { ablageAus, gruppeUm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { ablageAus, gruppeUm, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { DuplizierenFenster } from './duplizieren';
 import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
@@ -133,6 +133,7 @@ export function Balkenplan(p: Mitte) {
     ] : []),
     ...(schreiben() ? [{ titel: 'Verknüpfen', zeichen: 'verknuepfen', gruppe: 'Planen', gesperrt: !markiert() || vorgaenge()[0]?.id === markiert(), tun: mitVorigerVerknuepfen },
       { titel: 'Lösen', zeichen: 'entkoppeln', gruppe: 'Planen', gesperrt: !links().some((l) => l.werte.von === markiert() || l.werte.nach === markiert()), tun: verknuepfungenLoesen },
+      { titel: 'Unterbrechen', zeichen: 'ausschneiden', gruppe: 'Planen', an: teilen(), gesperrt: !vorgaenge().length, tun: () => setTeilen(!teilen()) },
       { titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Planen', gesperrt: !links().length, tun: aufraeumen },
       { titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
@@ -158,6 +159,19 @@ export function Balkenplan(p: Mitte) {
   const fortschrittJetzt = () => Math.round(Number(sicht.vorgang?.[fortschrittIds()[0] ?? '']?.werte.fortschritt ?? 0));
   const fortschrittSetzen = (w: number) => tun(fortschrittIds().filter((id) => Number(sicht.vorgang?.[id]?.werte.fortschritt ?? 0) !== w)
     .map((id) => ({ objekt: 'vorgang', art: 'aendern' as const, objektId: id, werte: { fortschritt: w } })), `Fortschritt ${w} %`);
+  // Unterbrechen wie bisher: Knopf an, dann auf die Stelle im Balken klicken, an der die Pause beginnt (Esc bricht ab)
+  const [teilen, setTeilenRoh] = createSignal(false);
+  const setTeilen = (an: boolean) => { setTeilenRoh(an); if (an) hinweis('Unterbrechen: auf die Stelle im Balken klicken, an der die Pause beginnen soll (Esc bricht ab).'); };
+  const teilenAn = (e: MouseEvent, v: Zeile) => {   // auch „Hier unterbrechen …“ im Kontextmenü
+    setTeilenRoh(false);
+    const t = erg().termine.get(v.id); if (!t) return;
+    if (t.gruppe) { hinweis('Gruppen lassen sich nicht unterbrechen – nur Leistungen.', { art: 'fehler' }); return; }
+    const w = kal().arbeitstag(achse().t0 + Math.floor(svgX(e.clientX) / px()));
+    const r = unterbrechenAm(v.id, Number(v.werte.dauer ?? 0), v.werte.unterbrechung as string, t.abschnitte, w, L_());
+    if (typeof r === 'string') { hinweis(r, { art: 'fehler' }); return; }
+    tun(r, 'Unterbrechen');
+    hinweis(`Unterbrochen ab ${tagname(kal().anfangsdatum(w))}, 5 Arbeitstage Pause. Den hinteren Teil kannst du mit der Maus verschieben.`);
+  };
   const neueGruppe = () => {
     const r = gruppeUm(V_(), gewaehlt(), zu(), neueKennung);
     tun(r.befehle, 'Gruppe einfügen'); setMarkiert(r.id); queueMicrotask(() => bearbeiten(r.id, 'name'));
@@ -445,6 +459,7 @@ export function Balkenplan(p: Mitte) {
       if (schreiben() && t === 'v') { e.preventDefault(); ablageEinfuegenHier(); return; }
       if (schreiben() && t === 'd' && id) { e.preventDefault(); duplizieren(); return; }
     }
+    if (k === 'Escape' && teilen()) { e.preventDefault(); setTeilenRoh(false); return; }
     if (k === 'Escape' && auswahl().size > 1 && id) { e.preventDefault(); setMarkiert(id); return; }
     // Umschalt+↑/↓: Auswahl erweitern
     if ((k === 'ArrowDown' || k === 'ArrowUp') && e.shiftKey && id) {
@@ -486,6 +501,7 @@ export function Balkenplan(p: Mitte) {
   const startZiehen = (e: PointerEvent, v: Zeile, art: 'schieben' | 'dauer' | 'link', y: number, teil: number | null = null) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+    if (teilen()) { teilenAn(e, v); return; }
     setMarkiert(v.id);
     if (!schreiben() || erg().termine.get(v.id)?.gruppe && art !== 'link') return;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
@@ -627,30 +643,12 @@ export function Balkenplan(p: Mitte) {
       { titel: 'Informationen …', tun: () => oeffnen(v.id) },
       ...(schreiben() ? [
         { titel: 'Leistung darunter einfügen', tun: () => neuDarunter() },
-        { titel: 'Hier unterbrechen …', gesperrt: erg().termine.get(v.id)!.gruppe || Number(v.werte.dauer ?? 0) < 2, tun: () => unterbrechen(e, v) },
+        { titel: 'Hier unterbrechen …', gesperrt: erg().termine.get(v.id)!.gruppe || Number(v.werte.dauer ?? 0) < 2, tun: () => teilenAn(e, v) },
         { titel: 'Anfang wieder automatisch', gesperrt: !v.werte.anfang_nicht_vor, tun: () => ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { anfang_nicht_vor: null } }, 'Anfang wieder automatisch') },
       ] : []),
       ...(darf('vorgang', 'loeschen') ? [{ titel: 'Löschen', gefahr: true, tun: () => entfernen([v.id]) }] : []),
     ]);
   };
-  /** Unterbrechen an der Stelle, auf die geklickt wurde: zwei Abschnitte mit 5 Arbeitstagen Pause (in der Karte änderbar). */
-  const unterbrechen = (e: MouseEvent, v: Zeile) => {
-    const t = erg().termine.get(v.id)!, k = kal();
-    const svg = flaeche.querySelector('.bzp-balken') as SVGElement;
-    const tag = achse().t0 + Math.floor((e.clientX - svg.getBoundingClientRect().left) / px());
-    const ab = abschnitteLesen(v.werte.unterbrechung as string) ?? [{ dauer: Number(v.werte.dauer ?? 0), pause: 0 }];
-    let rel = k.arbeitstag(tag) - t.s, pos = 0;
-    const neu = ab.flatMap((a, i) => {
-      pos += a.pause;
-      const r = rel - pos;
-      pos += a.dauer;
-      if (r > 0 && r < a.dauer) { rel = -1e9; return [{ dauer: r, pause: i ? a.pause : 0 }, { dauer: a.dauer - r, pause: 5 }]; }
-      return [a];
-    });
-    if (neu.length === ab.length) return hinweis('Bitte innerhalb des Balkens unterbrechen, nicht am Rand');
-    ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { unterbrechung: abschnitteSchreiben(neu) } }, `„${v.werte.name}“ unterbrechen`);
-  };
-
   // ---------- Kopf der Zeitachse ----------
   const kopf = createMemo(() => {
     const { t0, t1 } = achse(), b = px(), oben: { x: number; w: number; t: string }[] = [], unten: { x: number; t: string; frei?: boolean }[] = [];
@@ -690,7 +688,7 @@ export function Balkenplan(p: Mitte) {
       <Show when={!schmal() || handy() === 'plan'}>
       <input ref={dateiWahl} type="file" accept=".gantt,.json,application/json" hidden onChange={() => void einlesen()} />
       <Show when={erg().zyklen.length}><p class="feld-fehler bzp-warnung">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</p></Show>
-      <div class="bzp-flaeche" ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
+      <div class="bzp-flaeche" classList={{ teilen: teilen() }} ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
         onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); setZoom(Math.max(0, Math.min(ZOOM.length - 1, zoom() + (e.deltaY < 0 ? 1 : -1)))); } }}>
         <div class="bzp-innen" style={{ width: `${breiteL() + breiteR()}px`, height: `${KOPF + flaechenZeilen() * H}px` }}>
           <div class="bzp-kopf" style={{ width: `${breiteL() + breiteR()}px` }}>
