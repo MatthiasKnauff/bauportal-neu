@@ -1595,3 +1595,13 @@ test('LV: Zeilen an eine andere Stelle ziehen', async () => {
   assert.deepEqual([...verschieben(z, ['t1'], 't2')].sort(), [['a', '03.0010'], ['b', '03.0020'], ['c', '03.0030'], ['t1', '03']]);   // Titel nimmt seinen Inhalt mit
   assert.equal(verschieben(z, ['t1'], 'b').size, 0);                                      // nicht in sich selbst
 });
+
+test('LV: OZ-Maske lesen und damit nummerieren', async () => {
+  const { lvZeilen, nummerieren, maskeLesen, maskeSchreiben } = await import('../src/module/ava/lvbaum');
+  const m = maskeLesen('1.2:3:5');
+  assert.deepEqual(m, { titel: [1, 2], position: 3, schritt: 5 });
+  assert.equal(maskeSchreiben(m), '1.2:3:5');
+  assert.deepEqual(maskeLesen('quatsch').titel, [2, 2, 2, 2]);
+  const z = lvZeilen([{ id: 't', werte: { oz: '01', art: 'titel' } }, { id: 'u', werte: { oz: '01.01', art: 'titel' } }, { id: 'p', werte: { oz: '01.01.0010', art: 'normal' } }]);
+  assert.deepEqual([...nummerieren(z, m)], [['t', '1'], ['u', '1.01'], ['p', '1.01.005']]);
+});

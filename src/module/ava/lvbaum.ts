@@ -88,3 +88,12 @@ export function verschieben(zeilen: LvZeile[], ids: string[], nach: string | nul
   for (const z of zeilen) if (neu.get(z.id) === z.oz) neu.delete(z.id);
   return neu;
 }
+
+/** OZ-Maske aus dem Feld des LV („2.2.2.2:4:10“) – unlesbar oder leer: die Vorgabe. */
+export function maskeLesen(t: unknown): OzMaske {
+  const m = /^(\d(?:\.\d){0,3}):(\d):(\d{1,3})$/.exec(String(t ?? '').trim());
+  if (!m) return MASKE_VORGABE;
+  const titel = m[1]!.split('.').map(Number), position = Number(m[2]), schritt = Number(m[3]);
+  return titel.every((x) => x >= 1 && x <= 4) && position >= 1 && position <= 6 && schritt >= 1 ? { titel, position, schritt } : MASKE_VORGABE;
+}
+export const maskeSchreiben = (m: OzMaske) => `${m.titel.join('.')}:${m.position}:${m.schritt}`;

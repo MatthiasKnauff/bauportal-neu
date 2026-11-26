@@ -5,7 +5,9 @@
 // 🔒 schaltet es bis zum Neuladen frei (Positionen sind dann Vertragsinhalt).
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Wert } from '../kern/modell';
-import { lvZeilen, neueOz, nummerieren, titelSumme, verschieben, type LvZeile } from '../module/ava/lvbaum';
+import { lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, titelSumme, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
+import { Dialog } from './baukasten/dialog';
+import { kiOeffnen } from './baukasten/ki';
 import { gp, zaehlt, zahl } from '../module/ava/rechnung';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
@@ -42,6 +44,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
   const [lang, setLang] = createSignal<Set<string>>(new Set());
   const sichtbar = createMemo(() => { const aus: LvZeile[] = [], weg = new Set<string>(); for (const z of zeilen()) { if (z.eltern && (weg.has(z.eltern) || zu().has(z.eltern))) { weg.add(z.id); continue; } aus.push(z); } return aus; });
   const [frei, setFrei] = createSignal(0);
+  const maske = () => maskeLesen(lv()?.werte.oz_maske);
   const vergeben = () => lv()?.werte.status === 'vergeben' || lv()?.werte.status === 'abgerechnet';
   const gesperrt = () => { frei(); return vergeben() && !FREI.has(lv()?.id ?? ''); };
   const schreiben = () => darf('lv_position', 'schreiben') && !gesperrt();
@@ -90,7 +93,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
   // ---------- neue Zeilen, löschen, nummerieren ----------
   const neu = (titel: boolean) => {
     if (!schreiben() || !lv()) return;
-    const nach = wahl.markiert(), id = neueKennung(), oz = neueOz(zeilen(), { nach, titel });
+    const nach = wahl.markiert(), id = neueKennung(), oz = neueOz(zeilen(), { nach, titel }, maske());
     ausfuehren({ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Titel' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } }, titel ? 'Titel einfügen' : 'Position einfügen');
     wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext'));
   };
@@ -102,11 +105,16 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     hinweis(`${ids.size === 1 ? 'Zeile' : `${ids.size} Zeilen`} gelöscht.`);
     wahl.setMarkiert(null);
   };
-  const neuNummerieren = () => {
-    const n = nummerieren(zeilen()); if (!n.size) { hinweis('Die Ordnungszahlen stimmen schon.'); return; }
-    ausfuehrenMehrere([...n].map(([id, oz]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: id, werte: { oz } })), 'Nummerieren');
-    hinweis(`${n.size} Ordnungszahl${n.size === 1 ? '' : 'en'} neu vergeben (Titel zweistellig, Positionen in Zehnerschritten).`);
+  // Nummerieren mit der OZ-Maske des LV (im Fenster einstellbar, wird am LV gemerkt)
+  const [numFenster, setNumFenster] = createSignal(false);
+  const neuNummerieren = (m: OzMaske) => {
+    const n = nummerieren(zeilen(), m), alt = String(lv()?.werte.oz_maske ?? ''), neuM = maskeSchreiben(m);
+    if (!n.size && alt === neuM) { hinweis('Die Ordnungszahlen stimmen schon.'); return; }
+    ausfuehrenMehrere([...(alt !== neuM ? [{ objekt: 'lv', art: 'aendern' as const, objektId: lv()!.id, werte: { oz_maske: neuM } }] : []),
+      ...[...n].map(([id, oz]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: id, werte: { oz } }))], 'Nummerieren');
+    hinweis(n.size ? `${n.size} Ordnungszahl${n.size === 1 ? '' : 'en'} neu vergeben.` : 'OZ-Maske gemerkt – die Ordnungszahlen passen schon.');
   };
+  const [vorbem, setVorbem] = createSignal(false);
   // ---------- Zeilen ziehen (an der OZ greifen) und Zwischenablage (Strg+C/X/V) ----------
   const ozSetzen = (neu: Map<string, string>, titel: string) => { if (neu.size) ausfuehrenMehrere([...neu].map(([id, oz]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: id, werte: { oz } })), titel); };
   const [zug, setZug] = createSignal<{ ids: string[]; nach: string | null; y: number } | null>(null);
@@ -125,7 +133,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     const los = () => {
       removeEventListener('pointermove', bewegt); removeEventListener('pointerup', los);
       const z = zug(); setZug(null); if (!z) return;
-      const neu = verschieben(zeilen(), z.ids, z.nach);
+      const neu = verschieben(zeilen(), z.ids, z.nach, maske());
       if (!neu.size) { hinweis('Dorthin geht es nicht – ein Titel lässt sich nicht in sich selbst ziehen.', { art: 'fehler' }); return; }
       ozSetzen(neu, z.ids.length === 1 ? 'Zeile verschieben' : `${z.ids.length} Zeilen verschieben`);
     };
@@ -147,7 +155,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     const wurzeln = a.filter((x) => !a.some((t) => t.titel && t !== x && x.oz.startsWith(`${t.oz}.`)));
     const neueIds = a.map(() => neueKennung()), vorl = a.map((x) => { const w = wurzeln.findIndex((r) => r === x || x.oz.startsWith(`${r.oz}.`)); return `~${w}${x.oz.slice(wurzeln[w]!.oz.length)}`; });
     const tmp = lvZeilen([...zeilen().map((z) => ({ id: z.id, werte: { oz: z.oz, art: z.titel ? 'titel' : 'normal' } })), ...a.map((x, i) => ({ id: neueIds[i]!, werte: { oz: vorl[i]!, art: x.titel ? 'titel' : 'normal' } }))]);
-    const oz = verschieben(tmp, wurzeln.map((r) => neueIds[a.indexOf(r)]!), wahl.markiert());
+    const oz = verschieben(tmp, wurzeln.map((r) => neueIds[a.indexOf(r)]!), wahl.markiert(), maske());
     ausfuehrenMehrere(a.map((x, i) => ({ objekt: 'lv_position', art: 'anlegen' as const, objektId: neueIds[i]!, werte: { ...x.werte, projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(neueIds[i]!) ?? vorl[i]! } })), a.length === 1 ? 'Zeile einfügen' : `${a.length} Zeilen einfügen`);
     wahl.mehrere(neueIds);
   };
@@ -155,8 +163,9 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
   createEffect(() => p.setKnoepfe([
     ...(darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Titel', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(true) },
       { titel: 'Position', zeichen: 'neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(false) },
-      { titel: 'Nummerieren', zeichen: 'liste', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !zeilen().length, tun: neuNummerieren },
+      { titel: 'Nummerieren …', zeichen: 'liste', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !zeilen().length, tun: () => setNumFenster(true) },
       { titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bearbeiten', gesperrt: gesperrt() || !wahl.markiert(), tun: loeschen }] : []),
+    ...(lv() ? [{ titel: 'Vorbemerkungen', zeichen: 'bericht', gruppe: 'Ansicht', an: vorbem(), tun: () => setVorbem(!vorbem()) }] : []),
     ...(lv() ? [{ titel: 'Langtexte', zeichen: 'notiz', gruppe: 'Ansicht', an: lang().size > 0, tun: () => setLang(lang().size ? new Set<string>() : new Set(zeilen().filter((z) => !z.titel).map((z) => z.id))) }] : []),
     ...(vergeben() ? [{ titel: gesperrt() ? 'Gesperrt' : 'Freigeschaltet', zeichen: 'schluessel', gruppe: 'Vertrag', an: !gesperrt(), tun: freischalten }] : []),
   ]));
@@ -212,6 +221,12 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
         <div class="lvt-kopf-lv"><h2>{[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
           <Show when={vergeben()}><button type="button" class="knopf klein still" onClick={freischalten} title={gesperrt() ? 'Beauftragt – Positionen sind Vertragsinhalt. Klick schaltet das Bearbeiten frei.' : 'Bearbeiten freigeschaltet – Klick sperrt wieder'}>{gesperrt() ? '🔒 gesperrt' : '🔓 freigeschaltet'}</button></Show>
           <span class="lvt-summe">Summe netto geschätzt <b>{eur(summe())} €</b></span></div>
+        <Show when={vorbem()}>
+          <div class="lvt-vorbem"><label for="lvt-vorbem">Vorbemerkungen</label>
+            <textarea id="lvt-vorbem" rows={6} value={String(lv()!.werte.vorbemerkungen ?? '')} readOnly={!darf('lv', 'schreiben') || gesperrt()} placeholder="Vorbemerkungen zum LV – gelten für alle Positionen (Baustelle, Ausführung, Abrechnung …)"
+              onChange={(e) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { vorbemerkungen: e.currentTarget.value } }, 'Vorbemerkungen')} /></div>
+        </Show>
+        <Show when={numFenster()}><NummerierenFenster maske={maske()} beispiel={zeilen()} onZu={() => setNumFenster(false)} onFertig={(m) => { setNumFenster(false); neuNummerieren(m); }} /></Show>
         <div class="lvt-tabelle">
           <div class="lvt-zeile lvt-kopf" role="row">
             <For each={spalten()}>{(s) => <div class="lvt-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }} role="columnheader" {...spw.ziehbar(s.id)}>{s.titel}
@@ -238,6 +253,8 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
                 <div class="lvt-lang" style={{ 'padding-left': `${z().ebene * 16 + 40}px` }}>
                   <textarea rows={5} value={String(nachId(z().id)?.werte.langtext ?? '')} readOnly={!schreiben()} placeholder="Langtext – Leistungsbeschreibung, Material, Fabrikat, Ausführung, Abrechnung"
                     aria-label={`Langtext ${z().oz}`} onChange={(e) => aendern(z().id, { langtext: e.currentTarget.value }, 'Langtext')} />
+                  <Show when={schreiben()}><button type="button" class="knopf klein still lvt-ki" title="Langtext aus Kurztext und Stichworten vorschlagen lassen – die KI schlägt vor, du übernimmst"
+                    onClick={() => { const w = nachId(z().id)?.werte ?? {}; kiOeffnen({ titel: `Langtext ${z().oz}`, text: [String(w.kurztext ?? ''), String(w.langtext ?? '')].filter(Boolean).join('\n'), onUebernehmen: (t) => aendern(z().id, { langtext: t }, 'Langtext von der KI') }); }}>✦ Langtext vorschlagen</button></Show>
                 </div>
               </Show>
             </>); }}</For>
@@ -245,5 +262,24 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
         </div>
       </Show>
     </div>
+  );
+}
+
+/** Nummerieren: OZ-Maske wie in GAEB – Stellen je Titelebene, Stellen der Position, Schritt – mit Beispiel. */
+function NummerierenFenster(p: { maske: OzMaske; beispiel: LvZeile[]; onZu: () => void; onFertig: (m: OzMaske) => void }) {
+  const [titel, setTitel] = createSignal(p.maske.titel.join('.')), [pos, setPos] = createSignal(String(p.maske.position)), [schritt, setSchritt] = createSignal(String(p.maske.schritt));
+  const m = () => maskeLesen(`${titel()}:${pos()}:${schritt()}`);
+  const gueltig = () => maskeSchreiben(m()) === `${titel()}:${pos()}:${schritt()}`;
+  const probe = () => { const n = nummerieren(p.beispiel, m()); return p.beispiel.slice(0, 4).map((z) => `${n.get(z.id) ?? z.oz}  ${z.titel ? 'Titel' : 'Position'}`); };
+  return (
+    <Dialog titel="Nummerieren" onAbbrechen={p.onZu} knoepfe={<><button class="knopf" onClick={p.onZu}>Abbrechen</button><button class="knopf haupt" disabled={!gueltig()} onClick={() => p.onFertig(m())}>Nummerieren</button></>}>
+      <p class="still-text">Die Ordnungszahlen werden in der jetzigen Reihenfolge neu vergeben. Die Maske wird am LV gemerkt und gilt auch für neue Zeilen.</p>
+      <label class="feld"><span>Stellen je Titelebene (z. B. 2.2 – zwei Ebenen mit je zwei Stellen)</span><input value={titel()} onInput={(e) => setTitel(e.currentTarget.value.trim())} /></label>
+      <label class="feld"><span>Stellen der Position</span><input value={pos()} inputmode="numeric" onInput={(e) => setPos(e.currentTarget.value.trim())} /></label>
+      <label class="feld"><span>Schritt zwischen Positionen</span><input value={schritt()} inputmode="numeric" onInput={(e) => setSchritt(e.currentTarget.value.trim())} /></label>
+      <Show when={gueltig()} fallback={<p class="fehler-text">Titelebenen 1 bis 4 Stellen (höchstens 4 Ebenen), Position 1 bis 6 Stellen, Schritt ab 1.</p>}>
+        <p class="still-text">So sieht es aus: {probe().join(' · ')}</p>
+      </Show>
+    </Dialog>
   );
 }

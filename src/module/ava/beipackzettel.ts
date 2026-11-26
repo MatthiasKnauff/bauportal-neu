@@ -31,6 +31,8 @@ export const lv: ObjektModell = {
     { name: 'bindefrist', titel: 'Bindefrist bis', art: 'datum', gruppe: 'Vergabe' },
     { name: 'ausfuehrung_beginn', titel: 'Ausführung ab', art: 'datum', gruppe: 'Vergabe' },
     { name: 'ausfuehrung_ende', titel: 'Ausführung bis', art: 'datum', gruppe: 'Vergabe' },
+    { name: 'vorbemerkungen', titel: 'Vorbemerkungen', art: 'langtext', gruppe: 'Vorbemerkungen' },   // stehen vor den Positionen (LV bearbeiten: „Vorbemerkungen“)
+    { name: 'oz_maske', titel: 'OZ-Maske', art: 'text', verborgen: true },   // „2.2.2.2:4:10“ = Stellen je Titelebene : Stellen der Position : Schritt (Nummerieren)
     { name: 'notiz', titel: 'Bemerkung', art: 'langtext', gruppe: 'Notiz' },
     { name: 'kennung', titel: 'Kennung (GAEB)', art: 'text', verborgen: true },
   ],
