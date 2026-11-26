@@ -45,6 +45,7 @@ export function Darstellungsseite() {
   // ---- Design umbenennen und löschen (Designs des Büros, auch die mitgelieferten) ----
   const [umbenennen, setUmbenennen] = createSignal<string | null>(null);
   const [loeschen, setLoeschen] = createSignal<Zeile | null>(null);
+  const [massZiehen, setMassZiehen] = createSignal<number | null>(null);   // Schriftgröße, während der Regler gezogen wird
   const designName = (id: string) => String(sicht.design?.[id]?.werte.name ?? '');
   const nameSetzen = (id: string, n: string) => {
     setUmbenennen(null);
@@ -172,10 +173,11 @@ export function Darstellungsseite() {
       <div class="darstellung-reihe">
         <span class="design-etikett">Schriftgröße</span>
         <label class="design-rund">
+          {/* Erst beim Loslassen vergrößern: sonst wächst der Regler unter der Maus mit und springt (beim Ziehen steht nur die Zahl) */}
           <input type="range" min={SCHRIFTMASS.min} max={SCHRIFTMASS.max} step={SCHRIFTMASS.schritt} value={schriftmass(w()?.werte.schriftmass)} aria-label="Schriftgröße in Prozent"
-            onInput={(e) => { document.documentElement.style.zoom = String(Number(e.currentTarget.value) / 100); }}
-            onChange={(e) => setzen({ schriftmass: Number(e.currentTarget.value) }, 'Schriftgröße ändern')} />
-          <span class="darstellung-wert">{schriftmass(w()?.werte.schriftmass)} %</span>
+            onInput={(e) => setMassZiehen(Number(e.currentTarget.value))}
+            onChange={(e) => { setMassZiehen(null); setzen({ schriftmass: Number(e.currentTarget.value) }, 'Schriftgröße ändern'); }} />
+          <span class="darstellung-wert">{massZiehen() ?? schriftmass(w()?.werte.schriftmass)} %</span>
           <Show when={schriftmass(w()?.werte.schriftmass) !== 100}><button type="button" class="knopf klein still" title="Zurück auf 100 %" onClick={() => setzen({ schriftmass: null }, 'Schriftgröße 100 %')}>↺</button></Show>
         </label>
       </div>

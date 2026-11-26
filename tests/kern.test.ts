@@ -1066,4 +1066,9 @@ test('Filterbedingung: UND, ODER, NICHT wie im bisherigen Bauportal', async () =
   b = f.wertWeg(b, 0, 0);
   assert.equal(b.gruppen.length, 1); assert.equal(b.gruppen[0]!.art, 'ort'); assert.deepEqual(b.zwischen, []);
   assert.ok(f.erfuellt(f.LEER, amt), 'ohne Filter passt alles');
+  // Spaltenfilter sammeln: „enthält“ kommt dazu (ODER), doppelte nicht, leere nicht
+  let s = f.enthaeltDazu(f.LEER, 'gewerk', 'dach');
+  s = f.enthaeltDazu(f.enthaeltDazu(f.enthaeltDazu(s, 'gewerk', 'Male'), 'gewerk', 'DACH'), 'gewerk', '  ');
+  assert.equal(s.gruppen[0]!.werte.length, 2, 'zwei Werte gesammelt');
+  assert.deepEqual([dach, maler, amt].map((x) => f.erfuellt(s, x)), [true, true, false], 'enthält „dach“ ODER „Male“');
 });

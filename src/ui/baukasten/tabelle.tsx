@@ -28,7 +28,7 @@ function Verbinden(p: { f: Feld; w: Wert | undefined }) {
 
 // Filterfeld mit Vorschlägen aus den Einträgen der Spalte: Der Filter nimmt alles, was den Text enthält
 // („dach“ → Dach, Dachdecker, Dacharbeiten); die Liste darunter zeigt diese Werte mit Anzahl – ↑↓ wählen, Enter übernimmt.
-function FilterFeld(p: { f: Feld; text: string; werte: () => string[]; onText: (t: string) => void; onWeiter: () => void }) {
+function FilterFeld(p: { f: Feld; text: string; werte: () => string[]; onText: (t: string) => void; onFest?: (t: string) => void; onWeiter: () => void }) {
   const [offen, setOffen] = createSignal(false);
   const [markiert, setMarkiert] = createSignal(-1);
   const vorschlaege = createMemo(() => {
@@ -38,7 +38,7 @@ function FilterFeld(p: { f: Feld; text: string; werte: () => string[]; onText: (
     for (const w of p.werte()) if (w && (!t || w.toLowerCase().includes(t))) zahl.set(w, (zahl.get(w) ?? 0) + 1);
     return [...zahl].sort((a, b) => Number(!a[0].toLowerCase().startsWith(t)) - Number(!b[0].toLowerCase().startsWith(t)) || vergleich.compare(a[0], b[0])).slice(0, 12);
   });
-  const nehmen = (w: string) => { p.onText(w); setOffen(false); setMarkiert(-1); };
+  const nehmen = (w: string) => { if (p.onFest) p.onFest(w); else p.onText(w); setOffen(false); setMarkiert(-1); };
   return (
     <div class="filterfeld">
       <input type="search" aria-label={`${p.f.titel} filtern`} placeholder="filtern" value={p.text} autocomplete="off" role="combobox" aria-expanded={offen() && vorschlaege().length > 0}
@@ -50,6 +50,7 @@ function FilterFeld(p: { f: Feld; text: string; werte: () => string[]; onText: (
           else if (e.key === 'ArrowDown' && offen() && l.length) { e.preventDefault(); setMarkiert(Math.min(l.length - 1, markiert() + 1)); }
           else if (e.key === 'ArrowUp' && offen() && markiert() >= 0) { e.preventDefault(); setMarkiert(markiert() - 1); }
           else if (e.key === 'Enter' && markiert() >= 0 && l[markiert()]) { e.preventDefault(); nehmen(l[markiert()]![0]); }
+          else if (e.key === 'Enter' && p.text.trim() && p.onFest) { e.preventDefault(); nehmen(p.text); }
           else if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); setOffen(false); p.onWeiter(); }
         }} />
       <Show when={offen() && vorschlaege().length > 0}>
@@ -77,6 +78,7 @@ export function Tabelle(p: {
   onDoppelklick?: (z: Zeile) => void;           // Doppelklick: den Eintrag öffnen (ohne Angabe wie Enter)
   filter?: Record<string, string>;              // Filterzeile: Text je Spalte (gefiltert wird außerhalb – so stimmt auch der Zähler)
   onFilter?: (feld: string, text: string) => void;
+  onFilterFest?: (feld: string, text: string) => void;   // Enter oder Vorschlag: der Wert wird ein fester Filter (wandert nach links)
   filterWerte?: (f: Feld) => string[];          // alle Werte der Spalte (ungefiltert) – für die Vorschläge im Filterfeld
   onZelle?: (z: Zeile, f: Feld, w: Wert) => string | undefined;   // Wert aus der Zelle übernehmen; liefert den Fehlertext, wenn er nicht passt
   onLoeschen?: (z: Zeile) => void;              // Entf
@@ -238,7 +240,7 @@ export function Tabelle(p: {
           <Show when={p.onFilter}>
             <tr class="filterzeile">
               <For each={spalten.sichtbare()}>{(f) => (
-                <th><FilterFeld f={f} text={p.filter?.[f.name] ?? ''} werte={() => p.filterWerte?.(f) ?? []} onText={(t) => p.onFilter!(f.name, t)}
+                <th><FilterFeld f={f} text={p.filter?.[f.name] ?? ''} werte={() => p.filterWerte?.(f) ?? []} onText={(t) => p.onFilter!(f.name, t)} onFest={p.onFilterFest ? (t) => p.onFilterFest!(f.name, t) : undefined}
                   onWeiter={() => { kasten.focus(); if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); }} /></th>
               )}</For>
             </tr>

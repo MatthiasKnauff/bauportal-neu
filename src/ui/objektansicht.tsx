@@ -5,7 +5,7 @@ import { Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, t
 import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
 import { leerwert, type Feld, type ObjektModell, type Werte } from '../kern/modell';
-import { LEER, artWeg, erfuellt, hat, satz, textSetzen, textVon, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
+import { LEER, artWeg, enthaeltDazu, erfuellt, hat, satz, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
 import { Filterkaesten, Filtersuche, type FilterArt } from './baukasten/filterkaesten';
 import type { Zeile } from '../kern/befehl';
 import { ausfuehrenMehrere, geaendert, lebende, objektname, rueckgaengig, sicht } from './unterbau/abgleich';
@@ -114,7 +114,11 @@ export function ObjektAnsicht(p: {
     // Filter im Spaltenkopf: je Spalte eine Art („enthält“) – sie stehen links in den Filterkästen und lassen sich dort verknüpfen
     ...m.felder.filter((f) => !f.verborgen).map((f): FilterArt => ({ key: `f:${f.name}`, titel: f.titel, werte: (id) => [anzeige(f, werteVon(id)[f.name])] })),
   ]);
-  const spaltenText = createMemo(() => Object.fromEntries(m.felder.map((f) => [f.name, textVon(bed(), `f:${f.name}`)])));
+  // Filterzeile: was gerade getippt wird, filtert schon mit; mit Enter (oder einem Vorschlag) wandert es als fester Filter nach links
+  // und kommt dort zu den Werten dieser Spalte dazu (ODER) – das Feld ist dann frei für den nächsten Wert.
+  const [entwurf, setEntwurf] = createSignal<Record<string, string>>({});
+  const wirksam = createMemo(() => Object.entries(entwurf()).reduce((b, [f, t]) => enthaeltDazu(b, `f:${f}`, t), bed()));
+  const spalteFest = (feld: string, text: string) => { setBed(enthaeltDazu(bed(), `f:${feld}`, text)); setEntwurf({ ...entwurf(), [feld]: '' }); };
   const art = (key: string) => arten().find((a) => a.key === key)!;
   const nimm = (key: string, w: string, nicht = false) => setBed(umschalten(bed(), key, w, nicht));
   // Start wie im bisherigen Bauportal: mit den Beteiligten des gewählten Projekts – außer die Person will es ohne
@@ -157,7 +161,7 @@ export function ObjektAnsicht(p: {
   const linksWahl = (id: string) => { const { key, w } = linksTeile(id); if (w === '*') setBed(artWeg(bed(), key)); else nimm(key, w); };
   const zeilen = createMemo(() => {
     let l = lebend();
-    const b = bed();
+    const b = wirksam();
     if (b.gruppen.length) { const a = new Map(arten().map((x) => [x.key, x])); l = l.filter((z) => erfuellt(b, (k) => a.get(k)?.werte(z.id) ?? [])); }
     if (ast()) { const soll = ast().slice(2); const tiefe = soll.split(TRENNER).length; l = l.filter((z) => pfad(z, tiefe) === soll); }
     const worte = suche().toLowerCase().split(/\s+/).filter(Boolean);
@@ -220,7 +224,7 @@ export function ObjektAnsicht(p: {
   const verzeichnis = () => ausdrucke(m.name).find((x) => x.verzeichnis);
   const filterText = () => {
     const ar = arten(), teile = [
-      ...(bed().gruppen.length ? [satz(bed(), (k) => ar.find((x) => x.key === k)?.titel ?? k, (k, w) => ar.find((x) => x.key === k)?.wertTitel?.(w) ?? w)] : []),
+      ...(wirksam().gruppen.length ? [satz(wirksam(), (k) => ar.find((x) => x.key === k)?.titel ?? k, (k, w) => ar.find((x) => x.key === k)?.wertTitel?.(w) ?? w)] : []),
       ...(suche().trim() ? [`Text „${suche().trim()}“`] : []),
     ];
     return teile.length ? teile.join(' · ') : `alle ${m.titelMehrzahl}`;
@@ -277,7 +281,7 @@ export function ObjektAnsicht(p: {
           <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()}
             auswahl={auswahl} auswahlMenue={auswahl ? (e) => auswahlMenue(auswahl, auswahlBefehle(), e) : undefined} name={(z) => objektname(m, z.werte)} /> :
           <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
-            filter={spaltenText()} onFilter={(feld, text) => setBed(textSetzen(bed(), `f:${feld}`, text))} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
+            filter={entwurf()} onFilter={(feld, text) => setEntwurf({ ...entwurf(), [feld]: text })} onFilterFest={spalteFest} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
             onWahl={setGewaehlt} onOeffnen={insErsteFeld} onDoppelklick={a.details ? undefined : (z) => setSchwebend(z.id)} onSuche={() => suchfeld.focus()}
             onLoeschen={darfLoeschen() ? (z) => loesche(m, z) : undefined}

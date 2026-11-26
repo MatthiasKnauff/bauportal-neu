@@ -66,13 +66,12 @@ export function satz(b: Bedingung, titel: (art: string) => string, wertTitel: (a
 }
 export const wort = (v: Verknuepfung) => WORT[v];
 
-/** Filter im Spaltenkopf: die Art bekommt genau diesen Text („enthält“); leerer Text nimmt den Filter heraus. */
-export function textSetzen(b: Bedingung, art: string, text: string): Bedingung {
-  const i = b.gruppen.findIndex((g) => g.art === art);
-  if (!text.trim()) return i < 0 ? b : gruppeWeg(b, i);
+/** Spaltenfilter sammeln: „enthält text“ kommt zu den Werten dieser Art dazu (mit ODER), schon vorhandene bleiben. */
+export function enthaeltDazu(b: Bedingung, art: string, text: string): Bedingung {
   const wert = { w: text.trim(), nicht: false, enthaelt: true };
+  if (!wert.w) return b;
+  const i = b.gruppen.findIndex((g) => g.art === art);
   if (i < 0) return { gruppen: [...b.gruppen, { art, op: 'oder', werte: [wert] }], zwischen: b.gruppen.length ? [...b.zwischen, 'und'] : b.zwischen };
-  return { ...b, gruppen: b.gruppen.map((g, n) => (n === i ? { ...g, werte: [wert] } : g)) };
+  if (b.gruppen[i]!.werte.some((v) => v.enthaelt && gleich(v.w, wert.w))) return b;
+  return { ...b, gruppen: b.gruppen.map((g, n) => (n === i ? { ...g, werte: [...g.werte, wert] } : g)) };
 }
-/** Der Text eines Spaltenfilters (für die Filterzeile), wenn die Art genau einen „enthält“-Wert hat. */
-export const textVon = (b: Bedingung, art: string): string => { const g = b.gruppen.find((x) => x.art === art); return g && g.werte.length === 1 && g.werte[0]!.enthaelt && !g.werte[0]!.nicht ? g.werte[0]!.w : ''; };
