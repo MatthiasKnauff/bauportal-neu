@@ -2,7 +2,7 @@
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
 import { For, Show, createMemo, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { gp, guenstigster, nachOz, summeGeschaetzt, wertung, zaehlt, zahl } from '../module/ava/rechnung';
+import { gp, guenstigster, leiter, nachOz, summeGeschaetzt, wertung, zaehlt, zahl } from '../module/ava/rechnung';
 import { gaebSchreiben, type GaebPosten } from '../module/ava/gaeb';
 import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
@@ -164,4 +164,20 @@ export function AngebotSumme(p: { angebot: Zeile }): JSX.Element {
   const lvId = () => String(p.angebot.werte.lv ?? '');
   const w = createMemo(() => { const ang = angeboteVon(lvId()), pr = preiseVon(ang); return wertung(positionenVon(lvId()), ang, (a, q) => (pr.has(`${a}:${q}`) ? zahl(pr.get(`${a}:${q}`)!.werte.ep) : null)).find((x) => x.angebot === p.angebot.id); });
   return <Show when={w()}>{(x) => <p class="ava-gp">Summe netto <b>{eur(x().netto)} €</b>, nach Nachlass <b>{eur(x().nachLass)} €</b>{x().rang ? ` · Rang ${x().rang}` : ''}{x().fehlend ? ` · ${x().fehlend} Positionen ohne Preis` : ''}</p>}</Show>;
+}
+
+/** Karte einer Rechnung: die Rechenleiter bis zum Zahlbetrag (Nachlass aus dem beauftragten Angebot des LV). */
+export function RechnungLeiter(p: { rechnung: Zeile }): JSX.Element {
+  const lvId = () => String(p.rechnung.werte.lv ?? '');
+  const zeilen = createMemo(() => {
+    if (!lvId()) return [];
+    const auftrag = angeboteVon(lvId()).find((a) => a.werte.beauftragt === true);
+    return leiter(lebende('rechnung').filter((r) => r.werte.lv === lvId()), p.rechnung.id, zahl(auftrag?.werte.nachlass));
+  });
+  return (
+    <Show when={zeilen().length} fallback={<p class="still-text klein-text">Mit dem Auftrag (LV) rechnet die Karte den Zahlbetrag: Nachlass, Umsatzsteuer, Einbehalt, bisherige Zahlungen.</p>}>
+      <h3 class="ava-leiter-titel">Rechenleiter</h3>
+      <table class="ava-leiter"><tbody><For each={zeilen()}>{(z) => <tr classList={{ summe: !!z.summe }}><td>{z.titel}</td><td class="zahl">{eur(z.betrag)} €</td></tr>}</For></tbody></table>
+    </Show>
+  );
 }

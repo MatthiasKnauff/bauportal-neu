@@ -48,3 +48,32 @@ export function guenstigster(positionen: E[], angebote: E[], preis: (angebot: st
   }
   return m;
 }
+
+// ---------- Rechnungen: die Rechenleiter (wie im bisherigen Bauportal, Variante B – so rechnet die VOB/B) ----------
+export const UST = 0.19;
+export interface Leiterzeile { titel: string; betrag: number; summe?: boolean }
+/**
+ * Erst die Abzüge netto (Nachlass), dann die Umsatzsteuer, dann die Abzüge brutto (Sicherheitseinbehalt, bisherige Zahlungen).
+ * Leistungsstand: kumuliert (bei Abschlagsrechnungen der ganze Stand bis dahin) – geprüft, sonst wie angefordert.
+ * Bisherige Zahlungen: die Zahlbeträge der früheren Rechnungen desselben Auftrags (nach Datum).
+ */
+export function leiter(rechnungen: E[], id: string, nachlassProzent: number): Leiterzeile[] {
+  const reihe = [...rechnungen].sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')) || (a.id < b.id ? -1 : 1));
+  const r2 = (x: number) => Math.round(x * 100) / 100;
+  let gezahlt = 0;
+  for (const r of reihe) {
+    const stand = zahl(r.werte.geprueft ?? r.werte.betrag);
+    const nachlass = r2(stand * nachlassProzent / 100), netto = r2(stand - nachlass), ust = r2(netto * UST), brutto = r2(netto + ust);
+    const einbehalt = r2(brutto * zahl(r.werte.einbehalt) / 100), zahlbetrag = r2(brutto - einbehalt - gezahlt);
+    if (r.id === id) return [
+      { titel: `Leistungsstand netto${r.werte.geprueft != null && r.werte.geprueft !== '' ? ' (geprüft)' : ' (angefordert)'}`, betrag: stand },
+      ...(nachlass ? [{ titel: `− Nachlass ${String(nachlassProzent).replace('.', ',')} %`, betrag: -nachlass }, { titel: 'netto nach Nachlass', betrag: netto, summe: true }] : []),
+      { titel: `+ Umsatzsteuer ${UST * 100} %`, betrag: ust }, { titel: 'brutto', betrag: brutto, summe: true },
+      ...(einbehalt ? [{ titel: `− Sicherheitseinbehalt ${String(r.werte.einbehalt).replace('.', ',')} %`, betrag: -einbehalt }] : []),
+      ...(gezahlt ? [{ titel: '− bisherige Zahlungen', betrag: -gezahlt }] : []),
+      { titel: 'Zahlbetrag', betrag: zahlbetrag, summe: true },
+    ];
+    gezahlt = r2(gezahlt + zahlbetrag);
+  }
+  return [];
+}

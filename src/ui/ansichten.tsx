@@ -33,7 +33,7 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
-import { AngebotSumme, LvSummen, LvWahl, PositionSumme, Preisspiegel } from './ava';
+import { AngebotSumme, LvSummen, LvWahl, PositionSumme, Preisspiegel, RechnungLeiter } from './ava';
 import { Balkenplan } from './balkenplan';
 import { springeZu } from './sprung';
 import { Arbeitszeit } from './arbeitszeit';
@@ -386,7 +386,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     knoepfe: (z) => (darf('lv_position', 'schreiben') ? [{ titel: 'GAEB einlesen', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => gaebEinlesen(String(z.projekt)) }] : []) },
   lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), auswahl: gemeinsam, neuVorgabe: () => ({ art: 'normal' }) },
   angebot: { kartenZusatz: (z) => <AngebotSumme angebot={z} /> },
-  rechnung: { auswahl: gemeinsam },
+  rechnung: { auswahl: gemeinsam, kartenZusatz: (z) => <RechnungLeiter rechnung={z} /> },
   // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)
   foto: {
     kachelnZuerst: true, kachelBreite: 150,

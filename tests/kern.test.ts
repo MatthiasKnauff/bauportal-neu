@@ -1139,3 +1139,15 @@ test('GAEB DA XML: schreiben und wieder lesen (X83 ohne, X84 mit Preisen)', asyn
   assert.deepEqual(x84.posten.filter((x) => x.ep != null).map((x) => [x.oz, x.ep]), [['01.0010', 7.5], ['02.0010', 280]], 'X84: Einheitspreise');
   assert.throws(() => g.gaebLesen('<foo/>'), /GAEB/);
 });
+
+test('Ausschreibung: Rechenleiter einer Abschlagsrechnung (Nachlass, USt, Einbehalt, bisherige Zahlungen)', async () => {
+  const r = await import('../src/module/ava/rechnung');
+  const re = [{ id: 'a', werte: { datum: '2026-05-01', betrag: 10000, geprueft: 9000, einbehalt: 5 } }, { id: 'b', werte: { datum: '2026-06-01', betrag: 20000, einbehalt: 5 } }] as { id: string; werte: Record<string, string | number> }[];
+  const l1 = r.leiter(re, 'a', 2), l2 = r.leiter(re, 'b', 2);
+  const zahlb = (l: { titel: string; betrag: number }[]) => l.find((x) => x.titel === 'Zahlbetrag')!.betrag;
+  // a: 9000 − 2 % = 8820; +19 % = 10495,80; − 5 % (524,79) = 9971,01
+  assert.equal(zahlb(l1), 9971.01);
+  // b: 20000 − 2 % = 19600; brutto 23324; − 5 % = 22157,80; − 9971,01 = 12186,79
+  assert.equal(zahlb(l2), 12186.79);
+  assert.ok(l2.some((x) => x.titel === '− bisherige Zahlungen' && x.betrag === -9971.01));
+});

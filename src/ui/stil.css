@@ -1007,3 +1007,8 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .preisspiegel tfoot td { background: var(--still-hell); font-weight: 600; position: sticky; }
 .preisspiegel tr.ps-summe td { font-size: 14px; }
 .ps-fehlt { color: var(--warn); font-weight: 400; }
+.ava-leiter-titel { font-size: 13px; margin: 8px 0 4px; }
+.ava-leiter { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.ava-leiter td { padding: 3px 0; border-bottom: 1px solid var(--rand); }
+.ava-leiter td.zahl { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ava-leiter tr.summe td { font-weight: 700; }
