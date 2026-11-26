@@ -1,5 +1,6 @@
 // Ansichten der Module. Die Ansicht eines Objekts kommt von selbst (ObjektAnsicht: Baum, Tabelle, Detailkarte im Rahmen).
 // Hier steht nur, was ein Modul darüber hinaus zeigt – und was es an den Bausteinen über die Stellschrauben einstellt.
+import { KatalogListe, KatalogNetz } from './katalognetz';
 import { Darstellungsseite } from './designwahl';
 import { GebaeudeAssistent, GebaeudeTeile } from './gebaeudeschritte';
 import { Kostenrahmen } from './kostenrahmen';
@@ -442,6 +443,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
 // Anpassung je Objekt; eine einzelne Ansicht kann darüber eigene Stellschrauben haben (Schlüssel „modul.ansicht“, z. B. die 3D-Ansicht der Bauteile)
 const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSUNG[objekt], ...(ansicht ? ANSICHT_ANPASSUNG[ansicht] : {}), kartenZusatz: kartenZusatz(objekt) });
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
+  'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },

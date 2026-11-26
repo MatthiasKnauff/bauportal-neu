@@ -7,6 +7,7 @@ fehlen sie, werden Wand- und Deckenflächen aus der Geometrie gerechnet.
 """
 import os
 import tempfile
+import time
 
 import ifcopenshell
 import ifcopenshell.util.element as el
@@ -250,11 +251,28 @@ def _zahl(x: float) -> str:
     return f"{x:.2f}".replace(".", ",")
 
 
+class _Uhr:
+    """Zeit je Schritt – steht am Ende als eine Zeile im Protokoll des Dienstes (wo bleibt die Zeit bei großen Plänen?)."""
+    def __init__(self, was: str):
+        self.was, self.t0, self.t, self.teile = was, time.perf_counter(), time.perf_counter(), []
+
+    def schritt(self, name: str) -> None:
+        jetzt = time.perf_counter()
+        self.teile.append(f"{name} {jetzt - self.t:.1f} s")
+        self.t = jetzt
+
+    def ende(self, mehr: str = "") -> None:
+        print(f"{self.was}: {time.perf_counter() - self.t0:.1f} s – " + ", ".join(self.teile) + (f" – {mehr}" if mehr else ""), flush=True)
+
+
 def auswerten(pfad: str) -> dict:
+    uhr = _Uhr("IFC auswerten")
     f = ifcopenshell.open(pfad)
+    uhr.schritt("öffnen")
     laenge = einheit.calculate_unit_scale(f)          # Längeneinheit der Datei -> Meter
     flaeche = einheit.calculate_unit_scale(f, "AREAUNIT")   # Flächen haben oft eine eigene Einheit (m², auch wenn in mm gezeichnet wird)
     koerper = _koerper(f)                              # Weltkoordinaten in Metern
+    uhr.schritt(f"Geometrie ({len(koerper)} Körper)")
     ebenen = lambda e: [x.Name for x in el.get_layers(f, e) if x.Name]   # CAD-Layer, z. B. „Wand Mauerwerk tragend“  # noqa: E731
     allplan = lambda e: el.get_psets(e).get("AllplanAttributes", {})     # noqa: E731
 
@@ -327,6 +345,7 @@ def auswerten(pfad: str) -> dict:
     if any(v is None for v in angabe.values()):
         for s in etagen:
             aussen_geo |= _aussenwaende([w for w in inhalt[s.id()] if w.is_a("IfcWall")], koerper)
+    uhr.schritt("Geschosse, Räume, außen/innen")
 
     bauteile, uebersprungen, gerechnet, lage_gerechnet = [], {}, 0, 0
     lage_von = {}   # Wand -> Lage, für Fenster und Türen in dieser Wand
@@ -443,6 +462,8 @@ def auswerten(pfad: str) -> dict:
         if e.id() not in in_oeffnung:
             uebersprungen[e.is_a()] = uebersprungen.get(e.is_a(), 0) + 1
 
+    uhr.schritt("Bauteile")
+    uhr.ende(f"{len(bauteile)} Bauteile, {gerechnet} Flächen aus der Geometrie")
     return {"schema": f.schema, "gebaeude": gebaeude, "geschosse": geschosse, "raeume": raeume, "bauteile": bauteile,
             "uebersprungen": uebersprungen, "flaechen_aus_geometrie": gerechnet + raum_gerechnet, "lage_aus_geometrie": lage_gerechnet, "teile_in_oeffnungen": len(in_oeffnung)}
 
@@ -459,7 +480,9 @@ def netz(pfad: str) -> dict:
     import multiprocessing
 
     import ifcopenshell.geom
+    uhr = _Uhr("IFC 3D-Netz")
     f = ifcopenshell.open(pfad)
+    uhr.schritt("öffnen")
     einst = ifcopenshell.geom.settings()
     einst.set("use-world-coords", True)
     teile = [e for e in f.by_type("IfcElement") if not e.is_a("IfcOpeningElement") and not e.is_a("IfcVirtualElement") and not e.is_a("IfcFurnishingElement")]
@@ -488,6 +511,8 @@ def netz(pfad: str) -> dict:
     masz = einheit.calculate_unit_scale(f)   # Höhen der Geschosse stehen in der Einheit der Datei (oft mm)
     for s in f.by_type("IfcBuildingStorey"):
         geschosse[s.GlobalId] = {"k": s.GlobalId, "name": (s.Name or "").strip() or "Geschoss", "ebene": round(float(s.Elevation or 0) * masz, 2)}
+    uhr.schritt("Geometrie mit Öffnungen")
+    uhr.ende(f"{len(aus)} Teile")
     return {"elemente": aus, "geschosse": sorted(geschosse.values(), key=lambda g: g["ebene"])}
 
 
