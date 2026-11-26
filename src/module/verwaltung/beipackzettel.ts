@@ -94,6 +94,7 @@ export const KI_ARTEN = [
   { wert: 'ollama', titel: 'KI im Büro (Ollama)' }, { wert: 'claude', titel: 'Claude (Anthropic)' },
   { wert: 'openai', titel: 'ChatGPT (OpenAI)' }, { wert: 'gemini', titel: 'Gemini (Google)' },
 ];
+const EXTERN = KI_ARTEN.map((a) => a.wert).filter((w) => w !== 'ollama');
 export const ki_anbindung: ObjektModell = {
   name: 'ki_anbindung',
   titel: 'KI-Anbindung',
@@ -106,6 +107,12 @@ export const ki_anbindung: ObjektModell = {
     { name: 'adresse', titel: 'Adresse von Ollama, z. B. http://192.168.1.20:11434', art: 'text', gruppe: 'Anbindung', wenn: { art: ['ollama'] } },
     { name: 'modell', titel: 'Modell', art: 'text', inListe: true, breite: 220, gruppe: 'Anbindung' },
     { name: 'aktiv', titel: 'Eingeschaltet', art: 'ja_nein', inListe: true, breite: 120, gruppe: 'Anbindung' },
+    // Kosten (Anbieter außerhalb): Preise laut Anbieter, Kostendeckel je Monat (danach lehnt der KI-Ausgang ab), aufgeladenes Guthaben
+    { name: 'preis_ein', titel: 'Preis Eingabe in € je 1 Mio. Tokens', art: 'zahl', gruppe: 'Kosten', wenn: { art: EXTERN } },
+    { name: 'preis_aus', titel: 'Preis Ausgabe in € je 1 Mio. Tokens', art: 'zahl', gruppe: 'Kosten', wenn: { art: EXTERN } },
+    { name: 'deckel', titel: 'Kostendeckel je Monat in € (leer: keiner)', art: 'zahl', gruppe: 'Kosten', wenn: { art: EXTERN } },
+    { name: 'aufgeladen', titel: 'Guthaben zuletzt aufgeladen in €', art: 'zahl', gruppe: 'Kosten', wenn: { art: EXTERN } },
+    { name: 'aufgeladen_am', titel: 'aufgeladen am', art: 'datum', gruppe: 'Kosten', wenn: { art: EXTERN } },
   ],
 };
 

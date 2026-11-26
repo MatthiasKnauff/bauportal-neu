@@ -1248,3 +1248,13 @@ test('Werte aufräumen: ähnliche Gewerke und Stichwörter finden, zusammenführ
   assert.deepEqual(w.umbenennen(l, 'stichworte', true, ['fliesen', 'Fliessen'], 'Fliesen'), [{ id: '7', werte: { stichworte: 'Fliesen, Bad' } }, { id: '8', werte: { stichworte: 'Bad, Fliesen' } }]);
   assert.deepEqual(w.umbenennen(l, 'gewerk', false, ['elektro', 'Elektroinstallation'], 'Elektro'), [{ id: '2', werte: { gewerk: 'Elektro' } }, { id: '3', werte: { gewerk: 'Elektro' } }]);
 });
+
+test('KI-Kosten: Preise je 1 Mio. Tokens, Kostendeckel, Guthaben', async () => {
+  const k = await import('../src/kern/kikosten');
+  assert.equal(k.kosten(2_000_000, 500_000, { preis_ein: 3, preis_aus: '15' }), 13.5);
+  assert.equal(k.deckelErreicht(13.5, 10), true);
+  assert.equal(k.deckelErreicht(9.99, '10'), false);
+  assert.equal(k.deckelErreicht(1000, null), false, 'ohne Deckel nie');
+  assert.equal(k.guthaben(50, 13.5), 36.5);
+  assert.equal(k.guthaben(null, 13.5), null);
+});

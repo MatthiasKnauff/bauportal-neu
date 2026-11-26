@@ -74,18 +74,25 @@ export function KiFenster() {
 }
 
 /** Verwaltung → KI: unter der Karte einer Anbindung – Zugangsschlüssel, Modell aus der Liste des Anbieters wählen, ausprobieren. */
+const zahl = (w: unknown) => Number(w) || 0;
+
 export function KiEinrichten(p: { anbindung: Zeile }) {
   const z = () => p.anbindung;
   const [schluessel, setSchluessel] = createSignal(false);
   const [lage, { refetch }] = createResource(() => z().id, (anbindung) => ruf<{ schluesselGesetzt: boolean }>('/api/ki/zustand', { anbindung }));
   const [modelle, setModelle] = createSignal<string[] | null>(null);
+  // Verbrauch dieses Monats (nur Anbieter außerhalb): neu geholt, wenn sich Preise, Deckel oder Aufladung ändern
+  type Verbrauch = { monat: { ein: number; aus: number; anfragen: number; euro: number; jeTag: number }; deckel: number | null; erreicht: boolean; guthaben: number | null };
+  const [verbrauch, { refetch: verbrauchNeu }] = createResource(() => (z().werte.art !== 'ollama' ? [z().id, z().werte.preis_ein, z().werte.preis_aus, z().werte.deckel, z().werte.aufgeladen, z().werte.aufgeladen_am].join('|') : false),
+    () => ruf<Verbrauch>('/api/ki/verbrauch', { anbindung: z().id }));
+  const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const [ergebnis, setErgebnis] = createSignal<{ gut: boolean; text: string } | null>(null);
   const melde = async (tun: () => Promise<string>) => {
     setErgebnis({ gut: true, text: 'Einen Moment …' });
     try { setErgebnis({ gut: true, text: await tun() }); } catch (e) { setErgebnis({ gut: false, text: (e as Error).message }); }
   };
   const abrufen = () => melde(async () => { const r = await ruf<{ modelle: string[] }>('/api/ki/modelle', { anbindung: z().id }); setModelle(r.modelle); return r.modelle.length ? `${r.modelle.length} Modelle gefunden – wähle eins aus.` : 'Der Anbieter hat keine Modelle gemeldet.'; });
-  const probe = () => melde(async () => `Antwort der KI: ${(await ruf<{ vorschlag: string }>('/api/ki/text', { anbindung: z().id, aufgabe: 'ausformulieren', text: 'Bodenplatte betoniert, Wetter trocken, keine Mängel' })).vorschlag}`);
+  const probe = () => melde(async () => { const t = `Antwort der KI: ${(await ruf<{ vorschlag: string }>('/api/ki/text', { anbindung: z().id, aufgabe: 'ausformulieren', text: 'Bodenplatte betoniert, Wetter trocken, keine Mängel' })).vorschlag}`; void verbrauchNeu(); return t; });
   return (
     <fieldset>
       <legend>Einrichten und ausprobieren</legend>
@@ -104,6 +111,18 @@ export function KiEinrichten(p: { anbindung: Zeile }) {
         </div>
       </Show>
       <Show when={ergebnis()}>{(e) => <p classList={{ 'feld-fehler': !e().gut, 'gut-text': e().gut }} role="status">{e().text}</p>}</Show>
+      <Show when={verbrauch()}>{(v) => (
+        <div class="ki-verbrauch">
+          <h3>Verbrauch in diesem Monat</h3>
+          <dl class="angaben">
+            <dt>Anfragen</dt><dd>{v().monat.anfragen}</dd>
+            <dt>Tokens</dt><dd>{v().monat.ein.toLocaleString('de-DE')} hinein · {v().monat.aus.toLocaleString('de-DE')} heraus</dd>
+            <dt>Kosten</dt><dd>{zahl(z().werte.preis_ein) || zahl(z().werte.preis_aus) ? <>{eur(v().monat.euro)} € · Ø {eur(v().monat.jeTag)} € je Tag</> : <span class="still-text">Preise unten unter „Kosten“ eintragen</span>}</dd>
+            <dt>Kostendeckel</dt><dd classList={{ 'gefahr-text': v().erreicht }}>{v().deckel ? `${eur(Number(v().deckel))} € je Monat${v().erreicht ? ' – erreicht, der KI-Ausgang lehnt ab' : ''}` : 'keiner'}</dd>
+            <Show when={v().guthaben != null}><dt>Guthaben</dt><dd classList={{ 'gefahr-text': v().guthaben! < 0 }}>{eur(v().guthaben!)} € (seit der Aufladung)</dd></Show>
+          </dl>
+        </div>
+      )}</Show>
       <Show when={schluessel()}>
         <Dialog titel={`Zugangsschlüssel für „${z().werte.name}“`} onAbbrechen={() => setSchluessel(false)} knoepfe={<button class="knopf" onClick={() => setSchluessel(false)}>Abbrechen</button>}>
           <Formular knopf="Speichern" pfad="/api/ki/schluessel" fest={{ anbindung: z().id }} felder={[{ name: 'schluessel', titel: 'Zugangsschlüssel (API-Key) des Anbieters', typ: 'password', auto: 'new-password' }]}

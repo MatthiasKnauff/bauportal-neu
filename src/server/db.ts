@@ -183,6 +183,8 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
         werte jsonb,
         ueberschrieben jsonb
       );
+      alter table kern_ki_ausgang add column if not exists anbindung_id uuid;
+      create index if not exists kern_ki_ausgang_anbindung on kern_ki_ausgang (anbindung_id, zeit);
       alter table kern_befehl add column if not exists projekt_id uuid;
       alter table kern_befehl add column if not exists herkunft text;
       alter table kern_befehl add column if not exists herkunft_felder text[];

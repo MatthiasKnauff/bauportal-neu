@@ -4,6 +4,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { PLATZHALTER_HINWEIS, anonymisieren, klartext } from '../kern/anonym';
 import { KENNUNG } from '../kern/modell';
+import { deckelErreicht, guthaben, kosten } from '../kern/kikosten';
 import { alsBenutzer, type Db } from './db';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { Ablehnung } from './protokoll';
@@ -26,7 +27,7 @@ const RAHMEN_JSON = 'Du arbeitest in der Software eines Architekturbüros. Antwo
 const RAHMEN = 'Du arbeitest in der Software eines Architekturbüros. Antworte auf Deutsch und gib ausschließlich den fertigen Text zurück – ohne Einleitung, ohne Erklärung, ohne Anführungszeichen, ohne Formatierungszeichen.';
 const GRENZE = 20000;
 
-interface Anbindung { id: string; name: string; art: string; adresse: string; modell: string; aktiv: boolean }
+interface Anbindung { id: string; name: string; art: string; adresse: string; modell: string; aktiv: boolean; preis_ein: number | null; preis_aus: number | null; deckel: number | null; aufgeladen: number | null; aufgeladen_am: string | null }
 
 async function dienst<T>(pfad: string, body: unknown): Promise<T> {
   let r: Response;
@@ -43,10 +44,16 @@ async function dienst<T>(pfad: string, body: unknown): Promise<T> {
 /** Die Anbindung, wie der Benutzer sie sehen darf (Gäste sehen keine). */
 async function anbindung(db: Db, wer: Benutzer, id: string): Promise<Anbindung> {
   if (!KENNUNG.test(id)) throw new Ablehnung('Die KI-Anbindung fehlt');
-  const a = await alsBenutzer(db, wer, async (c) => (await c.query('select id, name, art, adresse, modell, aktiv from o_ki_anbindung where id = $1 and not geloescht', [id])).rows[0] as Anbindung | undefined);
+  const a = await alsBenutzer(db, wer, async (c) => (await c.query('select id, name, art, adresse, modell, aktiv, preis_ein, preis_aus, deckel, aufgeladen, aufgeladen_am from o_ki_anbindung where id = $1 and not geloescht', [id])).rows[0] as Anbindung | undefined);
   if (!a) throw new Ablehnung('Diese KI-Anbindung gibt es nicht');
   return a;
 }
+/** Tokens einer Anbindung seit einem Zeitpunkt (aus dem Protokoll des KI-Ausgangs). */
+async function tokensSeit(db: Db, anbindungId: string, seit: string): Promise<{ ein: number; aus: number; anfragen: number }> {
+  const r = (await db.query('select coalesce(sum(tokens_ein), 0)::int as ein, coalesce(sum(tokens_aus), 0)::int as aus, (count(*) filter (where fehler is null))::int as anfragen from kern_ki_ausgang where anbindung_id = $1 and zeit >= $2', [anbindungId, seit])).rows[0];
+  return { ein: r.ein, aus: r.aus, anfragen: r.anfragen };
+}
+const monatsanfang = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString(); };
 const zugang = async (db: Db, a: Anbindung) => ({ art: a.art, adresse: a.adresse, modell: a.modell, schluessel: a.art === 'ollama' ? '' : (await geheimnisLesen(db, `ki.${a.id}`)) ?? '' });
 
 /** Alles, was im Büro als Name oder Anschrift bekannt ist – das geht nie im Klartext an eine KI außerhalb. */
@@ -74,11 +81,16 @@ export async function kiText(db: Db, wer: Benutzer, anbindungId: string, aufgabe
   const a = await anbindung(db, wer, anbindungId);
   if (!a.aktiv) throw new Ablehnung('Diese KI-Anbindung ist ausgeschaltet');
   const extern = a.art !== 'ollama';
+  // Kostendeckel: ist der Monat ausgeschöpft, geht nichts mehr hinaus
+  if (extern && a.deckel) {
+    const m = await tokensSeit(db, a.id, monatsanfang());
+    if (deckelErreicht(kosten(m.ein, m.aus, a), a.deckel)) throw new Ablehnung(`Der Kostendeckel von ${String(a.deckel).replace('.', ',')} € für „${a.name}“ ist in diesem Monat erreicht – in der Verwaltung unter KI anheben oder bis zum Monatsende warten.`);
+  }
   // Nach außen nur ohne Namen; im Büro bleibt der Text, wie er ist.
   const e = extern ? anonymisieren(text, await bekannteNamen(db)) : { text, karte: new Map<string, string>() };
   const merke = (fehler: string | null, ein = 0, aus = 0) => db.query(
-    'insert into kern_ki_ausgang (benutzer_id, benutzer_name, anbindung, art, modell, aufgabe, extern, zeichen, ersetzt, tokens_ein, tokens_aus, fehler) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-    [wer.id, wer.name, a.name, a.art, a.modell, aufgabe, extern, e.text.length, e.karte.size, ein, aus, fehler]);
+    'insert into kern_ki_ausgang (benutzer_id, benutzer_name, anbindung, anbindung_id, art, modell, aufgabe, extern, zeichen, ersetzt, tokens_ein, tokens_aus, fehler) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
+    [wer.id, wer.name, a.name, a.id, a.art, a.modell, aufgabe, extern, e.text.length, e.karte.size, ein, aus, fehler]);
   try {
     const r = await dienst<{ text: string; ein: number; aus: number }>('/frage', { ...(await zugang(db, a)), anweisung: [auf.json ? RAHMEN_JSON : RAHMEN, auf.anweisung, extern ? PLATZHALTER_HINWEIS : ''].filter(Boolean).join('\n\n'), text: e.text });
     await merke(null, r.ein, r.aus);
@@ -119,6 +131,15 @@ export function kiRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (req:
     admin(req);
     const a = await anbindung(db, req.benutzer!, String(((req.body ?? {}) as Ein).anbindung ?? ''));
     return dienst<{ modelle: string[] }>('/modelle', await zugang(db, a));
+  });
+  // Verbrauch einer Anbindung: dieser Monat (Tokens, €, Ø je Tag), Kostendeckel, Guthaben seit der letzten Aufladung
+  app.post('/api/ki/verbrauch', { preHandler: e.nurAngemeldet }, async (req) => {
+    admin(req);
+    const a = await anbindung(db, req.benutzer!, String(((req.body ?? {}) as Ein).anbindung ?? ''));
+    const m = await tokensSeit(db, a.id, monatsanfang());
+    const euro = kosten(m.ein, m.aus, a), tage = new Date().getDate();
+    const seit = a.aufgeladen_am ? await tokensSeit(db, a.id, new Date(a.aufgeladen_am).toISOString()) : null;
+    return { monat: { ...m, euro, jeTag: euro / tage }, deckel: a.deckel, erreicht: deckelErreicht(euro, a.deckel), guthaben: seit ? guthaben(a.aufgeladen, kosten(seit.ein, seit.aus, a)) : null };
   });
   app.get('/api/ki/protokoll', { preHandler: e.nurAngemeldet }, async (req) => {
     admin(req);

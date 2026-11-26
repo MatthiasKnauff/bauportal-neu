@@ -1080,3 +1080,4 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .werte-zeile { display: flex; align-items: center; gap: 6px; }
 .werte-zeile input { flex: 1; min-width: 0; font: inherit; border: 1px solid transparent; border-radius: 4px; padding: 2px 6px; background: transparent; }
 .werte-zeile input:hover { border-color: var(--rand-stark); } .werte-zeile input:focus { border-color: var(--akzent); outline: none; background: var(--flaeche); }
+.ki-verbrauch h3 { font-size: 13px; margin: 12px 0 4px; } .ki-verbrauch .gefahr-text { color: var(--gefahr); }
