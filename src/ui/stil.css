@@ -1249,3 +1249,7 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 @keyframes treffer-blink { 0%, 60% { background: var(--akzent-hell); box-shadow: 0 0 0 4px var(--akzent-hell); } 100% { background: transparent; box-shadow: none; } }
 .treffer-blink { animation: treffer-blink 2.4s ease-out; border-radius: 4px; }
 .suche-treffer li.seite strong::before { content: '⚙ '; color: var(--text-still); }
+/* Angebotsbesprechung: Abgleich mit den Daten oben in der Karte */
+.bsp-abgleich { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 4px; }
+.bsp-zeile { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: calc(8px * var(--rund)); background: var(--still-hell); font-size: .9em; }
+.bsp-hinweis { background: #fdf0e2; }

@@ -1,5 +1,6 @@
 // Ansichten der Module. Die Ansicht eines Objekts kommt von selbst (ObjektAnsicht: Baum, Tabelle, Detailkarte im Rahmen).
 // Hier steht nur, was ein Modul darüber hinaus zeigt – und was es an den Bausteinen über die Stellschrauben einstellt.
+import { BesprechungAbgleich, BesprechungKnopf } from './besprechung';
 import { BueroLogo } from './buerologo';
 import { KatalogListe, KatalogNetz } from './katalognetz';
 import { Darstellungsseite } from './designwahl';
@@ -414,7 +415,8 @@ const ANPASSUNG: Record<string, Anpassung> = {
     if (nt) { const eigene = vorh.filter((x) => x.werte.nachtrag === nt.id); return { art: 'normal', oz: eigene.length ? naechsteOz(eigene) : `${String(nt.werte.nummer || 'N')}.0010` }; }
     return { art: 'normal', oz: naechsteOz(vorh.filter((x) => x.werte.lv === schon.lv && !x.werte.nachtrag)) };
   } },
-  angebot: { kartenZusatz: (z) => <AngebotSumme angebot={z} /> },
+  angebot: { kartenZusatz: (z) => <><AngebotSumme angebot={z} /><BesprechungKnopf angebot={z} /></> },
+  besprechung: { kartenOben: (z) => <BesprechungAbgleich z={z} /> },
   rechnung: { auswahl: gemeinsam, kartenZusatz: (z) => <RechnungLeiter rechnung={z} /> },
   // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)
   foto: {

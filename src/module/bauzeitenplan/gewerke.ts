@@ -27,13 +27,24 @@ export function gewerkeAus(plan: Plan, werte: (id: string) => Werte | undefined)
     if (w?.firma && !r.firmen.includes(String(w.firma))) r.firmen.push(String(w.firma));
   }
   const aus = [...m.values()].map(({ tage, vobs, ...r }) => {
-    // Arbeitstage zu Zeiträumen zusammenfassen: überlappend oder direkt anschließend = ein Zeitraum
-    const t = tage.sort((a, b) => a[0] - b[0]), z: [number, number][] = [];
-    for (const [a, b] of t) { const l = z.at(-1); if (l && a <= l[1] + 1) l[1] = Math.max(l[1], b); else z.push([a, b]); }
-    const einsatz = z.map(([a, b]) => [plan.kal.tag(a), plan.kal.tag(b)] as [number, number]);
+    const einsatz = zeitraeume(plan, tage);
     return { ...r, einsatz, anfang: einsatz[0]?.[0] ?? null, ende: einsatz.at(-1)?.[1] ?? null, vob: [...vobs].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null };
   });
   return aus.sort((a, b) => (a.anfang ?? Infinity) - (b.anfang ?? Infinity) || a.gewerk.localeCompare(b.gewerk, 'de'));
+}
+
+/** Arbeitstage zu Zeiträumen zusammenfassen (überlappend oder direkt anschließend = ein Zeitraum) – als Tagnummern. */
+function zeitraeume(plan: Plan, tage: [number, number][]): [number, number][] {
+  const t = [...tage].sort((a, b) => a[0] - b[0]), z: [number, number][] = [];
+  for (const [a, b] of t) { const l = z.at(-1); if (l && a <= l[1] + 1) l[1] = Math.max(l[1], b); else z.push([a, b]); }
+  return z.map(([a, b]) => [plan.kal.tag(a), plan.kal.tag(b)] as [number, number]);
+}
+
+/** Einsatz bestimmter Leistungen im Plan (z. B. alles eines LV-Gewerks oder einer Firma): die tatsächlichen Arbeitszeiträume. */
+export function einsatzAus(plan: Plan, ids: Set<string>): [number, number][] {
+  const tage: [number, number][] = [];
+  for (const z of plan.zeilen) if (ids.has(z.id) && !z.termin.gruppe) for (const a of z.termin.abschnitte.length ? z.termin.abschnitte : [{ s: z.termin.s, f: z.termin.f }]) if (a.f > a.s) tage.push([a.s, a.f - 1]);
+  return zeitraeume(plan, tage);
 }
 
 /** Gehört ein Kontakt zum Gewerk? Gleiches Wort am Anfang („Heizung“ ↔ „Heizung Sanitär“) – Firmen des Gewerks stehen zuerst. */

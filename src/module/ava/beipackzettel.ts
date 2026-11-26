@@ -4,6 +4,7 @@
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';
+import { GRUNDLAGEN } from './besprechung';
 
 const rechte = { lesen: ALLE, schreiben: ['bueroleitung', 'bauleitung', 'mitarbeiter'], loeschen: ['bueroleitung', 'bauleitung'] };
 
@@ -161,6 +162,46 @@ export const rechnung: ObjektModell = {
   ],
 };
 
+
+// Angebotsbesprechung (Protokoll) je Angebot – die Felder kommen aus den Daten (besprechung.ts), bis jemand sie ändert
+export const besprechung: ObjektModell = {
+  name: 'besprechung', titel: 'Angebotsbesprechung', titelMehrzahl: 'Angebotsbesprechungen', anzeigeFeld: 'bieter', ersatzName: ['datum'], sortierFeld: 'datum',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'lv', titel: 'Leistungsverzeichnis', art: 'verweis', ziel: 'lv', pflicht: true, inListe: true, breite: 220, gruppe: 'Besprechung' },
+    { name: 'angebot', titel: 'Angebot (Bieter:in)', art: 'verweis', ziel: 'angebot', pflicht: true, inListe: true, breite: 220, gruppe: 'Besprechung' },
+    { name: 'stand', titel: 'Stand', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Besprechung', optionen: [{ wert: 'entwurf', titel: 'Entwurf' }, { wert: 'abgeschlossen', titel: 'abgeschlossen' }] },
+    { name: 'datum', titel: 'Datum', art: 'datum', inListe: true, breite: 110, kartenBreite: 2, gruppe: 'Besprechung' },
+    { name: 'uhrzeit', titel: 'Uhrzeit', art: 'text', kartenBreite: 1, gruppe: 'Besprechung' },
+    { name: 'ort', titel: 'Ort', art: 'text', vorschlagen: true, kartenBreite: 3, gruppe: 'Besprechung' },
+    { name: 'teilnehmer', titel: 'Teilnehmer:innen', art: 'langtext', gruppe: 'Besprechung' },
+    { name: 'bauvorhaben', titel: 'Bauvorhaben', art: 'langtext', gruppe: 'Beteiligte' },
+    { name: 'bauherr', titel: 'Bauherr:in / AG', art: 'langtext', gruppe: 'Beteiligte' },
+    { name: 'architekt', titel: 'Architekt:in', art: 'langtext', gruppe: 'Beteiligte' },
+    { name: 'bieter', titel: 'Bieter:in / AN', art: 'langtext', inListe: true, breite: 260, gruppe: 'Beteiligte' },
+    { name: 'rechtsform', titel: 'Rechtsform / Sitz', art: 'text', gruppe: 'Angaben der Bieter:in' },
+    { name: 'mitarbeiter', titel: 'Mitarbeiter:innen', art: 'text', kartenBreite: 3, gruppe: 'Angaben der Bieter:in' },
+    { name: 'mitarbeiter_projekt', titel: 'Mitarbeiter:innen fürs Projekt', art: 'text', kartenBreite: 3, gruppe: 'Angaben der Bieter:in' },
+    { name: 'bauleiter', titel: 'Bauleiter:in', art: 'text', gruppe: 'Angaben der Bieter:in' },
+    { name: 'subunternehmer', titel: 'Subunternehmer', art: 'text', gruppe: 'Angaben der Bieter:in' },
+    { name: 'gueltig', titel: 'Gültigkeit', art: 'text', gruppe: 'Angebot' },
+    { name: 'angebot_vom', titel: 'Angebot vom', art: 'text', kartenBreite: 2, gruppe: 'Angebot' },
+    { name: 'gewerke', titel: 'Gewerke', art: 'text', kartenBreite: 4, gruppe: 'Angebot' },
+    { name: 'nachlass', titel: 'Nachlass', art: 'text', kartenBreite: 2, gruppe: 'Angebot' },
+    { name: 'skonto', titel: 'Skonto', art: 'text', kartenBreite: 4, gruppe: 'Angebot' },
+    { name: 'preis', titel: 'Preis', art: 'langtext', gruppe: 'Angebot' },
+    { name: 'klaerung', titel: 'Klärungen zum Angebot', art: 'langtext', gruppe: 'Angebot' },
+    { name: 'beginn', titel: 'Beginn', art: 'text', kartenBreite: 2, gruppe: 'Termine' },
+    { name: 'fertig', titel: 'Fertigstellung', art: 'text', kartenBreite: 2, gruppe: 'Termine' },
+    { name: 'unterbrechung', titel: 'Unterbrechung', art: 'text', kartenBreite: 2, gruppe: 'Termine' },
+    { name: 'bauzeitenplan', titel: 'Bauzeitenplan', art: 'text', gruppe: 'Termine' },
+    ...GRUNDLAGEN.map(([name, titel]): ObjektModell['felder'][number] => ({ name, titel, art: 'text', gruppe: 'Vertragsgrundlagen' })),
+    { name: 'ergebnis', titel: 'Ergebnis / Vereinbarungen', art: 'langtext', gruppe: 'Ergebnis' },
+    { name: 'quellen', titel: 'Stand der Quellen beim letzten Abgleich', art: 'langtext', verborgen: true },
+  ],
+};
+
 export const ava: Beipackzettel = {
   id: 'ava',
   handy: 'ansicht',
@@ -169,7 +210,24 @@ export const ava: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
-  objekte: [lv, lvPosition, angebot, angebotPreis, nachtrag, aufmass, rechnung],
+  objekte: [lv, lvPosition, angebot, angebotPreis, nachtrag, aufmass, rechnung, besprechung],
+  ausdrucke: [{
+    id: 'ava.besprechung', titel: 'Protokoll Angebotsbesprechung', objekt: 'besprechung',
+    dateiname: 'Angebotsbesprechung {lv} {datum}', fuss: '{buero} · Angebotsbesprechung {lv} vom {datum}', ordner: 'AVA/Vergabe',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Protokoll Angebotsbesprechung', unter: '{lv} · {datum}' },
+      { id: 'besprechung', art: 'felder', felder: ['datum', 'uhrzeit', 'ort'] },
+      { id: 'teilnehmer', art: 'text', feld: 'teilnehmer' },
+      { id: 'beteiligte', art: 'felder', felder: ['bauvorhaben', 'bauherr', 'architekt', 'bieter'] },
+      { id: 'bieterangaben', art: 'felder', felder: ['rechtsform', 'mitarbeiter', 'mitarbeiter_projekt', 'bauleiter', 'subunternehmer'] },
+      { id: 'angebot', art: 'felder', felder: ['gueltig', 'angebot_vom', 'gewerke', 'nachlass', 'skonto', 'preis'] },
+      { id: 'klaerung', art: 'text', feld: 'klaerung' },
+      { id: 'termine', art: 'felder', felder: ['beginn', 'fertig', 'unterbrechung', 'bauzeitenplan'] },
+      { id: 'grundlagen', art: 'felder', felder: GRUNDLAGEN.map(([n]) => n) },
+      { id: 'ergebnis', art: 'text', feld: 'ergebnis' },
+    ],
+  }],
   ansichten: [
     { id: 'lvs', titel: 'Leistungsverzeichnisse', abschnitt: 'Ausschreibung', zeichen: 'liste_aufgaben', objekt: 'lv', baum: ['status'], brauchtProjekt: true,
       hilfe: 'Je Gewerk ein Leistungsverzeichnis (Vergabeeinheit) mit Stand, Kostenansatz und Terminen. Die Positionen stehen unter „Positionen“; rechts in der Karte die Summen: geschätzt, Angebote, Auftrag, abgerechnet.' },
@@ -182,6 +240,8 @@ export const ava: Beipackzettel = {
     { id: 'angebote', titel: 'Angebote', abschnitt: 'Vergabe', zeichen: 'personen', objekt: 'angebot', baum: ['lv'], brauchtProjekt: true },
     { id: 'preisspiegel', titel: 'Preisspiegel', abschnitt: 'Vergabe', zeichen: 'preisspiegel', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: die Positionen mit den Preisen aller Bieter:innen nebeneinander, das günstigste Angebot je Position markiert, unten die Summen mit Nachlass und der Rang. Preise direkt eintragen; „Vergeben an …“ beauftragt das Angebot.' },
+    { id: 'besprechungen', titel: 'Angebotsbesprechung', abschnitt: 'Vergabe', zeichen: 'vertrag', objekt: 'besprechung', baum: ['lv'], brauchtProjekt: true,
+      hilfe: 'Protokoll der Angebotsbesprechung je Angebot – anlegen im Preisspiegel oder an der Karte des Angebots. Jedes Feld kommt aus den Daten (Projekt, Büro, Adressen, Angebot, LV, Bauzeitenplan, Vertragsgrundlagen); solange das Protokoll ein Entwurf ist, folgt es ihnen. Von Hand Geändertes bleibt, mit Hinweis, wenn sich die Quelle ändert. Drucken als PDF.' },
     { id: 'auftraege', titel: 'Aufträge', abschnitt: 'Abrechnung', zeichen: 'vertrag', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein vergebenes LV wählen: Hauptauftrag und Nachträge mit Stand und Betrag, darunter Prognose (Auftrag + Nachträge) und abgerechnet. Nachtragspositionen mit EP direkt eintragen.' },
     { id: 'nachtraege', titel: 'Nachträge', abschnitt: 'Abrechnung', zeichen: 'nachtrag', objekt: 'nachtrag', baum: ['lv', 'stand'], brauchtProjekt: true },

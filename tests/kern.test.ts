@@ -988,6 +988,29 @@ test('Name eines Eintrags: Anzeigefeld, sonst Ersatzname (Tagesbericht ohne Kurz
   assert.ok(tagesbericht.felder.find((f) => f.name === 'titel')!.verborgen, 'Kurzbeschreibung steht nirgends');
 });
 
+test('Angebotsbesprechung: Protokoll aus den Daten, Abgleich folgt der Quelle, von Hand Geändertes bleibt', async () => {
+  const { ausDenDaten, abgleich, GRUNDLAGEN } = await import('../src/module/ava/besprechung');
+  const q = { projekt: { nummer: 'A481', name: 'Tierheim', strasse: 'Grillostr. 24', plz: '45141', ort: 'Essen', bauherr: 'Stadt Essen' }, buero: { name: 'GK3', ort: 'Essen' },
+    bieter: { name: 'Muster Rohbau GmbH', strasse: 'Weg 1', plz: '45127', ort: 'Essen', ansprechpartner: 'Frau Muster' }, angebot: { eingang: '2026-11-20', nachlass: 3, skonto: 2, skonto_tage: 10 },
+    lv: { name: 'Rohbau', bindefrist: '2026-12-31', ausfuehrung_beginn: '2027-02-01' }, gewerkName: 'Mauerarbeiten', kostengruppe: '330',
+    termine: { beginn: '2027-03-01', fertig: '2027-04-30', unterbrechung: '01.03.–15.03., 01.04.–30.04.', plan: 'Version „Start“' } };
+  const d = ausDenDaten(q);
+  assert.equal(d.bauvorhaben, 'A481 · Tierheim\nGrillostr. 24, 45141 Essen');
+  assert.equal(d.bieter, 'Muster Rohbau GmbH\nWeg 1, 45127 Essen\nAnsprechpartner:in: Frau Muster');
+  assert.equal(d.gueltig, 'ja, gebunden bis 31.12.2026');
+  assert.equal(d.gewerke, 'Mauerarbeiten · KG 330');
+  assert.equal(d.skonto, '2 % binnen 10 Tagen');
+  assert.equal(d.beginn, '01.03.2027', 'Termine aus dem Bauzeitenplan vor denen des LV');
+  assert.equal(d.vertragsstrafe, GRUNDLAGEN.find(([n]) => n === 'vertragsstrafe')![2]);
+  // Abgleich: aus den Daten folgt, von Hand geändert bleibt mit Hinweis – aber nur, wenn sich die Quelle seitdem geändert hat
+  const neu = ausDenDaten({ ...q, lv: { ...q.lv, bindefrist: '2027-01-15' }, angebot: { ...q.angebot, nachlass: 4 } });
+  const jetzt = { ...d, nachlass: '5 % (verhandelt)' }, herkunft = Object.fromEntries(Object.keys(d).map((k) => [k, k === 'nachlass' ? '' : 'daten']));
+  const r = abgleich(jetzt, herkunft, neu, d);
+  assert.deepEqual(r.folgen, { gueltig: 'ja, gebunden bis 15.01.2027' });
+  assert.deepEqual(r.hinweise, [{ feld: 'nachlass', neu: '4 %' }]);
+  assert.deepEqual(abgleich(jetzt, herkunft, neu, { ...d, nachlass: '4 %' }).hinweise, [], 'einmal entschieden: kein Hinweis mehr, bis sich die Quelle wieder ändert');
+});
+
 test('Eigene Einträge: Projekt-Merker sieht und ändert nur, wem sie gehören', async () => {
   const { db, weg } = await frischeDb();
   try {
