@@ -1231,7 +1231,9 @@ test('Ausschreibung: Rechenleiter mit Vertragsbedingungen – Sicherheiten, Baua
   assert.equal(wert(s, /Bauabzugsteuer/), -3405.75);
   assert.equal(wert(s, /^Auszahlung an die Firma$/), 19299.25);
   assert.ok(s.some((x) => /bis 17\.08\.2026: − 2 % Skonto/.test(x.titel)), 'Skonto mit Frist ab Eingang');
-  assert.equal(wert(r.leiter(re, 'n', r.bedingungenAus({ ve_form: 'buergschaft' })), /Einbehalt/), undefined, 'Bürgschaft: kein Einbehalt');
+  assert.equal(wert(r.leiter(re, 'n', r.bedingungenAus({ ve_form: 'buergschaft' })), /Einbehalt/), -100, 'Bürgschaft vereinbart, noch nicht da: einbehalten');
+  assert.equal(wert(r.leiter(re, 'n', r.bedingungenAus({ ve_form: 'buergschaft', ve_eingang: '2026-05-20' })), /Einbehalt/), undefined, 'Bürgschaft eingegangen: kein Einbehalt');
+  assert.equal(r.gewaehrleistungBis(r.bedingungenAus({ abnahme: '2026-09-15', gewaehrleistung_jahre: 5 })), '2031-09-15');
   assert.deepEqual(r.strafeVorschlag({ nachlass: 0, strafe: 0.2, strafeMax: 5, strafeTagart: 'wt', fertigstellung: '2026-07-03' }, 30000, '2026-07-08'), { tage: 4, betrag: 240 }, 'Sa zählt als Werktag, So nicht');
   assert.equal(r.vertragsbedingungenText({ ve_prozent: 5, ve_form: 'buergschaft', strafe_prozent: 0.2, strafe_max: 5 }).vertragsstrafe, '0,2 % der Abrechnungssumme netto je Werktag Verzug, höchstens 5 %');
 });

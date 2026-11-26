@@ -47,6 +47,12 @@ export const lv: ObjektModell = {
     { name: 'strafe_prozent', titel: 'Vertragsstrafe in % je Tag', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
     { name: 'strafe_tagart', titel: 'je', art: 'auswahl', optionen: TAGARTEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
     { name: 'strafe_max', titel: 'höchstens in %', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    // Sicherheiten im Lauf des Auftrags (wie im bisherigen Bauportal): Bürgschaft eingegangen = kein Einbehalt mehr; Abnahme → Ende der Verjährung
+    { name: 've_eingang', titel: 'Bürgschaft Vertragserfüllung eingegangen am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten', wenn: { ve_form: ['buergschaft'] } },
+    { name: 've_rueckgabe', titel: 'zurückgegeben am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten', wenn: { ve_form: ['buergschaft'] } },
+    { name: 'abnahme', titel: 'Abnahme am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten' },
+    { name: 'ma_eingang', titel: 'Bürgschaft Mängelansprüche eingegangen am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten', wenn: { ma_form: ['buergschaft'] } },
+    { name: 'ma_rueckgabe', titel: 'zurückgegeben am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten', wenn: { ma_form: ['buergschaft'] } },
     { name: 'bauabzug', titel: 'Bauabzugsteuer einbehalten (§ 48 EStG)', art: 'ja_nein', kartenBreite: 3, gruppe: 'Vertragsbedingungen' },
     { name: 'freistellung_bis', titel: 'Freistellungsbescheinigung gültig bis', art: 'datum', kartenBreite: 3, gruppe: 'Vertragsbedingungen' },
     { name: 'vorbemerkungen', titel: 'Vorbemerkungen', art: 'langtext', gruppe: 'Vorbemerkungen' },   // stehen vor den Positionen (LV bearbeiten: „Vorbemerkungen“)

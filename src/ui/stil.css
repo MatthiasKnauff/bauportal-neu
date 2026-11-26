@@ -1106,6 +1106,7 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .ava-leiter { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .ava-leiter td { padding: 3px 0; border-bottom: 1px solid var(--rand); }
 .ava-leiter tr.hinweis td { color: var(--text-still); font-style: italic; }
+.ava-sicherheiten { margin: 14px 0; max-width: 720px; }
 .ava-leiter td.zahl { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ava-leiter tr.summe td { font-weight: 700; }
 

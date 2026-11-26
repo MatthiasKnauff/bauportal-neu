@@ -3,7 +3,7 @@
 import { AufmassEinlesen } from './aufmasseinlesen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, bedingungenAus, strafeVorschlag, type Pruefstand } from '../module/ava/rechnung';
+import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis, strafeVorschlag, type Pruefstand } from '../module/ava/rechnung';
 import type { Werte } from '../kern/modell';
 import { rechenweg } from '../kern/rechenweg';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
@@ -13,6 +13,7 @@ import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Seitenliste } from './baukasten/seitenliste';
 import { lvVon, lvWaehlen } from './avakopf';
+import { springeZu } from './sprung';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { darf, neueKennung } from './unterbau/api';
 
@@ -201,9 +202,10 @@ export function RechnungLeiter(p: { rechnung: Zeile }): JSX.Element {
   // Schlussrechnung mit Abnahme: Vertragsstrafe vorschlagen (Verzug nach der vertraglichen Fertigstellung), solange keine eingetragen ist
   const vorschlag = createMemo(() => {
     const w = p.rechnung.werte;
-    if (w.art !== 'schluss' || (w.strafe != null && w.strafe !== '') || !w.abnahme) return null;
+    const abnahme = String(w.abnahme || bed().abnahme || '');   // in der Rechnung eingetragen, sonst die Abnahme im LV
+    if (w.art !== 'schluss' || (w.strafe != null && w.strafe !== '') || !abnahme) return null;
     const stand = zahl(w.geprueft ?? w.betrag);
-    return strafeVorschlag(bed(), Math.round(stand * (1 - bed().nachlass / 100) * 100) / 100, String(w.abnahme));
+    return strafeVorschlag(bed(), Math.round(stand * (1 - bed().nachlass / 100) * 100) / 100, abnahme);
   });
   return (
     <Show when={zeilen().length} fallback={<p class="still-text klein-text">Mit dem Auftrag (LV) rechnet die Karte die Auszahlung: Nachlass, Sicherheiten, bisherige Zahlungen, Umsatzsteuer, Bauabzugsteuer.</p>}>
@@ -361,9 +363,33 @@ export function Auftraege(p: Mitte): JSX.Element {
               </tfoot>
             </table>
           </div>
+          <Sicherheiten lv={lv()!} />
           <p class="still-text klein-text">Nachtragspositionen unter „Positionen“ anlegen: links den Nachtrag wählen, dann „＋ Position“ – ihr EP ist der Nachtragspreis.</p>
         </Show>
       </Show>
+    </div>
+  );
+}
+
+/** Sicherheiten des Auftrags (VOB/B § 17, wie im bisherigen Bauportal): Vertragserfüllung und Mängelansprüche – Einbehalt oder
+ *  Bürgschaft (eingegangen, zurückgegeben), Abnahme und Ende der Verjährung. Eingetragen wird im LV unter „Sicherheiten“. */
+function Sicherheiten(p: { lv: Zeile }): JSX.Element {
+  const w = () => p.lv.werte, b = () => bedingungenAus(w());
+  const de = (d: unknown) => (d ? new Date(`${String(d)}T12:00:00`).toLocaleDateString('de-DE') : '');
+  const art = (form: unknown, satz: number | undefined, eingang: unknown, rueckgabe: unknown, standard: number) => {
+    const s = `${String(satz ?? standard).replace('.', ',')} %`;
+    if (form !== 'buergschaft') return `${s} Einbehalt`;
+    return `${s} als Bürgschaft – ${rueckgabe ? `zurückgegeben am ${de(rueckgabe)}` : eingang ? `eingegangen am ${de(eingang)}` : 'noch nicht eingegangen (bis dahin Einbehalt)'}`;
+  };
+  return (
+    <div class="ava-sicherheiten">
+      <h3 class="ava-leiter-titel">Sicherheiten</h3>
+      <dl class="angaben">
+        <dt>Vertragserfüllung</dt><dd>{art(w().ve_form, b().ve, w().ve_eingang, w().ve_rueckgabe, 5)}</dd>
+        <dt>Abnahme</dt><dd>{w().abnahme ? de(w().abnahme) : 'noch nicht'}</dd>
+        <dt>Mängelansprüche</dt><dd>{art(w().ma_form, b().ma, w().ma_eingang, w().ma_rueckgabe, b().ve ?? 5)}{gewaehrleistungBis(b()) ? ` · Verjährung bis ${de(gewaehrleistungBis(b()))}` : ` · ${b().gewaehrleistungJahre} Jahre ab Abnahme`}</dd>
+      </dl>
+      <button type="button" class="knopf klein" onClick={() => springeZu('lv', p.lv.id, { modul: 'ava', ansicht: 'lvs' })}>Vertragsbedingungen und Sicherheiten …</button>
     </div>
   );
 }

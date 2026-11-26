@@ -65,7 +65,9 @@ export interface Leiterzeile { titel: string; betrag: number; summe?: boolean; h
 /** Was im LV (Vertragsbedingungen) und im Auftrag (Nachlass, Skonto) für die Rechnungen gilt. */
 export interface Bedingungen {
   nachlass: number; skonto?: number; skontoTage?: number;
-  ve?: number; veForm?: string; ma?: number; maForm?: string;   // Sicherheiten in % (ohne Angabe: 5 % bzw. wie Vertragserfüllung); als Bürgschaft kein Einbehalt
+  ve?: number; veForm?: string; ma?: number; maForm?: string;   // Sicherheiten in % (ohne Angabe: 5 % bzw. wie Vertragserfüllung)
+  veAbgeloest?: boolean; maAbgeloest?: boolean;                  // Bürgschaft eingegangen: kein Einbehalt (vorher schon)
+  abnahme?: string; gewaehrleistungJahre?: number;
   bauabzug?: boolean; freistellungBis?: string;
   strafe?: number; strafeMax?: number; strafeTagart?: string; fertigstellung?: string;
 }
@@ -74,17 +76,20 @@ export const bedingungenAus = (lv: Werte = {}, auftrag: Werte = {}): Bedingungen
   nachlass: zahl(auftrag.nachlass), skonto: zahl(auftrag.skonto), skontoTage: zahl(auftrag.skonto_tage),
   ve: lv.ve_prozent == null || lv.ve_prozent === '' ? undefined : zahl(lv.ve_prozent), veForm: String(lv.ve_form ?? 'einbehalt'),
   ma: lv.ma_prozent == null || lv.ma_prozent === '' ? undefined : zahl(lv.ma_prozent), maForm: String(lv.ma_form ?? 'einbehalt'),
+  veAbgeloest: lv.ve_form === 'buergschaft' && !!lv.ve_eingang, maAbgeloest: lv.ma_form === 'buergschaft' && !!lv.ma_eingang,
+  abnahme: String(lv.abnahme ?? ''), gewaehrleistungJahre: lv.gewaehrleistung_jahre == null || lv.gewaehrleistung_jahre === '' ? 4 : zahl(lv.gewaehrleistung_jahre),
   bauabzug: lv.bauabzug === true, freistellungBis: String(lv.freistellung_bis ?? ''),
   strafe: zahl(lv.strafe_prozent), strafeMax: zahl(lv.strafe_max), strafeTagart: String(lv.strafe_tagart ?? 'wt'), fertigstellung: String(lv.ausfuehrung_ende ?? ''),
 });
 const prozent = (x: number) => String(x).replace('.', ',');
-/** Satz der Sicherheit für diese Rechnung: in der Schlussrechnung Mängelansprüche, sonst Vertragserfüllung; als Bürgschaft 0; von Hand eingetragen geht vor. */
+/** Satz der Sicherheit für diese Rechnung: in der Schlussrechnung Mängelansprüche, sonst Vertragserfüllung; ist die Bürgschaft
+ *  eingegangen, kein Einbehalt (bis dahin wird einbehalten); von Hand eingetragen geht vor. */
 function sicherheit(r: E, b: Bedingungen): { satz: number; titel: string } {
   const schluss = r.werte.art === 'schluss', ve = b.ve ?? 5, ma = b.ma ?? ve;
   const titel = schluss ? 'Sicherheit Mängelansprüche' : 'Sicherheit Vertragserfüllung';
   if (r.werte.einbehalt != null && r.werte.einbehalt !== '') return { satz: zahl(r.werte.einbehalt), titel };
   if (r.werte.art === 'stundenlohn') return { satz: 0, titel };
-  return { satz: schluss ? (b.maForm === 'buergschaft' ? 0 : ma) : (b.veForm === 'buergschaft' ? 0 : ve), titel };
+  return { satz: schluss ? (b.maAbgeloest ? 0 : ma) : (b.veAbgeloest ? 0 : ve), titel };
 }
 const tageNach = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
@@ -130,6 +135,13 @@ export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | n
     return z;
   }
   return [];
+}
+
+/** Ende der Verjährungsfrist für Mängelansprüche: Abnahme + Jahre (leer ohne Abnahme). */
+export function gewaehrleistungBis(b: Bedingungen): string {
+  if (!b.abnahme) return '';
+  const d = new Date(`${b.abnahme}T12:00:00Z`); d.setUTCFullYear(d.getUTCFullYear() + (b.gewaehrleistungJahre ?? 4));
+  return d.toISOString().slice(0, 10);
 }
 
 /** Vertragsstrafe vorschlagen (Schlussrechnung): Tage zwischen vertraglicher Fertigstellung und Abnahme × Satz der Abrechnungssumme netto, höchstens die Obergrenze. */
