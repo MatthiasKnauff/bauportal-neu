@@ -3,7 +3,7 @@
 # Die Datenbank ist nur für die App erreichbar (kein Port nach außen).
 services:
   app:
-    image: ghcr.io/matthiasknauff/bauportal-neu:test-77f6c42
+    image: ghcr.io/matthiasknauff/bauportal-neu:test-4a8d5ca
     container_name: bauportal-neu-test
     restart: unless-stopped
     depends_on:
@@ -26,7 +26,7 @@ services:
 
   # Dateidienst: spricht mit dem Dateiserver. Nur für die App erreichbar (kein Port nach außen), merkt sich nichts.
   dateidienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:test-77f6c42
+    image: ghcr.io/matthiasknauff/bauportal-neu-dateidienst:test-4a8d5ca
     container_name: bauportal-neu-test-dateidienst
     restart: unless-stopped
     environment:
@@ -52,7 +52,7 @@ services:
 
   # IFC-Dienst: liest IFC-Dateien für das Gebäudemodell. Nur für die App erreichbar, merkt sich nichts.
   ifcdienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-ifcdienst:test-77f6c42
+    image: ghcr.io/matthiasknauff/bauportal-neu-ifcdienst:test-4a8d5ca
     container_name: bauportal-neu-test-ifcdienst
     restart: unless-stopped
     environment:
@@ -61,7 +61,7 @@ services:
 
   # Druckdienst: macht aus der fertigen Seite das PDF (Chromium ohne Fenster). Nur für die App erreichbar, merkt sich nichts.
   druckdienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-druckdienst:test-77f6c42
+    image: ghcr.io/matthiasknauff/bauportal-neu-druckdienst:test-4a8d5ca
     container_name: bauportal-neu-test-druckdienst
     restart: unless-stopped
     environment:
@@ -71,7 +71,7 @@ services:
   # KI-Ausgang: die eine Stelle, die mit einer KI spricht (Ollama im Büro oder Anbieter außerhalb). Nur für die App
   # erreichbar, merkt sich nichts. Ohne eingerichtete KI-Anbindung (Verwaltung → KI) geht hier nichts hinaus.
   kidienst:
-    image: ghcr.io/matthiasknauff/bauportal-neu-kidienst:test-77f6c42
+    image: ghcr.io/matthiasknauff/bauportal-neu-kidienst:test-4a8d5ca
     container_name: bauportal-neu-test-kidienst
     restart: unless-stopped
     environment:
