@@ -120,7 +120,7 @@ export function Balkenplan(p: Mitte) {
       { titel: 'Ausschneiden', zeichen: 'ausschneiden', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: ausschneiden },
       { titel: 'Einfügen', zeichen: 'einfuegen', gruppe: 'Bearbeiten', gesperrt: !ablage(), tun: ablageEinfuegenHier },
       { titel: 'Duplizieren …', zeichen: 'duplizieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: duplizieren },
-      { titel: 'Löschen', zeichen: 'loeschen', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: () => entfernen() },
+      { titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: () => entfernen() },
       { titel: 'Höher', zeichen: 'ausruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('aus') },
       { titel: 'Tiefer', zeichen: 'einruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('ein') },
       { titel: 'Nach oben', zeichen: 'nach_oben', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('hoch') },

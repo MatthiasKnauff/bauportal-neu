@@ -1,6 +1,6 @@
 // Baustein „Detailkarte“ (Platz rechts): alle Felder eines Objekts, erzeugt aus dem Datenmodell.
 // Jede Änderung eines Feldes ist ein Befehl – sofort wirksam, mit Rückgängig.
-import { For, Show, createSignal, type JSX } from 'solid-js';
+import { For, Show, createEffect, createSignal, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Eingabefehler, gilt, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
@@ -61,6 +61,7 @@ export function Detailkarte(p: {
   oben?: (z: Zeile) => JSX.Element;        // über den Angaben (z. B. Anrufen, E-Mail, Route beim Kontakt)
   einschub?: Record<string, (z: Zeile) => JSX.Element>;   // nach dieser Gruppe (z. B. weitere Nummern und Ansprechpartner:innen nach „Kontakt“)
   blaettern?: { nr: number; anzahl: number; onSchritt: (schritt: -1 | 1) => void };   // „3 von 42“ mit ‹ › durch die gezeigten Einträge
+  gruppe?: string;                         // zu dieser Gruppe springen und ihr erstes Feld wählen (z. B. „Wetter“ beim Stift am Wetter)
 }) {
   const schreiben = () => darf(p.modell.name, 'schreiben');
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
@@ -68,8 +69,13 @@ export function Detailkarte(p: {
   const [reiter, setReiter] = createSignal(0);
   const reiterListe = () => [...(p.reiter?.(p.zeile) ?? []), ...reiterFuerAlle.flatMap((r) => r(p.modell, p.zeile) ?? [])];
   const aendern = (f: Feld, w: Wert, herkunft?: string) => setFehler(f.name, feldAendern(p.modell, p.zeile, f, w, herkunft));
+  let karte!: HTMLElement;
+  createEffect(() => {
+    const g = p.gruppe; if (!g) return;
+    queueMicrotask(() => { const f = [...karte.querySelectorAll<HTMLElement>('[data-gruppe]')].find((x) => x.dataset.gruppe === g); if (!f) return; f.scrollIntoView({ block: 'start' }); f.querySelector<HTMLElement>('input, select, textarea, button')?.focus(); });
+  });
   return (
-    <aside class="karte" aria-label={`${p.modell.titel} ${titel()}`}>
+    <aside class="karte" ref={karte} aria-label={`${p.modell.titel} ${titel()}`}>
       <div class="karte-kopf">
         <Show when={p.onZu}><button class="knopf still nur-schmal" onClick={p.onZu}>‹ Liste</button></Show>
         <h2>{titel() || p.modell.titel}</h2>
@@ -96,8 +102,8 @@ export function Detailkarte(p: {
         <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => {
           const felder = () => <For each={g.felder}>{(f) => <FeldEingabe feld={f} breit={f.name === p.modell.anzeigeFeld} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />}</For>;
           return <>{p.modell.eingeklappt?.includes(g.titel)
-            ? <details class="feldgruppe"><summary>{g.titel}</summary><div class="feldgruppe-inhalt">{felder()}</div></details>
-            : <fieldset><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>}{p.einschub?.[g.titel]?.(p.zeile)}</>;
+            ? <details class="feldgruppe" data-gruppe={g.titel} open={p.gruppe === g.titel || undefined}><summary>{g.titel}</summary><div class="feldgruppe-inhalt">{felder()}</div></details>
+            : <fieldset data-gruppe={g.titel}><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>}{p.einschub?.[g.titel]?.(p.zeile)}</>;
         }}</For>
         {p.zusatz?.(p.zeile)}
         <Show when={!schreiben()}><p class="still-text klein-text">Du kannst diese Angaben ansehen, aber nicht ändern.</p></Show>

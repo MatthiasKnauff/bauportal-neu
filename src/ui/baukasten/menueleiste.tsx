@@ -12,6 +12,7 @@ export interface Knopf {
   gruppe?: string;             // Überschrift der Gruppe, z. B. „Neu“, „Ansicht“, „Ausgabe“
   rechts?: boolean;            // hinter der Suche (Ausgabe, Teilen)
   haupt?: boolean; gesperrt?: boolean; an?: boolean;   // an = eingeschaltet (z. B. Kacheln statt Tabelle)
+  rot?: boolean;               // in Rot (Löschen) – wie im bisherigen Bauportal
   handyPlus?: boolean;         // am Handy das ＋ unten in der Leiste (sonst der Hauptknopf)
   nurHandy?: boolean;          // nur am Handy (dort ohnehin unten als ＋) – nicht in der Menüleiste
 }
@@ -23,9 +24,11 @@ function gruppen(k: Knopf[]): { titel: string; knoepfe: Knopf[] }[] {
   return aus;
 }
 
-function Bandknopf(p: { k: Knopf }) {
+/** In der Gruppe „Neu“ trägt jedes Symbol ein kleines ＋ (außer es ist selbst eins) – wie im bisherigen Bauportal. */
+const NEU = /^Neu\b/;
+function Bandknopf(p: { k: Knopf; neu?: boolean }) {
   return (
-    <button type="button" class="band-knopf" classList={{ haupt: p.k.haupt, an: p.k.an }} disabled={p.k.gesperrt} aria-label={p.k.titel} aria-pressed={p.k.an === undefined ? undefined : p.k.an}
+    <button type="button" class="band-knopf" classList={{ haupt: p.k.haupt, an: p.k.an, rot: p.k.rot, 'band-neu': p.neu && p.k.zeichen !== 'neu' }} disabled={p.k.gesperrt} aria-label={p.k.titel} aria-pressed={p.k.an === undefined ? undefined : p.k.an}
       title={p.k.titel} onClick={(e) => p.k.tun(e)}>
       <Show when={p.k.zeichen && istZeichen(p.k.zeichen)} fallback={<span class="band-zeichen-text">{p.k.zeichen ?? ''}</span>}><Zeichen name={p.k.zeichen as never} groesse={20} /></Show>
       <span class="band-text">{p.k.titel}</span>
@@ -57,7 +60,7 @@ export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[];
           <Bandknopf k={{ titel: 'Wieder', zeichen: 'wieder', gesperrt: !r().vor(), tun: r().onVor }} />
         </Gruppe>
       )}</Show>
-      <For each={gruppen(links())}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} />}</For></Gruppe>}</For>
+      <For each={gruppen(links())}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} neu={NEU.test(g.titel)} />}</For></Gruppe>}</For>
       <Show when={p.children}><Gruppe titel="Finden" class="band-mitte"><div class="menue-mitte">{p.children}</div></Gruppe></Show>
       <For each={gruppen(rechts())}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} />}</For></Gruppe>}</For>
       <Show when={(p.reiter?.length ?? 0) > 1}>

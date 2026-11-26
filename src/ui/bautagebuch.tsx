@@ -34,6 +34,7 @@ const hole = (k: string, d: string) => { try { return localStorage.getItem(k) ??
 // Was rechts steht: ein Eintrag des Berichts, der Bericht selbst zum Bearbeiten – oder nichts
 const [eintrag, setEintrag] = createSignal<string | null>(null);
 const [bearbeiten, setBearbeiten] = createSignal(false);
+const [bearbeitenBei, setBearbeitenBei] = createSignal<string>();   // Gruppe, zu der die Karte springt (Stift am Kopf: Bericht, am Wetter: Wetter)
 const [foto, setFoto] = createSignal<string | null>(null);   // rechts groß gezeigtes Foto des Berichts
 
 /** Die Abschnitte eines Berichts – Reihenfolge wie im alten Bautagebuch. */
@@ -78,7 +79,7 @@ export function BerichtLinks(p: Mitte) {
   const liste = () => [...p.zeilen()].sort((a, b) => String(b.werte.datum ?? '').localeCompare(String(a.werte.datum ?? '')) || Number(b.werte.nummer ?? 0) - Number(a.werte.nummer ?? 0));
   return (
     <div class="bt-links">
-      <div class="auswahl bt-form" role="radiogroup" aria-label="Berichte zeigen als">
+      <div class="auswahl segment bt-form" role="radiogroup" aria-label="Berichte zeigen als">
         <For each={[['kalender', 'Kalender'], ['liste', 'Liste']] as const}>{([k, t]) =>
           <button type="button" role="radio" aria-checked={form() === k} classList={{ aktiv: form() === k }} onClick={(e) => { e.stopPropagation(); setForm(k); merke('bp.bautagebuch.links', k); }}>{t}</button>}</For>
       </div>
@@ -302,37 +303,47 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
   const wetter = () => [zahl(w().temperatur, '°C'), anzeige(feld('wetter'), w().wetter as never), w().niederschlag == null ? '' : Number(w().niederschlag) ? zahl(w().niederschlag, 'mm') : 'trocken', zahl(w().wind, 'km/h'), zahl(w().luftfeuchte, '%')].filter((x) => x && x !== 'keine Angabe');
   const kontrollen = () => m.felder.filter((f) => f.gruppe === 'Kontrollen' && f.art === 'ja_nein');
   const schreiben = () => darf('tagesbericht', 'schreiben');
+  const nichtHeute = () => !!w().datum && w().datum !== heute();
+  const projekt = () => (w().projekt ? sicht.projekt?.[String(w().projekt)]?.werte : undefined);
+  const baustelle = () => { const x = projekt(); return x ? [x.strasse, [x.plz, x.ort].filter(Boolean).join(' ')].filter(Boolean).map(String).join(', ') : ''; };
+  const stift = (gruppe: string) => { setEintrag(null); setFoto(null); setBearbeitenBei(gruppe); setBearbeiten(true); };
   return (
+    <>
     <section class="bt-kopf bt-karte" id="abschnitt-kopf" aria-label="Tagesbericht">
       <div class="bt-kopf-zeile">
         <span class="bt-symbol"><Zeichen name="bericht" groesse={18} /></span>
         <div class="bt-kopf-titel">
-          <h2>Tagesbericht Nr. {String(w().nummer ?? '')}</h2>
-          <p classList={{ 'bt-nicht-heute': !!w().datum && w().datum !== heute() }}>
-            {w().datum === heute() ? 'Heute' : datumText(w().datum)}{w().datum && w().datum !== heute() ? ' · nicht von heute' : ''}{w().uhrzeit ? ` · ${String(w().uhrzeit)} Uhr` : ''}
+          <h2>Tagesbericht <span class="bt-nr">Nr. {String(w().nummer ?? '')}</span></h2>
+          <p class="bt-info">
+            <span classList={{ 'bt-nicht-heute': nichtHeute() }} title={nichtHeute() ? 'Älterer Bericht – Neues kommt in den Bericht von heute' : undefined}>
+              <Zeichen name="kalender" groesse={15} />{datumText(w().datum)}{nichtHeute() ? ' · nicht von heute' : ''}{w().uhrzeit ? ` · ${String(w().uhrzeit)} Uhr` : ''}</span>
+            <Show when={bauleitung()}><span title="Bauleitung vor Ort"><Zeichen name="person" groesse={15} />{bauleitung()}</span></Show>
+            <Show when={projekt()?.bauherr}><span title="Bauherrschaft"><Zeichen name="haus" groesse={15} />{String(projekt()!.bauherr)}</span></Show>
+            <Show when={baustelle()}><span class="bt-adresse" title="Baustelle"><Zeichen name="standort" groesse={15} />{baustelle()}</span></Show>
           </p>
-          <p class="still-text">{[String(w().titel ?? ''), bauleitung()].filter(Boolean).join(' · ')}</p>
         </div>
-        <Show when={schreiben()}><button class="knopf still" aria-label="Bericht bearbeiten" title="Bericht bearbeiten" onClick={() => { setEintrag(null); setFoto(null); setBearbeiten(true); }}>✎</button></Show>
+        <Show when={schreiben()}><button class="knopf bt-stift" aria-label="Kopfdaten bearbeiten" title="Kopfdaten bearbeiten (Nummer, Datum, Uhrzeit, Bauleitung)" onClick={() => stift('Bericht')}><Zeichen name="bearbeiten" groesse={18} /></button></Show>
       </div>
       <div class="bt-kopf-zeile bt-wetter">
-        <span>☁ {wetter().join(' · ') || 'kein Wetter eingetragen'}</span>
+        <div class="bt-wetter-inhalt">
+        <span><Zeichen name="wetter" groesse={16} /> {wetter().join(' · ') || 'kein Wetter eingetragen'}</span>
         <WetterHolen bericht={p.bericht} />
         <span class="bt-schalter">
           <For each={kontrollen()}>{(f) => (
-            <button type="button" role="switch" aria-checked={w()[f.name] === true} classList={{ an: w()[f.name] === true }} disabled={!schreiben()}
+            <button type="button" role="switch" aria-checked={w()[f.name] === true} classList={{ an: w()[f.name] === true }} disabled={!schreiben()} title={f.titel}
               onClick={() => feldAendern(m, p.bericht, f, w()[f.name] !== true)}><i />{kurz(f)}</button>
           )}</For>
         </span>
+        </div>
+        <Show when={schreiben()}><button class="knopf bt-stift" aria-label="Wetter bearbeiten" title="Wetter bearbeiten" onClick={() => stift('Wetter')}><Zeichen name="bearbeiten" groesse={18} /></button></Show>
       </div>
-      <div class="bt-kopf-zeile bt-fuss">
-        <Show when={w().pdf} fallback={<span class="still-text klein-text">Noch nicht als PDF exportiert</span>}><span class="gut-text klein-text">✓ Als PDF exportiert: {String(w().pdf)}</span></Show>
-        <span class="bt-werkzeuge">
-          <Show when={darf('bericht_eintrag', 'schreiben')}><Diktieren bericht={p.bericht} steuer={(f) => (p.werkzeuge.diktat = f)} /><Schritte bericht={p.bericht} steuer={(f) => (p.werkzeuge.schritte = f)} /></Show>
-          <Verlauf objekt="tagesbericht" id={p.bericht.id} unter={[{ objekt: 'bericht_eintrag', feld: 'bericht' }, { objekt: 'foto', feld: 'bericht' }]} zurueck={darf('tagesbericht', 'schreiben') ? { ohne: ['foto'], hinweis: 'Fotos bleiben' } : undefined} />
-        </span>
-      </div>
+      <Show when={darf('bericht_eintrag', 'schreiben')}><span class="bt-werkzeuge"><Diktieren bericht={p.bericht} steuer={(f) => (p.werkzeuge.diktat = f)} /><Schritte bericht={p.bericht} steuer={(f) => (p.werkzeuge.schritte = f)} /></span></Show>
     </section>
+    <div class="bt-stand">
+      <Show when={w().pdf} fallback={<span class="still-text">Noch nicht als PDF exportiert</span>}><span class="gut-text">✓ Als PDF exportiert: {String(w().pdf)}</span></Show>
+      <Verlauf objekt="tagesbericht" id={p.bericht.id} unter={[{ objekt: 'bericht_eintrag', feld: 'bericht' }, { objekt: 'foto', feld: 'bericht' }]} zurueck={darf('tagesbericht', 'schreiben') ? { ohne: ['foto'], hinweis: 'Fotos bleiben' } : undefined} />
+    </div>
+    </>
   );
 }
 const KURZ: Record<string, string> = { aufgeraeumt: 'aufgeräumt', masskontrolle: 'Maßkontrolle', fotodoku: 'Fotos', firmen_angesprochen: 'Firmen angesprochen' };
@@ -348,9 +359,9 @@ function Abschnitt(p: { a: (typeof ABSCHNITTE)[number]; bericht: Zeile; inhalt: 
     <section class={`bt-karte bt-${p.a.id}`} id={`abschnitt-${p.a.id}`} ref={karte} aria-label={p.a.titel}>
       <div class="bt-karte-kopf">
         <span class="bt-symbol"><Zeichen name={p.a.zeichen} groesse={18} /></span>
-        <h3>{p.a.titel}</h3><span class="anzahl">{anzahl(p.bericht.id, p.a)}</span>
+        <h3>{p.a.titel}</h3><span class="bt-anzahl">{anzahl(p.bericht.id, p.a)}</span>
         <Show when={p.a.id === 'anwesend' && personen(p.bericht.id)}><span class="still-text klein-text">{personen(p.bericht.id)} {personen(p.bericht.id) === 1 ? 'Person' : 'Personen'}</span></Show>
-        <button class="knopf still" aria-label={zu() ? `${p.a.titel} aufklappen` : `${p.a.titel} zuklappen`} aria-expanded={!zu()} onClick={() => { setZu(!zu()); merke(schluessel, zu() ? 'zu' : ''); }}>{zu() ? '▸' : '▾'}</button>
+        <button class="knopf still" aria-label={zu() ? `${p.a.titel} aufklappen` : `${p.a.titel} zuklappen`} aria-expanded={!zu()} onClick={() => { setZu(!zu()); merke(schluessel, zu() ? 'zu' : ''); }}><span class="bt-klapp" classList={{ zu: zu() }}><Zeichen name="runter" groesse={20} /></span></button>
         <Show when={darf(p.a.id === 'fotos' ? 'foto' : 'bericht_eintrag', 'schreiben')}><button class="knopf bt-plus" aria-label={`${p.a.titel}: neuer Eintrag`} onClick={neu}>+</button></Show>
       </div>
       <Show when={!zu()}>{p.inhalt()}</Show>
@@ -379,7 +390,7 @@ export function Berichtsseite(p: Mitte) {
       ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Mangel', zeichen: 'mangel', gruppe: 'Neu', tun: () => neuIn.get('mangel')?.() },
         { titel: 'Diktieren', zeichen: 'diktieren', gruppe: 'Neu', tun: () => werkzeuge.diktat?.() },
         { titel: 'Schritt für Schritt', zeichen: 'schrittweise', gruppe: 'Bericht', tun: () => werkzeuge.schritte?.() }] : []),
-      ...(darf('tagesbericht', 'loeschen') ? [{ titel: 'Löschen', zeichen: 'loeschen', gruppe: 'Bericht', tun: () => loesche(modell('tagesbericht'), b) }] : []),
+      ...(darf('tagesbericht', 'loeschen') ? [{ titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bericht', tun: () => loesche(modell('tagesbericht'), b) }] : []),
       ...ausdrucke('tagesbericht').map((a) => ({ titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => druckOeffnen(a.id, b.id) })),
     ] : []);
   });
@@ -437,7 +448,7 @@ export function BerichtDetails(z: Zeile): JSX.Element | undefined {
   return (
     <Show when={!(foto() && fotos().some((f) => f.id === foto()))} fallback={<FotoGross objekt="foto" id={foto()!} alle={fotos()} beschriftung="beschriftung" onWahl={setFoto} onZu={() => setFoto(null)} />}>
     <Show when={eintrag() && sicht.bericht_eintrag?.[eintrag()!] && !sicht.bericht_eintrag[eintrag()!]!.geloescht ? sicht.bericht_eintrag[eintrag()!] : undefined}
-      fallback={<Show when={bearbeiten()}><Detailkarte modell={modell('tagesbericht')} zeile={z} onZu={() => setBearbeiten(false)} verborgen={['projekt']} /></Show>}>
+      fallback={<Show when={bearbeiten()}><Detailkarte modell={modell('tagesbericht')} zeile={z} onZu={() => setBearbeiten(false)} verborgen={['projekt']} gruppe={bearbeitenBei()} /></Show>}>
       {(e) => <Detailkarte modell={modell('bericht_eintrag')} zeile={e()} onZu={() => setEintrag(null)} verborgen={['projekt', 'bericht', 'reihe']} />}
     </Show>
     </Show>
