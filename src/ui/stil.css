@@ -1081,3 +1081,39 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .werte-zeile input { flex: 1; min-width: 0; font: inherit; border: 1px solid transparent; border-radius: 4px; padding: 2px 6px; background: transparent; }
 .werte-zeile input:hover { border-color: var(--rand-stark); } .werte-zeile input:focus { border-color: var(--akzent); outline: none; background: var(--flaeche); }
 .ki-verbrauch h3 { font-size: 13px; margin: 12px 0 4px; } .ki-verbrauch .gefahr-text { color: var(--gefahr); }
+.auswahlliste-neu { padding: 6px 10px; cursor: pointer; color: var(--akzent); border-top: 1px solid var(--rand); } .auswahlliste-neu:hover { background: var(--akzent-hell); }
+
+/* Gewerke & Firmen (Bauzeitenplan) */
+.gf-tabelle { width: 100%; }
+.gf-tabelle td { vertical-align: middle; }
+.gf-tabelle tbody tr:not(.gf-leistung) { cursor: pointer; }
+.gf-tabelle tr.gewaehlt td { background: var(--akzent-hell); }
+.gf-gewerk { white-space: normal; min-width: 150px; } .gf-gewerk b { white-space: nowrap; } .gf-gewerk small { display: block; margin-left: 38px; }
+.gf-auf { display: inline-block; width: 18px; border: 0; background: none; cursor: pointer; color: var(--text-still); padding: 0; }
+.gf-punkt { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 6px 0 2px; vertical-align: middle; }
+.gf-firma { width: 190px; white-space: normal; } .gf-firma .auswahlliste { max-width: 190px; } .gf-firma small { display: block; }
+.gf-kontakt { white-space: normal; max-width: 170px; } .gf-kontakt > * { display: block; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gf-einsatz { min-width: 130px; width: 22%; }
+.gf-datum { font-size: 12px; }
+.gf-zeit { position: relative; height: 10px; margin-top: 3px; background: var(--still-hell); border-radius: 2px; }
+.gf-zeit.kopf { height: 14px; background: none; font-weight: 400; }
+.gf-zeit i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--rand); }
+.gf-zeit span { position: absolute; top: 0; font-size: 10px; padding-left: 2px; color: var(--text-still); }
+.gf-zeit b { position: absolute; top: 1px; bottom: 1px; border-radius: 2px; }
+.gf-notiz { width: 100%; min-width: 70px; font: inherit; font-size: 12px; border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; background: transparent; }
+.gf-notiz:hover { border-color: var(--rand-stark); } .gf-notiz:focus { border-color: var(--akzent); outline: none; background: var(--flaeche); }
+.gf-tabelle tr.gf-leistung td { font-size: 12px; background: var(--still-hell); }
+.gf-tabelle tr.gf-leistung td:first-child { padding-left: 40px; }
+.gf-abw { color: var(--warn); font-weight: 600; margin-right: 6px; }
+.gf-tabelle tr.gf-beauftragt td:first-child, .gf-tabelle tr.gf-abgeschlossen td:first-child { box-shadow: inset 3px 0 0 var(--gut); }
+/* passt in die Standardbreite auch mit offenen Details: feste Spaltenanteile, Auswahllisten so breit wie ihre Spalte */
+.gf-tabelle { table-layout: fixed; min-width: 0; }
+.gf-tabelle th { white-space: normal; }
+.gf-tabelle th:nth-child(1) { width: 23%; } .gf-tabelle th:nth-child(2) { width: 24%; } .gf-tabelle th:nth-child(3) { width: 15%; }
+.gf-tabelle th:nth-child(4) { width: 14%; } .gf-tabelle th:nth-child(5) { width: 14%; } .gf-tabelle th:nth-child(6) { width: 10%; }
+.gf-tabelle td { overflow: hidden; }
+.gf-tabelle .auswahlliste, .gf-firma .auswahlliste { max-width: none; width: 100%; }
+.gf-tabelle .auswahlliste-knopf { width: 100%; min-width: 0; }
+.gf-tabelle .auswahlliste-knopf span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gf-firma, .gf-einsatz, .gf-kontakt { width: auto; min-width: 0; max-width: none; }
+.gf-tabelle tr.gf-leistung td:first-child { white-space: normal; }

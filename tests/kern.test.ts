@@ -1258,3 +1258,23 @@ test('KI-Kosten: Preise je 1 Mio. Tokens, Kostendeckel, Guthaben', async () => {
   assert.equal(k.guthaben(50, 13.5), 36.5);
   assert.equal(k.guthaben(null, 13.5), null);
 });
+
+test('Gewerke & Firmen: Gewerke aus dem Plan mit Einsatz (Pausen bleiben Lücken), Firma in den Plan', async () => {
+  const { planAus } = await import('../src/module/bauzeitenplan/plan');
+  const g = await import('../src/module/bauzeitenplan/gewerke');
+  const { isoAus } = await import('../src/module/bauzeitenplan/kalender');
+  const v = (id: string, reihe: number, w: Record<string, unknown>) => ({ id, werte: { reihe, ebene: 0, ...w } as never });
+  // Mo 02.11.2026: Mauern 3 AT + 2 Pause + 2 AT (Rohbau, k1); Decke 2 AT danach (Rohbau, ohne Firma); Elektro 5 AT parallel
+  const vs = [v('a', 1, { name: 'Mauern', dauer: 5, unterbrechung: '3+(2)+2', gewerk: 'Rohbau', firma: 'k1', vob: 'g330' }), v('b', 2, { name: 'Decke', dauer: 2, gewerk: 'Rohbau' }), v('c', 3, { name: 'Leitungen', dauer: 5, gewerk: 'Elektro' })];
+  const plan = planAus({ vorgaenge: vs, links: [{ id: 'l', werte: { von: 'a', nach: 'b', art: 'ea', abstand: 0 } as never }], zeitplan: { anfang: '2026-11-02', arbeitswoche: 5, bundesland: 'NW' }, frei: [], land: 'NW', heute: '2026-11-02' });
+  const w = new Map(vs.map((x) => [x.id, x.werte]));
+  const z = g.gewerkeAus(plan, (id) => w.get(id));
+  assert.deepEqual(z.map((x) => x.gewerk), ['Elektro', 'Rohbau'], 'gleicher Anfang: A–Z');
+  const rb = z.find((x) => x.gewerk === 'Rohbau')!;
+  assert.deepEqual(rb.einsatz.map(([a, b]) => `${isoAus(a)}–${isoAus(b)}`), ['2026-11-02–2026-11-04', '2026-11-09–2026-11-12'], 'Pause Do/Fr als Lücke, Decke schließt an');
+  assert.deepEqual([rb.leistungen.length, rb.firmen, rb.vob], [2, ['k1'], 'g330']);
+  assert.ok(g.passtZumGewerk('Heizung, Sanitär', 'Heizung') && g.passtZumGewerk('Elektroinstallation', 'Elektro') && !g.passtZumGewerk('Maler', 'Elektro'));
+  const ls = vs.map((x) => ({ id: x.id, werte: x.werte as Record<string, string | null> }));
+  assert.deepEqual(g.firmaInDenPlan(ls, 'Rohbau', 'k9', null), [{ id: 'b', werte: { firma: 'k9' } }], 'nur leere – k1 bleibt (Nachunternehmer)');
+  assert.deepEqual(g.firmaInDenPlan(ls, 'Rohbau', 'k9', 'k1').map((x) => x.id), ['a', 'b'], 'die bisherige Firma des Gewerks wird ersetzt');
+});

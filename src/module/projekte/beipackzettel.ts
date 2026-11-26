@@ -74,6 +74,7 @@ export const projektKontakt: ObjektModell = {
       { wert: '', titel: '–' }, { wert: 'offen', titel: 'offen' }, { wert: 'angefragt', titel: 'angefragt' }, { wert: 'angebot', titel: 'Angebot liegt vor' },
       { wert: 'beauftragt', titel: 'beauftragt' }, { wert: 'abgeschlossen', titel: 'abgeschlossen' },
     ] },
+    { name: 'notiz', titel: 'Notiz', art: 'text' },
   ],
 };
 

@@ -6,7 +6,8 @@ import { Portal } from 'solid-js/web';
 
 export interface Option { wert: string; titel: string }
 
-export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string; platzhalter?: string }) {
+/** Stellschraube „neu“: Steht das Gesuchte nicht in der Liste, bietet die Liste „＋ „…“ neu anlegen“ an (z. B. eine neue Firma) – mit dem getippten Text. */
+export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string; platzhalter?: string; neu?: { titel: string; tun: (text: string) => void } }) {
   const [offen, setOffen] = createSignal(false);
   const [suche, setSuche] = createSignal('');
   const [zeiger, setZeiger] = createSignal(0);
@@ -19,6 +20,7 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
     setLage({ links: r.left, breite: Math.max(r.width, 220), hoehe: Math.min(360, nachOben ? oben : unten), ...(nachOben ? { unten: innerHeight - r.top + 4 } : { oben: r.bottom + 4 }) });
   };
   const treffer = createMemo(() => { const s = suche().toLowerCase(); return s ? p.optionen.filter((o) => o.titel.toLowerCase().includes(s)) : p.optionen; });
+  const neuText = () => { const t = suche().trim(); return p.neu && t && !p.optionen.some((o) => o.titel.toLowerCase() === t.toLowerCase()) ? t : ''; };
   const aktuell = () => p.optionen.find((o) => o.wert === p.wert)?.titel ?? '';
   const draussen = (e: MouseEvent) => { if (!wurzel.contains(e.target as Node) && !fenster?.contains(e.target as Node)) zu(); };
   // Rollt etwas außerhalb der Liste (Fenster, Seite), wandert sie mit ihrem Knopf mit; ist der Knopf nicht mehr zu sehen, schließt sie
@@ -37,10 +39,11 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
   const zu = () => { setOffen(false); weg(); };
   onCleanup(weg);
   const nimm = (o: Option | undefined) => { if (!o) return; zu(); if (o.wert !== p.wert) p.onWert(o.wert); wurzel.querySelector<HTMLElement>('.auswahlliste-knopf')?.focus(); };
+  const neuNehmen = () => { const t = neuText(); zu(); p.neu!.tun(t); };
   const taste = (e: KeyboardEvent) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setZeiger((z) => Math.min(treffer().length - 1, z + 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setZeiger((z) => Math.max(0, z - 1)); }
-    else if (e.key === 'Enter') { e.preventDefault(); nimm(treffer()[zeiger()]); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (treffer().length) nimm(treffer()[zeiger()]); else if (neuText()) neuNehmen(); }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); zu(); }
     else return;
     fenster?.querySelector('.zeiger')?.scrollIntoView({ block: 'nearest' });
@@ -54,8 +57,8 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
       <Show when={offen()}>
         <Portal>
         <div class="auswahlliste-fenster schwebt" ref={fenster} onKeyDown={taste}
-          style={{ left: `${lage().links}px`, width: `${lage().breite}px`, ...(lage().oben !== undefined ? { top: `${lage().oben}px` } : { bottom: `${lage().unten}px` }), '--liste-hoehe': `${lage().hoehe - (p.optionen.length > 8 ? 52 : 12)}px` }}>
-          <Show when={p.optionen.length > 8}>
+          style={{ left: `${lage().links}px`, width: `${lage().breite}px`, ...(lage().oben !== undefined ? { top: `${lage().oben}px` } : { bottom: `${lage().unten}px` }), '--liste-hoehe': `${lage().hoehe - (p.optionen.length > 8 || p.neu ? 52 : 12)}px` }}>
+          <Show when={p.optionen.length > 8 || p.neu}>
             <input type="search" placeholder="Suchen" aria-label={`${p.titel} suchen`} value={suche()} onInput={(e) => { setSuche(e.currentTarget.value); setZeiger(0); }} />
           </Show>
           <div role="listbox" tabindex="-1" aria-label={p.titel}>
@@ -63,7 +66,8 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
               <div role="option" aria-selected={o.wert === p.wert} classList={{ zeiger: zeiger() === i(), gewaehlt: o.wert === p.wert }}
                 onMouseEnter={() => setZeiger(i())} onClick={() => nimm(o)}>{o.titel}</div>
             )}</For>
-            <Show when={!treffer().length}><div class="auswahlliste-leer">Kein Treffer</div></Show>
+            <Show when={neuText()}><div role="option" aria-selected="false" class="auswahlliste-neu" onClick={neuNehmen}>＋ „{neuText()}“ {p.neu!.titel}</div></Show>
+            <Show when={!treffer().length && !neuText()}><div class="auswahlliste-leer">Kein Treffer</div></Show>
           </div>
         </div>
         </Portal>

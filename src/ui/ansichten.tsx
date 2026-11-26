@@ -36,6 +36,7 @@ import { Gebaeude3d } from './gebaeude3d';
 import { AngebotSumme, Auftraege, Kostenkontrolle, Nachverfolgen, Versand, Aufmasspruefung, LvSummen, LvWahl, PositionSumme, Preisspiegel, RechnungLeiter } from './ava';
 import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
+import { GewerkeFirmen } from './gewerke';
 import { springeZu } from './sprung';
 import { Arbeitszeit } from './arbeitszeit';
 import { BerichtDetails, BerichtLinks, Berichtsseite, berichtDetailsDa } from './bautagebuch';
@@ -441,6 +442,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
 // Anpassung je Objekt; eine einzelne Ansicht kann darüber eigene Stellschrauben haben (Schlüssel „modul.ansicht“, z. B. die 3D-Ansicht der Bauteile)
 const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSUNG[objekt], ...(ansicht ? ANSICHT_ANPASSUNG[ansicht] : {}), kartenZusatz: kartenZusatz(objekt) });
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
+  'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },
   'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',

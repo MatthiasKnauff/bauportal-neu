@@ -4,8 +4,7 @@ import { For, Show, createMemo, type JSX } from 'solid-js';
 import { isoAus, tagAus } from '../module/bauzeitenplan/kalender';
 import { sicht, lebende } from './unterbau/abgleich';
 import { darf } from './unterbau/api';
-import { gewaehlteVersion } from './projekt';
-import { planDerVersion, planVersionen } from './plandaten';
+import { aktuelleVersion, planDerVersion } from './plandaten';
 
 const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.` : '');
 
@@ -14,8 +13,7 @@ export function Projektkacheln(p: { projekt: string; onApp: (modul: string, ansi
   const name = () => { const w = sicht.projekt?.[p.projekt]?.werte; return [w?.nummer, w?.name].filter(Boolean).join(' · '); };
   const plan = createMemo(() => {
     if (!darf('vorgang', 'lesen')) return null;
-    const versionen = planVersionen(p.projekt);
-    const v = versionen.find((x) => x.id === gewaehlteVersion(p.projekt, 'bauzeitenplan')) ?? versionen.find((x) => x.werte.gueltig) ?? versionen[0];
+    const v = aktuelleVersion(p.projekt);
     if (!v) return null;
     const pl = planDerVersion(v.id);
     const blatt = pl.zeilen.filter((z) => !z.termin.gruppe && z.termin.f > z.termin.s);
