@@ -69,7 +69,7 @@ export function Kontaktwege(p: { kontakt: Zeile }) {
     setNeu(id);
   };
   const felder = (z: Zeile): Feld[] => m().felder.filter((f) => !f.verborgen && !['kontakt', 'art', 'reihe'].includes(f.name) && (f.name !== 'bezeichnung' || z.werte.art === 'person') && gilt(f, z.werte, m()))
-    .map((f) => (f.name === 'wert' && ARTEN[String(z.werte.art)]?.wert ? { ...f, titel: ARTEN[String(z.werte.art)]!.wert! } : f.name === 'bezeichnung' ? { ...f, titel: 'Funktion' } : f));
+    .map((f) => (f.name === 'wert' && ARTEN[String(z.werte.art)]?.wert ? { ...f, titel: ARTEN[String(z.werte.art)]!.wert!, art: z.werte.art === 'email' ? 'email' as const : z.werte.art === 'telefon' ? 'telefon' as const : f.art } : f.name === 'bezeichnung' ? { ...f, titel: 'Funktion' } : f));
   return (
     <div class="kontaktwege">
       <For each={wegeVon(p.kontakt.id)}>{(z) => {

@@ -48,6 +48,7 @@ export function Ansicht3d(p: {
   gewaehlt: () => Set<string>;
   onWahl: (k: string | null, dazu: boolean) => void;
   info?: (k: string) => string;
+  zeigen?: (k: string) => boolean;   // Stellschraube: nur diese Bauteile zeigen (z. B. nach dem Sammelfilter), die übrigen ausgeblendet
 }) {
   let feld!: HTMLDivElement, leinwand!: HTMLCanvasElement;
   const [faerbung, setFaerbung] = createSignal(p.faerbungen[0]?.key ?? '');
@@ -108,7 +109,7 @@ export function Ansicht3d(p: {
       teile.forEach((t, glas) => {
         for (const b of t.bereiche) {
           const e = p.netz.elemente[b.e]!;
-          const weg = ohne.has(e.g) || (!mitDach && e.t === 'r');
+          const weg = ohne.has(e.g) || (!mitDach && e.t === 'r') || (!!p.zeigen && !p.zeigen(e.k));
           const hex = wahl.has(e.k) ? WAHL : fb ? fb.farbe(e.k, e.t) ?? BLASS : ART_FARBE[e.t] ?? ART_FARBE.x!;
           const [r, g, bl] = rgb(hex), a = weg ? 0 : glas ? 0.45 : 1;
           for (let i = b.von; i < b.bis; i++) t.farben.set([r, g, bl, a], i * 4);

@@ -7,6 +7,7 @@ import { feldtext } from '../../kern/druck';
 import { feldWerte, gemerkt, lebende, objektname, verweisname } from '../unterbau/abgleich';
 import { modell } from '../unterbau/api';
 import { Auswahlliste } from './auswahlliste';
+import { hinweis } from '../unterbau/meldungen';
 import { kiAnbindungen, kiOeffnen } from './ki';
 
 // Auswahl mit eigenen Werten (wie die Kontaktart im bisherigen Bauportal): die festen Optionen, dann die eigenen, die es
@@ -107,6 +108,8 @@ export function FeldEingabe(p: {
     if (w !== text()) p.onWert(w);
   };
   const ereignis = () => (p.sofort ? { onInput: melden } : { onChange: melden });
+  const eingabe = () => <input id={id} type={typ()} inputMode={p.feld.art === 'zahl' ? 'decimal' : undefined} value={text()} autocomplete="off" readOnly={p.gesperrt}
+    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />;
   const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : p.feld.art === 'datum' ? 'date' : 'text');
   return (
     <div class="feld" style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, quer: p.feld.art === 'ja_nein',
@@ -115,8 +118,13 @@ export function FeldEingabe(p: {
         {/* Lange Texte: Wenn das Büro eine KI eingeschaltet hat, kann sie hier einen Vorschlag machen */}
         <Show when={p.feld.art === 'langtext' && !p.gesperrt && kiAnbindungen().length}><button type="button" class="ki-knopf" title="Die KI macht einen Vorschlag – übernommen wird erst nach deiner Bestätigung" onClick={() => kiOeffnen({ titel: p.feld.titel, text: text(), onUebernehmen: (t) => p.onWert(t, 'ki') })}>✦ KI</button></Show></label>
       <Switch fallback={
-        <input id={id} type={typ()} inputMode={p.feld.art === 'zahl' ? 'decimal' : undefined} value={text()} autocomplete="off" readOnly={p.gesperrt}
-          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />
+        <Show when={p.feld.art === 'telefon' || p.feld.art === 'email'} fallback={eingabe()}>
+          {/* Nummer und E-Mail: daneben kopieren (wie im bisherigen Bauportal) – der Knopf steht immer da, damit beim Tippen nichts springt */}
+          <div class="feld-mit-knopf">{eingabe()}
+            <button type="button" class="knopf klein still feld-kopieren" disabled={!text()} title={`${p.feld.titel} kopieren`} aria-label="In die Zwischenablage"
+              onClick={() => void navigator.clipboard.writeText(text()).then(() => hinweis(`${p.feld.titel} kopiert`), () => hinweis('Kopieren ist in diesem Browser nicht erlaubt.'))}>⧉</button>
+          </div>
+        </Show>
       }>
         <Match when={p.feld.art === 'text' && p.feld.vorschlagen && p.objekt}>
           <TextVorschlag id={id} feld={p.feld} wert={text()} objekt={p.objekt!} gesperrt={p.gesperrt} sofort={p.sofort} onWert={p.onWert} />

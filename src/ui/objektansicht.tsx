@@ -16,12 +16,13 @@ import type { Anpassung } from './baukasten/anpassung';
 import type { Knopf } from './baukasten/menueleiste';
 import { Baum, type Knoten } from './baukasten/baum';
 import { Seitenliste, type SeitenAbschnitt } from './baukasten/seitenliste';
-import type { LinksFilter } from '../kern/modul';
+import { sammelfilter, type LinksFilter } from '../kern/modul';
 import { Schwebefenster } from './baukasten/schwebefenster';
 import { Detailkarte, NeuFenster, inEigenemFenster, loesche, feldAendern } from './baukasten/detailkarte';
 import { anzeige, excelWert } from './baukasten/feld';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
-import { Tabelle, type TabellenSteuer } from './baukasten/tabelle';
+import { Tabelle, sortieren, type Sortierung, type TabellenSteuer } from './baukasten/tabelle';
+import { Auswahlliste } from './baukasten/auswahlliste';
 import { Kacheln } from './baukasten/kacheln';
 import { Auswahlleiste, auswahlAnlegen, auswahlMenue, type AuswahlBefehl } from './baukasten/auswahl';
 import { feldSetzenOeffnen } from './baukasten/feldsetzen';
@@ -45,6 +46,8 @@ export function ObjektAnsicht(p: {
   const m = p.modell;
   const a = p.anpassung ?? {};
   const baumFelder = (p.baum ?? []).map((n) => m.felder.find((f) => f.name === n)!);
+  // Sammelfilter links: die Filter der Ansicht – oder, wo sie keine nennt, je Auswahl-/Verweisfeld der Liste einer (UND, ODER, NICHT)
+  const lfs: LinksFilter[] = p.linksFilter ?? sammelfilter(m, [...Object.keys(p.fest?.() ?? {}), ...(p.baum ?? [])]);
   const [suche, setSuche] = createSignal('');
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [ast, setAst] = createSignal('');            // gewählter Knoten im Baum ('' = alle)
@@ -55,6 +58,10 @@ export function ObjektAnsicht(p: {
   const [reihe, setReihe] = createSignal<string[] | null>(null);   // Reihenfolge, die Tabelle oder eigene Mitte (Balkenplan) gerade zeigen
   // Tabelle oder Kacheln – nur, wo das Modul Kacheln einstellt; gemerkt je Objektart, am Handy zuerst Kacheln
   const FORM = `bp.form.${m.name}`;
+  // Sortierung je Ansicht – Tabelle und Kacheln gemeinsam (wie im bisherigen Bauportal), je Gerät gemerkt
+  const SORT = `bp.sort.${p.schluessel}`;
+  const [sort, setSortRoh] = createSignal<Sortierung>((() => { try { return JSON.parse(localStorage.getItem(SORT) ?? 'null') ?? { feld: m.sortierFeld ?? m.anzeigeFeld, ab: false }; } catch { return { feld: m.sortierFeld ?? m.anzeigeFeld, ab: false }; } })());
+  const setSort = (x: Sortierung) => { setSortRoh(x); try { localStorage.setItem(SORT, JSON.stringify(x)); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
   const [kacheln, setKacheln] = createSignal(!!a.kachel && (() => { try { const x = localStorage.getItem(FORM); return x ? x === 'kacheln' : !!a.kachelnZuerst || handy(); } catch { return false; } })());
   const formWechseln = () => { setKacheln(!kacheln()); try { localStorage.setItem(FORM, kacheln() ? 'kacheln' : 'tabelle'); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
   let rahmen!: RahmenSteuer, tabelle!: TabellenSteuer, suchfeld!: HTMLInputElement, wurzel!: HTMLDivElement;
@@ -73,7 +80,9 @@ export function ObjektAnsicht(p: {
     const soll = ast().slice(2), tiefe = soll.split(TRENNER).length, z = lebend().find((x) => pfad(x, tiefe) === soll);
     return z ? Object.fromEntries(baumFelder.slice(0, tiefe).map((f) => [f.name, roh(z).werte[f.name] ?? null])) : {};
   };
-  const neuStart = (werte: Werte = {}) => { const da = { ...ausAst(), ...werte, ...fest() }; setNeu({ ...(a.neuVorgabe?.(lebend(), da) ?? {}), ...da }); };
+  // Neue Einträge übernehmen auch den Filter links, wo er genau einen Wert hat (wie im bisherigen Bauportal: Art und Gewerk vorbelegt)
+  const ausFilter = (): Werte => Object.fromEntries(lfs.flatMap((lf, nr) => { const w = lf.feld ? werteIn(bed(), `l${nr}`) : []; return w.length === 1 ? [[lf.feld!, w[0]!]] : []; }));
+  const neuStart = (werte: Werte = {}) => { const da = { ...ausFilter(), ...ausAst(), ...werte, ...fest() }; setNeu({ ...(a.neuVorgabe?.(lebend(), da) ?? {}), ...da }); };
   const pfad = (z: Zeile, tiefe: number) => baumFelder.slice(0, tiefe).map((f) => anzeige(f, roh(z).werte[f.name])).join(TRENNER);
   // Baum: Gliederung nach den Feldern, die der Beipackzettel nennt – mit Anzahl je Knoten.
   const knoten = createMemo((): Knoten[] => {
@@ -103,7 +112,7 @@ export function ObjektAnsicht(p: {
     return ws.includes(v) || (ws.includes('eigen') && !!f.eigeneWerte && v !== '' && !f.optionen!.some((o) => o.wert === v));
   });
   // Beteiligte: je Eintrag die Projekte, in denen ein anderes Objekt auf ihn verweist (z. B. Kontakt → Projekt)
-  const bet = p.linksFilter?.find((lf) => lf.beteiligt)?.beteiligt;
+  const bet = lfs.find((lf) => lf.beteiligt)?.beteiligt;
   const projekteVon = createMemo(() => {
     const k = new Map<string, string[]>();
     if (bet) { geaendert(bet.objekt); for (const x of lebende(bet.objekt)) { const id = String(x.werte[bet.feld] ?? ''), pr = String(x.werte.projekt ?? ''); if (id && pr) (k.get(id) ?? k.set(id, []).get(id)!).push(pr); } }
@@ -112,14 +121,15 @@ export function ObjektAnsicht(p: {
   const projektName = (id: string) => String(sicht.projekt?.[id]?.werte.name ?? '(Projekt nicht sichtbar)');
   const werteVon = (id: string) => roh(sicht[m.name]![id]!).werte;
   const arten = createMemo((): FilterArt[] => [
-    ...(p.linksFilter ?? []).map((lf, nr): FilterArt => {
+    ...lfs.map((lf, nr): FilterArt => {
       if (lf.beteiligt) return { key: `l${nr}`, titel: lf.art ?? lf.titel, werte: (id) => projekteVon().get(id) ?? [], wertTitel: projektName };
       const f = feld(lf.feld!);
-      return { key: `l${nr}`, titel: lf.art ?? lf.titel, werte: (id) => { const w = werteVon(id); return nurPasst(lf, w) ? liste(f, w[lf.feld!]) : []; }, wertTitel: f.art === 'auswahl' ? (w) => anzeige(f, w) || w : undefined };
+      return { key: `l${nr}`, titel: lf.art ?? lf.titel, werte: (id) => { const w = werteVon(id); return nurPasst(lf, w) ? liste(f, w[lf.feld!]) : []; }, wertTitel: f.art === 'auswahl' || f.art === 'verweis' ? (w) => anzeige(f, w) || w : undefined };
     }),
     ...(p.suchArten ?? []).map((sa, i): FilterArt => ({ key: `s${i}`, titel: sa.titel, werte: (id) => { const w = werteVon(id); return sa.felder.flatMap((n) => liste(feld(n), w[n])); } })),
     // Filter im Spaltenkopf: je Spalte eine Art („enthält“) – sie stehen links in den Filterkästen und lassen sich dort verknüpfen
-    ...m.felder.filter((f) => !f.verborgen).map((f): FilterArt => ({ key: `f:${f.name}`, titel: f.titel, werte: (id) => [anzeige(f, werteVon(id)[f.name])] })),
+    ...m.felder.filter((f) => !f.verborgen).map((f): FilterArt => ({ key: `f:${f.name}`, titel: f.titel, werte: (id) => [anzeige(f, werteVon(id)[f.name])],
+      vorschlagen: !lfs.some((lf) => lf.feld === f.name && !lf.nur) })),
   ]);
   // Filterzeile: was gerade getippt wird, filtert schon mit; mit Enter (oder einem Vorschlag) wandert es als fester Filter nach links
   // und kommt dort zu den Werten dieser Spalte dazu (ODER) – das Feld ist dann frei für den nächsten Wert.
@@ -129,7 +139,7 @@ export function ObjektAnsicht(p: {
   const art = (key: string) => arten().find((a) => a.key === key)!;
   const nimm = (key: string, w: string, nicht = false) => setBed(umschalten(bed(), key, w, nicht));
   // Start wie im bisherigen Bauportal: mit den Beteiligten des gewählten Projekts – außer die Person will es ohne
-  const betNr = (p.linksFilter ?? []).findIndex((lf) => lf.beteiligt), betKey = `l${betNr}`;
+  const betNr = lfs.findIndex((lf) => lf.beteiligt), betKey = `l${betNr}`;
   const OHNE = `bp.ohneProjekt.${p.schluessel}`;
   const [ohneProjekt, setOhneProjekt] = createSignal((() => { try { return localStorage.getItem(OHNE) === 'ja'; } catch { return false; } })());
   const ohneMerken = (an: boolean) => { setOhneProjekt(an); try { localStorage.setItem(OHNE, an ? 'ja' : 'nein'); } catch { /* gilt dann bis zum Neuladen */ } };
@@ -141,7 +151,7 @@ export function ObjektAnsicht(p: {
     if (drin.length === 1 && drin[0] === alt) setBed(pid && hatBeteiligte ? umschalten(ohne, betKey, pid) : ohne);   // Projekt gewechselt: der Filter zieht mit
   })));
   // Abschnitte links: je Wert die Anzahl; gewählt ist, was in der Bedingung steht
-  const linksAbschnitte = createMemo((): SeitenAbschnitt[] => (p.linksFilter ?? []).flatMap((lf, nr): SeitenAbschnitt[] => {
+  const linksAbschnitte = createMemo((): SeitenAbschnitt[] => lfs.flatMap((lf, nr): SeitenAbschnitt[] => {
     const key = `l${nr}`, a = art(key);
     const zahl = new Map<string, number>();
     for (const z of lebend()) for (const w of new Set(a.werte(z.id))) zahl.set(w, (zahl.get(w) ?? 0) + 1);
@@ -156,7 +166,8 @@ export function ObjektAnsicht(p: {
     }
     const f = feld(lf.feld!);
     const eigene = f.eigeneWerte ? [...zahl.keys()].filter((w) => w && !f.optionen!.some((o) => o.wert === w)).sort((x, y) => vergleich.compare(x, y)) : [];
-    const werte = f.art === 'auswahl' ? [...f.optionen!.map((o) => o.wert).filter((w) => w !== ''), ...eigene] : [...zahl.keys()].sort((x, y) => vergleich.compare(x, y));
+    const werte = f.art === 'auswahl' ? [...f.optionen!.map((o) => o.wert).filter((w) => w !== ''), ...eigene] : [...zahl.keys()].sort((x, y) => vergleich.compare(anzeige(f, x) || x, anzeige(f, y) || y));
+    if (lf.auto && [...zahl.keys()].filter(Boolean).length < 2 && !bed().gruppen.some((g) => g.art === key)) return [];
     return [{ titel: lf.titel, suche: lf.suche, eintraege: [
       ...(lf.alle !== undefined ? [{ id: `${nr}:*`, titel: lf.alle, anzahl: lebend().length, zeichen: 'personen' }] : []),
       ...werte.map((w) => ({ id: `${nr}:${w}`, titel: lf.mehrzahl?.[w] ?? (anzeige(f, w) || w), anzahl: zahl.get(w) ?? 0, zeichen: lf.zeichen?.[w] ?? (f.art === 'auswahl' ? undefined : 'liste') })),
@@ -176,6 +187,8 @@ export function ObjektAnsicht(p: {
     if (worte.length) l = l.filter((z) => { const t = suchtext(z).toLowerCase(); return worte.every((w) => (w.startsWith('-') && w.length > 1 ? !t.includes(w.slice(1)) : t.includes(w))); });
     return l;
   });
+  // Kacheln in derselben Sortierung wie die Tabelle – danach blättert auch die Karte
+  const kachelZeilen = createMemo(() => sortieren(zeilen(), m, sort()));
   // Text, in dem gesucht wird: einfache Felder direkt, Auswahl/Datum/Verweis so, wie sie angezeigt werden.
   const umgesetzt = m.felder.filter((f) => f.art === 'auswahl' || f.art === 'mehrfach' || f.art === 'datum' || f.art === 'verweis');
   const suchtext = (z: Zeile) => { const w = roh(z).werte; return Object.values(w).join(' ') + ' ' + umgesetzt.map((f) => anzeige(f, w[f.name])).join(' '); };
@@ -198,14 +211,14 @@ export function ObjektAnsicht(p: {
   const mitteP = { alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe, setKnoepfe: setMitteKnoepfe, setNeu: (f: () => void) => { mitteNeu = f; } };
   // Blättern in der Karte: in der Reihenfolge, die die Mitte gerade zeigt
   const blaettern = () => {
-    const ids = (!kacheln() && reihe()) || zeilen().map((z) => z.id);
+    const ids = (!kacheln() && reihe()) || kachelZeilen().map((z) => z.id);
     const i = ids.indexOf(gewaehlt() ?? '');
     return i < 0 ? undefined : { nr: i + 1, anzahl: ids.length, onSchritt: (s: -1 | 1) => { const n = ids[i + s]; if (n) setGewaehlt(n); } };
   };
   const darfLoeschen = () => darf(m.name, 'loeschen') && !m.einzeln;
   // ---------- Mehrere wählen (nur wo das Modul Befehle dafür einstellt) ----------
   const auswahl = a.auswahl ? auswahlAnlegen() : undefined;
-  const reiheJetzt = () => ((!kacheln() && reihe()) || zeilen().map((z) => z.id));
+  const reiheJetzt = () => ((!kacheln() && reihe()) || kachelZeilen().map((z) => z.id));
   // Excel: eine echte .xlsx (Zahlen und Daten rechnen in Excel weiter), Name wie die Liste mit Datum
   const excelSpeichern = (zeilen: (string | number | Date | null)[][]) =>
     herunterladen(new Blob([xlsxSchreiben(zeilen, m.titelMehrzahl)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${m.titelMehrzahl} ${new Date().toLocaleDateString('sv')}.xlsx`);
@@ -250,7 +263,7 @@ export function ObjektAnsicht(p: {
       { titel: `Alle ${m.titelMehrzahl}`, ids: alle, filter: '' },
     ]);
   };
-  const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel, drucken: verzeichnis() ? (ids) => drucken(ids) : undefined, aendern: (ids) => feldSetzenOeffnen(m.name, ids, Object.keys(fest())) }), papierkorb] : []);
+  const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel, drucken: verzeichnis() ? (ids) => drucken(ids) : undefined, aendern: (ids) => feldSetzenOeffnen(m.name, ids, Object.keys(fest()), 'gewählt') }), papierkorb] : []);
   // Am Handy erscheinen die Haken erst, wenn etwas gewählt ist (lange tippen)
   if (auswahl) { createEffect(() => document.documentElement.classList.toggle('auswahl-an', auswahl.anzahl() > 0)); onCleanup(() => document.documentElement.classList.remove('auswahl-an')); }
   // Gelöschte fallen aus der Auswahl
@@ -263,6 +276,9 @@ export function ObjektAnsicht(p: {
         knoepfe={[
           ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => (a.mitte && mitteNeu ? mitteNeu() : neuStart()) }] : []),
           ...(a.knoepfe?.(fest()) ?? []),
+          // Gemeinsam bearbeiten: die gewählten – sonst alle, die der Filter gerade zeigt – in einer Maske
+          ...(darf(m.name, 'schreiben') && !m.einzeln ? [{ titel: 'Gemeinsam bearbeiten', zeichen: 'bearbeiten', gruppe: 'Bearbeiten', gesperrt: (auswahl?.anzahl() || zeilen().length) < 2,
+            tun: () => { const gew = [...(auswahl?.ids() ?? [])]; feldSetzenOeffnen(m.name, gew.length ? gew : zeilen().map((z) => z.id), Object.keys(fest()), gew.length ? 'gewählt' : zeilen().length < lebend().length ? 'gefiltert' : 'alle'); } }] : []),
           ...(a.mitte ? mitteKnoepfe() : []),
           ...(a.kachel ? [{ titel: 'Karten', zeichen: 'kacheln', gruppe: 'Ansicht', an: kacheln(), tun: () => { if (!kacheln()) formWechseln(); } },
             { titel: 'Tabelle', zeichen: 'tabelle', gruppe: 'Ansicht', an: !kacheln(), tun: () => { if (kacheln()) formWechseln(); } }] : []),
@@ -284,13 +300,21 @@ export function ObjektAnsicht(p: {
         baumTitel={typeof a.linksTitel === 'function' ? a.linksTitel(mitteP) : a.linksTitel ?? 'Gliederung'}
         baumZuerst={a.linksZuerst}
         // links über der Gliederung immer die Filterkästen: Filter links, aus dem Suchfeld und aus den Spaltenköpfen – verknüpfbar
-        baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><div class="filter-dazu"><Filtersuche text={dazuText()} onText={setDazuText} arten={arten()} ids={() => lebend().map((z) => z.id)} onNehmen={nimm} onWeiter={() => undefined} platzhalter="Filter hinzufügen: Gewerk, Projekt, Ort …" name="Filter hinzufügen" /></div><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></>
+        baum={a.links ? a.links(mitteP) : lfs.length ? <><div class="filter-dazu"><Filtersuche text={dazuText()} onText={setDazuText} arten={arten()} ids={() => lebend().map((z) => z.id)} onNehmen={nimm} onWeiter={() => undefined} platzhalter="Filter hinzufügen: Gewerk, Projekt, Ort …" name="Filter hinzufügen" /></div><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Show when={baumFelder.length}><Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /></Show><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></>
           : baumFelder.length ? <><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /></>
           : bed().gruppen.length ? <Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /> : undefined}
         inhalt={a.mitte ? a.mitte(mitteP) : a.leer && !lebend().length ? a.leer(fest(), () => neuStart()) : kacheln() && a.kachel ?
-          <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()}
-            auswahl={auswahl} auswahlMenue={auswahl ? (e) => auswahlMenue(auswahl, auswahlBefehle(), e) : undefined} name={(z) => objektname(m, z.werte)} /> :
-          <Tabelle modell={m} zeilen={zeilen()} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
+          <div class="kachel-flaeche">
+            {/* wie im bisherigen Bauportal: über den Karten die Zahl und die Sortierung */}
+            <div class="kachel-sortierung">
+              <span class="still-text">{zeilen().length} {zeilen().length === 1 ? m.titel : m.titelMehrzahl}</span>
+              <Auswahlliste titel="Sortieren nach" wert={sort().feld} optionen={m.felder.filter((f) => f.inListe && !f.verborgen).map((f) => ({ wert: f.name, titel: f.titel }))} onWert={(f) => setSort({ feld: f, ab: false })} />
+              <button type="button" class="knopf klein still" aria-label={sort().ab ? 'absteigend – umkehren' : 'aufsteigend – umkehren'} title="Richtung umkehren" onClick={() => setSort({ ...sort(), ab: !sort().ab })}>{sort().ab ? '↓' : '↑'}</button>
+            </div>
+            <Kacheln zeilen={kachelZeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()}
+              auswahl={auswahl} auswahlMenue={auswahl ? (e) => auswahlMenue(auswahl, auswahlBefehle(), e) : undefined} name={(z) => objektname(m, z.werte)} />
+          </div> :
+          <Tabelle modell={m} zeilen={zeilen()} sort={sort} onSort={setSort} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
             filter={entwurf()} onFilter={(feld, text) => setEntwurf({ ...entwurf(), [feld]: text })} onFilterFest={spalteFest} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
             onWahl={setGewaehlt} onOeffnen={insErsteFeld} onDoppelklick={a.details ? undefined : (z) => setSchwebend(z.id)} onSuche={() => suchfeld.focus()}

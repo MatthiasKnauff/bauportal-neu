@@ -22,7 +22,9 @@ export function spaltenwahl<S extends Spaltenart>(schluessel: string, moeglich: 
   const [stand, setStand] = createStore<Stand>(start);
   const merken = () => { try { localStorage.setItem(schluessel, JSON.stringify(stand)); } catch { /* Speicher voll oder gesperrt */ } };
   const spalte = (n: string) => moeglich.find((f) => f.name === n)!;
-  return {
+  let gezogen = '';   // Spalte, die gerade mit der Maus verschoben wird
+  let kante = false;   // gerade wird an einer Kante die Breite gezogen – dann ist es kein Verschieben
+  const this_ = {
     alle: () => stand.reihenfolge.map(spalte),
     sichtbare: (): S[] => stand.reihenfolge.filter((n) => !stand.aus.includes(n)).map(spalte),
     istAn: (n: string) => !stand.aus.includes(n),
@@ -53,7 +55,25 @@ export function spaltenwahl<S extends Spaltenart>(schluessel: string, moeglich: 
     setzeBreiten(b: Record<string, number>) { setStand('breiten', Object.fromEntries(Object.entries(b).map(([n, px]) => [n, Math.max(40, Math.round(px))]))); },
     setzeBreite(n: string, px: number, fertig: boolean) { setStand('breiten', n, Math.max(40, Math.round(px))); if (fertig) merken(); },
     zuruecksetzen() { setStand(werk()); merken(); },
+    /** Kopfzelle: mit der Maus an eine andere Stelle ziehen – die Reihenfolge, in jeder Tabelle gleich (nicht nur im Spaltenfeld). */
+    ziehbar: (n: string) => ({
+      draggable: true,
+      onDragStart: (e: DragEvent) => { if (kante) { e.preventDefault(); return; } gezogen = n; e.dataTransfer!.effectAllowed = 'move'; e.dataTransfer!.setData('text/plain', n); },
+      onDragOver: (e: DragEvent) => { if (gezogen) e.preventDefault(); },
+      onDrop: (e: DragEvent) => { e.preventDefault(); if (gezogen) this_.schieben(gezogen, n); gezogen = ''; },
+      onDragEnd: () => { gezogen = ''; },
+    }),
+    /** Wie in Excel: Ziehen an der rechten Kante ändert nur diese Spalte. vorher: z. B. die gerade sichtbaren Breiten festhalten. */
+    breiteZiehen(e: PointerEvent, n: string, vorher?: () => void) {
+      e.preventDefault(); e.stopPropagation();
+      vorher?.(); kante = true;
+      const start = e.clientX, b0 = this_.breite(spalte(n));
+      const bewegt = (x: PointerEvent) => this_.setzeBreite(n, b0 + x.clientX - start, false);
+      const fertig = (x: PointerEvent) => { kante = false; this_.setzeBreite(n, b0 + x.clientX - start, true); removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig); };
+      addEventListener('pointermove', bewegt); addEventListener('pointerup', fertig);
+    },
   };
+  return this_;
 }
 /** Was das Spaltenfeld von einer Spaltenwahl braucht – gleich, welche Art Spalten sie verwaltet. */
 export type Spaltenwahl = Pick<ReturnType<typeof spaltenwahl<Spaltenart>>, 'alle' | 'istAn' | 'istFest' | 'schalten' | 'schieben' | 'schritt' | 'zuruecksetzen'>;

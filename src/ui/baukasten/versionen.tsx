@@ -29,6 +29,9 @@ export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Eleme
   const [weg, setWeg] = createSignal<Versionsweg>('leer');
   const [vorlage, setVorlage] = createSignal<string | null>(null);
   const [fehler, setFehler] = createSignal('');
+  const [weg_, setWeg_] = createSignal<Zeile | null>(null);   // Rückfrage vor dem Löschen
+  // Die gültige lässt sich nur löschen, wenn sie die letzte ist (dann hat das Projekt den Bereich nicht mehr)
+  const loeschbar = (v: Zeile) => v.werte.gueltig !== true || p.versionen.length === 1;
   // „Aus der aktuellen“ geht nur, wenn es eine gibt; „aus anderem Projekt“ nur, wenn es Vorlagen gibt.
   const moeglich = () => p.wege.filter((w) => (w === 'kopie' ? !!p.aktiv : w === 'projekt' ? p.vorlagen().length > 0 : true));
   const oeffneNeu = () => { setName(''); setFehler(''); setVorlage(null); setWeg(moeglich()[0] ?? 'leer'); setNeu(true); };
@@ -43,7 +46,7 @@ export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Eleme
     zeigeMenue(e, [
       { titel: 'Als gültig markieren', gesperrt: v.werte.gueltig === true, tun: () => p.onGueltig(v.id) },
       { titel: 'Umbenennen …', tun: () => { setName(String(v.werte.name)); setFehler(''); setUmbenennen(v); } },
-      { titel: 'Löschen', gefahr: true, gesperrt: v.werte.gueltig === true, tun: () => p.onLoeschen(v.id) },
+      { titel: 'Löschen …', gefahr: true, gesperrt: !loeschbar(v), tun: () => setWeg_(v) },
     ]);
   };
   const aktiv = () => p.versionen.find((v) => v.id === p.aktiv);
@@ -79,7 +82,7 @@ export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Eleme
               <Show when={aktiv()}>{(v) => <>
                 <button type="button" role="menuitem" onClick={tun(() => { setName(String(v().werte.name)); setFehler(''); setUmbenennen(v()); })}>Umbenennen …</button>
                 <button type="button" role="menuitem" disabled={v().werte.gueltig === true} onClick={tun(() => p.onGueltig(v().id))}>Als gültig markieren</button>
-                <button type="button" role="menuitem" class="gefahr-text" disabled={v().werte.gueltig === true} onClick={tun(() => p.onLoeschen(v().id))}>Löschen</button>
+                <button type="button" role="menuitem" class="gefahr-text" disabled={!loeschbar(v())} title={loeschbar(v()) ? undefined : 'Erst eine andere Version gültig machen'} onClick={tun(() => setWeg_(v()))}>Löschen …</button>
               </>}</Show>
             </Show>
           </div>
@@ -89,6 +92,13 @@ export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Eleme
   };
   const Dialoge = () => (
     <>
+      <Show when={weg_()} keyed>{(v) => (
+        <Dialog titel={`Version löschen – ${p.titel}`} onAbbrechen={() => setWeg_(null)}
+          knoepfe={<><button class="knopf" data-abbrechen onClick={() => setWeg_(null)}>Abbrechen</button><button class="knopf gefahr" onClick={() => { setWeg_(null); p.onLoeschen(v.id); }}>Löschen</button></>}>
+          <p>Die Version <b>„{String(v.werte.name)}“</b> mit allem, was darin steht, kommt in den Papierkorb – „Zurück“ holt sie wieder.</p>
+          <Show when={p.versionen.length === 1}><p class="gefahr-text">Es ist die einzige Version – das Projekt hat danach keinen {p.titel} mehr. Neu anlegen lässt er sich jederzeit.</p></Show>
+        </Dialog>
+      )}</Show>
       <Show when={neu()}>
         <Dialog titel={`Neue Version – ${p.titel}`} onAbbrechen={() => setNeu(false)}
           knoepfe={<><button class="knopf" onClick={() => setNeu(false)}>Abbrechen</button><button class="knopf haupt" onClick={anlegen}>Anlegen</button></>}>

@@ -15,6 +15,6 @@ export const dateien: Beipackzettel = {
   ansichten: [
     { id: 'dateien', titel: 'Ordner', abschnitt: 'Dateien', zeichen: 'dateien', brauchtProjekt: true },
     { id: 'alle', titel: 'Alle Dateien', abschnitt: 'Dateien', zeichen: 'liste', brauchtProjekt: true,
-      hilfe: 'Alle Dateien des Projektordners mit allen Unterordnern – links filtern nach Art, Zeitraum und Ordner, oben suchen (Name oder Ordner). Neueste zuerst. Ein Klick zeigt rechts die Datei, ein Doppelklick öffnet sie.' },
+      hilfe: 'Alle Dateien des Projektordners mit allen Unterordnern – links filtern nach Art, Zeitraum und Ordner – mehrere Werte verknüpfen (ODER, UND), ein Klick auf einen Filter im Kasten schließt ihn aus (NICHT); oben suchen (Name oder Ordner) oder beim Tippen einen Filter vorschlagen lassen. Neueste zuerst. Ein Klick zeigt rechts die Datei, ein Doppelklick öffnet sie.' },
   ],
 };

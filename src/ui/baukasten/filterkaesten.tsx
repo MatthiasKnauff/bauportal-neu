@@ -7,7 +7,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { nichtWechseln, opWechseln, satz, wertWeg, gruppeWeg, wort, zwischenWechseln, type Bedingung } from '../../kern/filterbedingung';
 
-export interface FilterArt { key: string; titel: string; werte: (id: string) => string[]; wertTitel?: (w: string) => string }
+export interface FilterArt { key: string; titel: string; werte: (id: string) => string[]; wertTitel?: (w: string) => string; vorschlagen?: boolean }   // vorschlagen: false – nicht im Suchfeld (eine andere Art zeigt dieselben Werte schon)
 
 const FARBEN = ['#3b6fd8', '#2e9b57', '#8a5cc9', '#d9822b', '#c94a4a', '#22918f', '#b8902a', '#5a6b7d'];
 const farbe = (arten: FilterArt[], key: string) => FARBEN[Math.max(0, arten.findIndex((a) => a.key === key)) % FARBEN.length];
@@ -59,7 +59,7 @@ export function Filtersuche(p: {
     const roh = p.text.trim(), q = klein(roh.startsWith('-') ? roh.slice(1) : roh);
     if (!offen() || !q) return [];
     const ids = p.ids();
-    return p.arten.map((art) => {
+    return p.arten.filter((art) => art.vorschlagen !== false).map((art) => {
       const z = new Map<string, number>();
       for (const id of ids) for (const w of new Set(art.werte(id))) { const t = art.wertTitel?.(w) ?? w; if (w && klein(t).includes(q)) z.set(w, (z.get(w) ?? 0) + 1); }
       const t = (w: string) => klein(art.wertTitel?.(w) ?? w);

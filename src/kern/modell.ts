@@ -23,6 +23,7 @@ export interface Feld {
   eindeutig?: boolean;     // Wert darf nur einmal vorkommen
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)
   verborgen?: boolean;     // führt das Programm selbst (z. B. die Reihenfolge) – steht in keiner Karte
+  einheit?: string;        // bei art = zahl: Feld mit der Einheit dieser Menge – die Tabelle zeigt dann unten die Summe der gezeigten Zeilen
 }
 
 export type Rechtart = 'lesen' | 'schreiben' | 'loeschen';
@@ -172,4 +173,18 @@ export function pruefeWerte(m: ObjektModell, roh: Record<string, unknown> | unde
   }
   if (Object.keys(fehler).length) throw new Eingabefehler(fehler);
   return aus;
+}
+
+/** Summe einer Menge über die gezeigten Einträge, je Einheit (leere Mengen zählen nicht). Nur wenn es eine Einheit ist,
+ *  ist die Summe sinnvoll – die Tabelle zeigt sie dann; bei mehreren nennt sie „Einheiten gemischt“. */
+export function mengenSumme(werte: Werte[], f: Feld): { einheit: string; summe: number; anzahl: number }[] {
+  const je = new Map<string, { summe: number; anzahl: number }>();
+  for (const w of werte) {
+    const x = w[f.name];
+    if (typeof x !== 'number' || !Number.isFinite(x)) continue;
+    const e = String(w[f.einheit ?? ''] ?? '');
+    const s = je.get(e) ?? je.set(e, { summe: 0, anzahl: 0 }).get(e)!;
+    s.summe += x; s.anzahl++;
+  }
+  return [...je].map(([einheit, s]) => ({ einheit, summe: Math.round(s.summe * 1000) / 1000, anzahl: s.anzahl }));
 }

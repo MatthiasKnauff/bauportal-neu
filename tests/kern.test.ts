@@ -6,7 +6,9 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { register } from '../src/module';
 import { kontakt } from '../src/module/adressen/beipackzettel';
-import { Eingabefehler, pruefeWerte } from '../src/kern/modell';
+import { Eingabefehler, mengenSumme, pruefeWerte } from '../src/kern/modell';
+import { sammelfilter } from '../src/kern/modul';
+import { bauteil } from '../src/module/gebaeudemodell/beipackzettel';
 import { anwenden, gegenbefehl, type Befehl, type Zeile } from '../src/kern/befehl';
 import { SYSTEM, alsBenutzer, schemaAnlegen, verbinden, type Absender, type Db } from '../src/server/db';
 import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss } from '../src/server/protokoll';
@@ -91,6 +93,14 @@ test('Modell: Prüfung der Eingaben', () => {
   assert.deepEqual(pruefeWerte(kontakt, { art: '  Planer:in ' }, false), { art: 'Planer:in' }, 'eigene Kontaktart');
   assert.throws(() => pruefeWerte(kontakt, { unbekannt: 'x' }, false), Eingabefehler);
   assert.deepEqual(pruefeWerte(kontakt, { ort: 'Essen' }, false), { ort: 'Essen' });
+});
+
+test('Summe der Menge je Einheit, Sammelfilter aus dem Modell', () => {
+  const menge = bauteil.felder.find((f) => f.name === 'menge')!;
+  assert.deepEqual(mengenSumme([{ menge: 8.13, einheit: 'm2' }, { menge: 3.02, einheit: 'm2' }, { menge: null, einheit: 'm2' }], menge), [{ einheit: 'm2', summe: 11.15, anzahl: 2 }]);
+  assert.equal(mengenSumme([{ menge: 1, einheit: 'm2' }, { menge: 2, einheit: 'stk' }], menge).length, 2);
+  const f = sammelfilter(bauteil, ['art', 'geschoss']).map((x) => x.feld);
+  assert.ok(f.includes('lage') && !f.includes('art') && !f.includes('projekt') && !f.includes('version') && !f.includes('name'));
 });
 
 test('Befehle: anwenden und Gegenbefehl heben sich auf', () => {
@@ -252,6 +262,11 @@ test('Versionen: erste ist gültig, genau eine gültig, Kopie im Projekt und in 
     const name = (vid: unknown) => s.objekte.vorgang!.find((x) => x.id === vid)!;
     assert.deepEqual([name(kopie.werte.von).werte.name, name(kopie.werte.von).werte.version, name(kopie.werte.nach).werte.name, kopie.werte.abstand], ['Rohbau', vC, 'Dach', 2], 'Verknüpfungen zeigen in der Kopie auf die kopierten Leistungen');
     assert.deepEqual(await gueltig(), ['Test 2', 'aus Haus A'], 'im anderen Projekt ist die erste Version dort gültig');
+    // die einzige Version eines Projekts lässt sich löschen – das Projekt hat den Bauzeitenplan dann nicht mehr
+    await tun(db, leitung, { objekt: 'version', art: 'loeschen', objektId: vD });
+    assert.deepEqual(await gueltig(), ['Test 2'], 'die letzte (gültige) Version ist gelöscht');
+    await tun(db, leitung, { objekt: 'version', art: 'wiederherstellen', objektId: vD });
+    assert.deepEqual(await gueltig(), ['Test 2', 'aus Haus A'], '„Zurück“ holt die gültige wieder');
   } finally { await weg(); }
 });
 

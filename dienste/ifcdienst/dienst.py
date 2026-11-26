@@ -132,6 +132,38 @@ def _flaeche_aus_geometrie(e, art: str) -> float | None:
         return None
 
 
+def _normalen_aller(k):
+    """Normalen aller Dreiecke eines Körpers (auch entarteter: dort Null) – in derselben Reihenfolge wie die Dreiecke."""
+    _, _, v, d = k
+    kreuz = np.cross(v[d[:, 1]] - v[d[:, 0]], v[d[:, 2]] - v[d[:, 0]])
+    laenge = np.linalg.norm(kreuz, axis=1)
+    return np.divide(kreuz, laenge[:, None], out=np.zeros_like(kreuz), where=laenge[:, None] > 1e-12)
+
+
+def _flaeche_aus_koerper(e, art: str, koerper: dict) -> float | None:
+    """Wie _flaeche_aus_geometrie, aber aus dem schon berechneten Körper (Weltkoordinaten) – ohne die Geometrie ein zweites Mal
+    zu rechnen (das kostete bei Plänen ohne Mengenangaben fast so viel wie das ganze Einlesen). Wand: Seitenfläche in Richtung
+    ihrer eigenen Y-Achse (eine Seite), sonst die Grundfläche von oben gesehen."""
+    k = koerper.get(e.id())
+    if k is None:
+        return _flaeche_aus_geometrie(e, art)
+    _, _, _, flaechen, normalen = _dreiecke(k)
+    if not len(flaechen):
+        return None
+    if art in ("aussenwand", "innenwand"):
+        import ifcopenshell.util.placement as lage
+        y = np.array(lage.get_local_placement(e.ObjectPlacement))[:3, 1] if e.ObjectPlacement else np.array([0.0, 1.0, 0.0])
+        y = y / (np.linalg.norm(y) or 1)
+        f = float(flaechen[normalen @ y > 0.01].sum())   # wie get_side_area: sichtbar aus Y (Winkel unter 90°)
+    else:
+        import shapely
+        import shapely.ops
+        _, _, v, d = k
+        oben = d[[i for i, n in enumerate(_normalen_aller(k)) if n[2] > 0.01]]
+        f = float(shapely.ops.unary_union([shapely.Polygon(v[t][:, :2]) for t in oben]).area) if len(oben) else 0.0   # wie get_footprint_area
+    return round(f, 2) if f > 0 else None
+
+
 def _volumen_aus_geometrie(e) -> float | None:
     try:
         import ifcopenshell.geom
@@ -153,7 +185,7 @@ def _koerper(f) -> dict:
     # Die Flächen der Öffnungen zieht _netto ab; für die Grundrisse (Außenwände) sind ungeteilte Wände sogar besser.
     einst.set("disable-opening-subtractions", True)
     aus = {}
-    lauf = ifcopenshell.geom.iterator(einst, f, max(1, min(4, multiprocessing.cpu_count())), include=f.by_type("IfcElement"))
+    lauf = ifcopenshell.geom.iterator(einst, f, max(1, min(4, multiprocessing.cpu_count())), include=f.by_type("IfcElement") + f.by_type("IfcSpace"))
     if lauf.initialize():
         while True:
             k = lauf.get()
@@ -280,7 +312,7 @@ def auswerten(pfad: str) -> dict:
         eltern = el.get_aggregate(r)
         fl = _menge(r, ("NetFloorArea", "GrossFloorArea", "Area", "Fläche"))
         if not fl:   # keine Menge in der Datei: Grundfläche des Raumkörpers (schon in m²)
-            fl = (_flaeche_aus_geometrie(r, "raum") or 0) / flaeche or None
+            fl = (_flaeche_aus_koerper(r, "raum", koerper) or 0) / flaeche or None
             raum_gerechnet += 1 if fl else 0
         h = _menge(r, ("FinishCeilingHeight", "Height", "NetHeight"))
         raeume.append({"kennung": r.GlobalId, "nummer": r.Name or "", "name": r.LongName or r.Name or "Raum",
@@ -333,7 +365,7 @@ def auswerten(pfad: str) -> dict:
             if m:
                 menge = round(m * flaeche, 2)
             else:
-                menge = _netto(e, _flaeche_aus_geometrie(e, art), art, koerper)
+                menge = _netto(e, _flaeche_aus_koerper(e, art, koerper), art, koerper)
                 gerechnet += 1 if menge else 0
         elif art in ("fenster", "tuer"):
             menge = 1

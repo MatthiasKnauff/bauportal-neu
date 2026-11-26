@@ -4,7 +4,7 @@
 // Im Dokument stehen nur die sichtbaren Zeilen – die Tabelle bleibt auch mit tausenden Einträgen schnell.
 import { For, Show, createEffect, createMemo, createSelector, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import { unwrap } from 'solid-js/store';
-import type { Feld, ObjektModell, Wert } from '../../kern/modell';
+import { mengenSumme, type Feld, type ObjektModell, type Wert } from '../../kern/modell';
 import { HERKUNFT, type Zeile } from '../../kern/befehl';
 import { anzeige, excelWert } from './feld';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
@@ -65,6 +65,14 @@ function FilterFeld(p: { f: Feld; text: string; werte: () => string[]; onText: (
   );
 }
 
+export interface Sortierung { feld: string; ab: boolean }
+/** Zeilen nach einem Feld sortieren, wie es angezeigt wird (natürliche Zahlen, ohne Groß/klein) – für Tabelle und Kacheln gleich. */
+export function sortieren(zeilen: Zeile[], m: ObjektModell, s: Sortierung): Zeile[] {
+  const f = m.felder.find((x) => x.name === s.feld) ?? m.felder.find((x) => x.name === m.anzeigeFeld)!;
+  // ohne Abhören lesen: die Zeilen kommen bei jeder Änderung neu, das genügt als Auslöser
+  const schluessel = new Map(zeilen.map((z) => { const r = unwrap(z); return [r.id, anzeige(f, r.werte[f.name])]; }));
+  return [...zeilen].sort((a, b) => vergleich.compare(schluessel.get(a.id)!, schluessel.get(b.id)!) * (s.ab ? -1 : 1));
+}
 export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void; alsZeilen: (ids?: Set<string>) => (string | number | Date | null)[][] }
 
 export function Tabelle(p: {
@@ -87,6 +95,7 @@ export function Tabelle(p: {
   leer: string;
   fuss?: JSX.Element;                           // z. B. Summenzeile
   steuer?: (s: TabellenSteuer) => void;
+  sort?: () => Sortierung; onSort?: (s: Sortierung) => void;   // Sortierung von außen (sonst eigene)
   reihenfolgeFest?: boolean;                    // Zeilen bleiben in der gegebenen Reihenfolge (z. B. vom Server sortiert und seitenweise geladen)
   onEnde?: () => void;                          // die letzten Zeilen kommen in Sicht – z. B. um die nächste Seite zu holen
   auswahl?: Auswahl;                            // mehrere wählen: Haken vorn, Strg/Umschalt+Klick, Strg+A (Baustein Auswahl)
@@ -94,7 +103,10 @@ export function Tabelle(p: {
 }) {
   const m = p.modell;
   const spalten = spaltenFuer(m);
-  const [sort, setSort] = createSignal<{ feld: string; ab: boolean }>({ feld: m.sortierFeld ?? m.anzeigeFeld, ab: false });
+  // Sortierung: eigene, oder von außen geführt (Stellschraube sort/onSort – z. B. gemeinsam mit den Kacheln derselben Ansicht)
+  const [eigen, setEigen] = createSignal<Sortierung>({ feld: m.sortierFeld ?? m.anzeigeFeld, ab: false });
+  const sort = () => p.sort?.() ?? eigen();
+  const setSort = (f: (s: Sortierung) => Sortierung) => { const n = f(sort()); if (p.onSort) p.onSort(n); else setEigen(n); };
   const [spaltenFeld, setSpaltenFeld] = createSignal<{ x: number; y: number } | null>(null);   // kleines Feld „Spalten“ am Tabellenkopf
   // ohne Mausposition (Knopf ☰): oben rechts an der Tabelle
   const spaltenAuf = (e?: MouseEvent) => { const r = kasten.getBoundingClientRect(); setSpaltenFeld(e ? { x: e.clientX, y: e.clientY } : { x: r.right - 250, y: r.top + 8 }); };
@@ -106,14 +118,7 @@ export function Tabelle(p: {
   const kopfHoehe = () => (p.onFilter ? 71 : 35);
   let kasten!: HTMLDivElement;
 
-  const sortiert = createMemo(() => {
-    if (p.reihenfolgeFest) return p.zeilen;
-    const s = sort();
-    const f = m.felder.find((x) => x.name === s.feld)!;
-    // ohne Abhören lesen: p.zeilen kommt bei jeder Änderung neu, das genügt als Auslöser
-    const schluessel = new Map(p.zeilen.map((z) => { const r = unwrap(z); return [r.id, anzeige(f, r.werte[s.feld])]; }));
-    return [...p.zeilen].sort((a, b) => vergleich.compare(schluessel.get(a.id)!, schluessel.get(b.id)!) * (s.ab ? -1 : 1));
-  });
+  const sortiert = createMemo(() => (p.reihenfolgeFest ? p.zeilen : sortieren(p.zeilen, m, sort())));
   createEffect(() => p.onReihe?.(sortiert().map((z) => z.id)));
   const fenster = createMemo(() => {
     const von = Math.max(0, Math.floor(rollen().oben / ZEILENHOEHE) - 8);
@@ -193,17 +198,31 @@ export function Tabelle(p: {
     else if (e.key === 'Escape') { e.preventDefault(); setInArbeit(null); kasten.focus(); }
   };
 
-  let gezogen = '';
   // Bevor zum ersten Mal eine Breite gesetzt wird, bleiben alle Spalten so breit, wie sie gerade zu sehen sind – nichts springt
   const festhalten = () => { if (!spalten.eigeneBreiten()) spalten.setzeBreiten(Object.fromEntries(spalten.sichtbare().map((x) => [x.name, spaltenbreite(x)]))); };
-  // Wie in Excel: Ziehen an der Kante ändert nur diese Spalte, die rechts daneben rücken mit.
-  const breiteZiehen = (e: PointerEvent, f: Feld) => {
-    e.preventDefault(); e.stopPropagation();
-    festhalten();
-    const start = e.clientX, b0 = spalten.breite(f);
-    const bewegt = (x: PointerEvent) => spalten.setzeBreite(f.name, b0 + x.clientX - start, false);
-    const fertig = (x: PointerEvent) => { spalten.setzeBreite(f.name, b0 + x.clientX - start, true); removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig); };
-    addEventListener('pointermove', bewegt); addEventListener('pointerup', fertig);
+  // Vorläufige Summe unten: je Menge mit Einheitsfeld (Stellschraube „einheit“ im Datenmodell) über alle gezeigten Zeilen –
+  // eine Summe, wenn die Einheiten passen; sonst „Einheiten gemischt“ mit den Summen je Einheit im Hinweis.
+  const summenSpalten = createMemo(() => spalten.sichtbare().filter((f) => f.art === 'zahl' && f.einheit));
+  const einheitText = (f: Feld, e: string) => { const ef = m.felder.find((x) => x.name === f.einheit); return ef ? anzeige(ef, e) || e : e; };
+  const summenZeile = () => {
+    const werte = sortiert().map((z) => unwrap(z).werte);
+    return (
+      <tr class="summenzeile">
+        <Show when={p.auswahl}><td class="haken-zelle" /></Show>
+        <For each={spalten.sichtbare()}>{(f, i) => {
+          const s = () => (f.art === 'zahl' && f.einheit ? mengenSumme(werte, f) : null);
+          return (
+            <td classList={{ zahl: !!s() }} title={s() && s()!.length > 1 ? s()!.map((x) => `${anzeige(f, x.summe)} ${einheitText(f, x.einheit)}`).join(' · ') : undefined}>
+              <Show when={s()} fallback={i() === 0 ? `Summe (${werte.length})` : ''}>{(l) => (
+                <Show when={l().length === 1} fallback={l().length ? <span class="still-text">Einheiten gemischt</span> : ''}>
+                  <b>{anzeige(f, l()[0]!.summe)}</b> {einheitText(f, l()[0]!.einheit)}
+                </Show>
+              )}</Show>
+            </td>
+          );
+        }}</For>
+      </tr>
+    );
   };
   // Doppelklick auf die Kante: so breit wie der längste Inhalt der Spalte (alle Zeilen, nicht nur die sichtbaren)
   const passend = (f: Feld) => {
@@ -226,13 +245,11 @@ export function Tabelle(p: {
           <thead><tr onContextMenu={(e) => { e.preventDefault(); spaltenAuf(e); }}>
             <Show when={p.auswahl}>{(a) => <th class="haken-zelle" rowSpan={p.onFilter ? 2 : 1}><KopfHaken auswahl={a()} reihe={reihe} /></th>}</Show>
             <For each={spalten.sichtbare()}>{(f) => (
-              <th aria-sort={!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} draggable={true}
-                onDragStart={(e) => { gezogen = f.name; e.dataTransfer!.effectAllowed = 'move'; }} onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => { e.preventDefault(); if (gezogen) spalten.schieben(gezogen, f.name); gezogen = ''; }}>
+              <th aria-sort={!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} {...spalten.ziehbar(f.name)}>
                 <button onClick={() => { if (!p.reihenfolgeFest) setSort((s) => ({ feld: f.name, ab: s.feld === f.name ? !s.ab : false })); }}>
                   <span>{f.titel}</span><span class="pfeil">{!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? '▼' : '▲') : ''}</span>
                 </button>
-                <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: passend zum Inhalt" onPointerDown={(e) => breiteZiehen(e, f)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => { e.stopPropagation(); passend(f); }} />
+                <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: passend zum Inhalt" onPointerDown={(e) => spalten.breiteZiehen(e, f.name, festhalten)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => { e.stopPropagation(); passend(f); }} />
               </th>
             )}</For>
           </tr>
@@ -267,7 +284,7 @@ export function Tabelle(p: {
               </tr>); }}</For>
             <tr aria-hidden="true" style={{ height: `${(sortiert().length - fenster().bis) * ZEILENHOEHE}px` }} />
           </tbody>
-          <Show when={p.fuss}><tfoot>{p.fuss}</tfoot></Show>
+          <Show when={p.fuss ?? (summenSpalten().length && sortiert().length > 1 ? summenZeile() : undefined)}>{(fuss) => <tfoot>{fuss()}</tfoot>}</Show>
         </table>
         <Show when={!sortiert().length}><div class="leer">{p.leer}</div></Show>
       </div>

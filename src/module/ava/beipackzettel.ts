@@ -50,7 +50,7 @@ export const lvPosition: ObjektModell = {
     { name: 'art', titel: 'Art', art: 'auswahl', optionen: POSITIONSARTEN, inListe: true, breite: 120, kartenBreite: 4, gruppe: 'Position' },
     { name: 'kurztext', titel: 'Kurztext', art: 'text', pflicht: true, inListe: true, breite: 360, kartenBreite: 6, gruppe: 'Position' },
     { name: 'langtext', titel: 'Langtext', art: 'langtext', gruppe: 'Position' },
-    { name: 'menge', titel: 'Menge', art: 'zahl', inListe: true, breite: 90, kartenBreite: 2, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
+    { name: 'menge', titel: 'Menge', art: 'zahl', einheit: 'einheit', inListe: true, breite: 90, kartenBreite: 2, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'einheit', titel: 'Einheit', art: 'text', vorschlagen: true, inListe: true, breite: 70, kartenBreite: 1, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'ep', titel: 'EP geschätzt in €', art: 'zahl', inListe: true, breite: 110, kartenBreite: 3, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'nachtrag', titel: 'Nachtrag', art: 'verweis', ziel: 'nachtrag', inListe: true, breite: 160, gruppe: 'Position' },   // leer: Position der Ausschreibung; mit Nachtrag: erst nach der Vergabe, nicht im Preisspiegel

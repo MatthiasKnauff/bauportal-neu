@@ -9,7 +9,7 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
-import { ausfuehren, gemerkt, sicht, lebende } from './unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, gemerkt, sicht, lebende } from './unterbau/abgleich';
 import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { versionenBauen } from './baukasten/versionen';
@@ -362,7 +362,7 @@ function Darstellung() {
 const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht, 'dateien.alle': AlleDateien };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
 // Mehrere wählen: ein Feld für alle setzen und die Auswahl als Excel – dazu kommt vom Baustein der Papierkorb
-const gemeinsam = (h: AuswahlHilfen): AuswahlBefehl[] => [{ titel: 'Ändern …', tun: h.aendern }, { titel: 'Excel', tun: h.excel }];
+const gemeinsam = (h: AuswahlHilfen): AuswahlBefehl[] => [{ titel: 'Gemeinsam bearbeiten …', tun: h.aendern }, { titel: 'Excel', tun: h.excel }];
 const ANPASSUNG: Record<string, Anpassung> = {
   projekt: {
     kachel: (z) => <ProjektKachel projekt={z} />,   // Projekte als Karten (wie im bisherigen Bauportal)
@@ -497,7 +497,12 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
     onWahl: (id) => waehleVersion(projekt()!.id, bereich!.bereich, id), onNeu: neu,
     onGueltig: (id) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { gueltig: true } }, 'Version gültig machen'),
     onUmbenennen: (id, name) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { name } }, 'Version umbenennen'),
-    onLoeschen: (id) => ausfuehren({ objekt: 'version', art: 'loeschen', objektId: id }, 'Version löschen', true),
+    // mit der Version gehen ihre Einträge (Leistungen, Bauteile …) – sonst blieben sie verwaist liegen
+    onLoeschen: (id) => ausfuehrenMehrere([
+      ...zustand()!.module.flatMap((z) => z.objekte).filter((o) => o.versionsBereich === bereich!.bereich)
+        .flatMap((o) => lebende(o.name).filter((x) => x.werte.version === id).map((x) => ({ objekt: o.name, art: 'loeschen' as const, objektId: x.id }))),
+      { objekt: 'version', art: 'loeschen', objektId: id },
+    ], 'Version löschen'),
   }) : null;
   const leer = (text: string) => <div class="mitte"><p class="still-text">{text}</p></div>;
   // Leere Seite wie im bisherigen Bauportal: großer Titel, ein Satz, ein Knopf

@@ -6,6 +6,8 @@ import { createStore } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
 import type { ObjektModell } from '../kern/modell';
 import { sicht } from './unterbau/abgleich';
+import { LEER, artWeg, erfuellt, hat, umschalten, werteIn, type Bedingung } from '../kern/filterbedingung';
+import { Filterkaesten, Filtersuche, type FilterArt } from './baukasten/filterkaesten';
 import { ruf } from './unterbau/api';
 import { Baum, type Knoten } from './baukasten/baum';
 import { Dialog } from './baukasten/dialog';
@@ -175,7 +177,7 @@ export function AlleDateien() {
   const projekt = () => { const id = projektId(); const z = id ? sicht.projekt?.[id] : undefined; return z && !z.geloescht ? z : undefined; };
   const [daten, setDaten] = createSignal<{ dateien: { pfad: string; groesse: number; geaendert: string }[]; abgeschnitten: boolean } | null>(null);
   const [stoerung, setStoerung] = createSignal('');
-  const [filter, setFilter] = createSignal<Record<string, string>>({});   // art, zeit, ordner
+  const [bed, setBed] = createSignal<Bedingung>(LEER);   // Sammelfilter wie in den Adressen: Art, Geändert, Ordner – UND, ODER, NICHT
   const [suche, setSuche] = createSignal('');
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   let rahmen!: RahmenSteuer;
@@ -184,25 +186,32 @@ export function AlleDateien() {
     setDaten(null); setStoerung('');
     try { setDaten(await ruf(`/api/ablage/alle?projekt=${p.id}`)); } catch (e) { setStoerung((e as Error).message); }
   };
-  createEffect(on(() => [projekt()?.id, projekt()?.werte.ordner], () => { setGewaehlt(null); setFilter({}); void laden(); }));
+  createEffect(on(() => [projekt()?.id, projekt()?.werte.ordner], () => { setGewaehlt(null); setBed(LEER); void laden(); }));
   const oben = (pfad: string) => (pfad.includes('/') ? pfad.split('/')[0]! : '');
   const alle = createMemo(() => (daten()?.dateien ?? []).map((d) => ({ ...d, name: d.pfad.split('/').pop()!, art: artVon(d.pfad), ordner: d.pfad.split('/').slice(0, -1).join('/') })));
-  const passt = (d: ReturnType<typeof alle>[number], ohne?: string) => {
-    const f = filter();
-    if (ohne !== 'art' && f.art && d.art !== f.art) return false;
-    if (ohne !== 'ordner' && f.ordner && oben(d.pfad) !== f.ordner) return false;
-    if (ohne !== 'zeit' && f.zeit) { const tage = ZEITEN.find((z) => z[0] === f.zeit)![2]; if (Date.now() - new Date(d.geaendert).getTime() > tage * 86400000) return false; }
+  type D = ReturnType<typeof alle>[number];
+  const nachPfad = createMemo(() => new Map(alle().map((d) => [d.pfad, d])));
+  // je Art die Werte einer Datei; „Geändert“: alle Zeiträume, in die sie fällt (7 Tage liegt auch in 30 Tagen)
+  const werteVon = (d: D, art: string): string[] => (art === 'art' ? [d.art] : art === 'ordner' ? [oben(d.pfad)].filter(Boolean)
+    : ZEITEN.filter(([, , tage]) => Date.now() - new Date(d.geaendert).getTime() <= tage * 86400000).map(([k]) => k));
+  const TITEL: Record<string, string> = { art: 'Art', zeit: 'Geändert', ordner: 'Ordner' };
+  const wertTitel: Record<string, (w: string) => string> = { art: (w) => ARTEN.find((a) => a[0] === w)?.[1] ?? 'Sonstige', zeit: (w) => ZEITEN.find((z) => z[0] === w)?.[1] ?? w };
+  const arten = createMemo((): FilterArt[] => ['art', 'zeit', 'ordner'].map((k) => ({ key: k, titel: TITEL[k]!, wertTitel: wertTitel[k], werte: (id) => { const d = nachPfad().get(id); return d ? werteVon(d, k) : []; } })));
+  const passt = (d: D, b: Bedingung) => {
+    if (b.gruppen.length && !erfuellt(b, (k) => werteVon(d, k))) return false;
     const w = suche().toLowerCase().split(/\s+/).filter(Boolean);
     return w.every((x) => d.pfad.toLowerCase().includes(x));
   };
-  const treffer = createMemo(() => alle().filter((d) => passt(d)));
-  const zahl = (art: string, wert: string) => alle().filter((d) => passt(d, art) && (art === 'art' ? d.art === wert : art === 'ordner' ? oben(d.pfad) === wert : Date.now() - new Date(d.geaendert).getTime() <= ZEITEN.find((z) => z[0] === wert)![2] * 86400000)).length;
+  const treffer = createMemo(() => alle().filter((d) => passt(d, bed())));
+  // Anzahl je Wert: was der übrige Filter durchlässt und diesen Wert hat
+  const zahl = (art: string, wert: string) => { const b = artWeg(bed(), art); return alle().filter((d) => passt(d, b) && werteVon(d, art).includes(wert)).length; };
   const abschnitte = createMemo(() => [
     { titel: 'Art', eintraege: [...ARTEN.map(([k, t]) => ({ id: `art:${k}`, titel: t, anzahl: zahl('art', k) })), { id: 'art:andere', titel: 'Sonstige', anzahl: zahl('art', 'andere') }] },
     { titel: 'Geändert', eintraege: ZEITEN.map(([k, t]) => ({ id: `zeit:${k}`, titel: t, anzahl: zahl('zeit', k) })) },
     { titel: 'Ordner', eintraege: [...new Set(alle().map((d) => oben(d.pfad)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')).map((o) => ({ id: `ordner:${o}`, titel: o, anzahl: zahl('ordner', o) })) },
   ]);
-  const wahl = (id: string) => { const [k, w] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)]; setFilter({ ...filter(), [k]: filter()[k] === w ? '' : w }); };
+  const teile = (id: string) => { const i = id.indexOf(':'); return [id.slice(0, i), id.slice(i + 1)] as const; };
+  const wahl = (id: string) => { const [k, w] = teile(id); setBed(umschalten(bed(), k, w)); };
   const zeilen = createMemo((): Zeile[] => [...treffer()].sort((a, b) => (a.geaendert < b.geaendert ? 1 : -1)).map((d) => ({ id: d.pfad, geloescht: false,
     werte: { name: d.name, ordner: d.ordner, art: endung(d.name).toUpperCase() || 'Datei', groesse: d.groesse, geaendert: d.geaendert } })));
   const datei = createMemo(() => alle().find((d) => d.pfad === gewaehlt()));
@@ -213,11 +222,14 @@ export function AlleDateien() {
       <Rahmen schluessel="dateien.alle" steuer={(x) => (rahmen = x)}
         knoepfe={[...formKnoepfe(), { titel: 'Neu einlesen', zeichen: 'aktualisieren', gruppe: 'Ansicht', tun: () => void laden() }]}
         menueMitte={<>
-          <input class="suche" type="search" placeholder="Dateien durchsuchen (Name, Ordner)" aria-label="Dateien durchsuchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)} />
+          <Filtersuche text={suche()} onText={setSuche} arten={arten()} ids={() => alle().map((d) => d.pfad)} onNehmen={(k, w, nicht) => setBed(umschalten(bed(), k, w, nicht))} onWeiter={() => undefined}
+            platzhalter="Dateien durchsuchen und filtern (Name, Ordner, Art)" name="Dateien durchsuchen" />
           <span class="zaehler">{daten() ? `${treffer().length === alle().length ? alle().length : `${treffer().length} von ${alle().length}`} Dateien${daten()!.abgeschnitten ? ' – sehr viele, nicht alle eingelesen' : ''}` : ''}</span>
         </>}
         baumTitel="Filter"
-        baum={<Seitenliste name="Filter" art="filter" abschnitte={abschnitte()} aktiv={(id) => { const i = id.indexOf(':'); return filter()[id.slice(0, i)] === id.slice(i + 1); }} onWahl={wahl} />}
+        baum={<><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} />
+          <Seitenliste name="Filter" art="filter" abschnitte={abschnitte()} aktiv={(id) => { const [k, w] = teile(id); return werteIn(bed(), k).includes(w); }}
+            nicht={(id) => { const [k, w] = teile(id); return hat(bed(), k, w) && !werteIn(bed(), k).includes(w); }} onWahl={wahl} /></>}
         inhalt={
           <Show when={!stoerung()} fallback={leer(stoerung())}>
             <Show when={daten()} fallback={leer('Der Projektordner wird gelesen …')}>

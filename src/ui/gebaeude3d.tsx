@@ -35,6 +35,9 @@ export function Gebaeude3d(p: Mitte) {
     if (mehr && k) { const s = new Set(gewaehlt()); if (s.has(k)) s.delete(k); else s.add(k); setDazu(s); } else setDazu(new Set<string>());
     p.onWahl(z?.id ?? null);
   };
+  // Sammelfilter links (UND, ODER, NICHT): das Modell zeigt nur, was er durchlässt – Teile ohne eigenes Bauteil nur ungefiltert
+  const gefiltert = createMemo(() => (p.zeilen().length === p.alle().length ? null : new Set(p.zeilen().map((z) => String(z.werte.kennung ?? '')))));
+  const zeigen = (k: string) => { const g = gefiltert(); return !g || g.has(k); };
   const artTitel = (a: unknown) => BAUTEILARTEN.find((x) => x.wert === a)?.titel ?? '';
   const faerbungen: Faerbung[] = [
     { key: 'art', titel: 'Bauteilart', farbe: (k) => ARTFARBE[String(bt(k)?.werte.art ?? '')] ?? null,
@@ -55,7 +58,7 @@ export function Gebaeude3d(p: Mitte) {
               <p class="still-text">Die 3D-Ansicht entsteht aus dem Plan: „IFC einlesen“ im Menüband. Nach dem Einlesen rechnet der IFC-Dienst sie nebenher – sie erscheint dann hier von selbst.</p>
             </div>
           </Show>}>
-          {(n) => <Ansicht3d netz={n()} faerbungen={faerbungen} gewaehlt={gewaehlt} onWahl={wahl} info={info} />}
+          {(n) => <Ansicht3d netz={n()} faerbungen={faerbungen} gewaehlt={gewaehlt} onWahl={wahl} info={info} zeigen={zeigen} />}
         </Show>
       </Show>
     </div>

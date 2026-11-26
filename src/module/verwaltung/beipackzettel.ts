@@ -195,6 +195,7 @@ export const verwaltung: Beipackzettel = {
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',
   braucht: [],
   objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
+  abgesetzt: ['Für mich'],   // wie im bisherigen Bauportal: „Für mich – <Name>“ farbig abgesetzt
   ansichten: [
     // „Für mich“: für jede:n – eigenes Konto und Darstellung (wie im bisherigen Bauportal)
     { id: 'konto', titel: 'Mein Konto', abschnitt: 'Für mich', zeichen: 'schluessel' },

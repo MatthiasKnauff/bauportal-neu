@@ -1,7 +1,7 @@
 // Abgleich: Die Daten liegen im Gerät (IndexedDB) und werden von dort angezeigt – jeder Klick wirkt sofort.
 // Änderungen gehen als Befehle an den Server; ohne Netz warten sie in einer Schlange.
 // Was andere ändern, kommt über den Live-Strom und wird in derselben Reihenfolge angewendet wie auf dem Server.
-import { createSignal, untrack } from 'solid-js';
+import { batch, createSignal, untrack } from 'solid-js';
 import { createStore, produce, reconcile } from 'solid-js/store';
 import { anwenden, gegenbefehl, type Befehl, type Protokolliert, type Vorlage, type Zeile } from '../../kern/befehl';
 import type { Feld, ObjektModell, Wert, Werte } from '../../kern/modell';
@@ -242,7 +242,8 @@ export function ausfuehren(v: Vorlage, titel: string, ohneVerlauf = false): void
 export function ausfuehrenMehrere(vs: Vorlage[], titel: string): void {
   if (!vs.length) return;
   const gegen: Vorlage[] = [];
-  for (const v of vs) { gegen.unshift(gegenbefehl(sicht[v.objekt]?.[v.objektId], v)); eigenAnwenden(v); }
+  // als ein Block: wer zusieht (z. B. der Balkenplan), sieht erst den fertigen Stand, keine halben Zwischenstände
+  batch(() => { for (const v of vs) { gegen.unshift(gegenbefehl(sicht[v.objekt]?.[v.objektId], v)); eigenAnwenden(v); } });
   zurueck.push({ gegen, wieder: vs, titel });
   if (zurueck.length > 200) zurueck.shift();
   vor.length = 0;
@@ -262,7 +263,7 @@ export function rueckgaengig(): void {
   if (!s) return;
   vor.push(s);
   setVerlauf({ zurueck: zurueck.length, vor: vor.length });
-  for (const g of s.gegen) eigenAnwenden(g);
+  batch(() => { for (const g of s.gegen) eigenAnwenden(g); });
   hinweis(`Rückgängig: ${s.titel}`);
 }
 export function wiederholen(): void {
@@ -270,7 +271,7 @@ export function wiederholen(): void {
   if (!s) return;
   zurueck.push(s);
   setVerlauf({ zurueck: zurueck.length, vor: vor.length });
-  for (const w of s.wieder) eigenAnwenden(w);
+  batch(() => { for (const w of s.wieder) eigenAnwenden(w); });
   hinweis(`Wiederholt: ${s.titel}`);
 }
 

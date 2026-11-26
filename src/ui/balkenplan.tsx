@@ -69,7 +69,8 @@ export function Balkenplan(p: Mitte) {
   const angelegt = new Set<string>();
   createEffect(() => {
     const v = z().version;
-    if (zp() || !darf('zeitplan', 'schreiben') || angelegt.has(v)) return;
+    const ver = sicht.version?.[v];   // nur für eine Version, die es (noch) gibt – nicht für die gerade gelöschte
+    if (zp() || !darf('zeitplan', 'schreiben') || angelegt.has(v) || !ver || ver.geloescht) return;
     angelegt.add(v);
     ausfuehren({ objekt: 'zeitplan', art: 'anlegen', objektId: neueKennung(), werte: { projekt: z().projekt, version: v, anfang: naechsterMontag(), arbeitswoche: '5', bundesland: '', notiz: '' } }, 'Kalender anlegen', true);
   });
@@ -521,7 +522,11 @@ export function Balkenplan(p: Mitte) {
         <div class="bzp-innen" style={{ width: `${breiteL() + breiteR()}px`, height: `${KOPF + flaechenZeilen() * H}px` }}>
           <div class="bzp-kopf" style={{ width: `${breiteL() + breiteR()}px` }}>
             <div class="bzp-links bzp-kopfzellen" onContextMenu={(e) => { e.preventDefault(); setSpaltenFeld({ x: e.clientX, y: e.clientY }); }}>
-              <For each={spalten()}>{(s) => <div class="bzp-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }}>{s.titel}</div>}</For>
+              <For each={spalten()}>{(s) => (
+                // wie in jeder Tabelle: Kopf mit der Maus verschieben (Reihenfolge), an der Kante ziehen (Breite)
+                <div class="bzp-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }} {...(schmal() ? {} : spw.ziehbar(s.id))}>{s.titel}
+                  <Show when={!schmal()}><i class="griff" aria-hidden="true" title="Ziehen: Breite ändern" onPointerDown={(e) => spw.breiteZiehen(e, s.id)} /></Show>
+                </div>)}</For>
             </div>
             <svg class="bzp-achse" width={breiteR()} height={KOPF}>
               <For each={kopf().monate}>{(m) => <><line x1={m.x} x2={m.x} y1={0} y2={KOPF} class="bzp-linie" /><text x={m.x + 4} y={16} class={kopf().tage ? "bzp-woche-oben" : "bzp-monat"}>{m.w > 50 ? m.t : ''}</text></>}</For>

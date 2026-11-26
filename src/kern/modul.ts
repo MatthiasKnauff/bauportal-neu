@@ -17,6 +17,7 @@ export interface Beipackzettel {
   nachschlagen?: Nachschlag[];   // große Kataloge, die nur am Server liegen und seitenweise gesucht werden
   ausdrucke?: Ausdruck[];     // was das Modul drucken kann (Druckwerk)
   versionen?: Versionsbereich[];   // Bereiche mit benannten Versionen (z. B. der Bauzeitenplan eines Projekts)
+  abgesetzt?: string[];       // Abschnitte links, die farbig abgesetzt sind und den Namen der angemeldeten Person tragen (z. B. „Für mich“ in der Verwaltung)
   /** Was die App am Handy kann (wie im bisherigen Bauportal): voll – alles · eigen – eigene Handyansicht, alles ·
    *  ansicht – ansehen und kleine Handgriffe, nichts Neues anlegen · lesen – nur ansehen · keine – am Handy nur ein Hinweis. Ohne Angabe: lesen. */
   handy?: Handystufe;
@@ -70,6 +71,7 @@ export interface LinksFilter {
   nur?: Record<string, string[]>;        // nur Einträge mit diesen Werten zählen (z. B. Ämter: nur Behörden)
   zeichen?: Record<string, string>;      // Symbol je Wert
   mehrzahl?: Record<string, string>;     // Name je Wert, wenn anders als in der Auswahl (z. B. „Firmen“)
+  auto?: boolean;                        // vom Sammelfilter selbst gebildet: Abschnitt nur, wenn es mindestens zwei Werte gibt
 }
 
 export class Modulregister {
@@ -129,4 +131,13 @@ export class Modulregister {
   modell(name: string): ObjektModell | undefined { return this.modelle.get(name); }
   nachschlag(name: string): Nachschlag | undefined { return this.nachschlaege.get(name); }
   get alleNachschlaege(): Nachschlag[] { return [...this.nachschlaege.values()]; }
+}
+
+/** Sammelfilter für Ansichten ohne eigene Filter links: je Auswahl-, Verweis- und Stichwortfeld der Liste ein Abschnitt
+ *  (UND, ODER, NICHT wie in den Adressen). Nicht dabei: was der Zusammenhang festlegt (Projekt, Version, fester Filter)
+ *  und was schon der Baum gliedert. */
+export function sammelfilter(m: ObjektModell, ohne: string[]): LinksFilter[] {
+  return m.felder.filter((f) => !f.verborgen && f.inListe && !ohne.includes(f.name) && f.name !== m.projektFeld && f.name !== 'version'
+    && (f.art === 'auswahl' || f.art === 'verweis' || f.art === 'mehrfach' || f.art === 'schlagworte'))
+    .map((f) => ({ feld: f.name, titel: f.titel, art: f.titel, auto: true }));
 }

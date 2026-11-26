@@ -4,7 +4,7 @@
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { Zeichen, istZeichen } from './zeichen';
 
-export interface Reiter { id: string; titel: string; abschnitt?: string; zeichen?: string }
+export interface Reiter { id: string; titel: string; abschnitt?: string; zeichen?: string; abgesetzt?: boolean }
 export interface Rueckgaengig { zurueck: () => boolean; vor: () => boolean; onZurueck: () => void; onVor: () => void }
 export interface Knopf {
   titel: string; tun: (e: MouseEvent) => void;   // das Ereignis z. B. für ein Menü am Knopf

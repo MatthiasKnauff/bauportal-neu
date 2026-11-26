@@ -1,5 +1,5 @@
 // Versionen im Kern: gelten für alle Module gleich.
-// Je Projekt und Bereich (z. B. „bauzeitenplan“) gibt es beliebig viele benannte Versionen; genau eine ist gültig.
+// Je Projekt und Bereich (z. B. „bauzeitenplan“) gibt es beliebig viele benannte Versionen; solange es welche gibt, ist genau eine gültig.
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import type { Befehl, Protokolliert } from '../kern/befehl';
@@ -23,9 +23,13 @@ export function versionsregelnAnmelden(register: Modulregister): void {
         if (werte && ('projekt' in werte || 'bereich' in werte)) throw new Ablehnung('Projekt und Bereich einer Version lassen sich nicht ändern');
         if (werte?.gueltig === false && vorher!.gueltig && !folgebefehle.delete(b.id)) throw new Ablehnung('Bitte stattdessen eine andere Version gültig machen – eine ist immer gültig');
       } else if (b.art === 'loeschen' && vorher!.gueltig) {
-        throw new Ablehnung('Die gültige Version lässt sich nicht löschen. Bitte erst eine andere gültig machen.');
-      } else if (b.art === 'wiederherstellen') {
-        throw new Ablehnung('Eine gelöschte Version lässt sich hier nicht wiederherstellen');
+        // Die letzte Version darf gehen – das Projekt hat den Bereich dann nicht mehr; sonst bleibt immer eine gültig.
+        const andere = await c.query('select 1 from o_version where projekt = $1 and bereich = $2 and id <> $3 and not geloescht limit 1', [vorher!.projekt, vorher!.bereich, b.objektId]);
+        if (andere.rowCount) throw new Ablehnung('Die gültige Version lässt sich nicht löschen, solange es andere gibt. Bitte erst eine andere gültig machen.');
+      } else if (b.art === 'wiederherstellen' && vorher!.gueltig) {
+        // Zurückholen (z. B. „Zurück“ nach dem Löschen eines Projekts): eine gültige nur, wenn es keine andere gültige gibt
+        const da = await c.query('select 1 from o_version where projekt = $1 and bereich = $2 and gueltig and not geloescht and id <> $3', [vorher!.projekt, vorher!.bereich, b.objektId]);
+        if (da.rowCount) throw new Ablehnung('Die Version lässt sich nicht zurückholen – inzwischen ist eine andere gültig');
       }
     },
     async nach(c, b, vorher, werte) {

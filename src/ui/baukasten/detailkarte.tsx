@@ -34,7 +34,11 @@ export function feldAendern(m: ObjektModell, z: Zeile, f: Feld, w: Wert, herkunf
   }
 }
 
+/** Stellschraube: Objekte mit eigenem Löschablauf (z. B. das Projekt: „Was soll gelöscht werden?“ statt nur des Eintrags). */
+export const eigenesLoeschen: Record<string, (z: Zeile) => void> = {};
+
 export function loesche(m: ObjektModell, z: Zeile): void {
+  if (eigenesLoeschen[m.name]) { eigenesLoeschen[m.name]!(z); return; }
   const name = objektname(m, z.werte);
   ausfuehren({ objekt: m.name, art: 'loeschen', objektId: z.id }, `„${name}“ löschen`);
   hinweis(`„${name}“ gelöscht.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });

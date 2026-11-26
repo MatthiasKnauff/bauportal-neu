@@ -8,6 +8,7 @@ import { Seitenliste, type SeitenAbschnitt } from './seitenliste';
 import { Abfolgeleiste, type Schritt } from './abfolgeleiste';
 import { Menueleiste, type Knopf, type Reiter, type Rueckgaengig } from './menueleiste';
 import { handy, handystufe, nurAnsehen, setHandyPlus } from '../unterbau/geraet';
+import { zustand } from '../unterbau/api';
 
 /** Was das Portal jeder Ansicht mitgibt: die Reiter der App und Rückgängig/Wiederholen. */
 export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => string; onReiter: (id: string) => void; rueckgaengig: Rueckgaengig }>();
@@ -40,8 +41,8 @@ function Griff(p: { titel: string; wert: number; min: number; max: number; werk:
 
 /** Links oben: die Ansichten der App in Abschnitten, mit farbigem Symbol – Baustein Seitenliste. */
 function Ansichtsliste(p: { reiter: Reiter[]; aktiv: string; onWahl: (id: string) => void }) {
-  const abschnitte = (): SeitenAbschnitt[] => { const l: SeitenAbschnitt[] = []; for (const r of p.reiter) { const t = r.abschnitt ?? ''; const e = { id: r.id, titel: r.titel, zeichen: r.zeichen }; const x = l.find((a) => a.titel === t); if (x) x.eintraege.push(e); else l.push({ titel: t, eintraege: [e] }); } return l; };
-  return <Seitenliste name="Ansichten" abschnitte={abschnitte()} aktiv={p.aktiv} onWahl={p.onWahl} />;
+  const abschnitte = (): SeitenAbschnitt[] => { const l: SeitenAbschnitt[] = []; for (const r of p.reiter) { const t = r.abschnitt ?? ''; const e = { id: r.id, titel: r.titel, zeichen: r.zeichen }; const x = l.find((a) => a.schluessel === t); if (x) x.eintraege.push(e); else l.push({ schluessel: t, titel: r.abgesetzt ? `${t} – ${zustand()?.benutzer?.name ?? ''}` : t, eintraege: [e], abgesetzt: r.abgesetzt }); } return l; };
+  return <Seitenliste name="Ansichten" abschnitte={abschnitte()} aktiv={p.aktiv} onWahl={p.onWahl} klappbar />;
 }
 
 // Kopf und Menüband ausblenden wie im bisherigen Bauportal: die Heftzwecke oben rechts schaltet reihum –
