@@ -60,7 +60,7 @@ export interface Anpassung {
   linksZuerst?: boolean;
   // --- Details (rechts), eigene ---
   /** Statt der Detailkarte des gewählten Eintrags etwas anderes rechts; ohne Rückgabe bleibt der Platz rechts leer. */
-  details?: (z: Zeile) => JSX.Element | undefined;
+  details?: (z: Zeile, heftzwecke: () => JSX.Element) => JSX.Element | undefined;   // heftzwecke: die eine Heftzwecke der rechten Seite (in den eigenen Kopf setzen)
   /** Was rechts steht, solange nichts gewählt ist (Vorgabe: „Einen Eintrag anklicken …“). */
   detailsHinweis?: string;
   // --- Baum (links) ---

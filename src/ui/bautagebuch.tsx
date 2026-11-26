@@ -328,7 +328,7 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
             <Show when={baustelle()}><span class="bt-adresse" title="Baustelle"><Zeichen name="standort" groesse={15} />{baustelle()}</span></Show>
           </p>
         </div>
-        <Show when={schreiben()}><button class="knopf bt-stift" aria-label="Kopfdaten bearbeiten" title="Kopfdaten bearbeiten (Nummer, Datum, Uhrzeit, Bauleitung)" onClick={() => stift('Bericht')}><Zeichen name="bearbeiten" groesse={18} /></button></Show>
+        <Show when={schreiben()}><button class="knopf bt-stift" aria-label="Kopfdaten bearbeiten" title="Bericht bearbeiten: Nummer, Datum, Uhrzeit, Bauleitung, Wetter, Kontrollen" onClick={() => stift('Bericht')}><Zeichen name="bearbeiten" groesse={18} /></button></Show>
       </div>
       <div class="bt-kopf-zeile bt-wetter">
         <div class="bt-wetter-inhalt">
@@ -341,7 +341,6 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
           )}</For>
         </span>
         </div>
-        <Show when={schreiben()}><button class="knopf bt-stift" aria-label="Wetter bearbeiten" title="Wetter bearbeiten" onClick={() => stift('Wetter')}><Zeichen name="bearbeiten" groesse={18} /></button></Show>
       </div>
       <Show when={darf('bericht_eintrag', 'schreiben')}><span class="bt-werkzeuge"><Diktieren bericht={p.bericht} steuer={(f) => (p.werkzeuge.diktat = f)} /><Schritte bericht={p.bericht} steuer={(f) => (p.werkzeuge.schritte = f)} /></span></Show>
     </section>
@@ -479,7 +478,7 @@ function BerichtPdf(p: { bericht: Zeile }) {
   );
 }
 
-export function BerichtDetails(z: Zeile): JSX.Element {
+export function BerichtDetails(z: Zeile, heftzwecke?: () => JSX.Element): JSX.Element {
   const fotos = () => lebende('foto').filter((f) => f.werte.bericht === z.id).sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0) || String(a.werte.name).localeCompare(String(b.werte.name)));
   const gezeigt = () => (foto() && fotos().some((f) => f.id === foto()) ? foto()! : fotos()[0]?.id);
   const details = () => (
@@ -494,6 +493,7 @@ export function BerichtDetails(z: Zeile): JSX.Element {
       <div class="karte-reiter bt-rechts-reiter" role="tablist" aria-label="Rechts zeigen">
         <For each={[['details', 'Details'], ['foto', 'Foto'], ['pdf', 'PDF']] as const}>{([k, t]) =>
           <button type="button" role="tab" aria-selected={reiterRechts() === k} onClick={() => setReiterRechts(k)}>{t}</button>}</For>
+        <span class="bt-rechts-zwecke">{heftzwecke?.()}</span>
       </div>
       <Show when={reiterRechts() === 'details'}>{details()}</Show>
       <Show when={reiterRechts() === 'foto'}>

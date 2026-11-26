@@ -5,6 +5,7 @@
 // verschieben; Balken ziehen (verschieben), rechte Kante ziehen (Dauer), Punkt am Balkenende auf einen anderen ziehen (verknüpfen).
 import { Zeichen } from './baukasten/zeichen';
 import { spaltenwahl, zusatzMessen } from './baukasten/spalten';
+import { zeilenwahl } from './baukasten/zeilenwahl';
 import { Klappe, Ordner } from './baukasten/baum';
 import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, untrack } from 'solid-js';
@@ -257,25 +258,11 @@ export function Balkenplan(p: Mitte) {
 
   // ---------- Tabelle: Zeiger, Bearbeiten ----------
   // Markieren zeigt die Karte rechts (wie bisher); Doppelklick, Umschalt+Enter oder „Informationen“ springen hinein
-  const [markiert, markieren] = createSignal<string | null>(null);
-  // Mehrere wählen wie in Windows: Strg+Klick dazu/ab, Umschalt+Klick (oder Umschalt+↑/↓) von … bis, Strg+A alle, Esc nur noch die eine
-  const [auswahl, setAuswahl] = createSignal<Set<string>>(new Set());
-  let anker: string | null = null;
-  const setMarkiert = (id: string | null) => { markieren(id); p.onWahl(id); setAuswahl(new Set(id ? [id] : [])); anker = id; };
-  const zeiger = (id: string) => { markieren(id); p.onWahl(id); };   // die Karte folgt, die Auswahl bleibt
-  const bisZu = (id: string) => {
-    const l = sichtbar().map((v) => v.id), a = l.indexOf(anker ?? id), b = l.indexOf(id);
-    setAuswahl(new Set(l.slice(Math.min(a, b), Math.max(a, b) + 1))); zeiger(id);
-  };
-  const zeileKlick = (e: MouseEvent, id: string) => {
-    if (e.ctrlKey || e.metaKey) { const n = new Set(auswahl()); if (n.has(id) && n.size > 1) n.delete(id); else n.add(id); setAuswahl(n); anker = id; zeiger(id); }
-    else if (e.shiftKey && anker) bisZu(id);
-    else setMarkiert(id);
-  };
-  const istGewaehlt = (id: string) => auswahl().has(id);
-  /** Die gewählten in Plan-Reihenfolge – ohne Auswahl die markierte. */
-  const gewaehlt = (): string[] => { const s = auswahl(); return s.size ? vorgaenge().filter((v) => s.has(v.id)).map((v) => v.id) : markiert() ? [markiert()!] : []; };
-  createEffect(() => { const g = p.gewaehlt(); if (g && g !== untrack(markiert)) markieren(g); });   // z. B. Sprung aus der Suche
+  const wahl = zeilenwahl({ reihe: () => vorgaenge().map((v) => v.id), sichtbar: () => sichtbar().map((v) => v.id), onZeiger: (id) => p.onWahl(id) });
+  const { markiert, auswahl, setMarkiert, istGewaehlt, gewaehlt } = wahl;
+  const zeileKlick = (e: MouseEvent, id: string) => wahl.klick(e, id);
+  const bisZu = (id: string) => wahl.bisZu(id);
+  createEffect(() => { const g = p.gewaehlt(); if (g && g !== untrack(markiert)) wahl.zeigerStill(g); });   // z. B. Sprung aus der Suche
   const oeffnen = (id = markiert()) => { if (id) { setMarkiert(id); p.onWahl(id); p.onOeffnen(); } };
   const [spalte, setSpalte] = createSignal<Spalte['id']>('name');
   const [edit, setEdit] = createSignal<{ id: string | 'neu'; spalte: Spalte['id']; text: string } | null>(null);
@@ -396,7 +383,7 @@ export function Balkenplan(p: Mitte) {
     const r = ablageEinfuegen(V_(), ziel, a, zu(), neueKennung, ebene);
     tun(r.befehle, titel);
     const neu = [...r.neu.values()];
-    markieren(neu[0]!); p.onWahl(neu[0]!); setAuswahl(new Set(neu)); anker = neu[0]!;
+    wahl.mehrere(neu);
   };
   /** unter der markierten Zeile, hinter ihrer Gruppe, auf ihrer Ebene (ohne Markierung am Ende) */
   const unterMarkierter = (): [number, number | undefined] => { const v = V_(), i = v.findIndex((x) => x.id === markiert()); return i < 0 ? [v.length, undefined] : [block(v, i), v[i]!.ebene]; };
@@ -495,7 +482,7 @@ export function Balkenplan(p: Mitte) {
     // Windows-Tasten: Strg+C/X/V kopieren, ausschneiden, einfügen · Strg+D duplizieren · Strg+A alle · Esc nur noch die markierte
     if ((e.ctrlKey || e.metaKey) && !e.altKey) {
       const t = k.toLowerCase();
-      if (t === 'a') { e.preventDefault(); const l = sichtbar().map((v) => v.id); setAuswahl(new Set(l)); anker = l[0] ?? null; return; }
+      if (t === 'a') { e.preventDefault(); wahl.alle(); return; }
       if (t === 'c' && id) { e.preventDefault(); kopieren(); return; }
       if (schreiben() && t === 'x' && id && darf('vorgang', 'loeschen')) { e.preventDefault(); ausschneiden(); return; }
       if (schreiben() && t === 'v') { e.preventDefault(); ablageEinfuegenHier(); return; }
@@ -507,7 +494,7 @@ export function Balkenplan(p: Mitte) {
     if ((k === 'ArrowDown' || k === 'ArrowUp') && e.shiftKey && id) {
       e.preventDefault();
       const l = sichtbar(), n = l[Math.max(0, Math.min(l.length - 1, i + (k === 'ArrowDown' ? 1 : -1)))];
-      if (n) { if (!anker) anker = id; bisZu(n.id); }
+      if (n) wahl.erweitern(n.id);
       return;
     }
     if (k === 'ArrowDown') { e.preventDefault(); waehle(i + 1); }
@@ -672,7 +659,7 @@ export function Balkenplan(p: Mitte) {
   const balkenMenue = (e: MouseEvent, v: Zeile) => {
     // auf einer gewählten Zeile gilt das Menü für alle gewählten (wie im Explorer)
     if (istGewaehlt(v.id) && auswahl().size > 1) {
-      zeiger(v.id);
+      wahl.zeiger(v.id);
       const n = anzahlText(auswahl().size);
       return zeigeMenue(e, [
         { titel: `${n} kopieren`, tun: kopieren },
@@ -861,7 +848,7 @@ export function Balkenplan(p: Mitte) {
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
       <Show when={dupl()}>{(ids) => <DuplizierenFenster v={V_()} l={L_()} ids={ids()} vorgaenge={vorgaenge()} links={links()} plan={plan()} probe={probe} werteVon={werteVon} zu={zu()} neu={neueKennung}
-        onZu={() => setDupl(null)} onFertig={(b, tops, t) => { tun(b, t); setDupl(null); if (tops[0]) { markieren(tops[0]); p.onWahl(tops[0]); setAuswahl(new Set(tops)); anker = tops[0]; } }} />}</Show>
+        onZu={() => setDupl(null)} onFertig={(b, tops, t) => { tun(b, t); setDupl(null); wahl.mehrere(tops); }} />}</Show>
       <Show when={sollFenster() === 'fest'}><SollFesthalten bisher={sollJetzt()} zusammenhang={zu()} ist={istZeilen} onZu={() => setSollFenster(null)} /></Show>
       <Show when={sollFenster() === 'zurueck' && sollJetzt()}>{(x) => <SollZurueck soll={x()} onZu={() => setSollFenster(null)} />}</Show>
       <Show when={grp()}><GruppierenFenster v={GV_()} l={L_()} zu={zu()} neu={neueKennung} onZu={() => setGrp(false)}

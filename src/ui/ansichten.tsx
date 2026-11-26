@@ -403,7 +403,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     // wie im bisherigen Bautagebuch: oben links das Projekt und wie viele Berichte es hat
     linksTitel: (m) => { const n = m.alle().length, pr = sicht.projekt?.[projektId() ?? '']?.werte; return `${pr ? [pr.nummer, pr.name].filter(Boolean).join(' ') + ' · ' : ''}${n} ${n === 1 ? 'Bericht' : 'Berichte'}`; },
     linksZuerst: true,
-    details: (z) => (berichtDetailsDa() || !handy() ? BerichtDetails(z) : undefined),
+    details: (z, heftzwecke) => (berichtDetailsDa() || !handy() ? BerichtDetails(z, heftzwecke) : undefined),
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   // Ausschreibung: Summen in den Karten

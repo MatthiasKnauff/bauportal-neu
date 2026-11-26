@@ -726,7 +726,7 @@ td.aktiv-zelle { outline: 2px solid var(--akzent); outline-offset: -2px; }
 .schlagworte .marke button { border: 0; background: transparent; cursor: pointer; color: var(--text-still); padding: 0; }
 .schlagworte-vorschlaege { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .schlagworte-vorschlaege small { color: var(--text-still); }
-.bt-rechts .bt-rechts-reiter { flex: none; padding-top: 6px; }
+.bt-rechts .bt-rechts-reiter { flex: none; padding-top: 6px; align-items: center; } .bt-rechts-zwecke { margin-left: auto; display: inline-flex; }
 .bt-rechts .karte { flex: 1; min-height: 0; width: auto; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .bt-pdf { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
 .pdf-ansicht { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px; background: var(--still); border-radius: calc(8px * var(--rund)); }

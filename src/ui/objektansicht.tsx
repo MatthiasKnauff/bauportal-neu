@@ -333,7 +333,7 @@ export function ObjektAnsicht(p: {
         }
         detailsTitel={(karte() && objektname(m, karte()!.werte)) || m.titel}
         detailsHinweis={a.detailsHinweis ?? `${a.mitte ? 'Einen Eintrag' : 'Eine Zeile'} anklicken – hier stehen dann alle Angaben, direkt änderbar.`}
-        details={karte() ? (a.details ? a.details(karte()!) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} heftzwecke={rahmen.heftzweckeRechts()} zusatz={a.kartenZusatz} oben={a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
+        details={karte() ? (a.details ? a.details(karte()!, () => rahmen.heftzweckeRechts()) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} heftzwecke={rahmen.heftzweckeRechts()} zusatz={a.kartenZusatz} oben={a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
       <Show when={schwebZeile()}>{(z) => <Schwebefenster titel={objektname(m, z().werte) || m.titel} onZu={() => { setSchwebend(null); tabelle?.fokus(); }}>
         <Detailkarte modell={m} zeile={z()} onZu={() => setSchwebend(null)} zusatz={a.kartenZusatz} oben={a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />
       </Schwebefenster>}</Show>
