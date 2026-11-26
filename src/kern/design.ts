@@ -140,3 +140,29 @@ export const STIL_PAKETE: { titel: string; rund: number | null; stil: Record<str
   { titel: 'Schnell', rund: 0.5, stil: { schatten: 'aus', scrollbalken: 'faden', bewegung: 'aus', effekte: 'aus' } },
   { titel: 'Mac', rund: 1.5, stil: { rahmen: 'mac', verlauf: 'app', fenster: 'mac', schalter: 'an', scrollbalken: 'mac' } },
 ];
+
+// ---------- Umzug aus dem bisherigen Bauportal: Darstellung je Person ----------
+/** So gab das bisherige Bauportal die Darstellung einer Person heraus (/api/bp/umzug/benutzer). */
+export interface AlteDarstellung { theme?: string; accent?: string; farbschema?: string; schrift?: string; schrift_g?: string; stil?: Record<string, string> }
+const ALT_STIL: Record<string, string> = { sb: 'scrollbalken', schatten: 'schatten', rahmen: 'rahmen', verlauf: 'verlauf', fenster: 'fenster', schalter: 'schalter', bewegung: 'bewegung', effekte: 'effekte' };
+const ALT_ECKEN: Record<string, number> = { rund: 1.4, dezent: 0.5, eckig: 0 };
+/** Übersetzt die bisherige Darstellung in die Felder der Design-Wahl. design ist der Schlüssel eines vorinstallierten Designs
+ *  (Schema, sonst nach Hell/Dunkel/Klassisch). Unbekanntes bleibt leer (= Vorgabe). */
+export function darstellungAusAlt(a: AlteDarstellung): { design: string; werte: Record<string, string | number | null> } {
+  const theme = String(a.theme ?? '');
+  const schema = VORINSTALLIERT.some((v) => v.schluessel === a.farbschema) ? String(a.farbschema) : '';
+  const design = schema || (theme === 'dunkel' ? 'bauportal_dunkel' : theme === 'klassisch' ? 'klassisch_gruen' : 'bauportal_hell');
+  const werte: Record<string, string | number | null> = {
+    modus: theme === 'dunkel' ? 'dunkel' : 'hell',
+    akzent: /^#[0-9a-f]{6}$/i.test(String(a.accent ?? '')) ? String(a.accent).toLowerCase() : '',
+    schrift: SCHRIFTWAHL.some(([k]) => k && k === a.schrift) ? String(a.schrift) : '',
+    schriftmass: a.schrift_g === 'klein' ? 90 : a.schrift_g === 'gross' ? 110 : null,
+    rund: a.stil?.ecken !== undefined && a.stil.ecken in ALT_ECKEN ? ALT_ECKEN[a.stil.ecken]! : null,
+  };
+  for (const x of STIL) {
+    const altName = Object.keys(ALT_STIL).find((k) => ALT_STIL[k] === x.feld);
+    const v = altName ? String(a.stil?.[altName] ?? '') : '';
+    werte[x.feld] = x.werte.some(([w]) => w && w === v) ? v : '';
+  }
+  return { design, werte };
+}

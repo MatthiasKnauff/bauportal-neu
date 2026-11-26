@@ -1499,3 +1499,13 @@ test('Bauzeitenplan gruppieren: Gebäudeteil › Bauphase › Gewerk, eigene Gru
   const g = b.gruppieren(flach, [], ['gewerk'], {}, () => `n${++n}`).filter((c) => c.art === 'anlegen').map((c) => c.werte!.name);
   assert.deepEqual(g, ['Maurer'], 'Elektro hat nur eine Leistung: keine Zeile');
 });
+
+test('Darstellung aus dem bisherigen Bauportal übernehmen', async () => {
+  const { darstellungAusAlt } = await import('../src/kern/design');
+  const d = darstellungAusAlt({ theme: 'hell', accent: '#3F6496', farbschema: 'nebel', schrift: 'arial', schrift_g: 'gross', stil: { sb: 'mac', rahmen: 'mac', verlauf: 'app', fenster: 'mac', schalter: 'an', klapp: 'plus', ecken: 'dezent' } });
+  assert.equal(d.design, 'nebel');
+  assert.deepEqual([d.werte.modus, d.werte.akzent, d.werte.schrift, d.werte.schriftmass, d.werte.rund], ['hell', '#3f6496', 'arial', 110, 0.5]);
+  assert.deepEqual([d.werte.scrollbalken, d.werte.rahmen, d.werte.verlauf, d.werte.fenster, d.werte.schalter, d.werte.schatten], ['mac', 'mac', 'app', 'mac', 'an', '']);
+  const e = darstellungAusAlt({ theme: 'dunkel', farbschema: 'gibtsnicht', schrift: 'ubuntu', stil: { rahmen: 'quatsch' } });
+  assert.deepEqual([e.design, e.werte.modus, e.werte.schrift, e.werte.rahmen, e.werte.akzent], ['bauportal_dunkel', 'dunkel', '', '', '']);
+});

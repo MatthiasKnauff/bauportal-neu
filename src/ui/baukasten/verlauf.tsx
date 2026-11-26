@@ -1,7 +1,7 @@
 // Baustein „Verlauf“: wer hat wann was an einem Eintrag geändert – aus dem Befehlsprotokoll des Servers. Ein Knopf
 // „Verlauf (n)“, dahinter ein Fenster mit der Liste. Auf Wunsch mit den Einträgen, die an ihm hängen – und mit „Auf diesen Stand“:
 // alles (bis auf die Objektarten in „ohne“, z. B. Fotos) wird so, wie es nach dieser Änderung war; ein Rückgängig nimmt es zurück.
-import { For, Show, createResource, createSignal } from 'solid-js';
+import { For, Show, createResource, createSignal, type JSX } from 'solid-js';
 import { HERKUNFT } from '../../kern/befehl';
 import { ausfuehrenMehrere, geaendert } from '../unterbau/abgleich';
 import { hinweis } from '../unterbau/meldungen';
@@ -9,10 +9,11 @@ import { modell, ruf } from '../unterbau/api';
 import { Dialog } from './dialog';
 import { anzeige } from './feld';
 
-interface Eintrag { seq: number; zeit: string; wer: string; objekt: string; art: string; objektId: string; werte: Record<string, unknown> | null; herkunft: string | null }
+export interface Eintrag { seq: number; zeit: string; wer: string; objekt: string; art: string; objektId: string; werte: Record<string, unknown> | null; herkunft: string | null }
 const ART: Record<string, string> = { anlegen: 'angelegt', aendern: 'geändert', loeschen: 'gelöscht', wiederherstellen: 'wiederhergestellt' };
 
-export function Verlauf(p: { objekt: string; id: string; unter?: { objekt: string; feld: string }[]; zurueck?: { ohne?: string[]; hinweis?: string } }) {
+export function Verlauf(p: { objekt: string; id: string; unter?: { objekt: string; feld: string }[]; zurueck?: { ohne?: string[]; hinweis?: string };
+  vorne?: (liste: Eintrag[] | undefined) => JSX.Element }) {   // vorne: steht vor dem Knopf und sieht die Liste (neueste zuerst), z. B. „Seit dem Export geändert“
   const [offen, setOffen] = createSignal(false);
   // neu laden, wenn sich an diesen Objektarten etwas ändert
   const [liste] = createResource(() => ({ id: p.id, n: [p.objekt, ...(p.unter ?? []).map((u) => u.objekt)].map((o) => geaendert(o)).join() }),
@@ -37,6 +38,7 @@ export function Verlauf(p: { objekt: string; id: string; unter?: { objekt: strin
   const zeit = (z: string) => new Date(z).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   return (
     <>
+      {p.vorne?.(liste())}
       <button class="knopf still klein verlauf-knopf" onClick={() => setOffen(true)}>🕘 Verlauf{liste() ? ` (${liste()!.length})` : ''}</button>
       <Show when={offen()}>
         <Dialog titel="Verlauf" breit onAbbrechen={() => setOffen(false)} knoepfe={<button class="knopf haupt" onClick={() => setOffen(false)}>Schließen</button>}>

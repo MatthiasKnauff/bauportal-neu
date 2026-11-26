@@ -14,6 +14,8 @@ import { fotoAblegen } from './foto';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { randomUUID } from 'node:crypto';
 import { altplanLesen, type Altplan } from '../module/bauzeitenplan/austausch';
+import { darstellungAusAlt, type AlteDarstellung } from '../kern/design';
+import { festeKennung } from './grundausstattung';
 import { MIT_ERLEDIGT } from '../module/bautagebuch/beipackzettel';
 import { planUebernehmen } from './bauzeitenplan';
 import { abgleicher, merken, type Eintrag, type Vorschau, type Zahl } from './uebernahme';
@@ -246,6 +248,35 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
       const r = await planUebernehmen(c, e.register, { projekt, version }, alt, `alt-gantt:${id}:`);
       const neu = (o: string) => (vorweg.some((b) => b.objekt === o) ? { [o]: { neu: 1, geaendert: 0, entfernt: 0, unveraendert: 0, behalten: 0 } } : {});
       return { je: { ...neu('projekt'), ...neu('version'), ...r.je }, hinweise: [...hinweise, ...r.hinweise], liste: [...vorweg, ...r.liste] };
+    });
+    return merken(req.benutzer!.id, plan);
+  });
+  // Darstellung je Person (Umzug, 26.11.2026): das bisherige Bauportal gibt sie der Verwaltung heraus; zugeordnet über den Namen
+  // (oder Anmeldenamen) der Person. Wer hier noch nicht angelegt ist, steht im Hinweis.
+  app.post('/api/altdaten/darstellung', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
+    admin(req);
+    const q = await anmelden();
+    let l: { name: string; darstellung: AlteDarstellung }[];
+    try { l = (JSON.parse((await q.holen('api/bp/umzug/benutzer')).toString('utf8')) as { benutzer?: typeof l }).benutzer ?? []; }
+    catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung('Das bisherige Bauportal gibt die Benutzer noch nicht heraus (es braucht dort den Stand vom 26.11.2026)'); }
+    const plan = await alsBenutzer(db, req.benutzer!, async (c) => {
+      const liste: Befehl[] = [], fehlt: string[] = [];
+      let neu = 0, geaendert = 0, gleich = 0;
+      const benutzer = (await c.query('select id, name, anmeldename from o_benutzer where not geloescht')).rows as { id: string; name: string; anmeldename: string }[];
+      for (const a of l) {
+        const n = String(a.name ?? '').trim().toLowerCase();
+        const b = benutzer.find((x) => String(x.name).toLowerCase() === n || String(x.anmeldename).toLowerCase() === n);
+        if (!b) { if (n && n !== 'admin') fehlt.push(a.name); continue; }
+        const { design, werte } = darstellungAusAlt(a.darstellung ?? {});
+        const w = { ...werte, design: festeKennung(`design:${design}`) };
+        const da = (await c.query('select * from o_design_wahl where benutzer = $1 and not geloescht', [b.id])).rows[0] as Record<string, unknown> | undefined;
+        const kopf = { id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'uebernahme' };
+        if (!da) { liste.push({ ...kopf, objekt: 'design_wahl', art: 'anlegen', objektId: randomUUID(), werte: { benutzer: b.id, ...w } }); neu++; continue; }
+        const anders = Object.fromEntries(Object.entries(w).filter(([k, v]) => String(da[k] ?? '') !== String(v ?? '')));
+        if (Object.keys(anders).length) { liste.push({ ...kopf, objekt: 'design_wahl', art: 'aendern', objektId: String(da.id), werte: anders }); geaendert++; } else gleich++;
+      }
+      return { je: { design_wahl: { neu, geaendert, entfernt: 0, unveraendert: gleich, behalten: 0 } },
+        hinweise: fehlt.length ? [`Noch nicht angelegt – deren Darstellung kommt mit, sobald es sie hier gibt: ${fehlt.join(', ')}`] : [], liste };
     });
     return merken(req.benutzer!.id, plan);
   });

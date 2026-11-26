@@ -2,6 +2,7 @@
 // Seite – Kopf mit Datum, Wetter und Kontrollen, darunter je Abschnitt eine Karte –, rechts das Detail des angeklickten
 // Eintrags. Die Abschnitte sind dieselben Bausteine wie in „Schritt für Schritt“ (Unterliste, Bilder, Feld).
 import { Seitenliste } from './baukasten/seitenliste';
+import { springeZu } from './sprung';
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Feld, Wert } from '../kern/modell';
@@ -100,8 +101,12 @@ export function BerichtLinks(p: Mitte) {
         </div>
       </Show>
       <Show when={gewaehlt()}>{(g) => (
-        <Seitenliste name="Abschnitte des Berichts" aktiv="" onWahl={zumAbschnitt} abschnitte={[{ titel: `Tagesbericht Nr. ${String(g().werte.nummer ?? '')} · ${datumText(g().werte.datum)}`,
-          eintraege: [{ id: 'kopf', titel: 'Tagesbericht', zeichen: 'bericht' }, ...ABSCHNITTE.map((a) => ({ id: a.id, titel: a.titel, zeichen: a.zeichen, anzahl: anzahl(g().id, a) }))] }]} />
+        <Seitenliste name="Abschnitte des Berichts" aktiv="" abschnitte={[{ titel: `Tagesbericht Nr. ${String(g().werte.nummer ?? '')} · ${datumText(g().werte.datum)}`,
+          eintraege: [{ id: 'kopf', titel: 'Tagesbericht', zeichen: 'bericht' }, ...ABSCHNITTE.map((a) => ({ id: a.id, titel: a.titel, zeichen: a.zeichen, anzahl: anzahl(g().id, a) }))] },
+          // wie im bisherigen Bautagebuch: darunter das Projekt – alle Berichte als Liste, die Projektdaten
+          { titel: 'Projekt', eintraege: [{ id: 'p:alle', titel: 'Alle Berichte', zeichen: 'liste', anzahl: p.zeilen().length },
+            ...(g().werte.projekt ? [{ id: 'p:daten', titel: 'Projektdaten', zeichen: 'projekte' }] : [])] }]}
+          onWahl={(id) => { if (id === 'p:alle') { setForm('liste'); merke('bp.bautagebuch.links', 'liste'); } else if (id === 'p:daten') springeZu('projekt', String(g().werte.projekt)); else zumAbschnitt(id); }} />
       )}</Show>
     </div>
   );
@@ -340,8 +345,14 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
       <Show when={darf('bericht_eintrag', 'schreiben')}><span class="bt-werkzeuge"><Diktieren bericht={p.bericht} steuer={(f) => (p.werkzeuge.diktat = f)} /><Schritte bericht={p.bericht} steuer={(f) => (p.werkzeuge.schritte = f)} /></span></Show>
     </section>
     <div class="bt-stand">
-      <Show when={w().pdf} fallback={<span class="still-text">Noch nicht als PDF exportiert</span>}><span class="gut-text">✓ Als PDF exportiert: {String(w().pdf)}</span></Show>
-      <Verlauf objekt="tagesbericht" id={p.bericht.id} unter={[{ objekt: 'bericht_eintrag', feld: 'bericht' }, { objekt: 'foto', feld: 'bericht' }]} zurueck={darf('tagesbericht', 'schreiben') ? { ohne: ['foto'], hinweis: 'Fotos bleiben' } : undefined} />
+      <Verlauf objekt="tagesbericht" id={p.bericht.id} unter={[{ objekt: 'bericht_eintrag', feld: 'bericht' }, { objekt: 'foto', feld: 'bericht' }]} zurueck={darf('tagesbericht', 'schreiben') ? { ohne: ['foto'], hinweis: 'Fotos bleiben' } : undefined}
+        vorne={(l) => {
+          // Stand des PDF wie im bisherigen Bautagebuch: nie exportiert · exportiert · seit dem Export geändert (eine Änderung nach dem Eintrag des PDF)
+          const i = l?.findIndex((e) => e.objekt === 'tagesbericht' && !!e.werte && 'pdf' in e.werte) ?? -1;
+          return <Show when={w().pdf} fallback={<span class="still-text">Noch nicht als PDF exportiert</span>}>
+            <Show when={i > 0} fallback={<span class="gut-text" title={String(w().pdf)}>✓ Als PDF exportiert: {String(w().pdf)}</span>}>
+              <span class="warn-text" title={`Letzter Export: ${String(w().pdf)}`}>Seit dem Export geändert – letzter Export: {String(w().pdf)}</span></Show></Show>;
+        }} />
     </div>
     </>
   );
