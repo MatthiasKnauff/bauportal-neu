@@ -1053,3 +1053,24 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .kostenkontrolle th, .kostenkontrolle td { padding: 5px 6px; }
 .kostenkontrolle td:nth-child(2), .kostenkontrolle td:nth-child(3) { white-space: normal; min-width: 80px; }
 .kostenkontrolle th { hyphens: auto; }
+
+/* Pläne & Dateien: Kacheln mit Vorschaubild */
+.datei-kachel { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.datei-kachel img, .datei-kachel-art { width: 100%; aspect-ratio: 1 / 1.1; object-fit: contain; object-position: center top; border-radius: calc(6px * var(--rund)); background: var(--still-hell); border: 1px solid var(--rand); }
+.datei-kachel-art { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; color: var(--text-still); letter-spacing: .04em; }
+.datei-kachel-art.ordner { font-size: 40px; font-weight: 400; color: var(--akzent); background: var(--akzent-hell); }
+.datei-kachel figcaption { font-size: 12px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; min-height: 2.6em; word-break: break-word; }
+.kachelliste:has(.datei-kachel) .kachelliste-eintrag { padding: 6px; }
+/* Versand & Rücklauf */
+.vr-zahlen { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; }
+.vr-zahlen .vr-abgegeben b { color: var(--gut); }
+.vr-unterlagen { align-items: center; gap: 8px; font-size: 13px; }
+.versand td input[type=date] { font: inherit; font-size: 12px; border: 1px solid var(--rand); border-radius: 4px; padding: 2px 4px; }
+.versand tr.vr-faellig td { background: var(--warn-hell); }
+.versand tr.vr-ab td { color: var(--text-still); }
+.versand .vr-abgegeben { color: var(--gut); } .versand .vr-gibt_nicht_ab { color: var(--text-still); }
+.versand td .gefahr-text { color: var(--gefahr); }
+.link-knopf { background: none; border: 0; padding: 0; font: inherit; color: var(--akzent); cursor: pointer; text-align: left; }
+.link-knopf:hover { text-decoration: underline; }
+.vr-nur { display: inline-flex; gap: 4px; align-items: center; margin-left: auto; }
+.vorschau-verweis { display: block; }

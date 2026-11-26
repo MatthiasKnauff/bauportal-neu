@@ -175,3 +175,10 @@ function verweisziele(f: Feld, zusammenhang?: Werte): { wert: string; titel: str
 
 /** Wert so, wie er in einer Tabelle steht – derselbe Text wie im Ausdruck. */
 export const anzeige = (f: Feld, w: Wert | undefined): string => feldtext(f, w, verweisname);
+/** Wert für Excel: Zahlen bleiben Zahlen, Daten echte Daten, alles andere wie angezeigt. */
+export const excelWert = (f: Feld, w: Wert | undefined): string | number | Date | null => {
+  if (w == null || w === '') return null;
+  if (f.art === 'zahl' && typeof w === 'number') return w;
+  if (f.art === 'datum' && /^\d{4}-\d{2}-\d{2}/.test(String(w))) { const [j, m, t] = String(w).slice(0, 10).split('-').map(Number); return new Date(j!, m! - 1, t!); }
+  return anzeige(f, w);
+};

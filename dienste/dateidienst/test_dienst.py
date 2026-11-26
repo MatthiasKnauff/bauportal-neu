@@ -68,6 +68,23 @@ def main() -> None:
         assert c.post("/schreiben", json={**ziel, "name": "../x.jpg"}, headers=k).status_code == 400
         assert c.post("/schreiben", json={**ziel, "pfad": "../raus"}, headers=k).status_code == 400
         assert c.post("/schreiben", json={**ziel, "inhalt": "kein base64 !"}, headers=k).status_code == 400
+        # Vorschaubilder: ein echtes Bild und ein echtes PDF (erste Seite), kaputtes PDF, fremde Art
+        import io
+        from PIL import Image
+        Image.new("RGB", (1600, 1200), (200, 30, 30)).save(f"{ordner}/2026-01 Haus A/Foto.jpg", "JPEG")
+        import pypdfium2 as pdfium
+        neu = pdfium.PdfDocument.new()
+        neu.new_page(595, 842)
+        neu.save(f"{ordner}/2026-01 Haus A/Plan.pdf")
+        v = {"zugang": z, "breite": 200}
+        r = c.post("/vorschau", json={**v, "pfad": "2026-01 Haus A/Foto.jpg"}, headers=k)
+        assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg", r.text
+        assert Image.open(io.BytesIO(r.content)).size == (200, 150)
+        r = c.post("/vorschau", json={**v, "pfad": "2026-01 Haus A/Plan.pdf"}, headers=k)
+        assert r.status_code == 200 and Image.open(io.BytesIO(r.content)).size[0] == 200, r.text
+        assert c.post("/vorschau", json={**v, "pfad": "2026-01 Haus A/Pläne/Grundriss EG.pdf"}, headers=k).status_code == 422, "kaputtes PDF"
+        assert c.post("/vorschau", json={**v, "pfad": "2026-01 Haus A/Notiz.txt"}, headers=k).status_code == 415
+        assert c.post("/vorschau", json={**v, "pfad": "2026-01 Haus A/Foto.jpg"}).status_code == 403
         print("Dateidienst: alle Prüfungen bestanden")
 
 

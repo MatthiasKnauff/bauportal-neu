@@ -1,7 +1,10 @@
 // Tabellen aus Dateien lesen – CSV (Semikolon, Komma oder Tab; UTF-8 oder Windows-1252) und Excel (.xlsx, erstes Blatt) –
 // ohne Zusatzbibliothek: Excel ist ein ZIP mit XML darin; entpackt wird mit dem eingebauten DecompressionStream.
 // Läuft im Browser und in Node gleich. Ergebnis: Kopfzeile und Zeilen als Text.
-import { kind, kinder, alleText, xmlLesen } from './xml';
+import { kind, kinder, xmlLesen, type XmlKnoten } from './xml';
+
+/** Text einer Zelle genau so, wie er steht (Zeilenumbrüche und Leerzeichen bleiben): alle <t> darin hintereinander, ohne Lautschrift (<rPh>). */
+const zellText = (k: XmlKnoten | undefined): string => (!k || k.name === 'rPh' ? '' : k.name === 't' || k.name === 'v' ? k.text : k.kinder.map(zellText).join(''));
 
 export interface Tabelle { kopf: string[]; zeilen: string[][] }
 
@@ -64,7 +67,7 @@ const spalte = (ref: string) => { let n = 0; for (const c of ref.replace(/\d+$/,
 export async function xlsxLesen(b: Uint8Array): Promise<string[][]> {
   const zip = await zipLesen(b);
   const lies = async (n: string) => { const f = zip.get(n); return f ? new TextDecoder().decode(await f()) : ''; };
-  const geteilt = (await lies('xl/sharedStrings.xml')) ? kinder(xmlLesen(await lies('xl/sharedStrings.xml')), 'si').map((si) => alleText(si)) : [];
+  const geteilt = (await lies('xl/sharedStrings.xml')) ? kinder(xmlLesen(await lies('xl/sharedStrings.xml')), 'si').map((si) => zellText(si)) : [];
   // erstes Blatt laut Mappe (workbook.xml → rels), sonst sheet1
   let blatt = 'xl/worksheets/sheet1.xml';
   try {
@@ -76,8 +79,8 @@ export async function xlsxLesen(b: Uint8Array): Promise<string[][]> {
   return kinder(daten, 'row').map((r) => {
     const z: string[] = [];
     for (const c of kinder(r, 'c')) {
-      const v = alleText(kind(c, 'v')), typ = c.attr.t;
-      const w = typ === 's' ? geteilt[Number(v)] ?? '' : typ === 'inlineStr' ? alleText(kind(c, 'is')) : v;
+      const v = zellText(kind(c, 'v')).trim(), typ = c.attr.t;
+      const w = typ === 's' ? geteilt[Number(v)] ?? '' : typ === 'inlineStr' ? zellText(kind(c, 'is')) : v;
       z[c.attr.r ? spalte(c.attr.r) : z.length] = w;
     }
     return Array.from(z, (x) => x ?? '');

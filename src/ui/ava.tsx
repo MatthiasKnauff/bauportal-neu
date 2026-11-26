@@ -1,11 +1,11 @@
 // Ausschreibung in der Oberfläche: Summen in den Karten (LV, Position) und der Preisspiegel – Positionen mit den Preisen
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
-import { For, Show, createMemo, type JSX } from 'solid-js';
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { auftragsstand, ausgeschrieben, type Auftragsstand, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, type Pruefstand } from '../module/ava/rechnung';
+import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, type Pruefstand } from '../module/ava/rechnung';
 import type { Werte } from '../kern/modell';
 import { rechenweg } from '../kern/rechenweg';
-import { LV_STATUS, NACHTRAGSSTAENDE } from '../module/ava/beipackzettel';
+import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
 import { gaebSchreiben, type GaebPosten } from '../module/ava/gaeb';
 import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
@@ -385,6 +385,105 @@ export function Kostenkontrolle(p: Mitte): JSX.Element {
             <td class="zahl">{eur(summe((z) => (z.auftrag ? z.stand.beauftragt : null)))}</td><td class="zahl">{eur(summe((z) => z.abgerechnet))}</td><td class="zahl">{eur(summe(offen))}</td><td /></tr></tfoot>
         </table>
       </div>
+    </div>
+  );
+}
+
+const heute = () => new Date().toLocaleDateString('sv');
+const datum = (w: unknown) => (w ? new Date(String(w)).toLocaleDateString('de-DE') : '–');
+const STAND_RUECKLAUF: Record<Ruecklauf, string> = { abgegeben: 'abgegeben', will_abgeben: 'will abgeben', gibt_nicht_ab: 'gibt nicht ab', offen: 'offen' };
+
+/** Bieter:innen mit Rückmeldung, Nachfassen und Eingang – ein Baustein für „Versand & Rücklauf“ (ein LV) und „Nachverfolgen“ (alle LVs). */
+function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string) => void }): JSX.Element {
+  const schreiben = () => darf('angebot', 'schreiben');
+  const aendern = (a: Zeile, werte: Werte, titel: string) => ausfuehren({ objekt: 'angebot', art: 'aendern', objektId: a.id, werte }, `${name(a.werte.bieter)}: ${titel}`);
+  const telefon = (a: Zeile) => { const k = sicht.kontakt?.[String(a.werte.bieter ?? '')]?.werte; return String(k?.telefon || k?.mobil || ''); };
+  const lvName = (id: unknown) => { const l = sicht.lv?.[String(id ?? '')]?.werte; return l ? [l.nummer, l.name].filter(Boolean).join(' · ') : ''; };
+  return (
+    <div class="ps-rollen">
+      <table class="preisspiegel versand">
+        <thead><tr><Show when={p.mitLv}><th>LV</th><th>Abgabe</th></Show><th>Bieter:in</th><th>Telefon</th><th>angeschrieben</th><th>Stand</th><th>Nachfassen</th><th>Angebot</th></tr></thead>
+        <tbody>
+          <For each={p.bieter}>{(a) => {
+            const st = () => ruecklaufVon(a);
+            return (
+              <tr classList={{ 'vr-faellig': nachfassenFaellig(a, heute()), 'vr-ab': st() === 'gibt_nicht_ab' }}>
+                <Show when={p.mitLv}><td><button type="button" class="link-knopf" onClick={() => p.onLv?.(String(a.werte.lv))}>{lvName(a.werte.lv)}</button></td><td>{datum(sicht.lv?.[String(a.werte.lv)]?.werte.abgabe)}</td></Show>
+                <td>{name(a.werte.bieter)}</td>
+                <td><Show when={telefon(a)}><a href={`tel:${telefon(a).replace(/[^+\d]/g, '')}`}>{telefon(a)}</a></Show></td>
+                <td>{datum(a.werte.angeschrieben)}</td>
+                <td><Show when={schreiben() && st() !== 'abgegeben'} fallback={<b class={`vr-${st()}`}>{STAND_RUECKLAUF[st()]}</b>}>
+                  <Auswahlliste titel={`Rückmeldung ${name(a.werte.bieter)}`} wert={String(a.werte.rueckmeldung || 'offen')} optionen={RUECKMELDUNGEN} onWert={(w) => aendern(a, { rueckmeldung: w }, 'Rückmeldung')} /></Show></td>
+                <td><Show when={schreiben() && st() !== 'abgegeben' && st() !== 'gibt_nicht_ab'} fallback={a.werte.nachfassen ? datum(a.werte.nachfassen) : ''}>
+                  <input type="date" aria-label={`Nachfassen ${name(a.werte.bieter)}`} value={String(a.werte.nachfassen ?? '')} onChange={(e) => aendern(a, { nachfassen: e.currentTarget.value || null }, 'Nachfassen')} />
+                  <Show when={nachfassenFaellig(a, heute())}><small class="gefahr-text"> fällig</small></Show></Show></td>
+                <td><Show when={a.werte.eingang} fallback={<Show when={schreiben() && st() !== 'gibt_nicht_ab'}><button type="button" class="knopf klein" onClick={() => aendern(a, { eingang: heute() }, 'Angebot eingegangen')}>eingegangen</button></Show>}>
+                  {datum(a.werte.eingang)}</Show></td>
+              </tr>
+            );
+          }}</For>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Versand & Rücklauf (wie im bisherigen Bauportal): je LV die angeschriebenen Bieter:innen – Rückmeldung, Nachfassen, Eingang –
+ *  mit Fristen und Zählern; Unterlagen als GAEB X83. Das Verschicken per E-Mail kommt über die zentrale Versandstelle. */
+export function Versand(p: Mitte): JSX.Element {
+  const lv = () => { const id = p.gewaehlt() ?? p.alle()[0]?.id; return id ? sicht.lv?.[id] : undefined; };
+  const bieter = createMemo(() => (lv() ? angeboteVon(lv()!.id) : []));
+  const z = createMemo(() => ruecklaufZaehlen(bieter()));
+  // Firmen zum Anschreiben: die mit passendem Gewerk zuerst (★)
+  const gewerk = () => String(sicht.gewerk?.[String(lv()?.werte.gewerk ?? '')]?.werte.name ?? '').toLowerCase().split(/[\s,]/)[0] ?? '';
+  const firmen = () => lebende('kontakt').filter((k) => !bieter().some((a) => a.werte.bieter === k.id))
+    .map((k) => ({ wert: k.id, titel: [k.werte.name, k.werte.gewerk].filter(Boolean).join(' – '), passt: !!gewerk() && String(k.werte.gewerk ?? '').toLowerCase().includes(gewerk()) }))
+    .sort((a, b) => Number(b.passt) - Number(a.passt) || a.titel.localeCompare(b.titel, 'de')).map(({ wert, titel, passt }) => ({ wert, titel: passt ? `★ ${titel}` : titel }));
+  const dazu = (kontakt: string) => { if (kontakt && lv()) ausfuehren({ objekt: 'angebot', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, bieter: kontakt, angeschrieben: heute() } }, `${name(kontakt)} angeschrieben`); };
+  return (
+    <div class="preisspiegel-flaeche">
+      <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – unter „Leistungsverzeichnisse“ anlegen.</p>}>
+        <div class="ps-kopf">
+          <h2>Versand & Rücklauf · {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
+          <Show when={darf('angebot', 'schreiben')}><div class="ps-dazu"><Auswahlliste titel="Bieter:in anschreiben" platzhalter="＋ Bieter:in anschreiben …" wert={null} optionen={firmen()} onWert={dazu} /></div></Show>
+        </div>
+        <div class="vr-zahlen">
+          <span>Abgabe bis <b>{datum(lv()!.werte.abgabe)}</b></span><span>Rückmeldung bis <b>{datum(lv()!.werte.rueckmeldung_bis)}</b></span>
+          <span>angeschrieben <b>{z().angeschrieben}</b> von {bieter().length}</span><span class="vr-abgegeben">abgegeben <b>{z().abgegeben}</b></span>
+          <span>wollen abgeben <b>{z().will_abgeben}</b></span><span>geben nicht ab <b>{z().gibt_nicht_ab}</b></span><span>offen <b>{z().offen}</b></span>
+        </div>
+        <div class="reihe vr-unterlagen">
+          <span class="still-text">Unterlagen für die Bieter:innen:</span>
+          <button type="button" class="knopf klein" disabled={!positionenVon(lv()!.id).length} onClick={() => gaebAusgeben(lv()!, '83')}>LV als GAEB X83</button>
+        </div>
+        <Show when={bieter().length} fallback={<p class="still-text">Noch keine Bieter:innen – oben „＋ Bieter:in anschreiben“ (Firmen mit passendem Gewerk stehen mit ★ zuerst). Wer im Preisspiegel ein Angebot hat, steht hier von selbst.</p>}>
+          <BieterTabelle bieter={bieter()} />
+        </Show>
+        <p class="still-text klein-text">Verschicken per E-Mail kommt über die zentrale Versandstelle des Bauportals.</p>
+      </Show>
+    </div>
+  );
+}
+
+/** Nachverfolgen (wie im bisherigen Bauportal): dieselben Daten wie im Versand, über alle LVs des Projekts, die noch nicht vergeben sind. */
+export function Nachverfolgen(p: Mitte): JSX.Element {
+  const [nurFaellig, setNurFaellig] = createSignal(false);
+  const unterwegs = createMemo(() => p.alle().filter((l) => !['vergeben', 'aufgehoben'].includes(String(l.werte.status ?? ''))));
+  const alle = createMemo(() => unterwegs().flatMap((l) => angeboteVon(l.id)).sort((a, b) => String(sicht.lv?.[String(a.werte.lv)]?.werte.abgabe ?? '9').localeCompare(String(sicht.lv?.[String(b.werte.lv)]?.werte.abgabe ?? '9'))));
+  const faellig = createMemo(() => alle().filter((a) => nachfassenFaellig(a, heute())));
+  const bald = createMemo(() => unterwegs().filter((l) => { const ab = String(l.werte.abgabe ?? ''); if (!ab) return false; const t = (new Date(ab).getTime() - new Date(heute()).getTime()) / 86400000; return t >= 0 && t <= 3; }).length);
+  return (
+    <div class="preisspiegel-flaeche">
+      <div class="vr-zahlen">
+        <span classList={{ 'gefahr-text': faellig().length > 0 }}><b>{faellig().length}</b> {faellig().length === 1 ? 'Anruf' : 'Anrufe'} fällig</span>
+        <span><b>{bald()}</b> Abgabe in ≤ 3 Tagen</span><span><b>{unterwegs().length}</b> {unterwegs().length === 1 ? 'LV' : 'LVs'} unterwegs</span>
+        <span><b>{alle().filter((a) => a.werte.eingang).length}</b> / {alle().length} Angebote da</span>
+        <label class="vr-nur"><input type="checkbox" checked={nurFaellig()} onChange={(e) => setNurFaellig(e.currentTarget.checked)} /> nur fällige Anrufe</label>
+      </div>
+      <Show when={(nurFaellig() ? faellig() : alle()).length} fallback={<p class="still-text">{nurFaellig() ? 'Keine Anrufe fällig.' : 'Kein LV unterwegs – Bieter:innen schreibt man unter „Versand & Rücklauf“ an.'}</p>}>
+        <BieterTabelle bieter={nurFaellig() ? faellig() : alle()} mitLv onLv={(id) => { p.onWahl(id); p.onOeffnen(); }} />
+      </Show>
+      <p class="still-text klein-text">Dieselben Daten wie im Versand – nur über alle LVs, die noch nicht vergeben sind. Klick auf ein LV zeigt es rechts.</p>
     </div>
   );
 }

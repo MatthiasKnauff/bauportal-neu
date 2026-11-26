@@ -1,3 +1,5 @@
 fastapi==0.165.*
 uvicorn==0.*
 smbprotocol>=1.14,<2
+pillow>=11,<13
+pypdfium2>=4.30,<6

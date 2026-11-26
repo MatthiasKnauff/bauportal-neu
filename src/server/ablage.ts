@@ -1,7 +1,7 @@
 // Ablage: Verbindung zum Dateiserver über den Dateidienst (eigener Hilfscontainer, Python).
 // Die Originale bleiben auf dem Dateiserver; das Bauportal reicht nur durch, was der Benutzer am Projekt sehen darf.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -162,6 +162,26 @@ export function ablageRouten(app: FastifyInstance, e: { db: Db; umgebung: string
     try {
       const ordner = await projektordner(req.benutzer!, q.projekt);
       return await (await dienst('/alle', { zugang: await zugang(db), pfad: sauber(ordner, '') }, 120000)).json();
+    } catch (err) { return melde(reply, err); }
+  });
+
+  // Vorschaubild einer Datei (PDF: erste Seite, Bilder verkleinert) – erzeugt vom Dateidienst, nur das Vorschaubild kommt in
+  // die Datenbank (kern_vorschau). Der Schlüssel enthält Pfad, Änderungszeit und Breite: ändert sich die Datei, entsteht ein neues.
+  const BREITEN = [160, 320, 640];
+  app.get('/api/ablage/vorschau', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    const q = req.query as { projekt?: string; pfad?: string; geaendert?: string; breite?: string };
+    const breite = BREITEN.find((b) => b >= Number(q.breite ?? 0)) ?? BREITEN.at(-1)!;
+    try {
+      const ordner = await projektordner(req.benutzer!, q.projekt);
+      const pfad = sauber(ordner, q.pfad ?? '');
+      const h = createHash('sha256').update(`ablage|${pfad}|${q.geaendert ?? ''}|${breite}`).digest('hex');
+      const id = `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+      let bild = (await db.query('select bild from kern_vorschau where id = $1', [id])).rows[0]?.bild as Buffer | undefined;
+      if (!bild) {
+        bild = Buffer.from(await (await dienst('/vorschau', { zugang: await zugang(db), pfad, breite }, 60000)).arrayBuffer());
+        await db.query('insert into kern_vorschau (id, bild) values ($1, $2) on conflict (id) do nothing', [id, bild]);
+      }
+      return reply.header('Content-Type', 'image/jpeg').header('Cache-Control', 'private, max-age=604800, immutable').header('X-Content-Type-Options', 'nosniff').send(bild);
     } catch (err) { return melde(reply, err); }
   });
 

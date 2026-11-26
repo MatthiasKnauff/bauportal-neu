@@ -7,13 +7,14 @@ Erreichbar ist der Dienst nur im Docker-Netz und nur mit dem gemeinsamen Schlüs
 import base64
 import binascii
 import datetime
+import io
 import os
 import re
 import threading
 
 import smbclient
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from smbprotocol.exceptions import SMBException, SMBOSError
 
@@ -189,6 +190,72 @@ def datei(a: Anfrage, x_schluessel: str | None = Header(default=None)):
 
     return StreamingResponse(stuecke(), media_type="application/octet-stream",
                              headers={"Content-Length": str(s.st_size), "X-Geaendert": _zeit(s.st_mtime)})
+
+
+class Vorschau(Anfrage):
+    breite: int = 320
+
+
+VORSCHAU_GRENZE = 150 * 1024 * 1024   # größere Dateien bekommen kein Vorschaubild
+_BILDER = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "tif", "tiff"}
+
+
+def vorschaubild(daten: bytes, endung: str, breite: int) -> bytes:
+    """Vorschaubild (JPEG) aus einer Datei: Bilder verkleinert (Ausrichtung nach EXIF), PDF die erste Seite.
+    Nur das Vorschaubild geht zurück – das Original bleibt auf dem Dateiserver."""
+    from PIL import Image, ImageOps
+    Image.MAX_IMAGE_PIXELS = 120_000_000   # größere gelten als Angriff (Dekompressionsbombe) und werden abgelehnt
+    breite = max(64, min(1024, breite))
+    if endung == "pdf":
+        import pypdfium2 as pdfium
+        pdf = pdfium.PdfDocument(daten)
+        try:
+            seite = pdf[0]
+            b, _h = seite.get_size()
+            bild = seite.render(scale=min(4.0, breite / max(1.0, b))).to_pil()
+        finally:
+            pdf.close()
+    elif endung in _BILDER:
+        bild = Image.open(io.BytesIO(daten))
+        bild.draft("RGB", (breite, breite * 4))   # JPEG gleich verkleinert dekodieren
+        bild = ImageOps.exif_transpose(bild)
+    else:
+        raise Fehler("Für diese Dateiart gibt es kein Vorschaubild", 415)
+    if bild.mode not in ("RGB", "L"):
+        grund = Image.new("RGB", bild.size, "white")
+        grund.paste(bild.convert("RGBA"), mask=bild.convert("RGBA").getchannel("A"))
+        bild = grund
+    bild.thumbnail((breite, breite * 4))
+    aus = io.BytesIO()
+    bild.convert("RGB").save(aus, "JPEG", quality=80, optimize=True)
+    return aus.getvalue()
+
+
+@app.post("/vorschau")
+def vorschau(a: Vorschau, x_schluessel: str | None = Header(default=None)):
+    """Vorschaubild einer Datei der Ablage (JPEG)."""
+    _pruefe(x_schluessel)
+    endung = a.pfad.rsplit(".", 1)[-1].lower() if "." in a.pfad else ""
+    if endung != "pdf" and endung not in _BILDER:
+        raise Fehler("Für diese Dateiart gibt es kein Vorschaubild", 415)
+    try:
+        v, wurzel = _ziel(a.zugang)
+        pfad = _pfad(wurzel, a.pfad)
+        if smbclient.stat(pfad, **v).st_size > VORSCHAU_GRENZE:
+            raise Fehler("Die Datei ist für ein Vorschaubild zu groß", 413)
+        with smbclient.open_file(pfad, mode="rb", share_access="rwd", **v) as f:
+            daten = f.read()
+    except Fehler:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise _deute(e) from e
+    try:
+        bild = vorschaubild(daten, endung, a.breite)
+    except Fehler:
+        raise
+    except Exception as e:  # noqa: BLE001 – kaputte oder verschlüsselte Datei, Dekompressionsbombe
+        raise Fehler(f"Vorschaubild nicht möglich ({type(e).__name__})", 422) from e
+    return Response(bild, media_type="image/jpeg")
 
 
 @app.post("/schreiben")

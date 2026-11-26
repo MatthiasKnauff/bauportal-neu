@@ -25,6 +25,7 @@ export const lv: ObjektModell = {
     { name: 'vergabenummer', titel: 'Vergabenummer', art: 'text', gruppe: 'Vergabe' },
     { name: 'budget', titel: 'Kostenansatz netto in €', art: 'zahl', inListe: true, breite: 130, gruppe: 'Vergabe' },
     { name: 'abgabe', titel: 'Angebotsabgabe bis', art: 'datum', gruppe: 'Vergabe' },
+    { name: 'rueckmeldung_bis', titel: 'Rückmeldung der Bieter:innen bis', art: 'datum', gruppe: 'Vergabe' },
     { name: 'bindefrist', titel: 'Bindefrist bis', art: 'datum', gruppe: 'Vergabe' },
     { name: 'ausfuehrung_beginn', titel: 'Ausführung ab', art: 'datum', gruppe: 'Vergabe' },
     { name: 'ausfuehrung_ende', titel: 'Ausführung bis', art: 'datum', gruppe: 'Vergabe' },
@@ -59,6 +60,9 @@ export const lvPosition: ObjektModell = {
   ],
 };
 
+/** Rückmeldung einer Bieter:in vor der Abgabe (wie im bisherigen Bauportal); „abgegeben“ ist, wer ein Angebot eingereicht hat. */
+export const RUECKMELDUNGEN = [{ wert: 'offen', titel: 'noch offen' }, { wert: 'will_abgeben', titel: 'will abgeben' }, { wert: 'gibt_nicht_ab', titel: 'gibt nicht ab' }];   // eine Auswahl hat immer einen Wert: ab Werk „noch offen“
+
 export const angebot: ObjektModell = {
   name: 'angebot', titel: 'Angebot', titelMehrzahl: 'Angebote', anzeigeFeld: 'bieter',
   projektFeld: 'projekt', rechte,
@@ -66,7 +70,10 @@ export const angebot: ObjektModell = {
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
     { name: 'lv', titel: 'Leistungsverzeichnis', art: 'verweis', ziel: 'lv', pflicht: true, inListe: true, breite: 220, gruppe: 'Angebot' },
     { name: 'bieter', titel: 'Bieter:in', art: 'verweis', ziel: 'kontakt', pflicht: true, inListe: true, breite: 220, gruppe: 'Angebot' },
-    { name: 'eingang', titel: 'Eingang', art: 'datum', inListe: true, breite: 110, gruppe: 'Angebot' },
+    { name: 'angeschrieben', titel: 'Angeschrieben am', art: 'datum', gruppe: 'Versand' },
+    { name: 'rueckmeldung', titel: 'Rückmeldung', art: 'auswahl', optionen: RUECKMELDUNGEN, inListe: true, breite: 140, gruppe: 'Versand' },
+    { name: 'nachfassen', titel: 'Nachfassen am (Anruf)', art: 'datum', gruppe: 'Versand' },
+    { name: 'eingang', titel: 'Angebot eingegangen am', art: 'datum', inListe: true, breite: 110, gruppe: 'Angebot' },
     { name: 'nachlass', titel: 'Nachlass in %', art: 'zahl', inListe: true, breite: 100, kartenBreite: 2, gruppe: 'Konditionen' },
     { name: 'skonto', titel: 'Skonto in %', art: 'zahl', kartenBreite: 2, gruppe: 'Konditionen' },
     { name: 'skonto_tage', titel: 'Skonto binnen Tagen', art: 'zahl', kartenBreite: 2, gruppe: 'Konditionen' },
@@ -167,6 +174,10 @@ export const ava: Beipackzettel = {
       hilfe: 'Je Gewerk ein Leistungsverzeichnis (Vergabeeinheit) mit Stand, Kostenansatz und Terminen. Die Positionen stehen unter „Positionen“; rechts in der Karte die Summen: geschätzt, Angebote, Auftrag, abgerechnet.' },
     { id: 'positionen', titel: 'Positionen', abschnitt: 'Ausschreibung', zeichen: 'liste', objekt: 'lv_position', baum: ['lv', 'nachtrag'], brauchtProjekt: true,
       hilfe: 'Die Positionen aller LVs, links nach LV gegliedert. Ordnungszahl (OZ) wie 01.02.0010: Titel enthalten Positionen. Rechts in der Karte der Gesamtpreis (Menge × EP).' },
+    { id: 'versand', titel: 'Versand & Rücklauf', abschnitt: 'Vergabe', zeichen: 'senden', objekt: 'lv', brauchtProjekt: true,
+      hilfe: 'Links ein LV wählen: die angeschriebenen Bieter:innen mit Rückmeldung (will abgeben · gibt nicht ab), Nachfassen und Eingang des Angebots; oben Fristen und Zähler, die Unterlagen (LV als GAEB X83).' },
+    { id: 'nachverfolgen', titel: 'Nachverfolgen', abschnitt: 'Vergabe', zeichen: 'telefon', objekt: 'lv', brauchtProjekt: true,
+      hilfe: 'Alle Bieter:innen der LVs, die noch nicht vergeben sind: fällige Anrufe, Abgaben in den nächsten drei Tagen, wie viele Angebote da sind.' },
     { id: 'angebote', titel: 'Angebote', abschnitt: 'Vergabe', zeichen: 'personen', objekt: 'angebot', baum: ['lv'], brauchtProjekt: true },
     { id: 'preisspiegel', titel: 'Preisspiegel', abschnitt: 'Vergabe', zeichen: 'preisspiegel', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: die Positionen mit den Preisen aller Bieter:innen nebeneinander, das günstigste Angebot je Position markiert, unten die Summen mit Nachlass und der Rang. Preise direkt eintragen; „Vergeben an …“ beauftragt das Angebot.' },

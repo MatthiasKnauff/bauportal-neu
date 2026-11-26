@@ -119,3 +119,15 @@ export function auftragsstand(auftragNachLass: number, nachtraege: E[], position
 }
 /** Nächste Nachtrags-Nr.: N1, N2 … */
 export const naechsterNachtrag = (nachtraege: E[]) => `N${Math.max(0, ...nachtraege.map((n) => Number(/^N(\d+)$/i.exec(String(n.werte.nummer ?? ''))?.[1] ?? 0))) + 1}`;
+
+// ---------- Versand & Rücklauf ----------
+export type Ruecklauf = 'abgegeben' | 'will_abgeben' | 'gibt_nicht_ab' | 'offen';
+/** Stand einer Bieter:in: abgegeben, sobald das Angebot eingegangen ist – sonst ihre Rückmeldung, sonst offen. */
+export const ruecklaufVon = (a: E): Ruecklauf => (a.werte.eingang ? 'abgegeben' : a.werte.rueckmeldung === 'will_abgeben' || a.werte.rueckmeldung === 'gibt_nicht_ab' ? a.werte.rueckmeldung : 'offen');
+export function ruecklaufZaehlen(angebote: E[]): Record<Ruecklauf, number> & { angeschrieben: number } {
+  const z = { abgegeben: 0, will_abgeben: 0, gibt_nicht_ab: 0, offen: 0, angeschrieben: angebote.filter((a) => a.werte.angeschrieben).length };
+  for (const a of angebote) z[ruecklaufVon(a)]++;
+  return z;
+}
+/** Nachfassen fällig: Anruf geplant bis heute, noch nichts abgegeben und nicht abgesagt. */
+export const nachfassenFaellig = (a: E, heute: string) => !!a.werte.nachfassen && String(a.werte.nachfassen) <= heute && ['offen', 'will_abgeben'].includes(ruecklaufVon(a));

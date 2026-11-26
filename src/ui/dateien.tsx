@@ -11,6 +11,9 @@ import { Baum, type Knoten } from './baukasten/baum';
 import { Dialog } from './baukasten/dialog';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 import { Tabelle } from './baukasten/tabelle';
+import { Kacheln } from './baukasten/kacheln';
+import { zeigeMenue } from './baukasten/kontextmenue';
+import type { Knopf } from './baukasten/menueleiste';
 import { Seitenliste } from './baukasten/seitenliste';
 import { projektId } from './projekt';
 
@@ -29,7 +32,36 @@ const DATEI: ObjektModell = {
 const groesse = (b: number) => (b >= 1048576 ? `${(b / 1048576).toLocaleString('de', { maximumFractionDigits: 1 })} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b} B`);
 const zeit = (iso: string) => new Date(iso).toLocaleString('de', { dateStyle: 'medium', timeStyle: 'short' });
 const endung = (name: string) => (name.includes('.') ? name.split('.').pop()!.toLowerCase() : '');
-const BILD = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+/** Dateiarten mit Vorschaubild (vom Dateidienst: PDF die erste Seite, Bilder verkleinert). */
+const MIT_VORSCHAU = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tif', 'tiff'];
+
+// ---------- Darstellung wie im bisherigen Bauportal: Liste oder Kacheln S / M / L (je Gerät gemerkt) ----------
+type Form = 'liste' | 's' | 'm' | 'l';
+const FORM = 'bp.dateien.form';
+const GROESSEN: { form: Exclude<Form, 'liste'>; titel: string; breite: number }[] = [{ form: 's', titel: 'Klein', breite: 120 }, { form: 'm', titel: 'Mittel', breite: 180 }, { form: 'l', titel: 'Groß', breite: 280 }];
+const [form, setFormRoh] = createSignal<Form>((() => { try { const f = localStorage.getItem(FORM); return f === 's' || f === 'm' || f === 'l' ? f : 'liste'; } catch { return 'liste'; } })());
+const setForm = (f: Form) => { setFormRoh(f); try { localStorage.setItem(FORM, f); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
+const kachelBreite = () => GROESSEN.find((g) => g.form === form())?.breite ?? 180;
+/** Knöpfe „Liste“ und „Kacheln“ (mit Größe) für die Menüleiste – in beiden Dateiansichten gleich. */
+const formKnoepfe = (): Knopf[] => [
+  { titel: 'Liste', zeichen: 'tabelle', gruppe: 'Ansicht', an: form() === 'liste', tun: () => setForm('liste') },
+  { titel: form() === 'liste' ? 'Kacheln' : `Kacheln ${GROESSEN.find((g) => g.form === form())!.titel.toLowerCase()}`, zeichen: 'kacheln', gruppe: 'Ansicht', an: form() !== 'liste',
+    tun: (e) => zeigeMenue(e, GROESSEN.map((g) => ({ titel: `${g.form === form() ? '✓ ' : ''}${g.titel}`, tun: () => setForm(g.form) }))) },
+];
+const vorschauAdresse = (projekt: string, pfad: string, geaendert: string, breite: number) =>
+  `/api/ablage/vorschau?projekt=${projekt}&pfad=${encodeURIComponent(pfad)}&geaendert=${encodeURIComponent(geaendert)}&breite=${breite}`;
+/** Eine Kachel: Vorschaubild (oder bei anderen Arten die Endung groß), darunter der Name. */
+function DateiKachel(p: { name: string; ordner?: boolean; vorschau?: string }) {
+  const [fehlt, setFehlt] = createSignal(false);
+  return (
+    <figure class="datei-kachel" title={p.name}>
+      <Show when={p.vorschau && !fehlt()} fallback={<div class="datei-kachel-art" classList={{ ordner: !!p.ordner }}>{p.ordner ? '▤' : (endung(p.name).toUpperCase() || 'Datei')}</div>}>
+        <img src={p.vorschau} alt="" loading="lazy" decoding="async" onError={() => setFehlt(true)} />
+      </Show>
+      <figcaption>{p.name}</figcaption>
+    </figure>
+  );
+}
 
 export function DateienAnsicht() {
   const projekt = () => { const id = projektId(); const z = id ? sicht.projekt?.[id] : undefined; return z && !z.geloescht ? z : undefined; };
@@ -64,7 +96,7 @@ export function DateienAnsicht() {
   return (
     <Show when={projekt()} fallback={<Rahmen schluessel="dateien" inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
       <Rahmen schluessel="dateien" steuer={(s) => (rahmen = s)}
-        knoepfe={[{ titel: 'Aktualisieren', zeichen: 'aktualisieren', gruppe: 'Ansicht', tun: () => void hole(pfad(), true) }]}
+        knoepfe={[...formKnoepfe(), { titel: 'Aktualisieren', zeichen: 'aktualisieren', gruppe: 'Ansicht', tun: () => void hole(pfad(), true) }]}
         menueMitte={
           <nav class="krumen" aria-label="Pfad">
             <button onClick={() => gehe('')}>{String(projekt()!.werte.name)}</button>
@@ -75,6 +107,10 @@ export function DateienAnsicht() {
         baum={<Baum titel="Ordner" knoten={knoten()} gewaehlt={pfad()} onWahl={gehe} anfangsZu onAuf={(id) => void hole(id)} symbol={() => '▤'} />}
         inhalt={
           <Show when={!stoerung()} fallback={leer(stoerung())}>
+            <Show when={form() === 'liste'} fallback={
+              <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} breite={kachelBreite()} leer={ordner[pfad()] ? 'Dieser Ordner ist leer.' : 'Ordner wird gelesen …'}
+                onWahl={(id) => setGewaehlt(id)} onOeffnen={() => { const e = eintrag(gewaehlt()); if (e?.ordner) gehe(pfad() ? `${pfad()}/${e.name}` : e.name); else if (e) rahmen.detailsZeigen(); }}
+                inhalt={(z) => { const e = eintrag(z.id)!; return <DateiKachel name={e.name} ordner={e.ordner} vorschau={!e.ordner && MIT_VORSCHAU.includes(endung(e.name)) ? vorschauAdresse(projekt()!.id, pfad() ? `${pfad()}/${e.name}` : e.name, e.geaendert, kachelBreite()) : undefined} />; }} />}>
             <Tabelle modell={DATEI} zeilen={zeilen()} gewaehlt={gewaehlt()} onWahl={(id) => { setGewaehlt(id); if (id && eintrag(id) && !eintrag(id)!.ordner) rahmen.detailsZeigen(); }} onOeffnen={oeffne}
               leer={ordner[pfad()] ? 'Dieser Ordner ist leer.' : 'Ordner wird gelesen …'}
               zelle={(f, z) => (f.name === 'groesse' ? (z.werte.groesse === null ? '' : groesse(Number(z.werte.groesse))) : f.name === 'geaendert' ? zeit(String(z.werte.geaendert)) : f.name === 'name' && z.werte.art === 'Ordner' ? <span class="ordnername">▤ {String(z.werte.name)}</span> : undefined)}
@@ -82,17 +118,20 @@ export function DateienAnsicht() {
                 { titel: 'Öffnen', tun: () => oeffne(z) },
                 { titel: 'Herunterladen', tun: () => { location.href = adresse(z.id, true); } },
               ])} />
+            </Show>
           </Show>
         }
         detailsTitel={datei()?.name}
         details={datei() ? <DateiKarte name={datei()!.name} groesse={datei()!.groesse} geaendert={datei()!.geaendert} ordner={pfad()} adresse={(laden) => adresse(datei()!.name, laden)}
+          vorschau={vorschauAdresse(projekt()!.id, pfad() ? `${pfad()}/${datei()!.name}` : datei()!.name, datei()!.geaendert, 640)}
           onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} /> : undefined} />
     </Show>
   );
 }
 
 /** Karte einer Datei rechts: Vorschau bei Bildern, Angaben, Öffnen und Herunterladen – in beiden Ansichten gleich. */
-function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordner: string; adresse: (laden?: boolean) => string; onZu: () => void; onZuklappen: () => void }) {
+function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordner: string; adresse: (laden?: boolean) => string; vorschau: string; onZu: () => void; onZuklappen: () => void }) {
+  const [fehlt, setFehlt] = createSignal(false);
   return (
     <aside class="karte" aria-label={`Datei ${p.name}`}>
       <div class="karte-kopf">
@@ -102,7 +141,7 @@ function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordne
         <button class="knopf still nur-breit" aria-label="Details schließen" onClick={p.onZu}>×</button>
       </div>
       <div class="karte-inhalt">
-        <Show when={BILD.includes(endung(p.name))}><img class="vorschau" src={p.adresse()} alt={`Vorschau ${p.name}`} loading="lazy" /></Show>
+        <Show when={MIT_VORSCHAU.includes(endung(p.name)) && !fehlt()}><a class="vorschau-verweis" href={p.adresse()} target="_blank" rel="noopener" title="Öffnen"><img class="vorschau" src={p.vorschau} alt={`Vorschau ${p.name}`} onError={() => setFehlt(true)} /></a></Show>
         <dl class="angaben">
           <dt>Art</dt><dd>{endung(p.name).toUpperCase() || 'Datei'}</dd>
           <dt>Größe</dt><dd>{groesse(p.groesse)}</dd>
@@ -172,7 +211,7 @@ export function AlleDateien() {
   return (
     <Show when={projekt()} fallback={<Rahmen schluessel="dateien.alle" inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
       <Rahmen schluessel="dateien.alle" steuer={(x) => (rahmen = x)}
-        knoepfe={[{ titel: 'Neu einlesen', zeichen: 'aktualisieren', gruppe: 'Ansicht', tun: () => void laden() }]}
+        knoepfe={[...formKnoepfe(), { titel: 'Neu einlesen', zeichen: 'aktualisieren', gruppe: 'Ansicht', tun: () => void laden() }]}
         menueMitte={<>
           <input class="suche" type="search" placeholder="Dateien durchsuchen (Name, Ordner)" aria-label="Dateien durchsuchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)} />
           <span class="zaehler">{daten() ? `${treffer().length === alle().length ? alle().length : `${treffer().length} von ${alle().length}`} Dateien${daten()!.abgeschnitten ? ' – sehr viele, nicht alle eingelesen' : ''}` : ''}</span>
@@ -182,15 +221,20 @@ export function AlleDateien() {
         inhalt={
           <Show when={!stoerung()} fallback={leer(stoerung())}>
             <Show when={daten()} fallback={leer('Der Projektordner wird gelesen …')}>
+              <Show when={form() === 'liste'} fallback={
+                <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} breite={kachelBreite()} leer="Keine Dateien zu diesen Filtern." onWahl={(id) => setGewaehlt(id)} onOeffnen={() => rahmen.detailsZeigen()}
+                  inhalt={(z) => <DateiKachel name={String(z.werte.name)} vorschau={MIT_VORSCHAU.includes(endung(String(z.werte.name))) ? vorschauAdresse(projekt()!.id, z.id, String(z.werte.geaendert), kachelBreite()) : undefined} />} />}>
               <Tabelle modell={ALLE} zeilen={zeilen()} gewaehlt={gewaehlt()} reihenfolgeFest onWahl={(id) => { setGewaehlt(id); if (id) rahmen.detailsZeigen(); }}
                 onOeffnen={(z) => window.open(adresse(z.id), '_blank', 'noopener')} leer="Keine Dateien zu diesen Filtern."
                 zelle={(f, z) => (f.name === 'groesse' ? groesse(Number(z.werte.groesse)) : f.name === 'geaendert' ? zeit(String(z.werte.geaendert)) : String(z.werte[f.name] ?? ''))}
                 zeilenMenue={(z) => [{ titel: 'Öffnen', tun: () => window.open(adresse(z.id), '_blank', 'noopener') }, { titel: 'Herunterladen', tun: () => { location.href = adresse(z.id, true); } }]} />
+              </Show>
             </Show>
           </Show>
         }
         detailsTitel={datei()?.name}
         details={datei() ? <DateiKarte name={datei()!.name} groesse={datei()!.groesse} geaendert={datei()!.geaendert} ordner={datei()!.ordner} adresse={(l) => adresse(datei()!.pfad, l)}
+          vorschau={vorschauAdresse(projekt()!.id, datei()!.pfad, datei()!.geaendert, 640)}
           onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} /> : undefined} />
     </Show>
   );

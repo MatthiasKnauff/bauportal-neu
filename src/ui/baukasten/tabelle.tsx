@@ -6,8 +6,7 @@ import { For, Show, createEffect, createMemo, createSelector, createSignal, onCl
 import { unwrap } from 'solid-js/store';
 import type { Feld, ObjektModell, Wert } from '../../kern/modell';
 import { HERKUNFT, type Zeile } from '../../kern/befehl';
-import { anzeige } from './feld';
-import { csv } from '../../kern/csv';
+import { anzeige, excelWert } from './feld';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
 import { spaltenFuer } from './spalten';
 import { Spaltenfeld } from './spaltenfeld';
@@ -66,7 +65,7 @@ function FilterFeld(p: { f: Feld; text: string; werte: () => string[]; onText: (
   );
 }
 
-export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void; alsCsv: (ids?: Set<string>) => string }
+export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void; alsZeilen: (ids?: Set<string>) => (string | number | Date | null)[][] }
 
 export function Tabelle(p: {
   modell: ObjektModell;
@@ -148,7 +147,7 @@ export function Tabelle(p: {
       fokus: () => kasten.focus(),
       ersteWaehlen: () => { kasten.scrollTop = 0; if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); },
       // so, wie die Tabelle gerade aussieht: gezeigte Spalten in ihrer Reihenfolge, gefilterte Zeilen in ihrer Sortierung
-      alsCsv: (ids) => csv([spalten.sichtbare().map((f) => f.titel), ...sortiert().filter((z) => !ids || ids.has(z.id)).map((z) => spalten.sichtbare().map((f) => anzeige(f, z.werte[f.name])))]),
+      alsZeilen: (ids) => [spalten.sichtbare().map((f) => f.titel), ...sortiert().filter((z) => !ids || ids.has(z.id)).map((z) => spalten.sichtbare().map((f) => excelWert(f, z.werte[f.name])))],
     });
   });
 

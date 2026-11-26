@@ -19,7 +19,7 @@ import { Seitenliste, type SeitenAbschnitt } from './baukasten/seitenliste';
 import type { LinksFilter } from '../kern/modul';
 import { Schwebefenster } from './baukasten/schwebefenster';
 import { Detailkarte, NeuFenster, inEigenemFenster, loesche, feldAendern } from './baukasten/detailkarte';
-import { anzeige } from './baukasten/feld';
+import { anzeige, excelWert } from './baukasten/feld';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 import { Tabelle, type TabellenSteuer } from './baukasten/tabelle';
 import { Kacheln } from './baukasten/kacheln';
@@ -27,7 +27,7 @@ import { Auswahlleiste, auswahlAnlegen, auswahlMenue, type AuswahlBefehl } from 
 import { feldSetzenOeffnen } from './baukasten/feldsetzen';
 import { Dialog } from './baukasten/dialog';
 import { spaltenFuer } from './baukasten/spalten';
-import { csv } from '../kern/csv';
+import { xlsxSchreiben } from '../kern/xlsx';
 import { hinweis } from './unterbau/meldungen';
 
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
@@ -205,10 +205,13 @@ export function ObjektAnsicht(p: {
   // ---------- Mehrere wählen (nur wo das Modul Befehle dafür einstellt) ----------
   const auswahl = a.auswahl ? auswahlAnlegen() : undefined;
   const reiheJetzt = () => ((!kacheln() && reihe()) || zeilen().map((z) => z.id));
+  // Excel: eine echte .xlsx (Zahlen und Daten rechnen in Excel weiter), Name wie die Liste mit Datum
+  const excelSpeichern = (zeilen: (string | number | Date | null)[][]) =>
+    herunterladen(new Blob([xlsxSchreiben(zeilen, m.titelMehrzahl)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${m.titelMehrzahl} ${new Date().toLocaleDateString('sv')}.xlsx`);
   const excel = (ids: string[]) => {
     const menge = new Set(ids);
-    const inhalt = tabelle && !kacheln() ? tabelle.alsCsv(menge) : (() => { const sp = spaltenFuer(m).sichtbare(); return csv([sp.map((f) => f.titel), ...lebend().filter((z) => menge.has(z.id)).map((z) => sp.map((f) => anzeige(f, roh(z).werte[f.name])))]); })();
-    herunterladen(inhalt, `${m.titelMehrzahl} ${new Date().toLocaleDateString('sv')}.csv`, 'text/csv;charset=utf-8');
+    const zeilen = tabelle && !kacheln() ? tabelle.alsZeilen(menge) : (() => { const sp = spaltenFuer(m).sichtbare(); return [sp.map((f) => f.titel), ...lebend().filter((z) => menge.has(z.id)).map((z) => sp.map((f) => excelWert(f, roh(z).werte[f.name])))]; })();
+    excelSpeichern(zeilen);
   };
   // Verwendet = ein anderes Objekt verweist darauf (außer eigenen Unterzeilen wie den Kontaktwegen, deren Verweis verborgen ist)
   const verwendet = (ids: string[]) => {
@@ -263,7 +266,7 @@ export function ObjektAnsicht(p: {
           ...(a.kachel ? [{ titel: 'Karten', zeichen: 'kacheln', gruppe: 'Ansicht', an: kacheln(), tun: () => { if (!kacheln()) formWechseln(); } },
             { titel: 'Tabelle', zeichen: 'tabelle', gruppe: 'Ansicht', an: !kacheln(), tun: () => { if (kacheln()) formWechseln(); } }] : []),
           ...(a.mitte || kacheln() ? [] : [{ titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: () => tabelle.spaltenEinstellen() },
-            { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: () => herunterladen(tabelle.alsCsv(), `${m.titelMehrzahl} ${new Date().toLocaleDateString('sv')}.csv`, 'text/csv;charset=utf-8') }]),
+            { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: () => excelSpeichern(tabelle.alsZeilen()) }]),
           ...(verzeichnis() ? [{ titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => drucken() }] : []),
         ]}
         menueMitte={<>

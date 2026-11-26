@@ -1213,3 +1213,23 @@ test('Nachträge: Betrag aus Positionen oder Pauschale, Prognose mit offenen, ab
   assert.equal(a.naechsterNachtrag([n('1', ''), n('3', '')]), 'N4');
   assert.equal(a.ausgeschrieben(pos[0]!), false);
 });
+
+test('Excel schreiben: .xlsx, das unser eigener Leser (und Excel) wieder liest', async () => {
+  const x = await import('../src/kern/xlsx');
+  const t = await import('../src/kern/tabellendatei');
+  const datei = x.xlsxSchreiben([['Name', 'Menge', 'Datum', 'Notiz'], ['Müller & Söhne <GmbH>', 12.5, new Date(2026, 10, 26), ''], ['Kunz', 3, null, 'zwei\nZeilen']], 'Adressen');
+  const r = await t.tabelleLesen('a.xlsx', datei);
+  assert.deepEqual(r.kopf, ['Name', 'Menge', 'Datum', 'Notiz']);
+  assert.equal(r.zeilen[0]![0], 'Müller & Söhne <GmbH>');
+  assert.equal(r.zeilen[0]![1], '12.5');
+  assert.equal(r.zeilen[1]![3], 'zwei\nZeilen');
+});
+
+test('Versand & Rücklauf: Stand je Bieter:in, Zähler, fälliges Nachfassen', async () => {
+  const a = await import('../src/module/ava/rechnung');
+  const b = (w: Record<string, string | null>) => ({ id: Math.random().toString(), werte: { angeschrieben: '2026-11-01', rueckmeldung: null, eingang: null, nachfassen: null, ...w } });
+  const l = [b({ eingang: '2026-11-20', rueckmeldung: 'gibt_nicht_ab' }), b({ rueckmeldung: 'will_abgeben', nachfassen: '2026-11-25' }), b({ rueckmeldung: 'gibt_nicht_ab', nachfassen: '2026-11-25' }), b({ angeschrieben: null })];
+  assert.deepEqual(l.map(a.ruecklaufVon), ['abgegeben', 'will_abgeben', 'gibt_nicht_ab', 'offen']);
+  assert.deepEqual(a.ruecklaufZaehlen(l), { abgegeben: 1, will_abgeben: 1, gibt_nicht_ab: 1, offen: 1, angeschrieben: 3 });
+  assert.deepEqual(l.map((x) => a.nachfassenFaellig(x, '2026-11-26')), [false, true, false, false]);
+});
