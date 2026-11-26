@@ -5,6 +5,8 @@ import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Plan } from '../module/bauzeitenplan/plan';
 import type { Druckzeile } from '../module/bauzeitenplan/druck';
 import { isoAus, tagAus, wochentag } from '../module/bauzeitenplan/kalender';
+import { firmaDesGewerks } from './gewerke';
+import { projektId } from './projekt';
 
 const TAG = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const kurz = (iso: string) => `${TAG[wochentag(tagAus(iso))]} ${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
@@ -62,9 +64,15 @@ export function PlanHandy(p: { plan: Plan; heute: string; onOeffnen: (id: string
           <Show when={p.ansicht === 'gewerke'}>
             <For each={gewerke()}>{(g) => (
               <div class="ph-gewerk">
-                <button class="ph-gewerk-kopf" onClick={() => setOffen(offen() === g.g ? null : g.g)} aria-expanded={offen() === g.g}>
+                <button class="ph-gewerk-kopf" classList={{ vorbei: g.e < h(), laeuft: g.a <= h() && g.e >= h() }} onClick={() => setOffen(offen() === g.g ? null : g.g)} aria-expanded={offen() === g.g}>
                   <strong><i style={{ background: g.l[0]!.farbe }} />{g.g}</strong><span class="still-text">{kurz(g.a)} – {kurz(g.e)} · {g.l.length} {g.l.length === 1 ? 'Leistung' : 'Leistungen'}</span>
+                  <Show when={g.a <= h() && g.e >= h()}><b class="ph-baustelle">auf der Baustelle</b></Show>
                 </button>
+                {/* wie im bisherigen Bauportal: die Firma des Gewerks mit Anrufen und E-Mail (aus „Gewerke & Firmen“) */}
+                <Show when={projektId() && g.g !== 'ohne Gewerk' ? firmaDesGewerks(projektId()!, g.g) : undefined} fallback={<Show when={g.g !== 'ohne Gewerk'}><p class="ph-firma still-text">keine Firma eingetragen</p></Show>}>{(f) => { const w = () => f().werte, tel = () => String(w().mobil || w().telefon || ''); return (
+                  <p class="ph-firma"><span>{String(w().name ?? '')}{w().ansprechpartner ? ` · ${String(w().ansprechpartner)}` : ''}</span>
+                    <Show when={tel()}><a href={`tel:${tel().replace(/[^\d+]/g, '')}`} aria-label={`${String(w().name)} anrufen`}>☎</a></Show>
+                    <Show when={w().email}><a href={`mailto:${String(w().email)}`} aria-label={`${String(w().name)} E-Mail`}>✉</a></Show></p>); }}</Show>
                 <Show when={offen() === g.g}><For each={g.l}>{(z) => <Karte z={z} markiert={z.termin.anfang <= h() && z.termin.ende >= h()} />}</For></Show>
               </div>
             )}</For>

@@ -19,6 +19,11 @@ import { hinweis } from './unterbau/meldungen';
 import { aktuelleVersion, planDerVersion } from './plandaten';
 import { projektId } from './projekt';
 
+/** Die Firma eines Gewerks im Projekt (Eintrag der Beteiligten mit Aufgabe = Gewerk) – auch für die Handyansicht des Plans. */
+export const firmaDesGewerks = (projekt: string, gewerk: string): Zeile | undefined => {
+  const b = lebende('projekt_kontakt').find((x) => x.werte.projekt === projekt && String(x.werte.aufgabe ?? '').trim().toLowerCase() === gewerk.toLowerCase());
+  return b ? sicht.kontakt?.[String(b.werte.kontakt)] : undefined;
+};
 const datum = (tag: number) => { const i = isoAus(tag); return `${i.slice(8, 10)}.${i.slice(5, 7)}.${i.slice(2, 4)}`; };
 const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 const [offen, setOffen] = createSignal<Set<string>>(new Set());   // aufgeklappte Gewerke
@@ -29,7 +34,7 @@ export function GewerkeFirmen(p: Mitte) {
   const plan = createMemo(() => (version() ? planDerVersion(version()!.id) : undefined));
   const leistungen = createMemo(() => (version() ? lebende('vorgang').filter((v) => v.werte.version === version()!.id) : []));
   const beteiligte = () => p.alle();
-  const eintrag = (g: string) => beteiligte().find((b) => String(b.werte.aufgabe ?? '').trim().toLowerCase() === g.toLowerCase());
+  const eintrag = (g: string) => beteiligte().find((b) => String(b.werte.aufgabe ?? '').trim().toLowerCase() === g.toLowerCase());   // wie firmaDesGewerks, aber der Eintrag selbst
   // Gewerke aus dem Plan, dazu Beteiligte mit einer Aufgabe, die (noch) nicht im Plan steht – z. B. Statiker:in
   const zeilen = createMemo((): Gewerkzeile[] => {
     const imPlan = plan() ? gewerkeAus(plan()!, (id) => sicht.vorgang?.[id]?.werte) : [];

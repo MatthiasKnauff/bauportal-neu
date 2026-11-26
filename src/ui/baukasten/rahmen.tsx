@@ -117,7 +117,8 @@ export function Rahmen(p: {
   const plusDa = () => schmal() && ['voll', 'eigen'].includes(handystufe());
   createEffect(() => { const l = p.knoepfe ?? [], h = l.find((k) => k.handyPlus && !k.gesperrt) ?? l.find((k) => k.haupt && !k.gesperrt); setHandyPlus(plusDa() && h ? { titel: h.titel, tun: () => h.tun(new MouseEvent('click')) } : null); });
   onCleanup(() => setHandyPlus(null));
-  const knoepfe = (): Knopf[] => [
+  // Am Handy nur zum Ansehen (wie im bisherigen Bauportal): keine Befehle – nur die Reiter der Ansichten bleiben
+  const knoepfe = (): Knopf[] => nurAnsehen() ? [] : [
     ...(p.knoepfe ?? []).filter((k) => !k.nurHandy).filter((k) => !schmal() || !(k.haupt || k.gruppe === 'Neu') || (!plusDa() && handystufe() !== 'ansicht')),
     ...(p.baum || ansichten().length > 1 ? [{ titel: p.baumTitel ?? 'Links', zeichen: 'gliederung', gruppe: 'Ansicht', an: schmal() ? baumAmHandy() : !linksZu(), tun: () => (schmal() ? setBaumAmHandy(!baumAmHandy()) : setLinksZu(!linksZu())) }] : []),
   ];
@@ -151,7 +152,7 @@ export function Rahmen(p: {
   return (
     <div class="rahmen">
       <Show when={p.abfolge}>{(a) => <Abfolgeleiste schritte={a().schritte} aktiv={a().aktiv} onWahl={a().onWahl} />}</Show>
-      <Menueleiste rueckgaengig={app?.rueckgaengig} reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}
+      <Menueleiste rueckgaengig={nurAnsehen() ? undefined : app?.rueckgaengig} reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}
         ende={<button type="button" class="heftzwecke oben-heftzwecke nur-breit-flex" classList={{ geloest: oben() !== 0 }} aria-label={OBEN_TEXT[oben()]} title={OBEN_TEXT[oben()]} onClick={obenWeiter}>
           <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={HEFT_GROESSE} />
         </button>}>{p.menueMitte}</Menueleiste>

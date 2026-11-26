@@ -1143,3 +1143,8 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
   .menueleiste input.suche:focus::placeholder { color: var(--text-still); }
 }
 @media (max-width: 820px) { .menueleiste .menue-mitte, .menueleiste .filtersuche { flex: none; min-width: 0; } .menueleiste .menue-mitte .zaehler { display: none; } }   /* die Suche ist dort eine Lupe */
+.ph-gewerk-kopf.vorbei { opacity: .6; }
+.ph-baustelle { color: var(--gut); font-size: 12px; }
+.ph-firma { display: flex; align-items: center; gap: 10px; margin: 2px 12px 8px; font-size: 13px; }
+.ph-firma span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-firma a { font-size: 18px; text-decoration: none; }
