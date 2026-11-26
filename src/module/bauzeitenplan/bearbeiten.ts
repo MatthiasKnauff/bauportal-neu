@@ -6,7 +6,7 @@ import type { Art } from './rechnung';
 import type { Vorgaenger } from './schreibweise';
 
 export interface V { id: string; reihe: number; ebene: number; name?: string }
-export interface L { id: string; von: string; nach: string; art: Art; abstand: number }
+export interface L { id: string; von: string; nach: string; art: Art; abstand: number; vonAbschnitt?: number | null; nachAbschnitt?: number | null }   // Abschnitt: welcher Teil eines geteilten Vorgangs (null: der ganze)
 export interface Vorlage { objekt: string; art: 'anlegen' | 'aendern' | 'loeschen'; objektId: string; werte?: Record<string, Wert> }
 type Neu = () => string;
 
@@ -71,12 +71,13 @@ export function vorgaengerSetzen(v: V[], l: L[], nach: string, liste: Vorgaenger
     soll.set(von.id, x);
   }
   const b: Vorlage[] = [];
+  const da = new Set<string>();   // mehrere Pfeile vom selben Vorgang (je Teil einer geteilten Leistung) bleiben alle
   for (const x of l.filter((y) => y.nach === nach)) {
     const s = soll.get(x.von);
     if (!s) b.push(linkWeg(x));
-    else { if (s.art !== x.art || s.abstand !== x.abstand) b.push({ objekt: 'verknuepfung', art: 'aendern', objektId: x.id, werte: { art: s.art, abstand: s.abstand } }); soll.delete(x.von); }
+    else { if (s.art !== x.art || s.abstand !== x.abstand) b.push({ objekt: 'verknuepfung', art: 'aendern', objektId: x.id, werte: { art: s.art, abstand: s.abstand } }); da.add(x.von); }
   }
-  for (const [von, s] of soll) b.push(linkNeu(neu, z, von, nach, s.art, s.abstand));
+  for (const [von, s] of soll) if (!da.has(von)) b.push(linkNeu(neu, z, von, nach, s.art, s.abstand));
   return b;
 }
 

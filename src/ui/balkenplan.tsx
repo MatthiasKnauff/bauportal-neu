@@ -79,7 +79,8 @@ export function Balkenplan(p: Mitte) {
   const kal = () => plan().kal;
   const erg = () => plan().erg;
   const V_ = (): V[] => vorgaenge().map((v) => ({ id: v.id, reihe: Number(v.werte.reihe ?? 0), ebene: Number(v.werte.ebene ?? 0) }));
-  const L_ = (): L[] => links().map((l) => ({ id: l.id, von: String(l.werte.von), nach: String(l.werte.nach), art: (l.werte.art || 'ea') as Art, abstand: Number(l.werte.abstand ?? 0) }));
+  const L_ = (): L[] => links().map((l) => ({ id: l.id, von: String(l.werte.von), nach: String(l.werte.nach), art: (l.werte.art || 'ea') as Art, abstand: Number(l.werte.abstand ?? 0),
+    vonAbschnitt: l.werte.von_abschnitt == null ? null : Number(l.werte.von_abschnitt), nachAbschnitt: l.werte.nach_abschnitt == null ? null : Number(l.werte.nach_abschnitt) }));
   const zu = () => ({ projekt: z().projekt, version: z().version });
 
   // Ansicht: eingeklappte Gruppen, Zoom, Pfeile, kritischer Weg, automatisch verknüpfen – je Gerät gemerkt
@@ -351,15 +352,15 @@ export function Balkenplan(p: Mitte) {
   };
 
   // ---------- Balken mit der Maus ----------
-  const [ziehen, setZiehen] = createSignal<{ id: string; art: 'schieben' | 'dauer' | 'link' | 'neu'; x0: number; dx: number; y: number; yMaus: number; xs?: number } | null>(null);
+  const [ziehen, setZiehen] = createSignal<{ id: string; art: 'schieben' | 'dauer' | 'link' | 'neu'; x0: number; dx: number; y: number; yMaus: number; xs?: number; teil?: number | null } | null>(null);
   const tageAus = (dx: number) => Math.round(dx / px());
-  const startZiehen = (e: PointerEvent, v: Zeile, art: 'schieben' | 'dauer' | 'link', y: number) => {
+  const startZiehen = (e: PointerEvent, v: Zeile, art: 'schieben' | 'dauer' | 'link', y: number, teil: number | null = null) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     setMarkiert(v.id);
     if (!schreiben() || erg().termine.get(v.id)?.gruppe && art !== 'link') return;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    setZiehen({ id: v.id, art, x0: svgX(e.clientX), dx: 0, y, yMaus: y });
+    setZiehen({ id: v.id, art, x0: svgX(e.clientX), dx: 0, y, yMaus: y, teil });
     mitrollen(e.clientX);
   };
   // Auf freier Fläche ziehen: neue Leistung vom ersten bis zum letzten überstrichenen Tag – unter der Zeile, in der gezogen wird
@@ -407,8 +408,12 @@ export function Balkenplan(p: Mitte) {
     if (g.art === 'link') {
       const ziel = sichtbar()[Math.floor(svgY(e) / H)];
       if (!ziel || ziel.id === v.id) return;
-      if (L_().some((l) => l.von === v.id && l.nach === ziel.id)) return hinweis('Diese Verknüpfung gibt es schon');
-      ausfuehren({ objekt: 'verknuepfung', art: 'anlegen', objektId: neueKennung(), werte: { ...zu(), von: v.id, nach: ziel.id, art: 'ea', abstand: 0, von_abschnitt: null, nach_abschnitt: null, kennung: '' } }, `„${name}“ mit „${ziel.werte.name}“ verknüpfen`);
+      // Ziel bei einem geteilten Vorgang: der Teil unter der Maus (oder der nächste) – sonst der ganze Vorgang
+      const zt = erg().termine.get(ziel.id), mx = svgX(e.clientX);
+      const nachTeil = zt && zt.abschnitte.length > 1 ? zt.abschnitte.map((a, k) => ({ k, d: mx < x(a.s) ? x(a.s) - mx : mx > xEnde(a.s, a.f) ? mx - xEnde(a.s, a.f) : 0 })).sort((p, q) => p.d - q.d)[0]!.k : null;
+      const vonTeil = g.teil ?? null;
+      if (L_().some((l) => l.von === v.id && l.nach === ziel.id && (l.vonAbschnitt ?? null) === vonTeil && (l.nachAbschnitt ?? null) === nachTeil)) return hinweis('Diese Verknüpfung gibt es schon');
+      ausfuehren({ objekt: 'verknuepfung', art: 'anlegen', objektId: neueKennung(), werte: { ...zu(), von: v.id, nach: ziel.id, art: 'ea', abstand: 0, von_abschnitt: vonTeil, nach_abschnitt: nachTeil, kennung: '' } }, `„${name}“ mit „${ziel.werte.name}“ verknüpfen`);
       return;
     }
     const d = tageAus(g.dx);
@@ -432,11 +437,13 @@ export function Balkenplan(p: Mitte) {
     if (m === 'keine') return [];
     return L_().filter((l) => zeile.has(l.von) && zeile.has(l.nach) && (m === 'alle' || (m === 'kritisch' ? t.get(l.von)?.kritisch && t.get(l.nach)?.kritisch : l.von === sel || l.nach === sel)))
       .map((l) => {
-        const a = t.get(l.von)!, b = t.get(l.nach)!, ya = zeile.get(l.von)! * H + H / 2, yb = zeile.get(l.nach)! * H + H / 2;
+        // Pfeile an geteilten Vorgängen: vom bzw. zum gewählten Teil, sonst vom ganzen Vorgang
+        const teil = (tm: { s: number; f: number; abschnitte: { s: number; f: number }[] }, k: number | null | undefined) => (k != null && tm.abschnitte[k]) || tm;
+        const a = teil(t.get(l.von)!, l.vonAbschnitt), b = teil(t.get(l.nach)!, l.nachAbschnitt), ya = zeile.get(l.von)! * H + H / 2, yb = zeile.get(l.nach)! * H + H / 2;
         const vonEnde = l.art === 'ea' || l.art === 'ee', nachEnde = l.art === 'ee' || l.art === 'ae';
         const x1 = vonEnde ? xEnde(a.s, a.f) : x(a.s), x2 = nachEnde ? xEnde(b.s, b.f) : x(b.s);
         const knick = vonEnde ? x1 + 6 : x1 - 6, rein = nachEnde ? x2 + 6 : x2 - 6;
-        return { id: l.id, d: `M${x1},${ya} H${knick} V${yb} H${rein} L${x2},${yb}`, kritisch: !!(a.kritisch && b.kritisch), x2, yb, links: !nachEnde };
+        return { id: l.id, d: `M${x1},${ya} H${knick} V${yb} H${rein} L${x2},${yb}`, kritisch: !!(t.get(l.von)!.kritisch && t.get(l.nach)!.kritisch), x2, yb, links: !nachEnde };
       });
   });
   const linkMenue = (e: MouseEvent, id: string) => {
@@ -567,7 +574,11 @@ export function Balkenplan(p: Mitte) {
                     }>
                       <path d={`M${x(tt().s)},${y() + 9} H${xEnde(tt().s, tt().f)} v10 l-5,-4 H${x(tt().s) + 5} l-5,4 z`} class="bzp-gruppe" />
                     </Show>
-                    <Show when={schreiben()}><circle cx={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 9} cy={y() + H / 2} r={4} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y())}><title>Auf eine andere Leistung ziehen: verknüpfen</title></circle></Show>
+                    <Show when={schreiben()}><circle cx={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 9} cy={y() + H / 2} r={4} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y(), tt().abschnitte.length > 1 ? tt().abschnitte.length - 1 : null)}><title>Auf eine andere Leistung ziehen: verknüpfen</title></circle>
+                      {/* geteilte Leistung: auch jeder frühere Teil hat seinen Punkt – Pfeile gehen von und zu jedem Teil */}
+                      <For each={tt().abschnitte.length > 1 ? tt().abschnitte.slice(0, -1) : []}>{(a, k) => (
+                        <circle cx={xEnde(a.s, a.f) + verschiebung(v.id) + 4} cy={y() + H / 2 - 9} r={3.5} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y(), k())}><title>{`Teil ${k() + 1} auf eine andere Leistung ziehen: verknüpfen`}</title></circle>
+                      )}</For></Show>
                     <text x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 18} y={y() + 19} class="bzp-text">{String(v.werte.name ?? '')}{v.werte.unternehmer ? ` · ${v.werte.unternehmer}` : ''}</text>
                   </g>
                 )}</Show>
@@ -578,7 +589,7 @@ export function Balkenplan(p: Mitte) {
             </g>}</For>
             {/* Vorschau beim Aufziehen: folgt der Maus (bei jeder Bewegung neu gerechnet, nicht nur beim ersten Schritt) */}
             <Show when={ziehen()?.art === 'neu' && Math.abs(ziehen()!.dx) >= px()}>{(_) => { const f = () => { const g = ziehen(); return g ? aufgezogen(g) : { t0: achse().t0, t1: achse().t0 }; }; return <rect x={(f().t0 - achse().t0) * px()} y={(ziehen()?.y ?? 0) + 5} width={(f().t1 - f().t0 + 1) * px()} height={H - 10} rx={3} class="bzp-aufziehen" />; }}</Show>
-            <Show when={ziehen()?.art === 'link' && erg().termine.get(ziehen()!.id)}>{(t) => <line x1={xEnde(t().s, t().f) + 9} y1={(ziehen()?.y ?? 0) + H / 2} x2={xEnde(t().s, t().f) + 9 + (ziehen()?.dx ?? 0)} y2={ziehen()?.yMaus ?? 0} class="bzp-zieh" />}</Show>
+            <Show when={ziehen()?.art === 'link' && erg().termine.get(ziehen()!.id)}>{(tg) => { const t = () => (ziehen()?.teil != null && tg().abschnitte[ziehen()!.teil!]) || tg(); return <line x1={xEnde(t().s, t().f) + 9} y1={(ziehen()?.y ?? 0) + H / 2} x2={xEnde(t().s, t().f) + 9 + (ziehen()?.dx ?? 0)} y2={ziehen()?.yMaus ?? 0} class="bzp-zieh" />; }}</Show>
           </svg>
           <div class="bzp-zeilen" style={{ top: `${KOPF}px` }}>
             <For each={sichtbar()}>{(v) => {
