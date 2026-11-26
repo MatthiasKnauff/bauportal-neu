@@ -132,6 +132,7 @@ Werte, die das Büro ändert, bleiben bei einer Aktualisierung des Katalogs erha
 export const kataloge: Beipackzettel = {
   id: 'kataloge',
   zeichen: 'baudaten',
+  farbe: '#5c6bc0',
   name: 'Baudaten',
   version: '0.1.0',
   beschreibung: 'Gewerke nach VOB/C, Kostengruppen nach DIN 276, Gebäudekennwerte mit Baupreisindex und später die Positionsdatenbank – Nachschlagelisten für alle Apps, auf Knopfdruck aktualisierbar.',

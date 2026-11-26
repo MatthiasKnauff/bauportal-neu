@@ -104,6 +104,7 @@ export const bautagebuch: Beipackzettel = {
   id: 'bautagebuch',
   handy: 'eigen',
   zeichen: 'bericht',
+  farbe: '#1c7ed6',
   name: 'Bautagebuch',
   version: '0.2.0',
   beschreibung: 'Nummerierte Tagesberichte je Projekt: Wetter, Anwesende, Notizen, Mängel, Aufgaben, Weisungen – mit Ausdruck.',

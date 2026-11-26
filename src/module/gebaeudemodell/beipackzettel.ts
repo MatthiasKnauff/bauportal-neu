@@ -190,6 +190,7 @@ export const gebaeudemodell: Beipackzettel = {
   id: 'gebaeudemodell',
   handy: 'lesen',
   zeichen: 'gebaeude',
+  farbe: '#0b7285',
   name: 'Gebäudemodell',
   version: '0.1.0',
   beschreibung: 'Der Kern: Gebäude, Geschosse, Räume und Bauteile eines Projekts – mit Herkunft je Wert, in Versionen.',

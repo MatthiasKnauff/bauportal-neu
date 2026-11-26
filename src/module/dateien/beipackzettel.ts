@@ -28,6 +28,7 @@ export const dateien: Beipackzettel = {
   id: 'dateien',
   handy: 'ansicht',
   zeichen: 'dateien',
+  farbe: '#0c9c8c',
   name: 'Pläne und Dateien',
   version: '0.1.0',
   beschreibung: 'Der Projektordner auf dem Dateiserver: durchblättern, ansehen, herunterladen.',

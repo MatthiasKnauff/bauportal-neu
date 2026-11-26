@@ -231,6 +231,7 @@ export const ava: Beipackzettel = {
   id: 'ava',
   handy: 'ansicht',
   zeichen: 'ausschreibung',
+  farbe: '#f08c00',
   name: 'Ausschreibung',
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',

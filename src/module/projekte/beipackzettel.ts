@@ -101,6 +101,7 @@ export const version: ObjektModell = {
 export const projekte: Beipackzettel = {
   id: 'projekte',
   zeichen: 'projekte',
+  farbe: '#9a9c9e',
   name: 'Projekte',
   version: '0.1.0',
   beschreibung: 'Projekte und wer daran mitarbeitet. Daran hängen später Bautagebuch, Termine und Kosten.',

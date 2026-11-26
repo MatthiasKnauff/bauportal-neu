@@ -87,6 +87,7 @@ export const adressen: Beipackzettel = {
   id: 'adressen',
   handy: 'voll',
   zeichen: 'adressen',
+  farbe: '#7048e8',
   name: 'Adressen',
   version: '0.1.0',
   beschreibung: 'Firmen, Personen und Behörden – eine Liste für alle Module.',

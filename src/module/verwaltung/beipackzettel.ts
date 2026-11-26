@@ -2,6 +2,7 @@
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
 import { ALLE, OHNE_GAST, ROLLEN_OPTIONEN } from '../../kern/rechte';
+import { STIL } from '../../kern/design';
 
 // Benutzer und Rechte darf nur die Rolle „admin“ ändern – das setzt die Datenbank fest durch,
 // unabhängig von den einstellbaren Rechten.
@@ -182,9 +183,7 @@ export const designWahl: ObjektModell = {
     // Schrift und Stil wie im bisherigen Bauportal (Werte: kern/design SCHRIFTWAHL, GROESSEN, STIL) – leer = Vorgabe
     { name: 'schrift', titel: 'Schrift', art: 'auswahl', optionen: [{ wert: '', titel: 'wie das Design' }, { wert: 'system', titel: 'Systemschrift' }, { wert: 'arial', titel: 'Arial' }, { wert: 'verdana', titel: 'Verdana' }, { wert: 'calibri', titel: 'Calibri' }, { wert: 'georgia', titel: 'Georgia' }] },
     { name: 'schriftmass', titel: 'Schriftgröße in Prozent', art: 'zahl' },   // leer = 100 %
-    { name: 'schatten', titel: 'Schatten', art: 'auswahl', optionen: [{ wert: '', titel: 'an' }, { wert: 'aus', titel: 'aus' }] },
-    { name: 'scrollbalken', titel: 'Rollbalken', art: 'auswahl', optionen: [{ wert: '', titel: 'wie das Gerät' }, { wert: 'faden', titel: 'Faden' }, { wert: 'pille', titel: 'Pille' }] },
-    { name: 'bewegung', titel: 'Bewegung', art: 'auswahl', optionen: [{ wert: '', titel: 'an' }, { wert: 'aus', titel: 'aus' }] },
+    ...STIL.map((x): ObjektModell['felder'][number] => ({ name: x.feld, titel: x.titel, art: 'auswahl', optionen: x.werte.map(([wert, titel]) => ({ wert, titel })) })),
     { name: 'handyleiste', titel: 'Leiste unten am Handy', art: 'text' },   // bis zu fünf Plätze, z. B. „start,bautagebuch,adressen,dateien,suche“ – leer = Vorgabe
   ],
 };
@@ -193,6 +192,7 @@ export const verwaltung: Beipackzettel = {
   id: 'verwaltung',
   handy: 'keine',
   zeichen: 'einstellungen',
+  farbe: '#868e96',
   name: 'Verwaltung',
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',

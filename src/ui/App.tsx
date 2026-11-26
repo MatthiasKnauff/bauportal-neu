@@ -226,6 +226,8 @@ function Portal() {
   createEffect(() => { const s = sprung(); if (s) untrack(() => oeffne(s.modul, s.ansicht)); });
   // Handystufe der geöffneten App (Startseite: alles) – danach richten sich Rechte, Hinweis und das ＋ unten
   createEffect(() => setHandystufe(modul()?.modul.handy ?? (modulId() ? 'lesen' : 'voll')));
+  // App-Farbe der geöffneten App als --app (Verlauf und Strich der Flächen in der Darstellung); ohne App der Akzent
+  createEffect(() => { const f = modul()?.modul.farbe; if (f) document.documentElement.style.setProperty('--app', f); else document.documentElement.style.removeProperty('--app'); });
   // Leiste unten am Handy (wie im bisherigen Bauportal): bis zu fünf Plätze, je Person in der Darstellung gewählt.
   // Hat die geöffnete App ein ＋, steht es in der Mitte und nimmt den Platz der App selbst ein.
   const plaetze = () => {

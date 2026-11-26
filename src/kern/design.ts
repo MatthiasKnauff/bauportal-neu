@@ -123,7 +123,12 @@ export const schriftmass = (w: unknown): number => { const n = Number(w); return
 /** Feinheiten des Stils (Feld der Design-Wahl → Werte); '' = Vorgabe. */
 export const STIL: { feld: string; titel: string; werte: [string, string][] }[] = [
   { feld: 'schatten', titel: 'Schatten', werte: [['', 'an'], ['aus', 'aus']] },
-  { feld: 'scrollbalken', titel: 'Rollbalken', werte: [['', 'wie das Gerät'], ['faden', 'Faden'], ['pille', 'Pille']] },
+  { feld: 'rahmen', titel: 'Rahmen der Flächen', werte: [['', 'Linie'], ['mac', 'Mac – Hauch und Schatten'], ['glas', 'Glas'], ['verlauf', 'Verlauf'], ['strich', 'Strich in App-Farbe'], ['kantig', 'Kantig']] },
+  { feld: 'verlauf', titel: 'Verlauf in den Flächen', werte: [['', 'keiner'], ['app', 'App-Farbe'], ['akzent', 'Akzentfarbe'], ['kopf', 'oben'], ['licht', 'Licht'], ['zwei', 'zwei Farben']] },
+  { feld: 'fenster', titel: 'Fenster', werte: [['', 'Standard'], ['mac', 'Mac – Leuchtrand, Milchglas']] },
+  { feld: 'schalter', titel: 'Häkchen in Einstellungen', werte: [['', 'Häkchen'], ['an', 'Schalter']] },
+  { feld: 'scrollbalken', titel: 'Rollbalken', werte: [['', 'wie das Gerät'], ['faden', 'Faden'], ['pille', 'Pille'], ['mac', 'Mac'], ['verlauf', 'Verlauf'], ['rinne', 'Rinne'], ['glas', 'Glas']] },
+  { feld: 'effekte', titel: 'Unschärfe-Effekte', werte: [['', 'an'], ['aus', 'aus – für langsame Rechner']] },
   { feld: 'bewegung', titel: 'Bewegung', werte: [['', 'an'], ['aus', 'aus – für langsame Rechner']] },
 ];
 /** Fertige Zusammenstellungen: Rundung und Stil – Farben und Schrift bleiben, wie gewählt. */
@@ -132,5 +137,6 @@ export const STIL_PAKETE: { titel: string; rund: number | null; stil: Record<str
   { titel: 'Ruhig', rund: 0.5, stil: { schatten: 'aus', scrollbalken: 'faden' } },
   { titel: 'Technisch', rund: 0, stil: { scrollbalken: 'faden' } },
   { titel: 'Kacheln', rund: 1.5, stil: { scrollbalken: 'pille' } },
-  { titel: 'Schnell', rund: 0.5, stil: { schatten: 'aus', scrollbalken: 'faden', bewegung: 'aus' } },
+  { titel: 'Schnell', rund: 0.5, stil: { schatten: 'aus', scrollbalken: 'faden', bewegung: 'aus', effekte: 'aus' } },
+  { titel: 'Mac', rund: 1.5, stil: { rahmen: 'mac', verlauf: 'app', fenster: 'mac', schalter: 'an', scrollbalken: 'mac' } },
 ];

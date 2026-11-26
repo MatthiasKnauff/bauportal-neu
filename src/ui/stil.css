@@ -913,6 +913,43 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar { width: 10px; height: 10px;
 html[data-scrollbalken="pille"] ::-webkit-scrollbar-track { background: transparent; }
 html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-still) 40%, transparent); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-color: var(--akzent); }
+/* Rahmen und Verlauf der Flächen (wie im bisherigen Bauportal): Bereiche links/Mitte/rechts, Karten, Kacheln, Menüleiste.
+   --app ist die Farbe der geöffneten App (Beipackzettel „farbe“), ohne App der Akzent. */
+html[data-rahmen="mac"] :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { border-color: transparent; box-shadow: 0 0 0 .5px color-mix(in srgb, currentColor 22%, transparent), 0 8px 26px rgba(0, 0, 0, .12); }
+html[data-rahmen="glas"] :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { border-color: transparent; background-color: color-mix(in srgb, var(--flaeche) 72%, transparent); backdrop-filter: blur(14px); box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent), inset 0 0 0 1px color-mix(in srgb, currentColor 9%, transparent); }
+html[data-rahmen="verlauf"] :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { border: 1.5px solid transparent; background: linear-gradient(var(--flaeche), var(--flaeche)) padding-box, linear-gradient(135deg, var(--app, var(--akzent)), #ff5fb3) border-box; }
+html[data-rahmen="strich"] :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { border-color: transparent; border-left: 3px solid var(--app, var(--akzent)); border-top-left-radius: 0; border-bottom-left-radius: 0; }
+html[data-rahmen="kantig"] { --rund: 0 !important; }
+html[data-rahmen="kantig"] :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { border-color: color-mix(in srgb, currentColor 35%, transparent); box-shadow: 4px 4px 0 rgba(0, 0, 0, .3); }
+html[data-verlauf="app"] { --vf: var(--app, var(--akzent)); } html[data-verlauf]:not([data-verlauf="app"]) { --vf: var(--akzent); }
+html[data-verlauf]:not([data-rahmen="verlauf"]) :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { background-image: linear-gradient(145deg, color-mix(in srgb, var(--vf) 14%, var(--flaeche)) 0%, var(--flaeche) 60%); }
+html[data-verlauf="kopf"]:not([data-rahmen="verlauf"]) :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { background-image: linear-gradient(180deg, color-mix(in srgb, var(--vf) 12%, var(--flaeche)) 0, var(--flaeche) 3.2rem); }
+html[data-verlauf="licht"]:not([data-rahmen="verlauf"]) :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { background-image: radial-gradient(120% 90% at 0 0, color-mix(in srgb, #ff5fb3 16%, var(--flaeche)), var(--flaeche) 60%); }
+html[data-verlauf="zwei"]:not([data-rahmen="verlauf"]) :is(.platz-links, .platz-mitte, .karte, .menueleiste, .bt-karte, .kachel, .projektkachel, .kachelliste-eintrag, .aufbau-kachel, .blatt, .ph-karte) { background-image: linear-gradient(145deg, color-mix(in srgb, var(--vf) 13%, var(--flaeche)) 0%, var(--flaeche) 45%, color-mix(in srgb, #4f8cff 11%, var(--flaeche)) 100%); }
+/* Fenster im Mac-Stil: Leuchtrand im Feld, Menüs mit Milchglas, drei Punkte in Akzentfarbe im Fenstertitel (Zierde) */
+html[data-fenster="mac"] :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--akzent) 45%, transparent), inset 0 0 0 1px var(--akzent); }
+html[data-fenster="mac"] :is(.menue-liste, .kontextmenue, .auswahlliste-fenster) { background: color-mix(in srgb, var(--flaeche) 86%, transparent); backdrop-filter: blur(18px) saturate(1.4); }
+html[data-fenster="mac"] .fenster::before { content: ''; flex: none; height: 10px; width: 44px; margin: 14px 0 -4px 16px; background: radial-gradient(circle, var(--akzent) 4.5px, transparent 5px) 0 0 / 17px 10px repeat-x; }
+html[data-effekte="aus"] * { backdrop-filter: none !important; }
+/* Häkchen als Schalter – nur in Einstellungen; in Tabellen und Listen zum Auswählen bleiben Häkchen */
+html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *) { appearance: none; width: 2.1em; height: 1.25em; min-width: 2.1em; margin: 0 .25em 0 0; padding: 0; border: 0; border-radius: 99px; background: color-mix(in srgb, currentColor 28%, transparent); position: relative; cursor: pointer; flex: none; vertical-align: middle; transition: background .15s; }
+html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *)::after { content: ''; position: absolute; top: .125em; left: .125em; width: 1em; height: 1em; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: left .15s; }
+html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *):checked { background: var(--akzent); }
+html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *):checked::after { left: .975em; }
+html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *):disabled { opacity: .45; cursor: default; }
+/* weitere Rollbalken wie im bisherigen Bauportal */
+html[data-scrollbalken="mac"] ::-webkit-scrollbar { width: 11px; height: 11px; }
+html[data-scrollbalken="mac"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, currentColor 42%, transparent); border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }
+html[data-scrollbalken="mac"] ::-webkit-scrollbar-track { background: color-mix(in srgb, currentColor 4%, transparent); border-left: 1px solid color-mix(in srgb, currentColor 8%, transparent); }
+html[data-scrollbalken="verlauf"] ::-webkit-scrollbar { width: 8px; height: 8px; }
+html[data-scrollbalken="verlauf"] ::-webkit-scrollbar-thumb { background: linear-gradient(var(--akzent), #ff5fb3); border-radius: 8px; }
+html[data-scrollbalken="verlauf"] ::-webkit-scrollbar-track { background: color-mix(in srgb, currentColor 6%, transparent); border-radius: 8px; }
+html[data-scrollbalken="rinne"] ::-webkit-scrollbar { width: 11px; height: 11px; }
+html[data-scrollbalken="rinne"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, currentColor 35%, #5a5d62); border-radius: 2px; box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent); }
+html[data-scrollbalken="rinne"] ::-webkit-scrollbar-track { background: color-mix(in srgb, #000 12%, transparent); box-shadow: inset 0 0 4px rgba(0, 0, 0, .25); }
+html[data-scrollbalken="glas"] ::-webkit-scrollbar { width: 14px; height: 14px; }
+html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--akzent) 25%, transparent); border-radius: 99px; border: 4px solid transparent; background-clip: padding-box; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--akzent) 55%, transparent); }
+@supports not selector(::-webkit-scrollbar) { html:is([data-scrollbalken="verlauf"], [data-scrollbalken="glas"]) * { scrollbar-color: var(--akzent) transparent; } }
 .darstellung-wert { min-width: 46px; font-variant-numeric: tabular-nums; }
 .design-umbenennen { width: 100%; font: inherit; font-size: 13px; padding: 2px 4px; } .design-aktionen { align-items: center; margin-top: 4px; } .design-aktionen .knopf { margin-left: 6px; }
 /* Auswahl in einem Fenster direkt als Liste (statt aufklappend – das würde im Fenster abgeschnitten) */

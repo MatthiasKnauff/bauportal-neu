@@ -10,6 +10,7 @@ export interface Beipackzettel {
   version: string;
   beschreibung: string;
   zeichen?: string;           // Symbol der App (Apps-Menü, Startseite) – Name aus ui/baukasten/zeichen
+  farbe?: string;             // App-Farbe (#rrggbb) wie im bisherigen Bauportal – für Verlauf und Strich der Flächen (Darstellung)
   braucht: string[];          // Module, ohne die dieses nicht läuft
   objekte: ObjektModell[];    // Objekte, die das Modul mitbringt
   ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
@@ -130,6 +131,7 @@ export class Modulregister {
       for (const f of felder) if (!m?.felder.some((x) => x.name === f)) throw new Error(`Ansicht „${a.id}“: Feld „${f}“ für den Filter fehlt`);
       if (a.einstellungen && !this.modelle.has(a.einstellungen)) throw new Error(`Ansicht „${a.id}“: Objekt „${a.einstellungen}“ für die Einstellungen fehlt`);
     }
+    for (const z of module) if (z.farbe && !/^#[0-9a-f]{6}$/i.test(z.farbe)) throw new Error(`Modul „${z.id}“: App-Farbe „${z.farbe}“ ist kein #rrggbb`);
     // Dokumentarten: Objekt, Felder und Ansichten müssen es geben; Merkmale müssen gültige Ausdrücke sein
     const arten = new Set<string>();
     for (const z of module) for (const d of z.dokumentarten ?? []) {

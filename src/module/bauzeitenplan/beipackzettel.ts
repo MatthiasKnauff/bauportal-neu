@@ -120,6 +120,7 @@ export const bauzeitenplan: Beipackzettel = {
   id: 'bauzeitenplan',
   handy: 'ansicht',
   zeichen: 'plan',
+  farbe: '#2f9e44',
   name: 'Bauzeitenplan',
   version: '0.2.0',
   beschreibung: 'Balkenplan eines Projekts: Leistungen mit Dauer in Arbeitstagen, Verknüpfungen, Gruppen, Unterbrechungen, Arbeitskalender mit Feiertagen, kritischer Weg – in benannten Versionen.',
