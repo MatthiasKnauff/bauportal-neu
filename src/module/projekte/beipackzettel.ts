@@ -94,6 +94,7 @@ export const version: ObjektModell = {
     { name: 'gueltig', titel: 'Gültige Version', art: 'ja_nein' },
     { name: 'notiz', titel: 'Notiz', art: 'langtext' },
     { name: 'kennung', titel: 'Kennung aus der Übernahme', art: 'text', verborgen: true },
+    { name: 'netz', titel: '3D-Ansicht gerechnet', art: 'text', verborgen: true },   // Stand des 3D-Netzes (Zeit) – setzt der Server, offene 3D-Ansichten laden dann neu
   ],
 };
 

@@ -95,7 +95,7 @@ export async function planen(db: Db, register: Modulregister, wer: Benutzer, pro
   });
 }
 
-export function ifcRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
+export function ifcRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
   // IFC-Dateien kommen als Ganzes (bis 300 MB)
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: 300 * 1024 * 1024 }, (_req, body, fertig) => fertig(null, body));
 
@@ -106,7 +106,7 @@ export function ifcRouten(app: FastifyInstance, e: { db: Db; register: Modulregi
     // Die 3D-Ansicht rechnet der IFC-Dienst nebenher; gespeichert wird sie mit der Übernahme (ohne auf sie zu warten).
     // Stimmt das Modell schon mit dem Plan überein, gibt es nichts zu übernehmen – dann zählt der Plan sofort, wenn noch keine 3D-Ansicht da ist.
     const netz = netzRechnen(req.body);
-    const ablegen = () => { void netz.then((b) => (b ? netzSpeichern(q.version!, b) : undefined)).catch(() => undefined); };
+    const ablegen = () => { void netz.then((b) => (b ? netzSpeichern(e.db, e.register, q.version!, b).then(e.nachBefehlen) : undefined)).catch(() => undefined); };
     const plan = await planen(e.db, e.register, req.benutzer!, q.projekt!, q.version!, await lies(req.body));
     if (!plan.liste.length && !(await netzDa(q.version!))) ablegen();
     return merken(req.benutzer!.id, plan, async () => ablegen());

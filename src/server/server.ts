@@ -214,7 +214,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   });
 
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
-  ifcRouten(app, { db, register, nurAngemeldet });
+  ifcRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
   netzRouten(app, { db, nurAngemeldet });
   avaRouten(app, { db, register, nurAngemeldet });
   assistentRouten(app, { db, register, nurAngemeldet });

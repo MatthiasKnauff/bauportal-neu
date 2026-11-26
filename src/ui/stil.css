@@ -1183,6 +1183,7 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .bzp-kopfzellen .griff:hover, .bzp-kopfzellen .griff:active { background: var(--akzent-hell); border-right: 2px solid var(--akzent); }
 /* Summenzeile (vorläufige Summe der Menge) – bleibt unten stehen */
 .tabelle tfoot .summenzeile td { position: sticky; bottom: 0; background: var(--still-hell); border-top: 2px solid var(--rand); font-size: 0.92em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.summenzeile td > * + * { margin-left: 14px; }
 /* Projekt löschen: was soll gelöscht werden? – je App ein Kästchen */
 .loesch-teile { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .loesch-teil { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); padding: 10px 12px; cursor: pointer; }

@@ -1,6 +1,6 @@
 // Gebäudemodell → 3D: das Modell der Version aus dem eingelesenen Plan (IFC), in der Mitte als 3D-Ansicht.
 // Ein Bauteil anklicken zeigt rechts seine Karte; Färbungen nach Bauteilart, Lage und ob ein Aufbau zugeordnet ist.
-import { Show, createMemo, createResource, createSignal, onCleanup } from 'solid-js';
+import { Show, createMemo, createResource, createSignal } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { BAUTEILARTEN } from '../module/gebaeudemodell/beipackzettel';
 import type { Mitte } from './baukasten/anpassung';
@@ -22,10 +22,9 @@ async function laden(version: string): Promise<Netz | null> {
 
 export function Gebaeude3d(p: Mitte) {
   const version = () => String(p.fest().version ?? '');
-  const [netz, { refetch }] = createResource(version, laden);
-  // Noch nicht da? Der IFC-Dienst rechnet nach dem Einlesen nebenher – solange nachsehen
-  const t = setInterval(() => { if (netz.state === 'ready' && netz() === null) void refetch(); }, 15000);
-  onCleanup(() => clearInterval(t));
+  // Neu laden, wenn der Server ein neues Netz abgelegt hat: er vermerkt es an der Version (kommt über den Abgleich)
+  const stand = () => `${version()}|${String(sicht.version?.[version()]?.werte.netz ?? '')}`;
+  const [netz] = createResource(stand, (s) => laden(s.split('|')[0]!));
   const nachKennung = createMemo(() => new Map(p.alle().filter((z) => z.werte.kennung).map((z) => [String(z.werte.kennung), z])));
   const bt = (k: string): Zeile | undefined => nachKennung().get(k);
   const [dazu, setDazu] = createSignal<Set<string>>(new Set());   // mit Strg dazugewählte (Anzeige)
@@ -51,14 +50,14 @@ export function Gebaeude3d(p: Mitte) {
   return (
     <div class="mitte-3d">
       <Show when={netz.state !== 'errored'} fallback={<p class="still-text">{String((netz.error as Error)?.message ?? 'Die 3D-Ansicht lässt sich nicht laden.')}</p>}>
-        <Show when={netz()} fallback={
+        <Show when={netz()} keyed fallback={
           <Show when={netz.state === 'ready'} fallback={<p class="still-text">3D-Ansicht wird geladen …</p>}>
             <div class="leer-seite">
               <h2>Noch keine 3D-Ansicht</h2>
               <p class="still-text">Die 3D-Ansicht entsteht aus dem Plan: „IFC einlesen“ im Menüband. Nach dem Einlesen rechnet der IFC-Dienst sie nebenher – sie erscheint dann hier von selbst.</p>
             </div>
           </Show>}>
-          {(n) => <Ansicht3d netz={n()} faerbungen={faerbungen} gewaehlt={gewaehlt} onWahl={wahl} info={info} zeigen={zeigen} />}
+          {(n) => <Ansicht3d netz={n} faerbungen={faerbungen} gewaehlt={gewaehlt} onWahl={wahl} info={info} zeigen={zeigen} />}
         </Show>
       </Show>
     </div>

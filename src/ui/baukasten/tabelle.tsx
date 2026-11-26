@@ -206,21 +206,15 @@ export function Tabelle(p: {
   const einheitText = (f: Feld, e: string) => { const ef = m.felder.find((x) => x.name === f.einheit); return ef ? anzeige(ef, e) || e : e; };
   const summenZeile = () => {
     const werte = sortiert().map((z) => unwrap(z).werte);
+    // über die ganze Breite: eine schmale Mengenspalte schneidet die Zahl sonst ab
+    const teile = () => summenSpalten().map((f) => {
+      const l = mengenSumme(werte, f);
+      return l.length === 1 ? `${f.titel} ${anzeige(f, l[0]!.summe)} ${einheitText(f, l[0]!.einheit)}`.trim()
+        : l.length ? `${f.titel}: Einheiten gemischt (${l.map((x) => `${anzeige(f, x.summe)} ${einheitText(f, x.einheit)}`.trim()).join(' · ')})` : '';
+    }).filter(Boolean);
     return (
       <tr class="summenzeile">
-        <Show when={p.auswahl}><td class="haken-zelle" /></Show>
-        <For each={spalten.sichtbare()}>{(f, i) => {
-          const s = () => (f.art === 'zahl' && f.einheit ? mengenSumme(werte, f) : null);
-          return (
-            <td classList={{ zahl: !!s() }} title={s() && s()!.length > 1 ? s()!.map((x) => `${anzeige(f, x.summe)} ${einheitText(f, x.einheit)}`).join(' · ') : undefined}>
-              <Show when={s()} fallback={i() === 0 ? `Summe (${werte.length})` : ''}>{(l) => (
-                <Show when={l().length === 1} fallback={l().length ? <span class="still-text">Einheiten gemischt</span> : ''}>
-                  <b>{anzeige(f, l()[0]!.summe)}</b> {einheitText(f, l()[0]!.einheit)}
-                </Show>
-              )}</Show>
-            </td>
-          );
-        }}</For>
+        <td colSpan={spalten.sichtbare().length + (p.auswahl ? 1 : 0)}><span>Summe ({werte.length})</span><For each={teile()}>{(t) => <b>{t}</b>}</For></td>
       </tr>
     );
   };
