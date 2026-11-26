@@ -19,6 +19,9 @@ export function springeZu(objekt: string, id: string, o: { projekt?: string | nu
   setSprung({ objekt, id, modul: m.id, ansicht: o.ansicht ?? m.ansichten.find((a) => a.objekt === objekt)?.id ?? '' });
 }
 
+/** Nur eine App (und Ansicht) öffnen, ohne Eintrag – z. B. vom Bautagebuch zu den Kontakten des Projekts. */
+export function appOeffnen(modul: string, ansicht = ''): void { setSprung({ objekt: '', id: '', modul, ansicht }); }
+
 /** Abholen (einmal): die Kennung, wenn der Sprung dieser Objektart gilt. */
 export function sprungAbholen(objekt: string): string | null {
   const s = sprung();

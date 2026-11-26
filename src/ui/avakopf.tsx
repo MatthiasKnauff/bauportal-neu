@@ -15,11 +15,16 @@ import { darf, modell } from './unterbau/api';
 
 const [aktivesLv, setAktivesLv] = createSignal<string | null>(null);
 
-/** Das LV, um das es in der Ansicht geht: das gewählte (wenn die Ansicht LVs zeigt), sonst das zuletzt gewählte, sonst das erste des Projekts. */
-export function lvVon(p: Mitte): Zeile | undefined {
+/** Das gewählte LV des Projekts – sonst sein erstes (nach Nummer). */
+function gewaehltesLv(): Zeile | undefined {
   const pr = projektId(), imProjekt = (z: Zeile | undefined) => (z && !z.geloescht && z.werte.projekt === pr ? z : undefined);
-  return imProjekt(sicht.lv?.[p.gewaehlt() ?? '']) ?? imProjekt(sicht.lv?.[aktivesLv() ?? ''])
+  return imProjekt(sicht.lv?.[aktivesLv() ?? ''])
     ?? lebende('lv').filter((z) => z.werte.projekt === pr).sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true }))[0];
+}
+/** Das LV, um das es in der Ansicht geht: das dort gewählte (wenn die Ansicht LVs zeigt), sonst das gewählte LV der AVA. */
+export function lvVon(p: Mitte): Zeile | undefined {
+  const z = sicht.lv?.[p.gewaehlt() ?? ''];
+  return z && !z.geloescht && z.werte.projekt === projektId() ? z : gewaehltesLv();
 }
 /** Ein LV wählen – gilt dann in allen Ansichten der AVA. */
 export const lvWaehlen = (p: Mitte, id: string) => { setAktivesLv(id); p.onWahl(id); };

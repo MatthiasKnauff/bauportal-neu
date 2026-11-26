@@ -2,7 +2,7 @@
 // Seite – Kopf mit Datum, Wetter und Kontrollen, darunter je Abschnitt eine Karte –, rechts das Detail des angeklickten
 // Eintrags. Die Abschnitte sind dieselben Bausteine wie in „Schritt für Schritt“ (Unterliste, Bilder, Feld).
 import { Seitenliste } from './baukasten/seitenliste';
-import { springeZu } from './sprung';
+import { appOeffnen, springeZu } from './sprung';
 import { For, Show, createEffect, createMemo, createResource, createRoot, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Feld, Wert } from '../kern/modell';
@@ -104,10 +104,10 @@ export function BerichtLinks(p: Mitte) {
       <Show when={gewaehlt()}>{(g) => (
         <Seitenliste name="Abschnitte des Berichts" aktiv="" abschnitte={[{ titel: `Tagesbericht Nr. ${String(g().werte.nummer ?? '')} · ${datumText(g().werte.datum)}`,
           eintraege: [{ id: 'kopf', titel: 'Tagesbericht', zeichen: 'bericht' }, ...ABSCHNITTE.map((a) => ({ id: a.id, titel: a.titel, zeichen: a.zeichen, anzahl: anzahl(g().id, a) }))] },
-          // wie im bisherigen Bautagebuch: darunter das Projekt – alle Berichte als Liste, die Projektdaten
+          // wie im bisherigen Bautagebuch: darunter das Projekt – alle Berichte als Liste, die Projektdaten, die Kontakte (Adressen mit den Beteiligten des Projekts)
           { titel: 'Projekt', eintraege: [{ id: 'p:alle', titel: 'Alle Berichte', zeichen: 'liste', anzahl: p.zeilen().length },
-            ...(g().werte.projekt ? [{ id: 'p:daten', titel: 'Projektdaten', zeichen: 'projekte' }] : [])] }]}
-          onWahl={(id) => { if (id === 'p:alle') { setForm('liste'); merke('bp.bautagebuch.links', 'liste'); } else if (id === 'p:daten') springeZu('projekt', String(g().werte.projekt)); else zumAbschnitt(id); }} />
+            ...(g().werte.projekt ? [{ id: 'p:daten', titel: 'Projektdaten', zeichen: 'projekte' }, { id: 'p:kontakte', titel: 'Kontakte', zeichen: 'adressen' }] : [])] }]}
+          onWahl={(id) => { if (id === 'p:alle') { setForm('liste'); merke('bp.bautagebuch.links', 'liste'); } else if (id === 'p:daten') springeZu('projekt', String(g().werte.projekt)); else if (id === 'p:kontakte') appOeffnen('adressen'); else zumAbschnitt(id); }} />
       )}</Show>
     </div>
   );

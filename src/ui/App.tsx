@@ -16,7 +16,7 @@ import { Kopfleiste } from './baukasten/kopfleiste';
 import { Suche, type Seite, type Treffer } from './suche';
 import { Hilfe } from './hilfe';
 import { Projektkacheln } from './startkacheln';
-import { springeZu, sprung } from './sprung';
+import { setSprung, springeZu, sprung } from './sprung';
 import { AppUmgebung } from './baukasten/rahmen';
 import { projektId, setProjektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
@@ -225,7 +225,7 @@ function Portal() {
   };
   const springe = (t: Treffer) => springeZu(t.m.name, t.id, { projekt: t.projekt, version: t.version, modul: t.modul.id, ansicht: t.ansicht });
   // Ein Sprung (aus der Suche oder aus einer Karte) öffnet Modul und Ansicht; den Eintrag holt die Ansicht selbst ab
-  createEffect(() => { const s = sprung(); if (s) untrack(() => oeffne(s.modul, s.ansicht)); });
+  createEffect(() => { const s = sprung(); if (s) untrack(() => { oeffne(s.modul, s.ansicht); if (!s.objekt) setSprung(null); }); });
   // Handystufe der geöffneten App (Startseite: alles) – danach richten sich Rechte, Hinweis und das ＋ unten
   createEffect(() => setHandystufe(modul()?.modul.handy ?? (modulId() ? 'lesen' : 'voll')));
   // App-Farbe der geöffneten App als --app (Verlauf und Strich der Flächen in der Darstellung); ohne App der Akzent

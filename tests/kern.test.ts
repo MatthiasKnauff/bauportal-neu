@@ -1697,7 +1697,7 @@ test('Kataster: Anschrift → Flurstück aus ALKIS und Geländehöhe aus dem DGM
     const { leitung } = await leute(db);
     const p = randomUUID();
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus K', strasse: 'Musterweg 1', plz: '45143', ort: 'Essen-Kataster' } });
-    const r = await katasterFuer(db, { ...leitung, anmeldename: leitung.name, rolle: 'bueroleitung' }, p);
+    const r = await katasterFuer(db, leitung, p);
     assert.deepEqual(r.werte, { gemarkung: 'Altendorf', flur: '3', flurstueck: '123/4', flaeche: 412.5, hoehe_nhn: 70.7 });
     assert.ok(gesehen.some((u) => u.includes('COVERAGEID=nw_dgm&') && u.includes('SUBSET=x')), 'das Geländemodell, nicht die Schummerung');
     assert.ok(!gesehen.join(' ').includes('Haus'), 'hinaus geht die Anschrift, nicht der Projektname');
