@@ -184,7 +184,7 @@ export function ObjektAnsicht(p: {
     if (ast()) { const soll = ast().slice(2); const tiefe = soll.split(TRENNER).length; l = l.filter((z) => pfad(z, tiefe) === soll); }
     const worte = suche().toLowerCase().split(/\s+/).filter(Boolean);
     // „-wort“ schließt aus (wie im bisherigen Bauportal)
-    if (worte.length) l = l.filter((z) => { const t = suchtext(z).toLowerCase(); return worte.every((w) => (w.startsWith('-') && w.length > 1 ? !t.includes(w.slice(1)) : t.includes(w))); });
+    if (worte.length) { const texte = suchtexte(); l = l.filter((z) => { const t = texte.get(z.id) ?? ''; return worte.every((w) => (w.startsWith('-') && w.length > 1 ? !t.includes(w.slice(1)) : t.includes(w))); }); }
     return l;
   });
   // Kacheln in derselben Sortierung wie die Tabelle – danach blättert auch die Karte
@@ -192,6 +192,8 @@ export function ObjektAnsicht(p: {
   // Text, in dem gesucht wird: einfache Felder direkt, Auswahl/Datum/Verweis so, wie sie angezeigt werden.
   const umgesetzt = m.felder.filter((f) => f.art === 'auswahl' || f.art === 'mehrfach' || f.art === 'datum' || f.art === 'verweis');
   const suchtext = (z: Zeile) => { const w = roh(z).werte; return Object.values(w).join(' ') + ' ' + umgesetzt.map((f) => anzeige(f, w[f.name])).join(' '); };
+  // einmal je Datenstand, nicht bei jedem Tastendruck für alle Zeilen neu (Namen verwiesener Einträge folgen über die Abhängigkeit)
+  const suchtexte = createMemo(() => new Map(lebend().map((z) => [z.id, suchtext(z).toLowerCase()])));
   // Die Karte zeigt nur, was zum Zusammenhang gehört: nach dem Wechsel von Projekt oder Version bleibt keine fremde Karte stehen.
   const karte = createMemo(() => { const id = gewaehlt(); return id ? lebend().find((z) => z.id === id) : undefined; });
 

@@ -22,6 +22,7 @@ import { Uebernahmefenster } from './uebernahme';
 import { Aufraeumen } from './aufraeumen';
 import { AdressenEinlesen } from './adresseneinlesen';
 import { RechnungEinlesen } from './rechnungeinlesen';
+import { DokumentAblage } from './dokumentablage';
 import { KontaktAuswahlFenster } from './kontaktauswahl';
 import { FeldSetzen } from './baukasten/feldsetzen';
 import { ProjektLoeschen } from './projektloeschen';
@@ -265,6 +266,7 @@ function Portal() {
 
   return (
     <div class="portal">
+      <DokumentAblage module={z().module} modul={modul()?.modul} ansicht={ansicht()} />
       <Kopfleiste marke="Bauportal" aktuell={modul()?.modul.name} onStart={() => { setModulId(''); setAnsichtId(''); }}
         status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
         projekt={<Show when={projekte().length || darf('projekt', 'schreiben')}><Projektwahl kartenZusatz={kartenZusatz('projekt')} /></Show>}

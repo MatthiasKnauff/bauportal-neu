@@ -85,6 +85,23 @@ def main() -> None:
         assert c.post("/vorschau", json={**v, "pfad": "2026-01 Haus A/Pläne/Grundriss EG.pdf"}, headers=k).status_code == 422, "kaputtes PDF"
         assert c.post("/vorschau", json={**v, "pfad": "2026-01 Haus A/Notiz.txt"}, headers=k).status_code == 415
         assert c.post("/vorschau", json={**v, "pfad": "2026-01 Haus A/Foto.jpg"}).status_code == 403
+        # Lesen: PDF mit Textebene direkt, Scan (Bild ohne Text) über die Texterkennung
+        import base64
+        from PIL import ImageDraw, ImageFont
+        scan = Image.new("RGB", (1700, 600), "white")
+        schrift = ImageFont.load_default(size=56)
+        ImageDraw.Draw(scan).text((80, 120), "Abschlagsrechnung Nr. 4711", fill="black", font=schrift)
+        ImageDraw.Draw(scan).text((80, 300), "Malerbetrieb Kunz GmbH", fill="black", font=schrift)
+        roh = io.BytesIO(); scan.save(roh, "PDF", resolution=150)
+        r = c.post("/lesen", json={"name": "scan.pdf", "inhalt": base64.b64encode(roh.getvalue()).decode()}, headers=k)
+        assert r.status_code == 200, r.text
+        j = r.json()
+        assert j["ocr"] and "4711" in j["seiten"][0] and "Kunz" in j["seiten"][0], j["seiten"]
+        assert Image.open(io.BytesIO(base64.b64decode(j["vorschau"]))).size[0] == 600
+        leer = open(f"{ordner}/2026-01 Haus A/Plan.pdf", "rb").read()
+        assert c.post("/lesen", json={"name": "a.txt", "inhalt": base64.b64encode(b"x").decode()}, headers=k).status_code == 415
+        assert c.post("/lesen", json={"name": "a.pdf", "inhalt": base64.b64encode(b"%PDF kaputt").decode()}, headers=k).status_code == 422
+        assert c.post("/lesen", json={"name": "a.pdf", "inhalt": base64.b64encode(leer).decode()}).status_code == 403
         print("Dateidienst: alle Prüfungen bestanden")
 
 

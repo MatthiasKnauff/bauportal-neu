@@ -1,6 +1,8 @@
 # Dateidienst: spricht mit dem Dateiserver (SMB 2/3). Hilfsdienst in Python – nur aus dem Bauportal erreichbar, kein Port nach außen.
 FROM python:3.13-slim
 WORKDIR /app
+# Texterkennung für Scans (deutsch) – läuft im Dienst, nichts geht nach außen
+RUN apt-get update && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-deu && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY dienst.py .

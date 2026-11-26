@@ -258,6 +258,73 @@ def vorschau(a: Vorschau, x_schluessel: str | None = Header(default=None)):
     return Response(bild, media_type="image/jpeg")
 
 
+class Lesen(BaseModel):
+    """name = Dateiname (für die Art), inhalt = Datei als Base64."""
+    name: str
+    inhalt: str
+
+
+LESEN_GRENZE = 40 * 1024 * 1024
+OCR_SEITEN = 20
+
+
+def _ocr(bild) -> str:
+    """Texterkennung (Tesseract, deutsch) für ein Bild – im eigenen Prozess, nichts verlässt den Dienst."""
+    import subprocess
+    aus = io.BytesIO()
+    bild.convert("L").save(aus, "PNG")
+    r = subprocess.run(["tesseract", "stdin", "stdout", "-l", "deu", "--psm", "3"], input=aus.getvalue(), capture_output=True, timeout=90, check=False)
+    if r.returncode != 0:
+        raise Fehler("Die Texterkennung ist fehlgeschlagen", 422)
+    return r.stdout.decode("utf-8", "replace")
+
+
+def text_lesen(daten: bytes, endung: str) -> tuple[list[str], bool]:
+    """Text je Seite: PDF mit Textebene direkt, Scans (Seite fast ohne Text) und Bilder über die Texterkennung."""
+    from PIL import Image, ImageOps
+    Image.MAX_IMAGE_PIXELS = 120_000_000
+    if endung == "pdf":
+        import pypdfium2 as pdfium
+        pdf = pdfium.PdfDocument(daten)
+        seiten, ocr = [], False
+        try:
+            for i in range(len(pdf)):
+                seite = pdf[i]
+                t = seite.get_textpage().get_text_range()
+                if len(t.strip()) < 40 and i < OCR_SEITEN:   # Scan: keine Textebene
+                    b, _h = seite.get_size()
+                    t, ocr = _ocr(seite.render(scale=min(300 / 72, 2500 / max(1.0, b))).to_pil()), True
+                seiten.append(t)
+        finally:
+            pdf.close()
+        return seiten, ocr
+    if endung in _BILDER:
+        bild = ImageOps.exif_transpose(Image.open(io.BytesIO(daten)))
+        return [_ocr(bild)], True
+    raise Fehler("Lesen geht bei PDF und Bildern (Scan, Foto)", 415)
+
+
+@app.post("/lesen")
+def lesen(a: Lesen, x_schluessel: str | None = Header(default=None)):
+    """Text und Vorschaubild einer hochgeladenen Datei (PDF, Scan, Foto) – zum Erkennen, was sie ist. Gespeichert wird hier nichts."""
+    _pruefe(x_schluessel)
+    try:
+        daten = base64.b64decode(a.inhalt, validate=True)
+    except (binascii.Error, ValueError):
+        raise Fehler("Der Inhalt der Datei ist nicht lesbar") from None
+    if len(daten) > LESEN_GRENZE:
+        raise Fehler("Die Datei ist größer als 40 MB", 413)
+    endung = a.name.rsplit(".", 1)[-1].lower() if "." in a.name else ""
+    try:
+        seiten, ocr = text_lesen(daten, endung)
+        bild = vorschaubild(daten, endung, 600)
+    except Fehler:
+        raise
+    except Exception as e:  # noqa: BLE001 – kaputte oder verschlüsselte Datei
+        raise Fehler(f"Die Datei lässt sich nicht lesen ({type(e).__name__})", 422) from e
+    return {"seiten": seiten, "ocr": ocr, "vorschau": base64.b64encode(bild).decode()}
+
+
 @app.post("/schreiben")
 def schreiben(a: Ablegen, x_schluessel: str | None = Header(default=None)):
     """Legt eine neue Datei ab. Fehlende Ordner entstehen; eine vorhandene Datei wird nie überschrieben –

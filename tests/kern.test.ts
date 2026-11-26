@@ -1401,3 +1401,21 @@ test('E-Rechnung: CII aus dem PDF-Anhang (ZUGFeRD) und UBL; OZ aus der Bezeichnu
   const u = e.eRechnungLesen((await e.eRechnungXml(new TextEncoder().encode(ubl)))!)!;
   assert.deepEqual([u.nummer, u.firma, u.netto, u.zeilen[0]!.einheit, u.zeilen[0]!.oz], ['R-1', 'Kunz', 150, 'h', '']);
 });
+
+test('Dokument erkennen: Art nach Merkmalen, Projekt, Firma (nicht das eigene Büro), Nummer, Datum, Betrag netto', async () => {
+  const { dokumentErkennen } = await import('../src/kern/dokumenterkennung');
+  const { register } = await import('../src/module/index');
+  const arten = register.module.flatMap((z) => z.dokumentarten ?? []);
+  const q = { arten, projekte: [{ id: 'p1', nummer: 'M-001', name: 'Musterprojekt Wohnhaus', strasse: 'Musterweg 1' }, { id: 'p2', nummer: 'A484', name: 'Tierheim', strasse: 'Grillostraße 24' }],
+    kontakte: [{ id: 'k1', name: 'Maler Kunz' }, { id: 'k2', name: 'GK3 Gesellschaft für Architektur' }, { id: 'k3', name: 'Kunz' }], ausser: ['GK3 Gesellschaft für Architektur'] };
+  const re = dokumentErkennen(`Maler Kunz GmbH · Hauptstr. 3\nGK3 Gesellschaft für Architektur mbH\nBV Tierheim, Grillostraße 24\n2. Abschlagsrechnung\nRechnungsnummer: AR-2026/17\nRechnungsdatum: 20.11.2026\nLeistung lt. Aufmaß\nSumme netto 12.400,00 €\nabzgl. 1. Abschlag netto 5.000,00 €\nUSt 19 % 1.406,00`, q);
+  const { punkte, ...rest } = re;
+  assert.deepEqual(rest, { art: 'rechnung', projekt: 'p2', firma: 'k1', nummer: 'AR-2026/17', datum: '2026-11-20', betrag: 12400 });
+  assert.ok(punkte.rechnung! > (punkte.aufmass ?? 0), 'Rechnung vor Aufmaß');
+  const sr = dokumentErkennen('SCHLUSSRECHNUNG Nr. 88\nRechnungsdatum 1.12.26\nProjekt M-001', q);
+  assert.deepEqual([sr.art, sr.nummer, sr.datum, sr.projekt], ['schlussrechnung', '88', '2026-12-01', 'p1']);
+  const an = dokumentErkennen('Kunz Malerei\nAngebot Nr. 2026-311 vom 03.11.2026\nBindefrist 4 Wochen\nAngebotssumme netto 8.000,00', q);
+  assert.deepEqual([an.art, an.firma, an.nummer, an.betrag], ['angebot', 'k3', '2026-311', 8000]);
+  assert.equal(dokumentErkennen('Hallo Welt', q).art, null);
+  assert.equal(dokumentErkennen('Vertragserfüllungsbürgschaft der Sparkasse', q).art, 'buergschaft');
+});

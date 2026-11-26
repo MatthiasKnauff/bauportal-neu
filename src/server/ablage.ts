@@ -78,6 +78,11 @@ export async function ablegen(db: Db, e: { umgebung: string; projekt: string; pr
   return { ort: 'bauportal', pfad: datei };
 }
 
+/** Text (je Seite, Scans über die Texterkennung) und Vorschaubild einer hochgeladenen Datei – der Dateidienst speichert dabei nichts. */
+export async function dateiLesen(name: string, daten: Buffer): Promise<{ seiten: string[]; ocr: boolean; vorschau: string }> {
+  return (await (await dienst('/lesen', { name, inhalt: daten.toString('base64') }, 300000)).json()) as { seiten: string[]; ocr: boolean; vorschau: string };
+}
+
 /** Warum im Projektordner gerade nichts abgelegt werden kann – oder null, wenn es geht. */
 export async function ablageHindernis(db: Db, umgebung: string, projektordner: string | null): Promise<string | null> {
   if (umgebung === 'test') return 'Der Testserver legt nichts im Projektordner ab – er darf den Dateiserver nur lesen';
@@ -94,6 +99,23 @@ export async function originalLesen(db: Db, e: { projekt: string; projektordner:
   const datei = path.join(process.env.DATEN_PFAD ?? '/data', 'originale', e.projekt, path.basename(e.pfad));
   if (!existsSync(datei)) throw new Dienstfehler('Das Original liegt nicht mehr im Speicher des Bauportals', 404);
   return createReadStream(datei);
+}
+/** Vorschaubild aus der Datenbank senden (Foto, Dokument) – wer es sehen darf, hat der Aufrufer geprüft. */
+export async function vorschauSenden(db: Db, reply: FastifyReply, id: string, darf: boolean): Promise<FastifyReply> {
+  const bild = darf ? (await db.query('select bild from kern_vorschau where id = $1', [id])).rows[0]?.bild as Buffer | undefined : undefined;
+  if (!bild) return reply.code(404).send({ fehler: 'Das gibt es nicht (mehr)' });
+  return reply.header('content-type', 'image/jpeg').header('cache-control', 'private, max-age=86400').header('x-content-type-options', 'nosniff').send(bild);
+}
+const DATEIARTEN: Record<string, string> = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif' };
+/** Original senden (Foto, Dokument): im Browser zeigen, was er kann, sonst herunterladen. */
+export async function originalSenden(db: Db, reply: FastifyReply, d: { projekt: string; ordner: string | null; ort: string; pfad: string; name: string } | undefined): Promise<FastifyReply> {
+  if (!d) return reply.code(404).send({ fehler: 'Das gibt es nicht (mehr)' });
+  try {
+    const strom = await originalLesen(db, { projekt: d.projekt, projektordner: d.ordner || null, ort: d.ort, pfad: d.pfad });
+    const art = DATEIARTEN[d.name.split('.').pop()!.toLowerCase()];
+    return reply.header('content-type', art ?? 'application/octet-stream').header('content-disposition', `${art ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(d.name)}`)
+      .header('cache-control', 'private, no-store').header('x-content-type-options', 'nosniff').send(strom);
+  } catch (err) { if (err instanceof Dienstfehler) return reply.code(err.status).send({ fehler: err.message }); throw err; }
 }
 export { Dienstfehler };
 

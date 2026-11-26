@@ -32,6 +32,7 @@ import { prueferRouten } from './pruefer';
 import { verlaufRouten } from './verlauf';
 import { schriftRouten } from './schriften';
 import { fotoRouten } from './foto';
+import { dokumentRouten } from './dokument';
 import { aufbauRouten, type Langsam } from './aufbau';
 import { altdatenRouten } from './altdaten';
 import { handbuchRouten } from './handbuch';
@@ -231,6 +232,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   verlaufRouten(app, { db, register, nurAngemeldet });
   schriftRouten(app, { db, nurAngemeldet });
   fotoRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
+  dokumentRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   aufbauRouten(app, { db, register, routen, langsam, nurAngemeldet });
   handbuchRouten(app, { db, register, version: e.version, routen, nurAngemeldet });
   prueferRouten(app, { db, register, routen, version: e.version, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });

@@ -36,6 +36,8 @@ export function feldAendern(m: ObjektModell, z: Zeile, f: Feld, w: Wert, herkunf
 
 /** Stellschraube: Objekte mit eigenem Löschablauf (z. B. das Projekt: „Was soll gelöscht werden?“ statt nur des Eintrags). */
 export const eigenesLoeschen: Record<string, (z: Zeile) => void> = {};
+/** Reiter, die jede Karte bekommen kann (z. B. „Dokumente“, wenn zum Eintrag abgelegte Dokumente gehören) – ohne Rückgabe kein Reiter. */
+export const reiterFuerAlle: ((modell: ObjektModell, z: Zeile) => { titel: string; inhalt: () => JSX.Element } | undefined)[] = [];
 
 export function loesche(m: ObjektModell, z: Zeile): void {
   if (eigenesLoeschen[m.name]) { eigenesLoeschen[m.name]!(z); return; }
@@ -64,7 +66,7 @@ export function Detailkarte(p: {
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
   const titel = () => objektname(p.modell, p.zeile.werte);
   const [reiter, setReiter] = createSignal(0);
-  const reiterListe = () => p.reiter?.(p.zeile) ?? [];
+  const reiterListe = () => [...(p.reiter?.(p.zeile) ?? []), ...reiterFuerAlle.flatMap((r) => r(p.modell, p.zeile) ?? [])];
   const aendern = (f: Feld, w: Wert, herkunft?: string) => setFehler(f.name, feldAendern(p.modell, p.zeile, f, w, herkunft));
   return (
     <aside class="karte" aria-label={`${p.modell.titel} ${titel()}`}>

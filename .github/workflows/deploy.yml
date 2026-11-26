@@ -48,6 +48,7 @@ jobs:
 
       - name: Dateidienst prüfen (gegen einen Test-Dateiserver)
         run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-deu >/dev/null
           pip install -q -r dienste/dateidienst/requirements.txt impacket httpx
           cd dienste/dateidienst && python test_dienst.py
 

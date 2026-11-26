@@ -3,6 +3,7 @@
 // Gelesen wird im Gerät – die Datei geht nirgends hin. PDFs ohne E-Rechnung (Texterkennung) kommen als eigener Block.
 import { Show, createMemo, createSignal } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
+import { firmenSchluessel } from '../kern/dokumenterkennung';
 import { mengenZuordnen } from '../module/ava/aufmasslesen';
 import { RECHNUNGSARTEN } from '../module/ava/beipackzettel';
 import { eRechnungLesen, eRechnungXml, type ERechnung } from '../module/ava/erechnung';
@@ -31,15 +32,13 @@ export function rechnungEinlesen(projekt: string): void {
   wahl.click();
 }
 
-/** Firmennamen vergleichbar: ohne Rechtsform und Satzzeichen. */
-const schluessel = (n: unknown) => String(n ?? '').toLowerCase().replace(/\b(gmbh|mbh|co|kg|ag|ohg|gbr|ug|e\.?\s?k|inh|haftungsbeschränkt)\b\.?/g, '').replace(/[^a-zäöüß0-9]+/g, ' ').trim();
 
 function Fenster(p: { name: string; projekt: string; r: ERechnung }) {
   const r = p.r;
   const kontakte = createMemo(() => lebende('kontakt').sort((a, b) => String(a.werte.name ?? '').localeCompare(String(b.werte.name ?? ''), 'de')));
   const vorschlagFirma = () => {
-    const s = schluessel(r.firma); if (!s) return '';
-    return (kontakte().find((k) => schluessel(k.werte.name) === s) ?? kontakte().find((k) => { const t = schluessel(k.werte.name); return t.length > 2 && (t.includes(s) || s.includes(t)); }))?.id ?? '';
+    const s = firmenSchluessel(r.firma); if (!s) return '';
+    return (kontakte().find((k) => firmenSchluessel(k.werte.name) === s) ?? kontakte().find((k) => { const t = firmenSchluessel(k.werte.name); return t.length > 2 && (t.includes(s) || s.includes(t)); }))?.id ?? '';
   };
   const lvs = createMemo(() => lebende('lv').filter((l) => l.werte.projekt === p.projekt));
   const auftragVon = (lv: string) => lebende('angebot').find((a) => a.werte.lv === lv && a.werte.beauftragt === true);

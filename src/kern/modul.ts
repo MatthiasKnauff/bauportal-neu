@@ -17,10 +17,32 @@ export interface Beipackzettel {
   nachschlagen?: Nachschlag[];   // große Kataloge, die nur am Server liegen und seitenweise gesucht werden
   ausdrucke?: Ausdruck[];     // was das Modul drucken kann (Druckwerk)
   versionen?: Versionsbereich[];   // Bereiche mit benannten Versionen (z. B. der Bauzeitenplan eines Projekts)
+  dokumentarten?: Dokumentart[];   // was sich als PDF, Scan oder Foto in diese App ziehen lässt (Ablegen mit Erkennung)
   abgesetzt?: string[];       // Abschnitte links, die farbig abgesetzt sind und den Namen der angemeldeten Person tragen (z. B. „Für mich“ in der Verwaltung)
   /** Was die App am Handy kann (wie im bisherigen Bauportal): voll – alles · eigen – eigene Handyansicht, alles ·
    *  ansicht – ansehen und kleine Handgriffe, nichts Neues anlegen · lesen – nur ansehen · keine – am Handy nur ein Hinweis. Ohne Angabe: lesen. */
   handy?: Handystufe;
+}
+/** Eine Art Dokument (PDF, Scan, Foto), die sich ins Fenster ziehen lässt: woran man sie erkennt, wohin das Original kommt
+ *  und welcher Eintrag daraus wird. Die Erkennung (kern/dokumenterkennung) und der Ablegen-Dialog richten sich ganz danach. */
+export interface Dokumentart {
+  art: string; titel: string;
+  /** Wendungen (regulärer Ausdruck, Groß/klein egal), an denen man sie erkennt – je gefundener Wendung ein Punkt */
+  merkmale: string[];
+  /** Wort vor „-nummer“/„Nr.“ für die Nummer des Dokuments (z. B. „rechnung“ → „Rechnungsnummer: 4711“) */
+  nummerWort?: string;
+  /** In diesen Ansichten der App ist sie vorbelegt */
+  ansichten?: string[];
+  /** Unterordner im Projektordner; „{lv}“ wird zum Namen des LV */
+  ordner: string;
+  /** Daraus wird ein Eintrag dieses Objekts (sonst wird das Dokument nur abgelegt) */
+  objekt?: string;
+  /** Erkannte Angaben → Felder des Objekts */
+  felder?: Partial<Record<'lv' | 'firma' | 'nummer' | 'datum' | 'betrag' | 'eingang', string>>;
+  /** Feste Werte für den neuen Eintrag */
+  vorgaben?: Record<string, string | number | boolean>;
+  /** Felder, an denen ein vorhandener Eintrag erkannt wird – dann wird er ergänzt statt neu angelegt (z. B. Angebot: LV und Bieter:in) */
+  vorhanden?: string[];
 }
 export type Handystufe = 'voll' | 'eigen' | 'ansicht' | 'lesen' | 'keine';
 
@@ -107,6 +129,18 @@ export class Modulregister {
       const felder = [...(a.linksFilter ?? []).flatMap((l) => (l.feld ? [l.feld] : [])), ...(a.suchArten ?? []).flatMap((x) => x.felder)];
       for (const f of felder) if (!m?.felder.some((x) => x.name === f)) throw new Error(`Ansicht „${a.id}“: Feld „${f}“ für den Filter fehlt`);
       if (a.einstellungen && !this.modelle.has(a.einstellungen)) throw new Error(`Ansicht „${a.id}“: Objekt „${a.einstellungen}“ für die Einstellungen fehlt`);
+    }
+    // Dokumentarten: Objekt, Felder und Ansichten müssen es geben; Merkmale müssen gültige Ausdrücke sein
+    const arten = new Set<string>();
+    for (const z of module) for (const d of z.dokumentarten ?? []) {
+      if (arten.has(d.art)) throw new Error(`Dokumentart doppelt: ${d.art}`);
+      arten.add(d.art);
+      for (const m of d.merkmale) new RegExp(m, 'i');
+      for (const a of d.ansichten ?? []) if (!z.ansichten.some((x) => x.id === a)) throw new Error(`Dokumentart „${d.art}“: Ansicht „${a}“ fehlt`);
+      if (!d.objekt) { if (d.felder || d.vorgaben || d.vorhanden) throw new Error(`Dokumentart „${d.art}“: Felder ohne Objekt`); continue; }
+      const m = this.modelle.get(d.objekt);
+      if (!m) throw new Error(`Dokumentart „${d.art}“: Objekt „${d.objekt}“ fehlt`);
+      for (const f of [...Object.values(d.felder ?? {}), ...Object.keys(d.vorgaben ?? {}), ...(d.vorhanden ?? [])]) if (!m.felder.some((x) => x.name === f)) throw new Error(`Dokumentart „${d.art}“: Feld „${f}“ fehlt in „${d.objekt}“`);
     }
     for (const z of module) for (const b of z.braucht) {
       if (!this.zettel.has(b)) throw new Error(`Modul „${z.id}“ braucht „${b}“, das fehlt`);

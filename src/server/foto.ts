@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import { KENNUNG } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
-import { Dienstfehler, ablegen, originalLesen } from './ablage';
+import { Dienstfehler, ablegen, originalSenden, vorschauSenden } from './ablage';
 import { Ablehnung, befehlAusfuehren } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
@@ -61,20 +61,7 @@ export function fotoRouten(app: FastifyInstance, e: { db: Db; register: Modulreg
 
   app.get('/api/foto/vorschau/:id', { preHandler: e.nurAngemeldet }, async (req, reply) => {
     const id = (req.params as { id: string }).id;
-    const bild = (await foto(req.benutzer!, id)) ? (await db.query('select bild from kern_vorschau where id = $1', [id])).rows[0]?.bild as Buffer | undefined : undefined;
-    if (!bild) return reply.code(404).send({ fehler: 'Das Foto gibt es nicht' });
-    return reply.header('content-type', 'image/jpeg').header('cache-control', 'private, max-age=86400').header('x-content-type-options', 'nosniff').send(bild);
+    return vorschauSenden(db, reply, id, !!(await foto(req.benutzer!, id)));
   });
-
-  app.get('/api/foto/original/:id', { preHandler: e.nurAngemeldet }, async (req, reply) => {
-    const f = await foto(req.benutzer!, (req.params as { id: string }).id);
-    if (!f) return reply.code(404).send({ fehler: 'Das Foto gibt es nicht' });
-    try {
-      const strom = await originalLesen(db, { projekt: f.projekt, projektordner: f.ordner || null, ort: f.ort, pfad: f.pfad });
-      const endung = f.name.split('.').pop()!.toLowerCase();
-      const art = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[endung];
-      return reply.header('content-type', art ?? 'application/octet-stream').header('content-disposition', `${art ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.name)}`)
-        .header('cache-control', 'private, no-store').header('x-content-type-options', 'nosniff').send(strom);
-    } catch (err) { if (err instanceof Dienstfehler) return reply.code(err.status).send({ fehler: err.message }); throw err; }
-  });
+  app.get('/api/foto/original/:id', { preHandler: e.nurAngemeldet }, async (req, reply) => originalSenden(db, reply, await foto(req.benutzer!, (req.params as { id: string }).id)));
 }
