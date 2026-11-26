@@ -42,10 +42,15 @@ function naechsteNacht(): number {
 }
 
 export function handbuchRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; version: string; routen: string[]; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
-  const lauf = () => handbuecherErzeugen(e).catch((err) => app.log.warn({ err }, 'Handbuch nicht erzeugt'));
-  setTimeout(lauf, 5000).unref();   // beim Start: fehlt es oder hat sich das Programm geändert, gleich
-  const planen = () => setTimeout(() => { void lauf().finally(planen); }, naechsteNacht()).unref();
+  // Beim Schließen des Servers enden die Zeitgeber, ein laufender Durchgang wird abgewartet – sonst arbeitet er mit einer
+  // Datenbank weiter, die es nicht mehr gibt (Neustart, Tests)
+  let laeuft: Promise<unknown> = Promise.resolve(), zu = false;
+  const lauf = () => (laeuft = handbuecherErzeugen(e).catch((err) => app.log.warn({ err }, 'Handbuch nicht erzeugt')));
+  const start = setTimeout(lauf, 5000).unref();   // beim Start: fehlt es oder hat sich das Programm geändert, gleich
+  let nacht: ReturnType<typeof setTimeout> | undefined;
+  const planen = () => { if (!zu) nacht = setTimeout(() => { void lauf().finally(planen); }, naechsteNacht()).unref(); };
   planen();
+  app.addHook('onClose', async () => { zu = true; clearTimeout(start); clearTimeout(nacht); await laeuft; });
 
   app.get('/api/handbuch', { preHandler: e.nurAngemeldet }, async (req, reply) => {
     const q = req.query as { stufe?: string; format?: string };
