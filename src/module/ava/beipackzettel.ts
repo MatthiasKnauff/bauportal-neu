@@ -52,6 +52,7 @@ export const lvPosition: ObjektModell = {
     { name: 'menge', titel: 'Menge', art: 'zahl', inListe: true, breite: 90, kartenBreite: 2, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'einheit', titel: 'Einheit', art: 'text', vorschlagen: true, inListe: true, breite: 70, kartenBreite: 1, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'ep', titel: 'EP geschätzt in €', art: 'zahl', inListe: true, breite: 110, kartenBreite: 3, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
+    { name: 'nachtrag', titel: 'Nachtrag', art: 'verweis', ziel: 'nachtrag', inListe: true, breite: 160, gruppe: 'Position' },   // leer: Position der Ausschreibung; mit Nachtrag: erst nach der Vergabe, nicht im Preisspiegel
     { name: 'bauteil', titel: 'Bauteil im Gebäudemodell', art: 'verweis', ziel: 'bauteil', gruppe: 'Herkunft' },
     { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
     { name: 'kennung', titel: 'Kennung (GAEB)', art: 'text', verborgen: true },
@@ -86,6 +87,34 @@ export const angebotPreis: ObjektModell = {
     { name: 'position', titel: 'Position', art: 'verweis', ziel: 'lv_position', pflicht: true },
     { name: 'ep', titel: 'EP in €', art: 'zahl' },
     { name: 'kennung', titel: 'Kennung (GAEB)', art: 'text', verborgen: true },
+  ],
+};
+
+export const NACHTRAGSGRUENDE = [
+  { wert: 'mengen', titel: 'Mengenänderung (§ 2 Abs. 3 VOB/B)' }, { wert: 'geaendert', titel: 'geänderte Leistung (§ 2 Abs. 5 VOB/B)' },
+  { wert: 'zusaetzlich', titel: 'zusätzliche Leistung (§ 2 Abs. 6 VOB/B)' }, { wert: 'ohne_auftrag', titel: 'Leistung ohne Auftrag (§ 2 Abs. 8 VOB/B)' },
+  { wert: 'stundenlohn', titel: 'Stundenlohnarbeiten (§ 2 Abs. 10 VOB/B)' }, { wert: 'sonstiges', titel: 'sonstiges' },
+];
+export const NACHTRAGSSTAENDE = [
+  { wert: 'angemeldet', titel: 'angemeldet' }, { wert: 'angeboten', titel: 'Angebot liegt vor' }, { wert: 'geprueft', titel: 'geprüft' },
+  { wert: 'beauftragt', titel: 'beauftragt' }, { wert: 'abgelehnt', titel: 'abgelehnt' },
+];
+/** Nachtrag zu einem vergebenen LV (wie im bisherigen Bauportal: ein eigener Gliederungspunkt, die Positionen darunter). */
+export const nachtrag: ObjektModell = {
+  name: 'nachtrag', titel: 'Nachtrag', titelMehrzahl: 'Nachträge', anzeigeFeld: 'name', ersatzName: ['nummer'], sortierFeld: 'nummer',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'lv', titel: 'Auftrag (LV)', art: 'verweis', ziel: 'lv', pflicht: true, inListe: true, breite: 200, gruppe: 'Nachtrag' },
+    { name: 'nummer', titel: 'Nachtrags-Nr.', art: 'text', inListe: true, breite: 80, kartenBreite: 2, gruppe: 'Nachtrag' },
+    { name: 'name', titel: 'Bezeichnung', art: 'text', pflicht: true, inListe: true, breite: 260, kartenBreite: 4, gruppe: 'Nachtrag' },
+    { name: 'grund', titel: 'Grund', art: 'auswahl', optionen: NACHTRAGSGRUENDE, inListe: true, breite: 200, gruppe: 'Nachtrag' },
+    { name: 'stand', titel: 'Stand', art: 'auswahl', optionen: NACHTRAGSSTAENDE, inListe: true, breite: 140, gruppe: 'Nachtrag' },
+    { name: 'angemeldet', titel: 'angemeldet am', art: 'datum', gruppe: 'Termine' },
+    { name: 'angebot_vom', titel: 'Angebot vom', art: 'datum', gruppe: 'Termine' },
+    { name: 'beauftragt_am', titel: 'beauftragt am', art: 'datum', gruppe: 'Termine' },
+    { name: 'betrag', titel: 'Betrag netto in € (ohne Positionen)', art: 'zahl', gruppe: 'Betrag' },   // nur ohne Positionen (Pauschale)
+    { name: 'begruendung', titel: 'Begründung', art: 'langtext', gruppe: 'Notiz' },
   ],
 };
 
@@ -132,15 +161,18 @@ export const ava: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
-  objekte: [lv, lvPosition, angebot, angebotPreis, aufmass, rechnung],
+  objekte: [lv, lvPosition, angebot, angebotPreis, nachtrag, aufmass, rechnung],
   ansichten: [
     { id: 'lvs', titel: 'Leistungsverzeichnisse', abschnitt: 'Ausschreibung', zeichen: 'liste_aufgaben', objekt: 'lv', baum: ['status'], brauchtProjekt: true,
       hilfe: 'Je Gewerk ein Leistungsverzeichnis (Vergabeeinheit) mit Stand, Kostenansatz und Terminen. Die Positionen stehen unter „Positionen“; rechts in der Karte die Summen: geschätzt, Angebote, Auftrag, abgerechnet.' },
-    { id: 'positionen', titel: 'Positionen', abschnitt: 'Ausschreibung', zeichen: 'liste', objekt: 'lv_position', baum: ['lv'], brauchtProjekt: true,
+    { id: 'positionen', titel: 'Positionen', abschnitt: 'Ausschreibung', zeichen: 'liste', objekt: 'lv_position', baum: ['lv', 'nachtrag'], brauchtProjekt: true,
       hilfe: 'Die Positionen aller LVs, links nach LV gegliedert. Ordnungszahl (OZ) wie 01.02.0010: Titel enthalten Positionen. Rechts in der Karte der Gesamtpreis (Menge × EP).' },
     { id: 'angebote', titel: 'Angebote', abschnitt: 'Vergabe', zeichen: 'personen', objekt: 'angebot', baum: ['lv'], brauchtProjekt: true },
     { id: 'preisspiegel', titel: 'Preisspiegel', abschnitt: 'Vergabe', zeichen: 'preisspiegel', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: die Positionen mit den Preisen aller Bieter:innen nebeneinander, das günstigste Angebot je Position markiert, unten die Summen mit Nachlass und der Rang. Preise direkt eintragen; „Vergeben an …“ beauftragt das Angebot.' },
+    { id: 'auftraege', titel: 'Aufträge', abschnitt: 'Abrechnung', zeichen: 'vertrag', objekt: 'lv', brauchtProjekt: true,
+      hilfe: 'Links ein vergebenes LV wählen: Hauptauftrag und Nachträge mit Stand und Betrag, darunter Prognose (Auftrag + Nachträge) und abgerechnet. Nachtragspositionen mit EP direkt eintragen.' },
+    { id: 'nachtraege', titel: 'Nachträge', abschnitt: 'Abrechnung', zeichen: 'nachtrag', objekt: 'nachtrag', baum: ['lv', 'stand'], brauchtProjekt: true },
     { id: 'aufmass', titel: 'Aufmaßprüfung', abschnitt: 'Abrechnung', zeichen: 'aufmass', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: je Position Menge laut Firma und dein Rechenweg (z. B. „Wand Nord: 2,5*3,1 - 0,8*2“, je Zeile ein Ansatz). Daneben ✓ stimmt, ✗ weicht ab, ○ noch offen, und der Betrag mit dem EP des Auftrags. „Übernehmen“ setzt die Menge der Firma als Rechenweg.' },
     { id: 'rechnungen', titel: 'Rechnungen', abschnitt: 'Abrechnung', zeichen: 'rechnung', objekt: 'rechnung', baum: ['lv', 'firma'], brauchtProjekt: true },

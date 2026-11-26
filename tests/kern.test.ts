@@ -1201,3 +1201,15 @@ test('Aufmaß: Rechenweg ohne eval, je Zeile ein Ansatz mit Beschriftung; Prüfs
   assert.equal(a.pruefstand('12,5', 12), 'abweichend');
   assert.equal(a.pruefstand(12, null), 'offen');
 });
+
+test('Nachträge: Betrag aus Positionen oder Pauschale, Prognose mit offenen, abgelehnte zählen nicht', async () => {
+  const a = await import('../src/module/ava/rechnung');
+  const n = (id: string, stand: string, betrag: number | null = null) => ({ id, werte: { stand, betrag, nummer: `N${id}` } });
+  const pos = [{ id: 'p1', werte: { nachtrag: '1', art: 'normal', menge: 10, ep: 20 } }, { id: 'p2', werte: { nachtrag: '1', art: 'bedarf', menge: 5, ep: 100 } }, { id: 'p3', werte: { nachtrag: null, art: 'normal', menge: 1, ep: 1 } }];
+  assert.equal(a.nachtragNetto(n('1', 'beauftragt'), pos), 200, 'Bedarfsposition zählt nicht');
+  assert.equal(a.nachtragNetto(n('2', 'angemeldet', 500), pos), 500, 'ohne Positionen: Pauschale');
+  const s = a.auftragsstand(1000, [n('1', 'beauftragt'), n('2', 'angemeldet', 500), n('3', 'abgelehnt', 9999)], pos, 10);
+  assert.deepEqual(s, { auftrag: 1000, beauftragt: 180, offen: 450, aktuell: 1180, prognose: 1630 });
+  assert.equal(a.naechsterNachtrag([n('1', ''), n('3', '')]), 'N4');
+  assert.equal(a.ausgeschrieben(pos[0]!), false);
+});

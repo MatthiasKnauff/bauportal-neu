@@ -33,7 +33,7 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
-import { AngebotSumme, Aufmasspruefung, LvSummen, LvWahl, PositionSumme, Preisspiegel, RechnungLeiter } from './ava';
+import { AngebotSumme, Auftraege, Aufmasspruefung, LvSummen, LvWahl, PositionSumme, Preisspiegel, RechnungLeiter } from './ava';
 import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
 import { springeZu } from './sprung';
@@ -386,7 +386,12 @@ const ANPASSUNG: Record<string, Anpassung> = {
   // Ausschreibung: Summen in den Karten
   lv: { kartenZusatz: (z) => <LvSummen lv={z} />, auswahl: gemeinsam,
     knoepfe: (z) => (darf('lv_position', 'schreiben') ? [{ titel: 'GAEB einlesen', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => gaebEinlesen(String(z.projekt)) }] : []) },
-  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), auswahl: gemeinsam, neuVorgabe: (vorh, schon) => ({ art: 'normal', oz: naechsteOz(vorh.filter((x) => x.werte.lv === schon.lv)) }) },
+  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), auswahl: gemeinsam, neuVorgabe: (vorh, schon) => {
+    // im Nachtrag: dessen Nummer vorne (N1.0010, N1.0020 …), sonst hinter der letzten Position der Ausschreibung
+    const nt = schon.nachtrag ? sicht.nachtrag?.[String(schon.nachtrag)] : undefined;
+    if (nt) { const eigene = vorh.filter((x) => x.werte.nachtrag === nt.id); return { art: 'normal', oz: eigene.length ? naechsteOz(eigene) : `${String(nt.werte.nummer || 'N')}.0010` }; }
+    return { art: 'normal', oz: naechsteOz(vorh.filter((x) => x.werte.lv === schon.lv && !x.werte.nachtrag)) };
+  } },
   angebot: { kartenZusatz: (z) => <AngebotSumme angebot={z} /> },
   rechnung: { auswahl: gemeinsam, kartenZusatz: (z) => <RechnungLeiter rechnung={z} /> },
   // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)
@@ -419,6 +424,8 @@ const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSU
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },
+  'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
+    detailsHinweis: 'Links ein vergebenes Leistungsverzeichnis wählen. „＋ Nachtrag“ legt einen Nachtrag an; den Stand direkt in der Tabelle setzen.' },
   'ava.aufmass': { mitte: (m) => <Aufmasspruefung {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Menge laut Firma und Rechenweg direkt in der Tabelle eintragen; Enter springt eine Zeile tiefer.' },
   'gebaeudemodell.modell3d': { mitte: (m) => <Gebaeude3d {...m} />, detailsHinweis: 'Ein Bauteil in der 3D-Ansicht anklicken – hier steht dann seine Karte, direkt änderbar.' },

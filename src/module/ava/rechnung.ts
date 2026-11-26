@@ -94,3 +94,28 @@ export function pruefstand(mengeFirma: unknown, geprueft: number | null): Pruefs
   if (mengeFirma == null || mengeFirma === '') return 'abweichend';
   return Math.abs(zahl(mengeFirma) - geprueft) < 0.0005 ? 'stimmt' : 'abweichend';
 }
+
+// ---------- Aufträge und Nachträge ----------
+/** Position der Ausschreibung (nicht Teil eines Nachtrags) – nur sie stehen im Preisspiegel und in der GAEB-Ausgabe. */
+export const ausgeschrieben = (p: E) => !p.werte.nachtrag;
+/** Stände, die in die Prognose eingehen: beauftragt sicher, angemeldet bis geprüft als offen; abgelehnt nicht. */
+export const NACHTRAG_OFFEN = ['angemeldet', 'angeboten', 'geprueft', ''];
+/** Betrag eines Nachtrags netto vor Nachlass: Menge × EP seiner Positionen – ohne Positionen der eingetragene Betrag (Pauschale). */
+export function nachtragNetto(nachtrag: E, positionen: E[]): number {
+  const eigene = positionen.filter((p) => p.werte.nachtrag === nachtrag.id && zaehlt(p));
+  return eigene.length ? Math.round(eigene.reduce((s, p) => s + gp(p.werte.menge, p.werte.ep), 0) * 100) / 100 : zahl(nachtrag.werte.betrag);
+}
+export interface Auftragsstand { auftrag: number; beauftragt: number; offen: number; aktuell: number; prognose: number }
+/** Hauptauftrag (nach Nachlass) und Nachträge (Nachlass des Auftrags gilt auch für sie): aktuell = Auftrag + beauftragte, Prognose = dazu die offenen. */
+export function auftragsstand(auftragNachLass: number, nachtraege: E[], positionen: E[], nachlassProzent: number): Auftragsstand {
+  const r2 = (x: number) => Math.round(x * 100) / 100, f = 1 - nachlassProzent / 100;
+  let beauftragt = 0, offen = 0;
+  for (const n of nachtraege) {
+    const b = nachtragNetto(n, positionen) * f, st = String(n.werte.stand ?? '');
+    if (st === 'beauftragt') beauftragt += b; else if (NACHTRAG_OFFEN.includes(st)) offen += b;
+  }
+  beauftragt = r2(beauftragt); offen = r2(offen);
+  return { auftrag: auftragNachLass, beauftragt, offen, aktuell: r2(auftragNachLass + beauftragt), prognose: r2(auftragNachLass + beauftragt + offen) };
+}
+/** Nächste Nachtrags-Nr.: N1, N2 … */
+export const naechsterNachtrag = (nachtraege: E[]) => `N${Math.max(0, ...nachtraege.map((n) => Number(/^N(\d+)$/i.exec(String(n.werte.nummer ?? ''))?.[1] ?? 0))) + 1}`;
