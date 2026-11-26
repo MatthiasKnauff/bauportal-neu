@@ -42,10 +42,15 @@ export function aufmassAusZeilen(zeilen: string[][], positionen: E[]): AufmassLe
     kopf = i; oz = o;
   }
   if (kopf < 0) throw new Error('Keine Kopfzeile mit „OZ“ (oder „Position“) und „Menge“ gefunden.');
+  const paare = zeilen.slice(kopf + 1).map((z) => ({ oz: (z[oz] ?? '').trim(), menge: mengeLesen(z[menge] ?? '') }));
+  return { ozSpalte: zeilen[kopf]![oz]!, mengeSpalte: zeilen[kopf]![menge]!, ...mengenZuordnen(paare, positionen) };
+}
+
+/** Mengen je OZ den Positionen zuordnen (auch für die Zeilen einer E-Rechnung): gleiche OZ addiert, fremde OZ gesammelt. */
+export function mengenZuordnen(paare: { oz: string; menge: number | null }[], positionen: E[]): { treffer: AufmassTreffer[]; fremd: string[] } {
   const nachSchluessel = new Map(positionen.filter((p) => p.werte.oz).map((p) => [ozSchluessel(p.werte.oz), p]));
   const treffer = new Map<string, AufmassTreffer>(), fremd: string[] = [];
-  for (const z of zeilen.slice(kopf + 1)) {
-    const o = (z[oz] ?? '').trim(), m = mengeLesen(z[menge] ?? '');
+  for (const { oz: o, menge: m } of paare) {
     if (!o || m == null) continue;
     const p = nachSchluessel.get(ozSchluessel(o));
     if (!p) { if (!fremd.includes(o)) fremd.push(o); continue; }
@@ -53,5 +58,5 @@ export function aufmassAusZeilen(zeilen: string[][], positionen: E[]): AufmassLe
     if (t) { t.menge = Math.round((t.menge + m) * 1000) / 1000; t.zeilen++; }
     else treffer.set(p.id, { position: p.id, oz: String(p.werte.oz), menge: m, zeilen: 1 });
   }
-  return { ozSpalte: zeilen[kopf]![oz]!, mengeSpalte: zeilen[kopf]![menge]!, treffer: [...treffer.values()], fremd };
+  return { treffer: [...treffer.values()], fremd };
 }

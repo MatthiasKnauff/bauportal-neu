@@ -45,6 +45,7 @@ import { Arbeitszeit } from './arbeitszeit';
 import { BerichtDetails, BerichtLinks, Berichtsseite, berichtDetailsDa } from './bautagebuch';
 import { aufraeumenOeffnen } from './aufraeumen';
 import { adressenEinlesen } from './adresseneinlesen';
+import { rechnungEinlesen } from './rechnungeinlesen';
 import { kontaktAuswahl } from './kontaktauswahl';
 import { PruefSchluessel } from './pruefki';
 
@@ -417,7 +418,8 @@ const ANPASSUNG: Record<string, Anpassung> = {
   } },
   angebot: { kartenZusatz: (z) => <><AngebotSumme angebot={z} /><BesprechungKnopf angebot={z} /></> },
   besprechung: { kartenOben: (z) => <BesprechungAbgleich z={z} /> },
-  rechnung: { auswahl: gemeinsam, kartenZusatz: (z) => <RechnungLeiter rechnung={z} /> },
+  rechnung: { auswahl: gemeinsam, kartenZusatz: (z) => <RechnungLeiter rechnung={z} />,
+    knoepfe: (z) => (darf('rechnung', 'schreiben') ? [{ titel: 'E-Rechnung einlesen …', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => rechnungEinlesen(String(z.projekt)) }] : []) },
   // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)
   foto: {
     kachelnZuerst: true, kachelBreite: 150,

@@ -1254,3 +1254,7 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .bsp-abgleich { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 4px; }
 .bsp-zeile { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: calc(8px * var(--rund)); background: var(--still-hell); font-size: .9em; }
 .bsp-hinweis { background: #fdf0e2; }
+.re-kopf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }
+.re-kopf label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-still); }
+.re-summen { margin-bottom: 8px; }
+.re-summen td:first-child { width: auto; }

@@ -1375,3 +1375,29 @@ test('Aufmaß einlesen: Kopfzeile finden, OZ zuordnen (01.0010 = 1.10), Zeilen a
   assert.deepEqual(l.fremd, ['01.0099']);
   assert.throws(() => a.aufmassAusZeilen([['a', 'b']], pos), /Kopfzeile/);
 });
+
+test('E-Rechnung: CII aus dem PDF-Anhang (ZUGFeRD) und UBL; OZ aus der Bezeichnung, Abzüge keine Positionen', async () => {
+  const e = await import('../src/module/ava/erechnung');
+  const { deflateSync } = await import('node:zlib');
+  const cii = `<?xml version="1.0"?><rsm:CrossIndustryInvoice xmlns:rsm="x" xmlns:ram="y"><rsm:ExchangedDocument><ram:ID>AR-7</ram:ID><ram:IssueDateTime><udt:DateTimeString format="102">20261120</udt:DateTimeString></ram:IssueDateTime></rsm:ExchangedDocument>
+<rsm:SupplyChainTradeTransaction>
+<ram:IncludedSupplyChainTradeLineItem><ram:SpecifiedTradeProduct><ram:Name>01.0010 Wände streichen</ram:Name></ram:SpecifiedTradeProduct><ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>7.50</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement><ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="MTK">200</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery><ram:SpecifiedLineTradeSettlement><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>1500.00</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement></ram:IncludedSupplyChainTradeLineItem>
+<ram:IncludedSupplyChainTradeLineItem><ram:SpecifiedTradeProduct><ram:Name>Abschlag 1</ram:Name></ram:SpecifiedTradeProduct><ram:SpecifiedLineTradeSettlement><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>-500</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement></ram:IncludedSupplyChainTradeLineItem>
+<ram:ApplicableHeaderTradeAgreement><ram:SellerTradeParty><ram:Name>Malerbetrieb Kunz</ram:Name></ram:SellerTradeParty></ram:ApplicableHeaderTradeAgreement>
+<ram:ApplicableHeaderTradeSettlement><ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:TaxTotalAmount>190</ram:TaxTotalAmount><ram:GrandTotalAmount>1190</ram:GrandTotalAmount><ram:DuePayableAmount>1190</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation></ram:ApplicableHeaderTradeSettlement>
+</rsm:SupplyChainTradeTransaction></rsm:CrossIndustryInvoice>`;
+  const strom = deflateSync(Buffer.from(cii));
+  const pdf = Buffer.concat([Buffer.from('%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Length 4 >>\nstream\nabcd\nendstream\nendobj\n'),
+    Buffer.from(`3 0 obj\n<< /Type /EmbeddedFile /Subtype /text#2Fxml /Filter /FlateDecode /Length ${strom.length} >>\nstream\n`), strom, Buffer.from('\nendstream\nendobj\n%%EOF')]);
+  const x = await e.eRechnungXml(new Uint8Array(pdf));
+  assert.ok(x?.includes('AR-7'));
+  const r = e.eRechnungLesen(x!)!;
+  assert.deepEqual([r.nummer, r.datum, r.firma, r.netto, r.brutto], ['AR-7', '2026-11-20', 'Malerbetrieb Kunz', 1500, 1190]);
+  assert.deepEqual(r.zeilen.map((z) => [z.oz, z.kurztext, z.menge, z.einheit]), [['01.0010', 'Wände streichen', 200, 'm²']]);
+  assert.deepEqual(r.abzuege, [{ text: 'Abschlag 1', betrag: -500 }]);
+  assert.equal(await e.eRechnungXml(new Uint8Array(Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj'))), null);
+  const ubl = '<Invoice xmlns="u" xmlns:cbc="c" xmlns:cac="a"><cbc:ID>R-1</cbc:ID><cbc:IssueDate>2026-11-01</cbc:IssueDate><cac:AccountingSupplierParty><cac:Party><cac:PartyName><cbc:Name>Kunz</cbc:Name></cac:PartyName></cac:Party></cac:AccountingSupplierParty>'
+    + '<cac:InvoiceLine><cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity><cbc:LineExtensionAmount>150</cbc:LineExtensionAmount><cac:Item><cbc:Name>Regie</cbc:Name></cac:Item><cac:Price><cbc:PriceAmount>50</cbc:PriceAmount></cac:Price></cac:InvoiceLine></Invoice>';
+  const u = e.eRechnungLesen((await e.eRechnungXml(new TextEncoder().encode(ubl)))!)!;
+  assert.deepEqual([u.nummer, u.firma, u.netto, u.zeilen[0]!.einheit, u.zeilen[0]!.oz], ['R-1', 'Kunz', 150, 'h', '']);
+});

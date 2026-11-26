@@ -21,6 +21,7 @@ import { projektId, setProjektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
 import { Aufraeumen } from './aufraeumen';
 import { AdressenEinlesen } from './adresseneinlesen';
+import { RechnungEinlesen } from './rechnungeinlesen';
 import { KontaktAuswahlFenster } from './kontaktauswahl';
 import { FeldSetzen } from './baukasten/feldsetzen';
 import { ProjektLoeschen } from './projektloeschen';
@@ -68,6 +69,7 @@ export function App() {
       <Uebernahmefenster />
       <Aufraeumen />
       <AdressenEinlesen />
+      <RechnungEinlesen />
       <KontaktAuswahlFenster />
       <FeldSetzen />
       <ProjektLoeschen />
