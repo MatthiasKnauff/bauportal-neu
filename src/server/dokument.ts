@@ -18,7 +18,7 @@ const endung = (n: string) => n.split('.').pop()!.toLowerCase();
 export const dateiname = (n: string) => n.replace(/[\\/:*?"<>|\x00-\x1f]+/g, '-').replace(/^\.+/, '').replace(/\s+/g, ' ').trim().slice(0, 160);
 const ordnername = (n: string) => n.split(/[\\/]+/).map((t) => t.replace(/[:*?"<>|\x00-\x1f]+/g, '-').replace(/^\.+/, '').trim()).filter(Boolean).join('/');
 
-export interface Abzulegen { id: string; projekt: string; art: string; name: string; unterordner: string; daten: Buffer; vorschau: Buffer; bezugObjekt?: string; bezug?: string; eingang?: string }
+export interface Abzulegen { id: string; projekt: string; art: string; name: string; unterordner: string; daten: Buffer; vorschau: Buffer; bezugObjekt?: string; bezug?: string; eingang?: string; quelle?: string }
 
 export async function dokumentAblegen(db: Db, register: Modulregister, umgebung: string, wer: Benutzer, d: Abzulegen): Promise<{ id: string; ort: string; name: string }> {
   if (!KENNUNG.test(d.projekt) || !KENNUNG.test(d.id)) throw new Ablehnung('Projekt fehlt');
@@ -34,7 +34,7 @@ export async function dokumentAblegen(db: Db, register: Modulregister, umgebung:
   await db.query('insert into kern_vorschau (id, bild) values ($1, $2)', [d.id, d.vorschau]);
   const name = wo.pfad.split('/').pop()!.replace(/^[0-9a-f]{16}-/, '');
   await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: 0, objekt: 'dokument', art: 'anlegen', objektId: d.id,
-    werte: { projekt: d.projekt, name, art: d.art, eingang: d.eingang ?? new Date().toISOString().slice(0, 10), ort: wo.ort, pfad: wo.pfad, bezug_objekt: d.bezugObjekt ?? null, bezug: d.bezug ?? null } });
+    werte: { projekt: d.projekt, name, art: d.art, eingang: d.eingang ?? new Date().toISOString().slice(0, 10), ort: wo.ort, pfad: wo.pfad, bezug_objekt: d.bezugObjekt ?? null, bezug: d.bezug ?? null, quelle: d.quelle?.slice(0, 400) ?? null } });
   return { id: d.id, ort: wo.ort, name };
 }
 
@@ -59,7 +59,7 @@ export function dokumentRouten(app: FastifyInstance, e: { db: Db; register: Modu
     try {
       const r = await dokumentAblegen(db, e.register, e.umgebung, req.benutzer!, { id: String(b.id ?? ''), projekt: String(b.projekt ?? ''), art: String(b.art ?? ''), name: String(b.name ?? ''),
         unterordner: String(b.unterordner ?? ''), daten: Buffer.from(String(b.inhalt ?? ''), 'base64'), vorschau: Buffer.from(String(b.vorschau ?? ''), 'base64'),
-        bezugObjekt: b.bezug_objekt || undefined, bezug: b.bezug || undefined, eingang: /^\d{4}-\d{2}-\d{2}$/.test(String(b.eingang ?? '')) ? b.eingang : undefined });
+        bezugObjekt: b.bezug_objekt || undefined, bezug: b.bezug || undefined, eingang: /^\d{4}-\d{2}-\d{2}$/.test(String(b.eingang ?? '')) ? b.eingang : undefined, quelle: b.quelle || undefined });
       e.nachBefehlen();
       return r;
     } catch (err) { return fehler(reply, err); }

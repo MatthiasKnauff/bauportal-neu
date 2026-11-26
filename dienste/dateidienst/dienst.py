@@ -325,6 +325,56 @@ def lesen(a: Lesen, x_schluessel: str | None = Header(default=None)):
     return {"seiten": seiten, "ocr": ocr, "vorschau": base64.b64encode(bild).decode()}
 
 
+class Verschieben(Anfrage):
+    """pfad = Datei innerhalb der Freigabe, nach = Ordner innerhalb der Freigabe (entsteht bei Bedarf)."""
+    nach: str
+
+
+@app.post("/verschieben")
+def verschieben(a: Verschieben, x_schluessel: str | None = Header(default=None)):
+    """Verschiebt eine Datei in einen Ordner (Eingangsordner → „verarbeitet“), höchstens 40 MB. Gibt es den Namen dort schon,
+    bekommt die Datei „ (2)“, „ (3)“ … angehängt – überschrieben wird nie."""
+    _pruefe(x_schluessel)
+    try:
+        v, wurzel = _ziel(a.zugang)
+        quelle = _pfad(wurzel, a.pfad)
+        ziel = _pfad(wurzel, a.nach)
+        stufe = wurzel
+        for teil in [t for t in re.split(r"[\\/]+", a.nach) if t]:
+            stufe = f"{stufe}\\{teil}"
+            try:
+                smbclient.mkdir(stufe, **v)
+            except SMBOSError as e:
+                if e.errno != 17 and "NAME_COLLISION" not in str(e):
+                    raise
+        name = re.split(r"[\\/]+", a.pfad)[-1]
+        stamm, punkt, endung = name.rpartition(".")
+        if not punkt:
+            stamm, endung = name, ""
+        # Kopieren und dann löschen statt Umbenennen: geht auf jedem Dateiserver, auch über Freigabe-Grenzen;
+        # x = nur anlegen, nie überschreiben
+        if smbclient.stat(quelle, **v).st_size > LESEN_GRENZE:
+            raise Fehler("Die Datei ist größer als 40 MB", 413)
+        with smbclient.open_file(quelle, mode="rb", share_access="r", **v) as f:
+            daten = f.read()
+        for n in range(1, 1000):
+            neu = name if n == 1 else f"{stamm} ({n}){punkt}{endung}"
+            try:
+                with smbclient.open_file(_pfad(ziel, neu), mode="xb", **v) as f:
+                    f.write(daten)
+            except SMBOSError as e:
+                if e.errno != 17 and "NAME_COLLISION" not in str(e):
+                    raise
+                continue
+            smbclient.remove(quelle, **v)
+            return {"name": neu}
+        raise Fehler("Für diese Datei ließ sich kein freier Name finden", 409)
+    except Fehler:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise _deute(e) from e
+
+
 @app.post("/schreiben")
 def schreiben(a: Ablegen, x_schluessel: str | None = Header(default=None)):
     """Legt eine neue Datei ab. Fehlende Ordner entstehen; eine vorhandene Datei wird nie überschrieben –

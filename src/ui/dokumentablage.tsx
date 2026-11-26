@@ -20,18 +20,20 @@ import { darf, neueKennung, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 
 interface Gelesen { seiten: string[]; ocr: boolean; vorschau: string }
-interface Offen { datei: File; stand: () => { gelesen?: Gelesen; fehler?: string }; setStand: (s: { gelesen?: Gelesen; fehler?: string }) => void }
+/** Was nach dem Ablegen geschehen soll (Eingangsordner: Scan verschieben) und ob die Seite vorbelegt (sonst nur die Erkennung). */
+export interface Woher { quelle?: string; ohneSeite?: boolean; nachher?: () => Promise<void> }
+interface Offen { datei: File; woher: Woher; stand: () => { gelesen?: Gelesen; fehler?: string }; setStand: (s: { gelesen?: Gelesen; fehler?: string }) => void }
 const ENDUNGEN = /\.(pdf|jpe?g|png|webp|tiff?)$/i;
 
 const [warteschlange, setWarteschlange] = createSignal<Offen[]>([]);
 const [modelle, setModelle] = createSignal<ObjektModell[]>([]);
 
 /** Dateien zum Ablegen geben (Hineinziehen, Eingangsordner): eine nach der anderen. */
-export function dokumenteAblegen(dateien: File[]): void {
+export function dokumenteAblegen(dateien: File[], woher: Woher = {}): void {
   const passend = dateien.filter((d) => ENDUNGEN.test(d.name));
   if (passend.length < dateien.length) hinweis('Ablegen geht bei PDF und Bildern (Scan, Foto) – der Rest wurde übergangen.', { art: 'fehler' });
   if (!passend.length) return;
-  const neu = passend.map((datei): Offen => { const [stand, setStand] = createSignal({}); return { datei, stand, setStand }; });
+  const neu = passend.map((datei): Offen => { const [stand, setStand] = createSignal({}); return { datei, woher, stand, setStand }; });
   setWarteschlange([...warteschlange(), ...neu]);
   for (const o of neu) void lesen(o);
 }
@@ -68,7 +70,7 @@ export function DokumentAblage(p: { module: Beipackzettel[]; modul?: Beipackzett
   return (
     <>
       <Show when={zieht()}><div class="ablage-ziel" aria-hidden="true"><div>Loslassen zum Ablegen<small>{vorbelegt()?.titel} · PDF, Scan oder Foto</small></div></div></Show>
-      <Show when={warteschlange()[0]} keyed>{(o) => <Ablegen o={o} arten={arten()} vor={vorbelegt()} rest={warteschlange().length - 1} />}</Show>
+      <Show when={warteschlange()[0]} keyed>{(o) => <Ablegen o={o} arten={arten()} vor={o.woher.ohneSeite ? arten().find((a) => !a.objekt)! : vorbelegt()} rest={warteschlange().length - 1} />}</Show>
     </>
   );
 }
@@ -95,7 +97,7 @@ function Ablegen(p: { o: Offen; arten: Art[]; vor: Art; rest: number }) {
     const r = new Set<string>();
     if (e.art && e.art !== p.vor.art && (e.punkte[e.art] ?? 0) > (e.punkte[p.vor.art] ?? 0)) { setArt(e.art); r.add('art'); }
     if (e.projekt && e.projekt !== projekt()) { if (projekt()) r.add('projekt'); setProjekt(e.projekt); }
-    setRot(r);
+    setRot(p.o.woher.ohneSeite ? new Set<string>() : r);
     setWerte({ firma: e.firma, nummer: e.nummer || null, datum: e.datum || null, betrag: e.betrag, lv: lvVorschlag(e.firma) });
   };
   const a = () => p.arten.find((x) => x.art === art())!;
@@ -120,7 +122,7 @@ function Ablegen(p: { o: Offen; arten: Art[]; vor: Art; rest: number }) {
     return `${[d, a().titel, firmaName(), w.nummer ? `Nr. ${String(w.nummer)}` : ''].filter(Boolean).join(' ')}.${endung()}`.replace(/[\\/:*?"<>|]+/g, '-');
   };
   const ordner = () => a().ordner.replace('{lv}', lvName(lv()) || 'ohne LV').replace(/\/+$/, '');
-  const fehlt = () => !projekt() ? 'Projekt wählen' : a().felder?.lv && !werte().lv ? 'LV wählen' : a().felder?.firma && feld('firma')?.pflicht && !werte().firma ? 'Firma wählen' : '';
+  const fehlt = () => !projekt() ? 'Projekt wählen' : feld('lv')?.pflicht && !werte().lv ? 'LV wählen' : feld('firma')?.pflicht && !werte().firma ? 'Firma wählen' : '';
   const [laeuft, setLaeuft] = createSignal(false);
   const ablegen = async () => {
     const m = modell(), ziel = neueKennung();
@@ -144,7 +146,8 @@ function Ablegen(p: { o: Offen; arten: Art[]; vor: Art; rest: number }) {
     setLaeuft(true);
     try {
       const r = await ruf<{ ort: string; name: string }>('/api/dokument/ablegen', { id: neueKennung(), projekt: projekt(), art: a().titel, name: name() ?? vorschlagName(), unterordner: ordner(),
-        inhalt: await base64(p.o.datei), vorschau: g()!.vorschau, bezug_objekt: m?.name ?? '', bezug: bezug ?? '', eingang: heute() });
+        inhalt: await base64(p.o.datei), vorschau: g()!.vorschau, bezug_objekt: m?.name ?? '', bezug: bezug ?? '', eingang: heute(), quelle: p.o.woher.quelle ?? '' });
+      await p.o.woher.nachher?.();
       hinweis(`„${r.name}“ ${r.ort === 'ablage' ? `liegt im Projektordner unter ${ordner()}` : 'liegt im Bauportal (Testserver oder Projekt ohne Ordner)'}.`);
       weiter();
     } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
@@ -196,6 +199,61 @@ export function DokumentListe(p: { dokumente: Zeile[] }) {
           <img src={`/api/dokument/vorschau/${d.id}`} alt="" loading="lazy" /><span>{String(d.werte.name ?? '')}</span>
         </a>
       )}</For>
+    </div>
+  );
+}
+
+// ---------- Eingangsordner: Scans vom Kopierer, je Datei „Ablegen“ (erkannt wie beim Hineinziehen), danach „verarbeitet“ ----------
+interface EingangDatei { name: string; groesse: number; geaendert: string }
+export function EingangAnsicht(): JSX.Element {
+  const [stand, setStand] = createSignal<{ dateien: EingangDatei[]; nurLesen: boolean; fertig: string } | null>(null);
+  const [fehler, setFehler] = createSignal('');
+  const laden = async () => { try { setStand(await ruf('/api/eingang')); setFehler(''); } catch (e) { setFehler((e as Error).message); } };
+  onMount(() => { void laden(); const uhr = setInterval(() => void laden(), 60000); onCleanup(() => clearInterval(uhr)); });   // überwacht, solange die Seite offen ist
+  const quelle = (d: EingangDatei) => `eingang:${d.name}|${d.geaendert}`;
+  const abgelegt = createMemo(() => new Set(lebende('dokument').map((x) => String(x.werte.quelle ?? ''))));
+  const ablegen = async (liste: EingangDatei[]) => {
+    for (const d of liste) {
+      const r = await fetch(`/api/eingang/datei?name=${encodeURIComponent(d.name)}`);
+      if (!r.ok) { hinweis(((await r.json().catch(() => ({}))) as { fehler?: string }).fehler ?? `„${d.name}“ ließ sich nicht holen`, { art: 'fehler' }); continue; }
+      dokumenteAblegen([new File([await r.blob()], d.name)], { quelle: quelle(d), ohneSeite: true,
+        nachher: async () => { await ruf('/api/eingang/fertig', { name: d.name }); await laden(); } });
+    }
+  };
+  const neue = () => (stand()?.dateien ?? []).filter((d) => ENDUNGEN.test(d.name) && !abgelegt().has(quelle(d)));
+  const groesse = (b: number) => (b > 1048576 ? `${(b / 1048576).toLocaleString('de-DE', { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+  return (
+    <div class="eingang">
+      <div class="ps-kopf">
+        <h2>Eingang (Scans)</h2>
+        <div class="eingang-knoepfe">
+          <button type="button" class="knopf" onClick={() => void laden()}>Neu laden</button>
+          <button type="button" class="knopf haupt" disabled={!neue().length || !darf('dokument', 'schreiben')} onClick={() => void ablegen(neue())}>Alle neuen ablegen ({neue().length})</button>
+        </div>
+      </div>
+      <Show when={!fehler()} fallback={<p class="feld-fehler">{fehler()}</p>}>
+        <Show when={stand()} fallback={<p class="still-text">Der Eingangsordner wird gelesen …</p>}>{(s) => (
+          <>
+            <p class="still-text klein-text">{s().nurLesen ? 'Testserver: Die Scans bleiben im Eingangsordner liegen – er darf den Dateiserver nur lesen. Abgelegte sind markiert.' : `Nach dem Ablegen wandert der Scan nach „${s().fertig}“.`} Die Liste wird jede Minute neu gelesen.</p>
+            <Show when={s().dateien.length} fallback={<p class="still-text">Der Eingangsordner ist leer.</p>}>
+              <table class="einlesen-tabelle eingang-tabelle">
+                <thead><tr><th>Datei</th><th>eingegangen</th><th class="zahl">Größe</th><th /></tr></thead>
+                <tbody>
+                  <For each={s().dateien}>{(d) => (
+                    <tr classList={{ schon: abgelegt().has(quelle(d)) }}>
+                      <td title={d.name}>{d.name}</td><td>{new Date(d.geaendert).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}</td><td class="zahl">{groesse(d.groesse)}</td>
+                      <td><Show when={ENDUNGEN.test(d.name)} fallback={<span class="still-text klein-text">keine PDF/Bild</span>}>
+                        <Show when={!abgelegt().has(quelle(d))} fallback={<span class="still-text klein-text">abgelegt</span>}>
+                          <button type="button" class="knopf klein" disabled={!darf('dokument', 'schreiben')} onClick={() => void ablegen([d])}>Ablegen</button>
+                        </Show></Show></td>
+                    </tr>
+                  )}</For>
+                </tbody>
+              </table>
+            </Show>
+          </>
+        )}</Show>
+      </Show>
     </div>
   );
 }

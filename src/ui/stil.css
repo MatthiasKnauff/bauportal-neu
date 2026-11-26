@@ -1274,3 +1274,7 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .dok-kachel { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: inherit; font-size: 12px; }
 .dok-kachel img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); background: #fff; }
 @media (max-width: 820px) { .dok-ablage { grid-template-columns: 1fr; } }
+.eingang { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; height: 100%; overflow: auto; box-sizing: border-box; }
+.eingang-knoepfe { display: flex; gap: 8px; }
+.eingang-tabelle th:first-child, .eingang-tabelle td:first-child { width: 50%; }
+.eingang-tabelle th:last-child, .eingang-tabelle td:last-child { width: 110px; text-align: right; }

@@ -139,6 +139,39 @@ export function ablageRouten(app: FastifyInstance, e: { db: Db; umgebung: string
     return z.ordner as string;
   };
 
+  // Eingangsordner (Scans vom Kopierer): zeigen, Datei holen, nach dem Ablegen in den Unterordner „verarbeitet“ –
+  // der Testserver zeigt und liest nur, verschoben wird nur auf der Produktion.
+  const eingang = async (req: FastifyRequest) => {
+    const darf = await alsBenutzer(db, req.benutzer!, async (c) => (await c.query("select bp_darf('dokument', 'schreiben', null) as d")).rows[0].d as boolean);
+    if (!darf) throw new Ablehnung('Dazu fehlt dir das Recht');
+    const z = (await db.query('select eingang, eingang_fertig from o_ablage where id = $1', [ABLAGE_ID])).rows[0];
+    if (!z?.eingang) throw new Dienstfehler('Der Eingangsordner ist noch nicht eingerichtet (Verwaltung → Ablage)', 409);
+    return { ordner: sauber(z.eingang as string), fertig: sauber(z.eingang as string, (z.eingang_fertig as string) || 'verarbeitet') };
+  };
+  const dateiImEingang = (q: unknown) => { const n = String((q as { name?: unknown } | null)?.name ?? ''); if (!n || /[\\/]/.test(n)) throw new Ablehnung('Ungültiger Dateiname'); return n; };
+  app.get('/api/eingang', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    try {
+      const o = await eingang(req);
+      const r = (await (await dienst('/liste', { zugang: await zugang(db), pfad: o.ordner })).json()) as { eintraege: Eintrag[] };
+      return { dateien: r.eintraege.filter((x) => !x.ordner), nurLesen, fertig: o.fertig };
+    } catch (err) { return melde(reply, err); }
+  });
+  app.get('/api/eingang/datei', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    try {
+      const o = await eingang(req), name = dateiImEingang(req.query);
+      const r = await dienst('/datei', { zugang: await zugang(db), pfad: sauber(o.ordner, name) });
+      return reply.header('content-type', 'application/octet-stream').header('cache-control', 'private, no-store').send(Readable.fromWeb(r.body as never));
+    } catch (err) { return melde(reply, err); }
+  });
+  app.post('/api/eingang/fertig', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    try {
+      const o = await eingang(req), name = dateiImEingang(req.body);
+      if (nurLesen) return { verschoben: false };
+      await dienst('/verschieben', { zugang: await zugang(db), pfad: sauber(o.ordner, name), nach: o.fertig });
+      return { verschoben: true };
+    } catch (err) { return melde(reply, err); }
+  });
+
   app.get('/api/ablage/zustand', { preHandler: e.nurAngemeldet }, async () => {
     const z = (await db.query('select freigabe from o_ablage where id = $1', [ABLAGE_ID])).rows[0];
     return { eingerichtet: !!z?.freigabe, kennwortGesetzt: (await geheimnisLesen(db, 'ablage.kennwort')) !== null, nurLesen };

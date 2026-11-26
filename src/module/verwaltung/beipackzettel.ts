@@ -74,6 +74,8 @@ export const ablage: ObjektModell = {
     { name: 'freigabe', titel: 'Freigabe, z. B. \\\\server\\projekte', art: 'text', gruppe: 'Dateiserver' },
     { name: 'benutzer', titel: 'Benutzer auf dem Dateiserver', art: 'text', gruppe: 'Dateiserver' },
     { name: 'domaene', titel: 'Domäne (meist leer)', art: 'text', gruppe: 'Dateiserver' },
+    { name: 'eingang', titel: 'Eingangsordner für Scans (Pfad in der Freigabe, z. B. _Eingang/Kopierer)', art: 'text', gruppe: 'Eingangsordner' },
+    { name: 'eingang_fertig', titel: 'Unterordner für verarbeitete Scans (leer: „verarbeitet“)', art: 'text', gruppe: 'Eingangsordner' },
   ],
 };
 

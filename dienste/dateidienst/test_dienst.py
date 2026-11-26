@@ -102,6 +102,14 @@ def main() -> None:
         assert c.post("/lesen", json={"name": "a.txt", "inhalt": base64.b64encode(b"x").decode()}, headers=k).status_code == 415
         assert c.post("/lesen", json={"name": "a.pdf", "inhalt": base64.b64encode(b"%PDF kaputt").decode()}, headers=k).status_code == 422
         assert c.post("/lesen", json={"name": "a.pdf", "inhalt": base64.b64encode(leer).decode()}).status_code == 403
+        # Verschieben: in einen (neuen) Unterordner, ohne zu überschreiben
+        open(f"{ordner}/Eingang.pdf", "wb").write(b"%PDF eins")
+        r = c.post("/verschieben", json={"zugang": z, "pfad": "Eingang.pdf", "nach": "Scans/verarbeitet"}, headers=k)
+        assert r.status_code == 200 and r.json()["name"] == "Eingang.pdf", r.text
+        open(f"{ordner}/Eingang.pdf", "wb").write(b"%PDF zwei")
+        assert c.post("/verschieben", json={"zugang": z, "pfad": "Eingang.pdf", "nach": "Scans/verarbeitet"}, headers=k).json()["name"] == "Eingang (2).pdf"
+        assert open(f"{ordner}/Scans/verarbeitet/Eingang.pdf", "rb").read() == b"%PDF eins"
+        assert c.post("/verschieben", json={"zugang": z, "pfad": "../x.pdf", "nach": "a"}, headers=k).status_code == 400
         print("Dateidienst: alle Prüfungen bestanden")
 
 

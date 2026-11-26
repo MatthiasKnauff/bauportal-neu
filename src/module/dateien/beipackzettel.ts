@@ -16,6 +16,7 @@ export const dokument: ObjektModell = {
     { name: 'eingang', titel: 'Eingang', art: 'datum', inListe: true, breite: 110, gruppe: 'Dokument' },
     { name: 'ort', titel: 'Original liegt', art: 'auswahl', inListe: true, breite: 170, gruppe: 'Ablage', optionen: [{ wert: 'ablage', titel: 'im Projektordner' }, { wert: 'bauportal', titel: 'im Bauportal' }] },
     { name: 'pfad', titel: 'Pfad des Originals', art: 'text', gruppe: 'Ablage' },
+    { name: 'quelle', titel: 'Aus dem Eingangsordner', art: 'text', verborgen: true },
     { name: 'bezug_objekt', titel: 'Gehört zu (Art)', art: 'text', verborgen: true },
     { name: 'bezug', titel: 'Gehört zu', art: 'text', verborgen: true },
   ],
@@ -34,6 +35,8 @@ export const dateien: Beipackzettel = {
   objekte: [dokument],
   dokumentarten: [{ art: 'dokument', titel: 'Sonstiges Dokument', ordner: 'Eingang', ansichten: ['dateien', 'alle', 'dokumente'], merkmale: [] }],
   ansichten: [
+    { id: 'eingang', titel: 'Eingang (Scans)', abschnitt: 'Dateien', zeichen: 'datei_hoch',
+      hilfe: 'Der Eingangsordner auf dem Dateiserver (Verwaltung → Ablage), z. B. Scans vom Kopierer: je Datei „Ablegen“ – erkannt wird wie beim Hineinziehen; danach wandert der Scan in den Unterordner „verarbeitet“.' },
     { id: 'dokumente', titel: 'Abgelegte Dokumente', abschnitt: 'Dateien', zeichen: 'datei_hoch', objekt: 'dokument', baum: ['art'], brauchtProjekt: true,
       hilfe: 'Alles, was ins Fenster gezogen oder aus dem Eingangsordner übernommen wurde – mit Vorschau und Original.' },
     { id: 'dateien', titel: 'Ordner', abschnitt: 'Dateien', zeichen: 'dateien', brauchtProjekt: true },
