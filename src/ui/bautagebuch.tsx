@@ -321,7 +321,7 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
         <Show when={w().pdf} fallback={<span class="still-text klein-text">Noch nicht als PDF exportiert</span>}><span class="gut-text klein-text">✓ Als PDF exportiert: {String(w().pdf)}</span></Show>
         <span class="bt-werkzeuge">
           <Show when={darf('bericht_eintrag', 'schreiben')}><Diktieren bericht={p.bericht} steuer={(f) => (p.werkzeuge.diktat = f)} /><Schritte bericht={p.bericht} steuer={(f) => (p.werkzeuge.schritte = f)} /></Show>
-          <Verlauf objekt="tagesbericht" id={p.bericht.id} unter={[{ objekt: 'bericht_eintrag', feld: 'bericht' }, { objekt: 'foto', feld: 'bericht' }]} />
+          <Verlauf objekt="tagesbericht" id={p.bericht.id} unter={[{ objekt: 'bericht_eintrag', feld: 'bericht' }, { objekt: 'foto', feld: 'bericht' }]} zurueck={darf('tagesbericht', 'schreiben') ? { ohne: ['foto'], hinweis: 'Fotos bleiben' } : undefined} />
         </span>
       </div>
     </section>

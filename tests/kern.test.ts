@@ -1091,3 +1091,16 @@ test('Bautagebuch laut Bauzeitenplan: erwartete Firmen, Soll und Verzug', async 
   assert.equal(dach.ohne[0]?.gewerk, 'Zimmerer', 'ohne Firma je Gewerk');
   assert.deepEqual(s.erwartet(plan, '2026-11-17', new Set(), new Set(['g:Zimmerer'])).ohne, [], 'ausgeblendet');
 });
+
+test('Verlauf: auf einen früheren Stand – nachgespielt aus dem Protokoll', async () => {
+  const { rueckschritte } = await import('../src/server/verlauf');
+  const b = (seq: number, art: string, id: string, werte: Record<string, unknown> | null = null, objekt = 'bericht_eintrag') => ({ seq, objekt, art, objekt_id: id, werte });
+  const log = [b(1, 'anlegen', 'a', { text: 'Riss', erledigt: false }), b(2, 'anlegen', 'f', { name: 'x.jpg' }, 'foto'), b(3, 'aendern', 'a', { text: 'Riss in der Sohle' }),
+    b(4, 'anlegen', 'c', { text: 'später' }), b(5, 'loeschen', 'a'), b(6, 'anlegen', 'g', { name: 'y.jpg' }, 'foto')];
+  const felder = () => ['text', 'erledigt', 'name'];
+  const r = rueckschritte(log, 3, felder, new Set(['foto']));
+  assert.deepEqual(r.map((x) => `${x.art}:${x.objektId}`).sort(), ['loeschen:c', 'wiederherstellen:a'], 'später Angelegtes weg, Gelöschtes wieder, Fotos bleiben');
+  const r1 = rueckschritte(log, 1, felder, new Set(['foto']));
+  assert.deepEqual(r1.find((x) => x.art === 'aendern')?.werte, { text: 'Riss' }, 'geänderte Felder bekommen den Wert von damals');
+  assert.deepEqual(rueckschritte(log, 6, felder, new Set()), [], 'Stand jetzt: nichts zu tun');
+});
