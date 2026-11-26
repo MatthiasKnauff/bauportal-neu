@@ -1215,7 +1215,8 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .kn-kiste:hover { border-color: var(--akzent); }
 .kn-kiste small { color: var(--text-still); }
 .kn-weg { position: absolute; right: 6px; top: 6px; border: 0; background: none; color: var(--akzent); cursor: pointer; font-size: 14px; }
-.kn-probe { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-top: 1px solid var(--rand); padding-top: 10px; }
+.kn-mittelspalte { position: sticky; top: 0; display: flex; flex-direction: column; gap: 10px; }   /* bleibt stehen, wenn die Listen daneben lang sind */
+.kn-probe { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); padding: 8px 10px; background: var(--flaeche); }
 .kn-liste { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; overflow: auto; }
 .kn-liste details > summary { cursor: pointer; padding: 4px 2px; border-bottom: 1px solid var(--rand); }
 .kn-eintrag { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 3px 8px; font: inherit; font-size: 13px; cursor: grab; border-radius: calc(6px * var(--rund)); }

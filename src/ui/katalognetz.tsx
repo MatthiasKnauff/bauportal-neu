@@ -69,7 +69,7 @@ export function KatalogListe(p: Mitte) {
   );
 }
 
-/** Mitte: Vorgänger | Leistung | Nachfolger, darunter die Probe. */
+/** Mitte: Vorgänger | Leistung | Nachfolger; die Probe direkt unter der Leistung – beide bleiben stehen, wenn die Listen daneben lang sind. */
 export function KatalogNetz(p: Mitte) {
   const schreibenDarf = () => darf('leistungsvorlage', 'schreiben');
   const nachKennung = createMemo(() => new Map(p.alle().map((z) => [kennung(z), z])));
@@ -135,19 +135,28 @@ export function KatalogNetz(p: Mitte) {
             <Show when={schreibenDarf()}><Auswahlliste titel="Vorgänger hinzufügen" platzhalter="＋ Vorgänger …" wert={null} optionen={optionen()}
               onWert={(id) => { const z = p.alle().find((x) => x.id === id); if (z) verbinden(z, m()); }} /></Show>
           </section>
-          <section class="kn-mitte">
-            <h3>{name(m())}</h3>
-            <p class="still-text klein-text">{[m().werte.abschnitt, m().werte.gewerk].filter(Boolean).join(' · ')}</p>
-            <label class="kn-feld">Richtdauer <input type="number" min="0" value={Number(m().werte.dauer ?? 0)} disabled={!schreibenDarf()} aria-label="Richtdauer in Arbeitstagen"
-              onChange={(e) => ausfuehren({ objekt: 'leistungsvorlage', art: 'aendern', objektId: m().id, werte: { dauer: Number(e.currentTarget.value) || 0 } }, `Richtdauer von „${name(m())}“`)} /> AT</label>
-            <div class="auswahl" role="radiogroup" aria-label="Art der Dauer">
-              <For each={[{ w: false, t: 'wächst mit der Fläche' }, { w: true, t: 'feste Dauer' }]}>{(o) => (
-                <button type="button" role="radio" aria-checked={(m().werte.fest === true) === o.w} classList={{ aktiv: (m().werte.fest === true) === o.w }} disabled={!schreibenDarf()}
-                  onClick={() => ausfuehren({ objekt: 'leistungsvorlage', art: 'aendern', objektId: m().id, werte: { fest: o.w } }, `Art der Dauer von „${name(m())}“`)}>{o.t}</button>
-              )}</For>
+          <div class="kn-mittelspalte">
+            <section class="kn-mitte">
+              <h3>{name(m())}</h3>
+              <p class="still-text klein-text">{[m().werte.abschnitt, m().werte.gewerk].filter(Boolean).join(' · ')}</p>
+              <label class="kn-feld">Richtdauer <input type="number" min="0" value={Number(m().werte.dauer ?? 0)} disabled={!schreibenDarf()} aria-label="Richtdauer in Arbeitstagen"
+                onChange={(e) => ausfuehren({ objekt: 'leistungsvorlage', art: 'aendern', objektId: m().id, werte: { dauer: Number(e.currentTarget.value) || 0 } }, `Richtdauer von „${name(m())}“`)} /> AT</label>
+              <div class="auswahl" role="radiogroup" aria-label="Art der Dauer">
+                <For each={[{ w: false, t: 'wächst mit der Fläche' }, { w: true, t: 'feste Dauer' }]}>{(o) => (
+                  <button type="button" role="radio" aria-checked={(m().werte.fest === true) === o.w} classList={{ aktiv: (m().werte.fest === true) === o.w }} disabled={!schreibenDarf()}
+                    onClick={() => ausfuehren({ objekt: 'leistungsvorlage', art: 'aendern', objektId: m().id, werte: { fest: o.w } }, `Art der Dauer von „${name(m())}“`)}>{o.t}</button>
+                )}</For>
+              </div>
+              <p class="still-text klein-text">Die Richtdauer gilt für ein Einfamilienhaus mit {katalog().ref.bau} m²; mit „wächst mit der Fläche“ passt das Programm sie der Größe an.</p>
+            </section>
+            <div class="kn-probe">
+              <b>Probe</b>
+              <div class="auswahl" role="radiogroup" aria-label="Beispielgebäude">
+                <For each={PROBEN}>{(x) => <button type="button" role="radio" aria-checked={probe().k === x.k} classList={{ aktiv: probe().k === x.k }} onClick={() => setProbe(x)}>{x.titel}</button>}</For>
+              </div>
+              <span>{jetzt() === null ? 'für diese Gebäudeart fehlen Regeln' : <>Gesamtbauzeit <b>{jetzt()} AT</b><Show when={vorher() !== null && vorher() !== jetzt()}> (vorher {vorher()} AT)</Show></>}</span>
             </div>
-            <p class="still-text klein-text">Die Richtdauer gilt für ein Einfamilienhaus mit {katalog().ref.bau} m²; mit „wächst mit der Fläche“ passt das Programm sie der Größe an.</p>
-          </section>
+          </div>
           <section class="kn-seite" onDragOver={(e) => e.preventDefault()} onDrop={(e) => fallen(e, 'nach')} aria-label="Nachfolger">
             <h3>Nachfolger</h3>
             <For each={nach()}>{(x) => <Kiste z={x.z} b={x.b} ziel={x.z} id={kennung(m())} />}</For>
@@ -156,13 +165,6 @@ export function KatalogNetz(p: Mitte) {
           </section>
         </div>
       )}</Show>
-      <div class="kn-probe">
-        <b>Probe</b>
-        <div class="auswahl" role="radiogroup" aria-label="Beispielgebäude">
-          <For each={PROBEN}>{(x) => <button type="button" role="radio" aria-checked={probe().k === x.k} classList={{ aktiv: probe().k === x.k }} onClick={() => setProbe(x)}>{x.titel}</button>}</For>
-        </div>
-        <span>{jetzt() === null ? 'für diese Gebäudeart fehlen Regeln' : <>Gesamtbauzeit <b>{jetzt()} AT</b><Show when={vorher() !== null && vorher() !== jetzt()}> (vorher {vorher()} AT)</Show></>}</span>
-      </div>
     </div>
   );
 }
