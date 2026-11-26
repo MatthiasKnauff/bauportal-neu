@@ -7,7 +7,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Modulregister } from '../kern/modul';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import type { Db } from './db';
-import { Ablehnung, befehlAusfuehren } from './protokoll';
+import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const GROESSE = 600 * 1024;
@@ -21,7 +21,7 @@ export async function logoDaten(db: Db): Promise<string> {
 export function logoRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
   app.addContentTypeParser('image/png', { parseAs: 'buffer', bodyLimit: GROESSE }, (_req, body, fertig) => fertig(null, body));
   const vermerken = (req: FastifyRequest, logo: string) =>
-    befehlAusfuehren(e.db, e.register, req.benutzer!, { id: randomUUID(), gesehen: 0, objekt: 'buero', art: 'aendern', objektId: BUERO_ID, werte: { logo } });
+    befehlAusfuehren(e.db, e.register, req.benutzer!, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'buero', art: 'aendern', objektId: BUERO_ID, werte: { logo } });
 
   app.post('/api/buero/logo', { preHandler: e.nurAngemeldet, bodyLimit: GROESSE }, async (req) => {
     const bild = req.body;

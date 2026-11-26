@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import { ROLLEN } from '../kern/rechte';
 import { SYSTEM, type Db } from './db';
-import { befehlAusfuehren } from './protokoll';
+import { befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { ABLAGE_ID, BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { VORINSTALLIERT } from '../kern/design';
 
@@ -16,7 +16,7 @@ export function festeKennung(text: string): string {
 
 export async function grundausstattung(db: Db, register: Modulregister): Promise<void> {
   const system = (objekt: string, objektId: string, werte: Record<string, unknown>) =>
-    befehlAusfuehren(db, register, SYSTEM, { id: randomUUID(), objekt, art: 'anlegen', objektId, werte, gesehen: 0 });
+    befehlAusfuehren(db, register, SYSTEM, { id: randomUUID(), objekt, art: 'anlegen', objektId, werte, gesehen: ALLES_GESEHEN });
 
   // Benutzer aus dem ersten Stand (Tabelle kern_benutzer) werden zu Objekten; Kennwörter ziehen mit um.
   const alt = await db.query("select to_regclass('kern_benutzer') as t");

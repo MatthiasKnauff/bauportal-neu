@@ -8,7 +8,7 @@ import type { Modulregister } from '../kern/modul';
 import type { Befehl } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
-import { Ablehnung } from './protokoll';
+import { Ablehnung, ALLES_GESEHEN } from './protokoll';
 import type { Benutzer } from './anmeldung';
 import { fotoAblegen } from './foto';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
@@ -228,7 +228,7 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung(`Der Plan ist nicht lesbar (${(x as Error).message})`); }
     const plan = await alsBenutzer(db, req.benutzer!, async (c) => {
       const vorweg: Befehl[] = [], hinweise: string[] = [];
-      const kopf = () => ({ id: randomUUID(), gesehen: 0, herkunft: 'uebernahme' });
+      const kopf = () => ({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'uebernahme' });
       // Projekt: das aus dem alten Bautagebuch übernommene, mit dem der Plan verknüpft war – sonst ein neues
       let projekt = (alt.bt !== null ? (await c.query('select id from o_projekt where kennung = $1 and not geloescht', [`alt:projekt:${alt.bt}`])).rows[0]?.id : undefined)
         ?? (await c.query('select id from o_projekt where kennung = $1 and not geloescht', [`alt-gantt:${id}`])).rows[0]?.id as string | undefined;

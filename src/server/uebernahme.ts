@@ -8,7 +8,7 @@ import type { Modulregister } from '../kern/modul';
 import type { Befehl } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { spalte, tabelle, type Db } from './db';
-import { Ablehnung, vorgangAusfuehren } from './protokoll';
+import { Ablehnung, vorgangAusfuehren, ALLES_GESEHEN } from './protokoll';
 
 export type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
 export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number; eintraege: number /* ohne Befehle eingespielt (Nachschlag) */ }
@@ -30,7 +30,7 @@ export function abgleicher(c: PoolClient, register: Modulregister, ziel: Werte, 
   const je: Record<string, Zahl> = {};
   // Kennung der Quelle -> Kennung im Bauportal, je Objektart; so finden Geschosse ihr Gebäude und Bauteile ihr Geschoss
   const ort: Record<string, Map<string, string>> = {};
-  const kopf = () => ({ id: randomUUID(), gesehen: 0, herkunft });
+  const kopf = () => ({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft });
 
   /**
    * gehoert: welche vorhandenen Einträge zu dieser Quelle zählen – fehlen sie im neuen Stand, entfallen sie.

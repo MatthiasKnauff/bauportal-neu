@@ -5,7 +5,7 @@ import type { Modulregister } from '../kern/modul';
 import type { Befehl, Protokolliert } from '../kern/befehl';
 import { Eingabefehler, KENNUNG, type Werte } from '../kern/modell';
 import { tabelle, type Absender, type Db } from './db';
-import { Ablehnung, regelAnmelden, vorgangAusfuehren } from './protokoll';
+import { Ablehnung, regelAnmelden, vorgangAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { alsBenutzer } from './db';
 
 // Folgebefehle des Kerns („die anderen sind nicht mehr gültig“) dürfen, was ein Benutzer direkt nicht darf.
@@ -68,7 +68,7 @@ export async function versionKopieren(db: Db, register: Modulregister, wer: Abse
     const quelle = (await c.query('select * from o_version where id = $1 and not geloescht', [e.quelle])).rows[0];
     if (!quelle) throw new Ablehnung('Die Vorlage gibt es nicht (mehr)');
     const neu = e.versionId as string;
-    const liste: Befehl[] = [{ id: e.vorgang as string, objekt: 'version', art: 'anlegen', objektId: neu, gesehen: 0, werte: { projekt: e.projekt as string, bereich: quelle.bereich, name } }];
+    const liste: Befehl[] = [{ id: e.vorgang as string, objekt: 'version', art: 'anlegen', objektId: neu, gesehen: ALLES_GESEHEN, werte: { projekt: e.projekt as string, bereich: quelle.bereich, name } }];
     const modelle = register.alleModelle.filter((m) => m.versionsBereich === quelle.bereich);
     const kopien = new Map<string, string>();
     const zeilen: { m: (typeof modelle)[number]; z: Record<string, unknown> }[] = [];
@@ -82,13 +82,13 @@ export async function versionKopieren(db: Db, register: Modulregister, wer: Abse
         werte[f.name] = f.name === 'version' ? neu : f.name === m.projektFeld ? (e.projekt as string) : f.art === 'verweis' && typeof w === 'string' ? (kopien.get(w) ?? w) : w;
       }
       const ziel = kopien.get(z.id as string)!;
-      liste.push({ id: randomUUID(), objekt: m.name, art: 'anlegen', objektId: ziel, gesehen: 0, werte });
+      liste.push({ id: randomUUID(), objekt: m.name, art: 'anlegen', objektId: ziel, gesehen: ALLES_GESEHEN, werte });
       // Die Herkunft der Werte wandert mit: was in der Vorlage geschätzt war, ist es auch in der Kopie.
       const gruppen = new Map<string, Werte>();
       for (const [k, st] of Object.entries(z._stand as Record<string, { herkunft?: string }>)) {
         if (st.herkunft && k in werte && k !== 'version' && k !== m.projektFeld) gruppen.set(st.herkunft, { ...(gruppen.get(st.herkunft) ?? {}), [k]: werte[k]! });
       }
-      for (const [herkunft, felder] of gruppen) liste.push({ id: randomUUID(), objekt: m.name, art: 'aendern', objektId: ziel, gesehen: 0, werte: felder, herkunft });
+      for (const [herkunft, felder] of gruppen) liste.push({ id: randomUUID(), objekt: m.name, art: 'aendern', objektId: ziel, gesehen: ALLES_GESEHEN, werte: felder, herkunft });
     }
     return liste;
   });

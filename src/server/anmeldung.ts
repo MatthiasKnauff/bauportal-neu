@@ -6,7 +6,7 @@ import { Eingabefehler } from '../kern/modell';
 import type { Modulregister } from '../kern/modul';
 import type { Rechte } from '../kern/rechte';
 import { SYSTEM, alsBenutzer, type Db } from './db';
-import { befehlAusfuehren } from './protokoll';
+import { befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 
 const scryptP = promisify(scrypt) as (pw: string, salz: Buffer, laenge: number) => Promise<Buffer>;
@@ -63,7 +63,7 @@ export async function ersteinrichtung(db: Db, register: Modulregister, e: Einric
     if (await eingerichtet(db)) throw new Eingabefehler({}, 'Das Bauportal ist schon eingerichtet');
     const id = randomUUID();
     const p = await befehlAusfuehren(db, register, SYSTEM, {
-      id: randomUUID(), objekt: 'benutzer', art: 'anlegen', objektId: id, gesehen: 0,
+      id: randomUUID(), objekt: 'benutzer', art: 'anlegen', objektId: id, gesehen: ALLES_GESEHEN,
       werte: { name: e.name, anmeldename: e.anmeldename, rolle: 'admin' },
     });
     await kennwortSetzen(db, id, kennwort);
@@ -72,11 +72,11 @@ export async function ersteinrichtung(db: Db, register: Modulregister, e: Einric
     if (String(e.bueroname ?? '').trim()) buero.name = e.bueroname;
     if (String(e.bundesland ?? '').trim()) buero.bundesland = e.bundesland;
     if (Object.keys(buero).length) {
-      await befehlAusfuehren(db, register, ich, { id: randomUUID(), objekt: 'buero', art: 'aendern', objektId: BUERO_ID, werte: buero, gesehen: 0 });
+      await befehlAusfuehren(db, register, ich, { id: randomUUID(), objekt: 'buero', art: 'aendern', objektId: BUERO_ID, werte: buero, gesehen: ALLES_GESEHEN });
     }
     if (e.musterprojekt === true) {
       const anlegen = (objekt: string, werte: Record<string, unknown>) =>
-        befehlAusfuehren(db, register, ich, { id: randomUUID(), objekt, art: 'anlegen', objektId: randomUUID(), werte, gesehen: 0 });
+        befehlAusfuehren(db, register, ich, { id: randomUUID(), objekt, art: 'anlegen', objektId: randomUUID(), werte, gesehen: ALLES_GESEHEN });
       await anlegen('projekt', { name: 'Musterprojekt Wohnhaus', nummer: 'M-001', bauherr: 'Familie Muster', strasse: 'Musterweg 1', plz: '45127', ort: 'Essen',
         notiz: 'Ein Projekt zum Ausprobieren. Es lässt sich jederzeit löschen.' });
       await anlegen('kontakt', { name: 'Muster Rohbau GmbH', art: 'firma', gewerk: 'Rohbau', ort: 'Essen', telefon: '0201 000001', email: 'info@muster-rohbau.example' });

@@ -9,7 +9,7 @@ import { KENNUNG } from '../kern/modell';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import { SYSTEM, alsBenutzer, type Db } from './db';
-import { Ablehnung, befehlAusfuehren } from './protokoll';
+import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 
 const datei = (version: string) => path.join(process.env.DATEN_PFAD ?? '/data', 'netz', `${version}.json.gz`);
 
@@ -30,7 +30,7 @@ export async function netzSpeichern(db: Db, register: Modulregister, version: st
   await mkdir(path.dirname(ziel), { recursive: true });
   await writeFile(`${ziel}.neu`, netz);
   await rename(`${ziel}.neu`, ziel);
-  await befehlAusfuehren(db, register, SYSTEM, { id: randomUUID(), gesehen: 0, objekt: 'version', art: 'aendern', objektId: version, werte: { netz: new Date().toISOString() } });
+  await befehlAusfuehren(db, register, SYSTEM, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'version', art: 'aendern', objektId: version, werte: { netz: new Date().toISOString() } });
 }
 export const netzDa = async (version: string) => !!(await stat(datei(version)).catch(() => null));
 

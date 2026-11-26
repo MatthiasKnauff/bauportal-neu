@@ -6,7 +6,7 @@ import type { Modulregister } from '../kern/modul';
 import { KENNUNG } from '../kern/modell';
 import { gaebLesen } from '../module/ava/gaeb';
 import { alsBenutzer, type Db } from './db';
-import { Ablehnung } from './protokoll';
+import { Ablehnung, ALLES_GESEHEN } from './protokoll';
 import { abgleicher, merken, type Vorschau } from './uebernahme';
 
 /** Text einer Datei – in der Kodierung, die ihre XML-Kopfzeile nennt (ältere Programme schreiben oft ISO-8859-1). */
@@ -52,7 +52,7 @@ export function avaRouten(app: FastifyInstance, e: { db: Db; register: Modulregi
       // Leistungsverzeichnis: neues LV oder Abgleich mit dem gewählten
       const lvId = lvDa ? String(lvDa.id) : randomUUID();
       const { liste, je, abgleichen } = abgleicher(c, e.register, { projekt: q.projekt!, lv: lvId }, 'gaeb', ['gaeb']);
-      if (!lvDa) liste.push({ id: randomUUID(), gesehen: 0, herkunft: 'gaeb', objekt: 'lv', art: 'anlegen', objektId: lvId, werte: { projekt: q.projekt!, name: d.name || 'LV aus GAEB', nummer: '', status: 'bearbeitung' } });
+      if (!lvDa) liste.push({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'gaeb', objekt: 'lv', art: 'anlegen', objektId: lvId, werte: { projekt: q.projekt!, name: d.name || 'LV aus GAEB', nummer: '', status: 'bearbeitung' } });
       await abgleichen('lv_position', d.posten.map((x, i) => ({ kennung: x.kennung, werte: { oz: x.oz, art: x.art, kurztext: x.kurztext, langtext: x.langtext, menge: x.menge, einheit: x.einheit, ep: x.ep, reihe: i + 1 } })),
         (k) => k !== '');
       hinweise.push(lvDa ? `Abgleich mit dem LV „${lvDa.name}“: Positionen aus der Datei ersetzen die früher eingelesenen; von Hand Geändertes bleibt.` : `Neues LV „${d.name || 'LV aus GAEB'}“.`);

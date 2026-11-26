@@ -10,7 +10,7 @@ import type { Modulregister } from '../kern/modul';
 import { alsBenutzer, spalte, tabelle, type Db } from './db';
 import { werteAus } from './druck';
 import { vcard, vcardName } from '../kern/vcard';
-import { Ablehnung } from './protokoll';
+import { Ablehnung, ALLES_GESEHEN } from './protokoll';
 import { merken, type Vorschau, type Zahl } from './uebernahme';
 
 const RECHTSFORMEN = /\b(gmbh|mbh|co|kg|ag|ug|ohg|gbr|e\s?k|e\s?v|inh|haftungsbeschraenkt|und|u)\b/g;
@@ -92,7 +92,7 @@ export function adressenRouten(app: FastifyInstance, e: { db: Db; register: Modu
       const kontakte = new Map((await c.query(`select * from ${tabelle('kontakt')} where not geloescht and id = any($1)`, [alle])).rows.map((z) => [z.id as string, werteAus(km, z)]));
       const liste: Befehl[] = [], je: Record<string, Zahl> = {}, hinweise: string[] = [];
       const zaehle = (titel: string, art: keyof Zahl) => { (je[titel] ??= { neu: 0, geaendert: 0, entfernt: 0, unveraendert: 0, behalten: 0 })[art]++; };
-      const kopf = () => ({ id: randomUUID(), gesehen: 0, herkunft: 'aufraeumen' });
+      const kopf = () => ({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'aufraeumen' });
       for (const g of gruppen) {
         const behalten = kontakte.get(g.behalten!);
         const weg = (g.weg ?? []).filter((id) => kontakte.has(id));

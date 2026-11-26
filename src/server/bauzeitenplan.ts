@@ -7,7 +7,7 @@ import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { STANDARD, planDruck, type Druckoptionen, type Plandaten } from '../module/bauzeitenplan/druck';
 import { planAus, type Plan } from '../module/bauzeitenplan/plan';
 import { alsBenutzer, tabelle, type Db } from './db';
-import { Ablehnung } from './protokoll';
+import { Ablehnung, ALLES_GESEHEN } from './protokoll';
 import type { Benutzer } from './anmeldung';
 import { pdfAus, werteAus } from './druck';
 import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
@@ -71,7 +71,7 @@ export async function planUebernehmen(c: PoolClient, register: Modulregister, zi
   const meins = (k: string) => k.startsWith(vor);
   // Kalender: je Version einer – vorhandenen weiterführen
   const zp = (await c.query('select * from o_zeitplan where version = $1 and not geloescht order by id limit 1', [ziel.version])).rows[0];
-  const kopf = () => ({ id: randomUUID(), gesehen: 0, herkunft: 'uebernahme' });
+  const kopf = () => ({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'uebernahme' });
   const zw: Werte = { anfang: alt.zeitplan.anfang, arbeitswoche: alt.zeitplan.arbeitswoche, bundesland: alt.zeitplan.bundesland };
   if (!zp) { liste.push({ ...kopf(), objekt: 'zeitplan', art: 'anlegen', objektId: randomUUID(), werte: { ...ziel, ...zw, notiz: '' } }); je.zeitplan = { neu: 1, geaendert: 0, entfernt: 0, unveraendert: 0, behalten: 0 }; }
   else {
@@ -141,7 +141,7 @@ export function assistentRouten(app: FastifyInstance, e: { db: Db; register: Mod
       const merk = JSON.stringify({ geb: a.geb, mass: a.mass, ber: a.ber, denkmal: a.denkmal, flaeche: a.flaeche, einheiten: a.einheiten, geschosse: a.geschosse, dg: a.dg, takt: a.takt, wahl: a.wahl, auswahl: a.auswahl, dauern: a.dauern });
       const zpBefehl = r.liste.find((x) => x.objekt === 'zeitplan');
       if (zpBefehl?.werte) zpBefehl.werte.assistent = merk;
-      else if (zp && zp.assistent !== merk) r.liste.unshift({ id: randomUUID(), gesehen: 0, objekt: 'zeitplan', art: 'aendern', objektId: zp.id, werte: { assistent: merk } });
+      else if (zp && zp.assistent !== merk) r.liste.unshift({ id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'zeitplan', art: 'aendern', objektId: zp.id, werte: { assistent: merk } });
       return { ...r, hinweise: [
         `Bauart: ${as.bauart.n} · ${as.auswahl().size} Leistungen${as.einheiten > 1 ? ` in ${as.einheiten} Einheiten (${a.takt === 'versetzt' ? 'im Takt' : 'parallel'})` : ''}. Die Dauern sind Richtwerte aus Mengen und Fläche – im Plan änderbar.`,
         ...(firmen.length ? [] : ['Firmen kommen aus den Beteiligten des Projekts (Aufgabe = Gewerk) – noch ist niemand beteiligt.']),

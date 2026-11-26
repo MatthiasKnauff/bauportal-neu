@@ -35,12 +35,12 @@ export const dateien: Beipackzettel = {
   objekte: [dokument],
   dokumentarten: [{ art: 'dokument', titel: 'Sonstiges Dokument', ordner: 'Eingang', ansichten: ['dateien', 'alle', 'dokumente'], merkmale: [] }],
   ansichten: [
+    { id: 'dateien', titel: 'Ordner', abschnitt: 'Dateien', zeichen: 'dateien', brauchtProjekt: true },
+    { id: 'alle', titel: 'Alle Dateien', abschnitt: 'Dateien', zeichen: 'liste', brauchtProjekt: true,
+      hilfe: 'Alle Dateien des Projektordners mit allen Unterordnern – links filtern nach Art, Zeitraum und Ordner – mehrere Werte verknüpfen (ODER, UND), ein Klick auf einen Filter im Kasten schließt ihn aus (NICHT); oben suchen (Name oder Ordner) oder beim Tippen einen Filter vorschlagen lassen. Neueste zuerst. Ein Klick zeigt rechts die Datei, ein Doppelklick öffnet sie.' },
     { id: 'eingang', titel: 'Eingang (Scans)', abschnitt: 'Dateien', zeichen: 'datei_hoch',
       hilfe: 'Der Eingangsordner auf dem Dateiserver (Verwaltung → Ablage), z. B. Scans vom Kopierer: je Datei „Ablegen“ – erkannt wird wie beim Hineinziehen; danach wandert der Scan in den Unterordner „verarbeitet“.' },
     { id: 'dokumente', titel: 'Abgelegte Dokumente', abschnitt: 'Dateien', zeichen: 'datei_hoch', objekt: 'dokument', baum: ['art'], brauchtProjekt: true,
       hilfe: 'Alles, was ins Fenster gezogen oder aus dem Eingangsordner übernommen wurde – mit Vorschau und Original.' },
-    { id: 'dateien', titel: 'Ordner', abschnitt: 'Dateien', zeichen: 'dateien', brauchtProjekt: true },
-    { id: 'alle', titel: 'Alle Dateien', abschnitt: 'Dateien', zeichen: 'liste', brauchtProjekt: true,
-      hilfe: 'Alle Dateien des Projektordners mit allen Unterordnern – links filtern nach Art, Zeitraum und Ordner – mehrere Werte verknüpfen (ODER, UND), ein Klick auf einen Filter im Kasten schließt ihn aus (NICHT); oben suchen (Name oder Ordner) oder beim Tippen einen Filter vorschlagen lassen. Neueste zuerst. Ein Klick zeigt rechts die Datei, ein Doppelklick öffnet sie.' },
   ],
 };

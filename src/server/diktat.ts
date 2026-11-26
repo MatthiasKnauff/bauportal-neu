@@ -6,7 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Befehl } from '../kern/befehl';
 import { KENNUNG, type Werte } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
-import { Ablehnung } from './protokoll';
+import { Ablehnung, ALLES_GESEHEN } from './protokoll';
 import { kiText } from './ki';
 import { EINTRAGSARTEN } from '../module/bautagebuch/beipackzettel';
 import { merken, type Vorschau, type Zahl } from './uebernahme';
@@ -38,7 +38,7 @@ export function diktatBefehle(g: Geordnet, bericht: { id: string; projekt: strin
   const liste: Befehl[] = [], je: Record<string, Zahl> = {};
   let reihe = reiheAb;
   const eintrag = (art: string, werte: Werte) => {
-    liste.push({ id: randomUUID(), gesehen: 0, herkunft: 'ki', objekt: 'bericht_eintrag', art: 'anlegen', objektId: randomUUID(),
+    liste.push({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'ki', objekt: 'bericht_eintrag', art: 'anlegen', objektId: randomUUID(),
       werte: { projekt: bericht.projekt, bericht: bericht.id, art, text: '', firma: null, personen: null, frist: null, erledigt: false, kennung: '', reihe: ++reihe, ...werte } });
     (je[EINTRAGSARTEN.find((e) => e.wert === art)!.mehrzahl] ??= { neu: 0, geaendert: 0, entfernt: 0, unveraendert: 0, behalten: 0 }).neu++;
   };
@@ -50,7 +50,7 @@ export function diktatBefehle(g: Geordnet, bericht: { id: string; projekt: strin
   const w: Werte = {};
   if (!bericht.wetter && WETTER.has(text(g.wetter))) w.wetter = text(g.wetter);
   if (bericht.temperatur == null && typeof g.temperatur === 'number' && Number.isFinite(g.temperatur)) w.temperatur = Math.round(g.temperatur * 10) / 10;
-  if (Object.keys(w).length) { liste.push({ id: randomUUID(), gesehen: 0, herkunft: 'ki', objekt: 'tagesbericht', art: 'aendern', objektId: bericht.id, werte: w }); je.tagesbericht = { neu: 0, geaendert: 1, entfernt: 0, unveraendert: 0, behalten: 0 }; }
+  if (Object.keys(w).length) { liste.push({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'ki', objekt: 'tagesbericht', art: 'aendern', objektId: bericht.id, werte: w }); je.tagesbericht = { neu: 0, geaendert: 1, entfernt: 0, unveraendert: 0, behalten: 0 }; }
   return { liste, je };
 }
 

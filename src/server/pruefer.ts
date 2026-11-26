@@ -10,7 +10,7 @@ import type { Modulregister } from '../kern/modul';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { aufbauText, dateiText, diensteZustand, lies } from './aufbau';
 import { SYSTEM, type Db } from './db';
-import { Ablehnung, befehlAusfuehren } from './protokoll';
+import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 
 const pruefsumme = (t: string) => createHash('sha256').update(t).digest('hex');
 const OFFEN_HOECHSTENS = 100;
@@ -89,7 +89,7 @@ export function prueferRouten(app: FastifyInstance, e: { db: Db; register: Modul
     const offen = Number((await e.db.query("select count(*) from o_pruefrat where zugang = $1 and stand = 'offen' and not geloescht", [req.pruefzugang!.id])).rows[0].count);
     if (offen >= OFFEN_HOECHSTENS) throw new Ablehnung(`Es sind schon ${OFFEN_HOECHSTENS} Ratschläge offen – bitte warten, bis wir sie beantwortet haben`);
     const id = randomUUID();
-    await befehlAusfuehren(e.db, e.register, SYSTEM, { id: randomUUID(), gesehen: 0, herkunft: 'pruef_ki', objekt: 'pruefrat', art: 'anlegen', objektId: id, werte: {
+    await befehlAusfuehren(e.db, e.register, SYSTEM, { id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'pruef_ki', objekt: 'pruefrat', art: 'anlegen', objektId: id, werte: {
       titel: text('titel', 200), text: text('text', 8000), baustein: text('baustein', 300), regel: text('regel', 100), stand: 'offen', antwort: '',
       eingang: new Date().toLocaleDateString('sv', { timeZone: 'Europe/Berlin' }), zugang: req.pruefzugang!.id,
     } });

@@ -8,7 +8,7 @@ import { dateiname, druckSeite, listenfolge, verzeichnisSpalten, type Druckdaten
 import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, spalte, tabelle, type Db } from './db';
-import { Ablehnung, befehlAusfuehren } from './protokoll';
+import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { logoDaten } from './logo';
 import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
 import type { Benutzer } from './anmeldung';
@@ -110,7 +110,7 @@ async function vermerken(db: Db, register: Modulregister, wer: Benutzer, ausdruc
   const a = register.ausdrucke.find((x) => x.id === ausdruckId);
   if (!a?.vermerk) return;
   const zeit = new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: 0, objekt: a.objekt, art: 'aendern', objektId, werte: { [a.vermerk]: `${name} · ${zeit}${abgelegt ? ' · im Projektordner' : ''}` } });
+  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: a.objekt, art: 'aendern', objektId, werte: { [a.vermerk]: `${name} · ${zeit}${abgelegt ? ' · im Projektordner' : ''}` } });
 }
 
 export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {

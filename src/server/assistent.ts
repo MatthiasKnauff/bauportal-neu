@@ -8,7 +8,7 @@ import type { Befehl } from '../kern/befehl';
 import { KENNUNG, pruefeWerte, type Werte } from '../kern/modell';
 import { schaetzen } from '../module/gebaeudemodell/schaetzung';
 import { alsBenutzer, type Db } from './db';
-import { Ablehnung } from './protokoll';
+import { Ablehnung, ALLES_GESEHEN } from './protokoll';
 import type { Benutzer } from './anmeldung';
 import { KEIN_KG_KATALOG, kostengruppen } from './gebaeudemodell';
 import { kostengruppeNummer } from '../module/gebaeudemodell/beipackzettel';
@@ -34,12 +34,12 @@ export async function planeSchaetzung(db: Db, register: Modulregister, wer: Benu
     const bgfGeschaetzt = !(typeof werte.bgf === 'number' && werte.bgf > 0) && (!alt || alt.bgf === null || alt._stand?.bgf?.herkunft === 'geschaetzt');
     const { bgf: _b, ...ohneBgf } = werte;
     const eigene = bgfGeschaetzt ? ohneBgf : werte;
-    if (!alt) vorweg.push({ id: randomUUID(), gesehen: 0, objekt: 'gebaeude', art: 'anlegen', objektId: id, werte: { projekt, version, ...eigene, name: werte.name || 'Gebäude' } });
+    if (!alt) vorweg.push({ id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'gebaeude', art: 'anlegen', objektId: id, werte: { projekt, version, ...eigene, name: werte.name || 'Gebäude' } });
     else {
       const neu = Object.fromEntries(Object.entries(eigene).filter(([k, w]) => (alt[k] ?? null) !== w && !(typeof w === 'number' && Number(alt[k]) === w)));
-      if (Object.keys(neu).length) vorweg.push({ id: randomUUID(), gesehen: 0, objekt: 'gebaeude', art: 'aendern', objektId: id, werte: neu });
+      if (Object.keys(neu).length) vorweg.push({ id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'gebaeude', art: 'aendern', objektId: id, werte: neu });
     }
-    if (bgfGeschaetzt && Number(alt?.bgf) !== s.bgf) vorweg.push({ id: randomUUID(), gesehen: 0, objekt: 'gebaeude', art: 'aendern', objektId: id, werte: { bgf: s.bgf }, herkunft: 'geschaetzt' });
+    if (bgfGeschaetzt && Number(alt?.bgf) !== s.bgf) vorweg.push({ id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'gebaeude', art: 'aendern', objektId: id, werte: { bgf: s.bgf }, herkunft: 'geschaetzt' });
 
     const { liste, je, ort, abgleichen } = abgleicher(c, register, { projekt, version }, 'geschaetzt', ['geschaetzt']);
     const vor = `${ASSISTENT}${id}:`;

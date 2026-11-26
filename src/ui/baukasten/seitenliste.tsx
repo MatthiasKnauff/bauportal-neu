@@ -14,6 +14,10 @@ const FARBEN = ['#e8f0fd', '#e6f4ea', '#f1ebfa', '#fdf0e2', '#fde8e8', '#e7f6f6'
 // sichtbar; gemerkt je Browser.
 const ZU = 'bp.navzu';
 const [zu, setZu] = createSignal<Set<string>>((() => { try { return new Set<string>(JSON.parse(localStorage.getItem(ZU) ?? '[]')); } catch { return new Set<string>(); } })());
+// Filter: zu sind sie von Haus aus – gemerkt wird, welche offen sind
+const AUF = 'bp.filterauf';
+const [auf, setAuf] = createSignal<Set<string>>((() => { try { return new Set<string>(JSON.parse(localStorage.getItem(AUF) ?? '[]')); } catch { return new Set<string>(); } })());
+const aufSchalten = (k: string) => { const s = new Set(auf()); if (s.has(k)) s.delete(k); else s.add(k); setAuf(s); try { localStorage.setItem(AUF, JSON.stringify([...s])); } catch { /* gilt bis zum Neuladen */ } };
 const zuSchalten = (k: string) => { const s = new Set(zu()); if (s.has(k)) s.delete(k); else s.add(k); setZu(s); try { localStorage.setItem(ZU, JSON.stringify([...s])); } catch { /* gilt bis zum Neuladen */ } };
 
 export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | ((id: string) => boolean); nicht?: (id: string) => boolean; onWahl: (id: string) => void; name: string; art?: 'ansichten' | 'filter'; klappbar?: boolean }) {
@@ -21,39 +25,54 @@ export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | 
   let nr = 0;
   const farbe = new Map<string, string>();
   const farbeVon = (id: string) => farbe.get(id) ?? (farbe.set(id, FARBEN[nr++ % FARBEN.length]!), farbe.get(id)!);
-  // Filter links (Entscheidung C): Chips statt langer Listen – je Abschnitt die gewählten und die häufigsten, der Rest über „alle …“
-  // bzw. „Filter hinzufügen“; Einträge ohne Treffer fallen weg; ein Eintrag mit Zusatz (Beteiligte des Projekts) steht als Kasten.
+  // Filter links (Entscheidung A, 26.11.2026): je Feld eine zugeklappte Zeile mit der Zahl seiner Werte; aufgeklappt die 5 häufigsten
+  // und „alle n zeigen …“. Gewählte Werte bleiben auch zugeklappt sichtbar; offen bleibt, was man zuletzt offen hatte (je Liste
+  // gemerkt). Einträge ohne Treffer fallen weg; ein Eintrag mit Zusatz (Beteiligte des Projekts) steht immer als Kasten.
   if (p.art === 'filter') return (
     <nav class="ansichten-nav seitenliste-filter seitenliste-chips" aria-label={p.name}>
       <For each={p.abschnitte}>{(a) => {
         const [alle, setAlle] = createSignal(false);
-        const HAEUFIG = 7;
+        const HAEUFIG = 5;
+        const k = `${p.name}|${a.schluessel ?? a.titel}`;
+        const klapp = () => p.abschnitte.length > 1 && !!a.titel;
+        const offen = () => !klapp() || auf().has(k);
         const kasten = () => a.eintraege.filter((e) => e.nach);
         const rest = () => a.eintraege.filter((e) => !e.nach && (e.anzahl !== 0 || an(e.id) || !!p.nicht?.(e.id)));
+        const werte = () => rest().filter((e) => !e.id.endsWith(':*'));
         const lang = () => rest().length > HAEUFIG + 1;
+        const gewaehlt = (e: SeitenEintrag) => an(e.id) || !!p.nicht?.(e.id);
         const gezeigt = () => {
+          if (!offen()) return werte().filter(gewaehlt);
           if (!lang() || alle()) return rest();
           const vorn = rest().filter((e) => e.id.endsWith(':*'));
-          const oft = rest().filter((e) => !e.id.endsWith(':*')).sort((x, y) => (y.anzahl ?? 0) - (x.anzahl ?? 0)).slice(0, HAEUFIG);
-          const gewaehlt = rest().filter((e) => (an(e.id) || !!p.nicht?.(e.id)) && !oft.includes(e) && !vorn.includes(e));
-          return [...vorn, ...oft, ...gewaehlt];
+          const oft = werte().sort((x, y) => (y.anzahl ?? 0) - (x.anzahl ?? 0)).slice(0, HAEUFIG);
+          return [...vorn, ...oft, ...rest().filter((e) => gewaehlt(e) && !oft.includes(e) && !vorn.includes(e))];
         };
         return (
           <Show when={kasten().length || rest().length}>
-            <Show when={a.titel}><h3>{lang() && !alle() ? `Häufige ${a.titel}` : a.titel}</h3></Show>
-            <For each={kasten()}>{(e) => (
-              <div class="chip-kasten" classList={{ aktiv: an(e.id) }}>
-                <button type="button" aria-pressed={an(e.id)} onClick={() => p.onWahl(e.id)}><span>{e.titel}</span><span class="seitenliste-anzahl">{e.anzahl}</span></button>
-                {e.nach}
-              </div>
-            )}</For>
-            <div class="chips">
-              <For each={gezeigt()}>{(e) => (
-                <button type="button" class="chip" aria-pressed={an(e.id) || !!p.nicht?.(e.id)} classList={{ aktiv: an(e.id), nicht: !!p.nicht?.(e.id) }} onClick={() => p.onWahl(e.id)}>
-                  {e.titel}<Show when={e.anzahl !== undefined}> <span class="chip-anzahl">{e.anzahl}</span></Show>
-                </button>
+            <div class="filter-abschnitt" classList={{ offen: offen() }}>
+              <Show when={a.titel}>
+                <Show when={klapp()} fallback={<h3>{a.titel}</h3>}>
+                  <h3><button type="button" class="abschnitt-kopf" aria-expanded={offen()} onClick={() => aufSchalten(k)}>
+                    <i aria-hidden="true">{offen() ? '▾' : '▸'}</i><span>{a.titel}</span><span class="filter-werte">{werte().length} {werte().length === 1 ? 'Wert' : 'Werte'}</span></button></h3>
+                </Show>
+              </Show>
+              <For each={kasten()}>{(e) => (
+                <div class="chip-kasten" classList={{ aktiv: an(e.id) }}>
+                  <button type="button" aria-pressed={an(e.id)} onClick={() => p.onWahl(e.id)}><span>{e.titel}</span><span class="seitenliste-anzahl">{e.anzahl}</span></button>
+                  {e.nach}
+                </div>
               )}</For>
-              <Show when={lang()}><button type="button" class="chip still" onClick={() => setAlle(!alle())}>{alle() ? 'weniger' : `alle ${rest().length} …`}</button></Show>
+              <Show when={gezeigt().length || (offen() && lang())}>
+                <div class="chips">
+                  <For each={gezeigt()}>{(e) => (
+                    <button type="button" class="chip" aria-pressed={gewaehlt(e)} classList={{ aktiv: an(e.id), nicht: !!p.nicht?.(e.id) }} onClick={() => p.onWahl(e.id)}>
+                      {e.titel}<Show when={e.anzahl !== undefined}> <span class="chip-anzahl">{e.anzahl}</span></Show>
+                    </button>
+                  )}</For>
+                  <Show when={offen() && lang()}><button type="button" class="chip still" onClick={() => setAlle(!alle())}>{alle() ? 'weniger' : `alle ${werte().length} zeigen …`}</button></Show>
+                </div>
+              </Show>
             </div>
           </Show>
         );

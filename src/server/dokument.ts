@@ -8,7 +8,7 @@ import type { Modulregister } from '../kern/modul';
 import { KENNUNG } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
 import { Dienstfehler, ablegen, dateiLesen, originalSenden, vorschauSenden } from './ablage';
-import { Ablehnung, befehlAusfuehren } from './protokoll';
+import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
 const GRENZE = 40 * 1024 * 1024;
@@ -33,7 +33,7 @@ export async function dokumentAblegen(db: Db, register: Modulregister, umgebung:
   const wo = await ablegen(db, { umgebung, projekt: d.projekt, projektordner: ordner || null, unterordner: ordnername(d.unterordner), name: dateiname(d.name), daten: d.daten });
   await db.query('insert into kern_vorschau (id, bild) values ($1, $2)', [d.id, d.vorschau]);
   const name = wo.pfad.split('/').pop()!.replace(/^[0-9a-f]{16}-/, '');
-  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: 0, objekt: 'dokument', art: 'anlegen', objektId: d.id,
+  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'dokument', art: 'anlegen', objektId: d.id,
     werte: { projekt: d.projekt, name, art: d.art, eingang: d.eingang ?? new Date().toISOString().slice(0, 10), ort: wo.ort, pfad: wo.pfad, bezug_objekt: d.bezugObjekt ?? null, bezug: d.bezug ?? null, quelle: d.quelle?.slice(0, 400) ?? null } });
   return { id: d.id, ort: wo.ort, name };
 }

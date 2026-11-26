@@ -919,6 +919,12 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .seitenliste-chips { padding: 4px 8px 10px; gap: 4px; }
 .seitenliste-chips h3 { margin: 10px 2px 4px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-still); background: none; padding: 0; }
 .seitenliste-chips .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+/* Filter zugeklappt: je Feld eine Zeile „▸ Kostengruppe  12 Werte“; offen mit den häufigsten Werten */
+.seitenliste-chips .filter-abschnitt { border-bottom: 1px solid var(--rand); padding-bottom: 4px; }
+.seitenliste-chips .filter-abschnitt h3 { margin: 4px 2px; }
+.seitenliste-chips .filter-abschnitt .abschnitt-kopf { justify-content: flex-start; gap: 6px; padding: 5px 0; text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+.seitenliste-chips .filter-abschnitt .filter-werte { margin-left: auto; font-weight: 400; font-size: 12px; color: var(--text-still); }
+.seitenliste-chips .filter-abschnitt .chips { padding: 0 0 6px 16px; }
 .chip { border: 1px solid var(--rand-stark); background: var(--flaeche); color: var(--text); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 13px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip:hover { border-color: var(--akzent); }
 .chip.aktiv { border-color: var(--akzent); background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }

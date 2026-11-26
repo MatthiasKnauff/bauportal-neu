@@ -32,6 +32,10 @@ export function pruefeBefehl(roh: unknown): Befehl {
   return { id: b.id, objekt: b.objekt, art: b.art!, objektId: b.objektId, werte: b.werte, gesehen, ...(b.herkunft ? { herkunft: b.herkunft } : {}) };
 }
 
+/** „gesehen“ für Befehle, die der Server selbst schreibt: Er rechnet mit dem Stand, der jetzt gilt – nichts davon ist gleichzeitig
+ *  überschrieben (sonst meldete jede Systemänderung, sie habe die Eingabe eines anderen überschrieben). */
+export const ALLES_GESEHEN = Number.MAX_SAFE_INTEGER;
+
 function ausZeile(r: Record<string, unknown>): Protokolliert {
   return {
     seq: r.seq as number, id: r.id as string, zeit: (r.zeit as Date).toISOString(),

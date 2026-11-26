@@ -7,7 +7,7 @@ import type { Modulregister } from '../kern/modul';
 import { KENNUNG } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
 import { Dienstfehler, ablegen, originalSenden, vorschauSenden } from './ablage';
-import { Ablehnung, befehlAusfuehren } from './protokoll';
+import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
 const ARTEN: [string, (b: Buffer) => boolean][] = [
@@ -38,7 +38,7 @@ export async function fotoAblegen(db: Db, register: Modulregister, umgebung: str
   const wo = await ablegen(db, { umgebung, projekt: f.projekt, projektordner: z.ordner || null, unterordner: `Bautagebuch/Fotos/${z.bericht.datum} Bericht ${Number(z.bericht.nummer ?? 0)}`, name, daten: f.original });
   const id = randomUUID();
   await db.query('insert into kern_vorschau (id, bild) values ($1, $2)', [id, f.vorschau]);
-  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: 0, objekt: 'foto', art: 'anlegen', objektId: id, ...(f.herkunft ? { herkunft: f.herkunft } : {}),
+  await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'foto', art: 'anlegen', objektId: id, ...(f.herkunft ? { herkunft: f.herkunft } : {}),
     werte: { projekt: f.projekt, bericht: f.bericht, name: wo.pfad.split('/').pop()!.replace(/^[0-9a-f]{16}-/, ''), beschriftung: f.beschriftung ?? '', ort: wo.ort, pfad: wo.pfad, reihe: Number(z.reihe), kennung: f.kennung ?? '' } });
   return { id, ort: wo.ort };
 }
