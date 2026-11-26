@@ -4,7 +4,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
-import { dateiname, druckSeite, listenfolge, type Druckdaten, type Einstellungen } from '../kern/druck';
+import { dateiname, druckSeite, listenfolge, verzeichnisSpalten, type Druckdaten, type Einstellungen } from '../kern/druck';
 import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, spalte, tabelle, type Db } from './db';
@@ -75,16 +75,16 @@ export async function verzeichnisBauen(db: Db, register: Modulregister, wer: Ben
     const reihe = new Map(ids.map((id, i) => [id, i]));
     const zeilen = (await c.query(`select * from ${tabelle(m.name)} where id = any($1) and not geloescht`, [ids])).rows
       .map((z) => ({ id: z.id as string, werte: werteAus(m, z) })).sort((x, y) => reihe.get(x.id)! - reihe.get(y.id)!);
+    const e: Einstellungen = {};
+    for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
     const namen = new Map<string, string>();
-    const spalten = new Set(a.bloecke.flatMap((b) => (b.art === 'verzeichnis' ? b.spalten : [])));
+    const spalten = new Set(a.bloecke.flatMap((b) => (b.art === 'verzeichnis' ? verzeichnisSpalten(b, m, e) : [])));
     for (const f of m.felder.filter((x) => x.art === 'verweis' && spalten.has(x.name))) {
       const ziel = register.modell(f.ziel!)!;
       const v = [...new Set(zeilen.map((z) => z.werte[f.name]).filter(Boolean))];
       if (v.length) for (const z of (await c.query(`select id, ${spalte(ziel.anzeigeFeld)} as name from ${tabelle(ziel.name)} where id = any($1)`, [v])).rows) namen.set(`${ziel.name}:${z.id}`, String(z.name ?? ''));
     }
     const buero = werteAus(register.modell('buero')!, (await c.query('select * from o_buero where id = $1', [BUERO_ID])).rows[0]);
-    const e: Einstellungen = {};
-    for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
     return { zeilen, namen, buero, e };
   });
   const d: Druckdaten = { werte: {}, buero: t.buero, projekt: '', verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', modell: (o) => register.modell(o)!, bild: () => '',

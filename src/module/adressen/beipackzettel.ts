@@ -93,7 +93,7 @@ export const adressen: Beipackzettel = {
   objekte: [kontakt, kontaktweg],
   // Adressverzeichnis wie im bisherigen Bauportal: die gefilterte Liste oder die Auswahl, die Filterbeschreibung oben
   ausdrucke: [{
-    id: 'adressen.verzeichnis', titel: 'Adressverzeichnis', objekt: 'kontakt', verzeichnis: true,
+    id: 'adressen.verzeichnis', titel: 'Adressverzeichnis', objekt: 'kontakt', verzeichnis: true, format: 'quer',
     dateiname: 'Adressverzeichnis {datum}', fuss: '{buero} · Adressverzeichnis vom {datum}',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },

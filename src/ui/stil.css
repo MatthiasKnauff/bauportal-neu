@@ -128,7 +128,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .fenster-hinter { position: fixed; inset: 0; z-index: 50; background: rgba(28,28,26,.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .fenster { width: 100%; max-width: 460px; max-height: 100%; display: flex; flex-direction: column; background: var(--flaeche); border-radius: calc(14px * var(--rund)); box-shadow: 0 20px 60px rgba(0,0,0,.25); }
 .fenster.breit { max-width: 680px; }
-.fenster.gross { max-width: 1180px; height: 100%; }
+.fenster.gross { width: min(1180px, 100%); max-width: 100%; height: 100%; resize: both; overflow: hidden; min-width: 420px; min-height: 320px; }   /* Ecke unten rechts: Größe ändern */
 .update-kasten { border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); padding: 14px 16px; margin: 0 0 14px; background: var(--flaeche); }
 .update-kasten h3 { margin: 0 0 4px; font-size: 15px; }
 .update-kasten .reihe { margin-top: 10px; }
@@ -196,6 +196,8 @@ main { flex: 1; min-height: 0; display: flex; }
   .druck { display: block; } .druck-blatt { overflow: visible; padding: 8px; margin-bottom: 14px; } .druck-seite { width: auto; overflow: visible; }
 }
 .fenster h2 { padding: 18px 20px 0; }
+.fenster-titel { cursor: move; user-select: none; touch-action: none; }
+@media (max-width: 860px) { .fenster-titel { cursor: default; } .fenster.gross { resize: none; min-width: 0; } }
 .fenster-inhalt { flex: 1 1 auto; min-height: 0; padding: 14px 20px; overflow: auto; }   /* lange Masken rollen im Fenster; die Knöpfe bleiben unten stehen */
 .fenster-knoepfe { flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 12px 20px 18px; }
 .fenster:focus { outline: none; }
@@ -927,3 +929,8 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .seitenliste-chips .chip-kasten > button { display: flex; justify-content: space-between; gap: 8px; border: 0; background: none; padding: 2px 0; font: inherit; text-align: left; cursor: pointer; }
 .seitenliste-chips .chip-kasten .seitenliste-schalter { font-size: 12px; color: var(--text-still); }
 .filter-dazu { padding: 8px 8px 0; } .filter-dazu .filtersuche { max-width: none; } .filter-dazu .suche { max-width: none; }
+
+/* Druckvorschau: Spalten eines Verzeichnisses wählen */
+.spaltenwahl-druck { display: flex; flex-direction: column; gap: 2px; }
+.spaltenwahl-druck .spalte-zeile { display: flex; align-items: center; gap: 4px; }
+.spaltenwahl-druck .spalte-zeile label { flex: 1; display: flex; gap: 6px; align-items: center; min-height: 30px; cursor: pointer; }

@@ -84,6 +84,7 @@ export function Rahmen(p: {
   unterMenue?: JSX.Element;                 // unter der Menüleiste (Dialoge, Umfang „Dieses Projekt / Alle“)
   linksOben?: () => JSX.Element;            // oben in der Gliederung, steht still beim Rollen – z. B. die Auswahl der Version
   baum?: JSX.Element; baumTitel?: string;
+  baumZuerst?: boolean;                     // Baum bzw. eigene Darstellung links über den Ansichten der App
   inhalt: JSX.Element;
   details?: JSX.Element; detailsTitel?: string;
   detailsHinweis?: string;                  // ohne Details: was rechts zu tun ist (am großen Bildschirm; rechts bleibt so immer da)
@@ -125,8 +126,9 @@ export function Rahmen(p: {
     <div class="platz-kopf nur-breit-flex"><span>{p.baumTitel ?? ''}</span>{heftzwecke(linksZu, setLinksZu, setLinksSchwebt)}</div>
     {p.linksOben?.()}
     <div class="platz-rollen">
+      <Show when={p.baumZuerst}>{p.baum}</Show>
       <Show when={ansichten().length > 1}><Ansichtsliste reiter={ansichten()} aktiv={app!.aktiv()} onWahl={app!.onReiter} /></Show>
-      {p.baum}
+      <Show when={!p.baumZuerst}>{p.baum}</Show>
     </div>
   </>);
   const rechtsInhalt = () => p.details ?? (

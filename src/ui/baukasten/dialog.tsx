@@ -1,6 +1,7 @@
 // Baustein „Fenster“: eigenes Fenster statt Browser-Rückfrage. Schließt nur über seine Knöpfe.
 // Abbrechen verwirft mit Rückfrage: Hat das Fenster ungespeicherte Änderungen (geaendert), fragt es vor dem Schließen –
 // beim Knopf mit data-abbrechen und bei Esc. OK speichert und schließt.
+// Verschiebbar am Titel; das große Fenster (z. B. Druckvorschau) zusätzlich an der Ecke unten rechts in der Größe veränderbar.
 import type { JSX } from 'solid-js';
 import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { Portal } from 'solid-js/web';
@@ -8,6 +9,20 @@ import { Portal } from 'solid-js/web';
 export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.Element; onAbbrechen?: () => void; geaendert?: () => boolean; breit?: boolean; gross?: boolean }) {
   let kasten!: HTMLDivElement;
   const [frage, setFrage] = createSignal<(() => void) | null>(null);
+  const [versatz, setVersatz] = createSignal({ x: 0, y: 0 });
+  // Am Titel ziehen: das Fenster folgt der Maus, bleibt aber mit dem Titel im Bild
+  const ziehen = (e: PointerEvent) => {
+    if (e.button !== 0 || matchMedia('(max-width: 860px)').matches) return;
+    e.preventDefault();
+    const start = { x: e.clientX, y: e.clientY }, v0 = versatz(), r0 = kasten.getBoundingClientRect();
+    const bewegt = (x: PointerEvent) => {
+      const dx = Math.min(innerWidth - 80 - r0.left, Math.max(80 - r0.right, x.clientX - start.x));
+      const dy = Math.min(innerHeight - 40 - r0.top, Math.max(-r0.top, x.clientY - start.y));
+      setVersatz({ x: v0.x + dx, y: v0.y + dy });
+    };
+    const fertig = () => { removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig); };
+    addEventListener('pointermove', bewegt); addEventListener('pointerup', fertig);
+  };
   /** Schließen über Abbrechen: bei Änderungen erst fragen. */
   const abbrechen = (tun: () => void) => { if (p.geaendert?.()) setFrage(() => tun); else tun(); };
   const taste = (e: KeyboardEvent) => {
@@ -32,8 +47,9 @@ export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.E
   return (
     <Portal>
       <div class="fenster-hinter">
-        <div class="fenster" classList={{ breit: p.breit, gross: p.gross }} role="dialog" aria-modal="true" aria-label={p.titel} tabindex="-1" ref={kasten}>
-          <h2>{p.titel}</h2>
+        <div class="fenster" classList={{ breit: p.breit, gross: p.gross }} role="dialog" aria-modal="true" aria-label={p.titel} tabindex="-1" ref={kasten}
+          style={{ translate: `${versatz().x}px ${versatz().y}px` }}>
+          <h2 class="fenster-titel" onPointerDown={ziehen} title="Zum Verschieben ziehen">{p.titel}</h2>
           <div class="fenster-inhalt">{p.children}</div>
           {/* Die Knöpfe bleiben im Fenster (nur verdeckt), damit „Verwerfen“ den gedrückten Knopf danach wirklich auslöst */}
           <div class="fenster-knoepfe" hidden={!!frage()}>{p.knoepfe}</div>

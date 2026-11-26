@@ -372,7 +372,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv'), uhrzeit: new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' }), bauleitung: ich().id }),
     mitte: (m) => <Berichtsseite {...m} />,
     links: (m) => <BerichtLinks {...m} />,
-    linksTitel: 'Kalender',
+    linksTitel: 'Kalender', linksZuerst: true,
     detailsHinweis: 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift ✎ im Kopf öffnet den ganzen Bericht.',
     details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },

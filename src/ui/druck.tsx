@@ -2,7 +2,7 @@
 // Server zum PDF). Wer die Druckeinstellungen des Büros ändern darf, klickt in der Vorschau an, was er ändern will.
 // Die Vorschau entsteht auf dem Gerät aus den Daten, die schon da sind – sofort und auch ohne Netz.
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
-import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, schriftgroesse, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
+import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, querformat, schriftgroesse, verzeichnisSpalten, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
 import type { Feld, ObjektModell, Wert } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { ausfuehren, sicht, verweisname } from './unterbau/abgleich';
@@ -11,10 +11,12 @@ import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './unterbau/meldungen';
 
-const [offen, setOffen] = createSignal<{ ausdruck: string; objekt: string; ids?: string[]; filter?: string } | null>(null);
+/** Was ein Verzeichnis drucken kann: z. B. die Auswahl, die gefilterte Liste, alle – je mit Einträgen in ihrer Reihenfolge. */
+export interface Umfang { titel: string; ids: string[]; filter: string }
+const [offen, setOffen] = createSignal<{ ausdruck: string; objekt: string; umfaenge?: Umfang[] } | null>(null);
 export const druckOeffnen = (ausdruck: string, objekt: string) => setOffen({ ausdruck, objekt });
-/** Verzeichnis drucken: diese Einträge in dieser Reihenfolge; filter beschreibt, welche es sind (steht im Ausdruck). */
-export const verzeichnisDrucken = (ausdruck: string, ids: string[], filter: string) => setOffen({ ausdruck, objekt: '', ids, filter });
+/** Verzeichnis drucken: gewählt ist der erste Umfang; im Fenster lässt sich ein anderer wählen. filter steht im Ausdruck. */
+export const verzeichnisDrucken = (ausdruck: string, umfaenge: Umfang[]) => setOffen({ ausdruck, objekt: '', umfaenge });
 
 /** Die Einträge „druckeinstellung“ eines Ausdrucks, je Stelle einer (bei doppelten gilt überall die kleinste Kennung). */
 function eintraege(ausdruck: string) {
@@ -53,8 +55,10 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   return { titel: b.art === 'briefkopf' ? 'Briefkopf' : 'Angaben', felder: [zeigen(b.id)] };
 }
 
-function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; ids?: string[]; filter?: string }) {
+function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang[] }) {
   const a = p.ausdruck;
+  const [umfangNr, setUmfangNr] = createSignal(0);
+  const umfang = () => p.umfaenge?.[umfangNr()];
   const m = modell(a.objekt);
   const einstellen = () => darf('druckeinstellung', 'schreiben');
   const [stelle, setStelle] = createSignal('seite');
@@ -64,10 +68,10 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; ids?: string[]; f
   const e = createMemo((): Einstellungen => Object.fromEntries(Object.entries(da()).map(([k, v]) => [k, v.wert])));
   const daten = createMemo((): Druckdaten | null => {
     if (a.verzeichnis) {   // viele Einträge: die übergebenen, in ihrer Reihenfolge
-      const zeilen = (p.ids ?? []).map((id) => sicht[a.objekt]?.[id]).filter((z) => z && !z.geloescht).map((z) => ({ id: z!.id, werte: { ...z!.werte } }));
+      const zeilen = (umfang()?.ids ?? []).map((id) => sicht[a.objekt]?.[id]).filter((z) => z && !z.geloescht).map((z) => ({ id: z!.id, werte: { ...z!.werte } }));
       return { werte: {}, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, projekt: '', verweis: verweisname, modell, bild: () => '',
         kinder: (blockId) => (a.bloecke.find((x) => x.id === blockId)?.art === 'verzeichnis' ? zeilen : []),
-        extra: { anzahl: `${zeilen.length} ${zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: p.filter ?? '', datum: new Date().toLocaleDateString('de-DE') } };
+        extra: { anzahl: `${zeilen.length} ${zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: umfang()?.filter ?? '', datum: new Date().toLocaleDateString('de-DE') } };
     }
     const z = sicht[a.objekt]?.[p.objekt];
     if (!z || z.geloescht) return null;
@@ -82,13 +86,14 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; ids?: string[]; f
   let blatt!: HTMLDivElement;
   // Das Blatt passt sich der Breite an – nie ein waagerechter Rollbalken
   const [breite, setBreite] = createSignal(0);
+  const quer = () => querformat(a, e());
   onMount(() => { const b = new ResizeObserver(() => setBreite(blatt.parentElement!.clientWidth)); b.observe(blatt.parentElement!); onCleanup(() => b.disconnect()); });
   createEffect(() => {
     const d = daten();
     const wurzel = blatt.shadowRoot ?? blatt.attachShadow({ mode: 'open' });
     if (!d) { wurzel.innerHTML = ''; return; }
     wurzel.innerHTML = `<style>${CSS(schriftgroesse(e()))}
-      .bogen { zoom: ${breite() ? Math.min(1, (breite() - 28) / 794) : 1}; box-sizing: border-box; width: 210mm; min-height: 297mm; margin: 0 auto; padding: ${RAND.oben}mm ${RAND.seite}mm ${RAND.unten}mm; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.18); display: flex; flex-direction: column; }
+      .bogen { zoom: ${breite() ? Math.min(1, (breite() - 28) / (quer() ? 1123 : 794)) : 1}; box-sizing: border-box; width: ${quer() ? '297mm' : '210mm'}; min-height: ${quer() ? '210mm' : '297mm'}; margin: 0 auto; padding: ${RAND.oben}mm ${RAND.seite}mm ${RAND.unten}mm; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.18); display: flex; flex-direction: column; }
       .seite { flex: 1; }
       .aus { opacity: .3; text-decoration: line-through; }
       .leer { opacity: .45; }
@@ -116,7 +121,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; ids?: string[]; f
 
   const pdf = async () => {
     setLaeuft(true);
-    try { await ladeDatei('/api/druck/pdf', a.verzeichnis ? { ausdruck: a.id, ids: p.ids, filter: p.filter ?? '' } : { ausdruck: a.id, objekt: p.objekt }); }
+    try { await ladeDatei('/api/druck/pdf', a.verzeichnis ? { ausdruck: a.id, ids: umfang()?.ids ?? [], filter: umfang()?.filter ?? '' } : { ausdruck: a.id, objekt: p.objekt }); }
     catch (err) { hinweis((err as Error).message); }
     finally { setLaeuft(false); }
   };
@@ -127,20 +132,31 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; ids?: string[]; f
     finally { setLaeuft(false); }
   };
   const schrauben = createMemo(() => stellschrauben(a, m, stelle()));
+  // Angeklickt ist ein Verzeichnis (Überschrift oder Spalte): dann lassen sich die Spalten frei wählen und ordnen
+  const verzeichnisBlock = () => { const b = a.bloecke.find((x) => x.id === stelle().split('.')[0]); return b?.art === 'verzeichnis' ? b : undefined; };
   return (
     <Dialog titel={`${a.titel} – Druckvorschau`} gross onAbbrechen={() => setOffen(null)}
       knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={pdf}>{laeuft() ? 'PDF wird erzeugt …' : 'PDF herunterladen'}</button></>}>
       <div class="druck">
         <div class="druck-blatt" onClick={klick}><div ref={blatt} /></div>
-        <Show when={einstellen()}>
+        <Show when={einstellen() || (p.umfaenge?.length ?? 0) > 1}>
           <div class="druck-seite">
+            <Show when={(p.umfaenge?.length ?? 0) > 1}>
+              <h3>Was drucken?</h3>
+              <div class="auswahl senkrecht" role="radiogroup" aria-label="Was drucken">
+                <For each={p.umfaenge}>{(u, i) => <button type="button" role="radio" aria-checked={umfangNr() === i()} classList={{ aktiv: umfangNr() === i() }} onClick={() => setUmfangNr(i())}>{u.titel} <span class="still-text">({u.ids.length})</span></button>}</For>
+              </div>
+            </Show>
+            <Show when={einstellen()}>
             <p class="still-text klein-text">Klick in der Vorschau an, was du ändern willst. Die Einstellungen gelten für alle {a.titel === m.titel ? m.titelMehrzahl : `Ausdrucke „${a.titel}“`} des Büros; Rückgängig wie überall.</p>
             <h3>{schrauben().titel}</h3>
             <For each={schrauben().felder}>{(f) => <FeldEingabe feld={f} wert={wertVon(f)} onWert={(w) => wertSetzen(f, w)} />}</For>
             <Show when={schrauben().felder.some((f) => f.art === 'text' && /\{/.test(f.vorgabe ?? ''))}>
               <p class="still-text klein-text">In geschweiften Klammern stehen Platzhalter, die beim Drucken ersetzt werden: {platzhalter(m).map((k) => `{${k}}`).join(' ')}</p>
             </Show>
+            <Show when={verzeichnisBlock()}>{(b) => <SpaltenWahl block={b()} m={m} e={e()} onSetzen={(w) => setzen(`${b().id}.spalten`, w)} />}</Show>
             <Show when={stelle() !== 'seite'}><button class="knopf still" onClick={() => setStelle('seite')}>Einstellungen der Seite</button></Show>
+            </Show>
           </div>
         </Show>
       </div>
@@ -148,7 +164,27 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; ids?: string[]; f
   );
 }
 
+/** Spalten eines Verzeichnisses wählen und ordnen: angehakte oben in ihrer Reihenfolge (↑↓), darunter die übrigen Felder. */
+function SpaltenWahl(p: { block: { id: string; spalten: string[] }; m: ObjektModell; e: Einstellungen; onSetzen: (w: string) => void }) {
+  const an = () => verzeichnisSpalten(p.block, p.m, p.e);
+  const moeglich = () => p.m.felder.filter((f) => !f.verborgen && f.art !== 'langtext');
+  const setzen = (namen: string[]) => p.onSetzen(namen.join(',') === p.block.spalten.join(',') ? '' : namen.join(','));
+  const schieben = (n: string, d: -1 | 1) => { const l = [...an()]; const i = l.indexOf(n), k = i + d; if (k < 0 || k >= l.length) return; [l[i], l[k]] = [l[k]!, l[i]!]; setzen(l); };
+  return (
+    <div class="spaltenwahl-druck">
+      <h3>Spalten</h3>
+      <For each={an()}>{(n) => { const f = () => p.m.felder.find((x) => x.name === n)!; return (
+        <div class="spalte-zeile"><label><input type="checkbox" checked disabled={an().length === 1} onChange={() => setzen(an().filter((x) => x !== n))} /> {f().titel}</label>
+          <button class="knopf klein still" aria-label={`${f().titel} nach oben`} onClick={() => schieben(n, -1)}>↑</button><button class="knopf klein still" aria-label={`${f().titel} nach unten`} onClick={() => schieben(n, 1)}>↓</button></div>); }}</For>
+      <For each={moeglich().filter((f) => !an().includes(f.name))}>{(f) => (
+        <div class="spalte-zeile"><label><input type="checkbox" onChange={() => setzen([...an(), f.name])} /> {f.titel}</label></div>
+      )}</For>
+      <Show when={an().join(',') !== p.block.spalten.join(',')}><button class="knopf still" onClick={() => p.onSetzen('')}>Spalten wie ab Werk</button></Show>
+    </div>
+  );
+}
+
 export function Druck() {
   const ausdruck = () => { const o = offen(); return o ? zustand()!.module.flatMap((x) => x.ausdrucke ?? []).find((a) => a.id === o.ausdruck) : undefined; };
-  return <Show when={ausdruck()}>{(a) => <Druckfenster ausdruck={a()} objekt={offen()!.objekt} ids={offen()!.ids} filter={offen()!.filter} />}</Show>;
+  return <Show when={ausdruck()}>{(a) => <Druckfenster ausdruck={a()} objekt={offen()!.objekt} umfaenge={offen()!.umfaenge} />}</Show>;
 }

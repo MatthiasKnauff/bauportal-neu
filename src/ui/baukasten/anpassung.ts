@@ -54,6 +54,8 @@ export interface Anpassung {
   /** Statt des Baums eine eigene Darstellung links (z. B. Kalender und Abschnitte im Bautagebuch). */
   links?: (p: Mitte) => JSX.Element;
   linksTitel?: string;
+  /** Die eigene Darstellung links steht über den Ansichten der App (wie im bisherigen Bautagebuch: Kalender und Berichte oben). */
+  linksZuerst?: boolean;
   // --- Details (rechts), eigene ---
   /** Statt der Detailkarte des gewählten Eintrags etwas anderes rechts; ohne Rückgabe bleibt der Platz rechts leer. */
   details?: (z: Zeile) => JSX.Element | undefined;

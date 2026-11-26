@@ -29,6 +29,16 @@ export interface Ausdruck {
   /** Verzeichnis statt eines einzelnen Eintrags: gedruckt werden viele Einträge (die gefilterte Liste oder die Auswahl).
    *  Platzhalter dann: {anzahl}, {filter}, {datum}, {buero}. */
   verzeichnis?: boolean;
+  /** Hoch- oder Querformat ab Werk (einstellbar: Stelle „seite.format“). */
+  format?: 'hoch' | 'quer';
+}
+
+/** Querformat? Die Einstellung des Büros geht vor, sonst gilt, was der Ausdruck ab Werk hat. */
+export const querformat = (a: Ausdruck, e: Einstellungen) => (e['seite.format'] || a.format || 'hoch') === 'quer';
+/** Die Spalten eines Verzeichnisses: wie eingestellt (Stelle „<block>.spalten“, Feldnamen mit Komma) oder ab Werk. */
+export function verzeichnisSpalten(b: { id: string; spalten: string[] }, m: ObjektModell, e: Einstellungen): string[] {
+  const eigen = (e[`${b.id}.spalten`] ?? '').split(',').filter((n) => m.felder.some((f) => f.name === n));
+  return eigen.length ? eigen : b.spalten;
 }
 
 /** Reihenfolge der Einträge einer Liste: wie eingetragen (Feld „reihe“, wenn das Objekt eins hat) – im Browser und auf dem Server gleich. */
@@ -148,7 +158,7 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       const k = b.art === 'liste' ? d.modell(b.objekt) : m;
       const zeilen = d.kinder(b.id);
       if (!zeilen.length && !bearbeiten && e[`${b.id}.leer`] !== 'ja') return '';
-      const spalten = b.spalten.map((n) => k.felder.find((f) => f.name === n)!).filter((f) => bearbeiten || !aus(`${b.id}.${f.name}`));
+      const spalten = (b.art === 'verzeichnis' ? verzeichnisSpalten(b, k, e) : b.spalten).map((n) => k.felder.find((f) => f.name === n)!).filter((f) => bearbeiten || !aus(`${b.id}.${f.name}`));
       // schmale Spalten: alles außer langen Texten und Verweisen
       const schmal = (f: Feld) => (f.art === 'langtext' || f.art === 'text' || f.art === 'verweis' ? '' : ' schmal');
       const kopf = spalten.map((f) => `<th class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}" data-stelle="${b.id}.${f.name}">${sicher(e[`${b.id}.${f.name}.titel`] || f.titel)}</th>`).join('');
@@ -177,7 +187,7 @@ export const dateiname = (a: Ausdruck, m: ObjektModell, d: Druckdaten) => (einse
 export function druckSeite(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Einstellungen): string {
   const fuss = fusszeile(a, m, d, e).replace(/[\\"]/g, '\\$&');
   return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"><title>${sicher(a.titel)}</title><style>
-  @page { size: A4; margin: ${RAND.oben}mm ${RAND.seite}mm ${RAND.unten}mm;
+  @page { size: A4${querformat(a, e) ? ' landscape' : ''}; margin: ${RAND.oben}mm ${RAND.seite}mm ${RAND.unten}mm;
     @bottom-left { content: "${fuss}"; font: 8pt Arial, "Liberation Sans", Helvetica, sans-serif; color: #444; }
     @bottom-right { content: "Seite " counter(page) " von " counter(pages); font: 8pt Arial, "Liberation Sans", Helvetica, sans-serif; color: #444; } }
   html, body { margin: 0; padding: 0; }

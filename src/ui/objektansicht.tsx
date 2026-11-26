@@ -225,7 +225,17 @@ export function ObjektAnsicht(p: {
     ];
     return teile.length ? teile.join(' · ') : `alle ${m.titelMehrzahl}`;
   };
-  const drucken = (ids?: string[]) => { const v = verzeichnis(); if (v) verzeichnisDrucken(v.id, ids ?? reiheJetzt(), ids ? `Auswahl (${ids.length})` : filterText()); };
+  // Im Fenster wählbar: die Auswahl (wenn eine da ist), die gefilterte Liste, alle
+  const drucken = (ids?: string[]) => {
+    const v = verzeichnis(); if (!v) return;
+    const gewaehlt = ids ?? (auswahl?.anzahl() ? reiheJetzt().filter((id) => auswahl.hat(id)) : undefined);
+    const gefiltert = reiheJetzt(), alle = [...lebend()].sort((x, y) => String(x.werte[m.anzeigeFeld] ?? '').localeCompare(String(y.werte[m.anzeigeFeld] ?? ''), 'de')).map((z) => z.id);
+    verzeichnisDrucken(v.id, [
+      ...(gewaehlt?.length ? [{ titel: 'Die Auswahl', ids: gewaehlt, filter: `Auswahl (${gewaehlt.length})` }] : []),
+      ...(gefiltert.length !== alle.length ? [{ titel: 'Die gefilterte Liste', ids: gefiltert, filter: filterText() }] : []),
+      { titel: `Alle ${m.titelMehrzahl}`, ids: alle, filter: '' },
+    ]);
+  };
   const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel, drucken: verzeichnis() ? (ids) => drucken(ids) : undefined, aendern: (ids) => feldSetzenOeffnen(m.name, ids, Object.keys(fest())) }), papierkorb] : []);
   // Am Handy erscheinen die Haken erst, wenn etwas gewählt ist (lange tippen)
   if (auswahl) { createEffect(() => document.documentElement.classList.toggle('auswahl-an', auswahl.anzahl() > 0)); onCleanup(() => document.documentElement.classList.remove('auswahl-an')); }
@@ -258,6 +268,7 @@ export function ObjektAnsicht(p: {
         unterMenue={<>{p.unterMenue}{a.oben?.(fest())}</>}
         linksOben={p.linksOben}
         baumTitel={a.linksTitel ?? 'Gliederung'}
+        baumZuerst={a.linksZuerst}
         // links über der Gliederung immer die Filterkästen: Filter links, aus dem Suchfeld und aus den Spaltenköpfen – verknüpfbar
         baum={a.links ? a.links(mitteP) : p.linksFilter?.length ? <><div class="filter-dazu"><Filtersuche text={dazuText()} onText={setDazuText} arten={arten()} ids={() => lebend().map((z) => z.id)} onNehmen={nimm} onWeiter={() => undefined} platzhalter="Filter hinzufügen: Gewerk, Projekt, Ort …" name="Filter hinzufügen" /></div><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Seitenliste art="filter" name="Filter" abschnitte={linksAbschnitte()} aktiv={linksAn} nicht={linksNicht} onWahl={linksWahl} /></>
           : baumFelder.length ? <><Filterkaesten bedingung={bed()} arten={arten()} onAendern={setBed} /><Baum titel={`Gliederung ${m.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} symbol={a.baumSymbol} /></>
