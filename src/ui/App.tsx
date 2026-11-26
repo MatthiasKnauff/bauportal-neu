@@ -19,6 +19,7 @@ import { AppUmgebung } from './baukasten/rahmen';
 import { projektId, setProjektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
 import { Aufraeumen } from './aufraeumen';
+import { AdressenEinlesen } from './adresseneinlesen';
 import { KontaktAuswahlFenster } from './kontaktauswahl';
 import { FeldSetzen } from './baukasten/feldsetzen';
 import { Druck } from './druck';
@@ -64,6 +65,7 @@ export function App() {
       <Kontextmenue />
       <Uebernahmefenster />
       <Aufraeumen />
+      <AdressenEinlesen />
       <KontaktAuswahlFenster />
       <FeldSetzen />
       <Druck />

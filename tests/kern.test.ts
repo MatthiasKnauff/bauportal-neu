@@ -1160,3 +1160,26 @@ test('Ausschreibung: OZ für eine neue Position', async () => {
   assert.equal(r.naechsteOz([p('02', 'titel')]), '02.0010');
   assert.equal(r.naechsteOz([p('1.9'), p('1.10')]), '1.20');
 });
+
+test('Tabellendateien: CSV (Trennzeichen, Anführungszeichen) und Excel (.xlsx)', async () => {
+  const t = await import('../src/kern/tabellendatei');
+  assert.deepEqual(t.csvLesen('﻿Name;Ort\r\n"Kunz; Maler";Essen\r\n"Sag ""Hallo""";\n'), [['Name', 'Ort'], ['Kunz; Maler', 'Essen'], ['Sag "Hallo"', '']]);
+  assert.deepEqual(t.csvLesen('a,b\n1,2'), [['a', 'b'], ['1', '2']], 'Komma erkannt');
+  const { readFile } = await import('node:fs/promises');
+  const x = await t.tabelleLesen('adressen.xlsx', new Uint8Array(await readFile(new URL('./daten/adressen.xlsx', import.meta.url))));
+  assert.deepEqual(x.kopf, ['Firma', 'Ansprechpartner', 'Straße', 'PLZ', 'Ort', 'Telefon', 'E-Mail', 'Gewerk']);
+  assert.deepEqual(x.zeilen[1], ['Elektro Brand', '', '', '45130', 'Essen', '', 'brand@example.de', 'Elektro'], 'leere Zellen an ihrem Platz, Zahl als Text');
+  const c = await t.tabelleLesen('a.csv', new Uint8Array([0x4e, 0x61, 0x6d, 0x65, 0x0a, 0x4d, 0xfc, 0x6c, 0x6c, 0x65, 0x72]));   // „Müller“ in Windows-1252
+  assert.equal(c.zeilen[0]![0], 'Müller');
+});
+
+test('Adressen einlesen: Spalten zuordnen, Vorhandenes erkennen, nur Leeres ergänzen', async () => {
+  const e = await import('../src/module/adressen/einlesen');
+  assert.deepEqual(e.zuordnungVorschlagen(['Firma', 'Ansprechpartner', 'Straße', 'PLZ', 'Ort', 'Tel.', 'E-Mail', 'Gewerk', 'Sonstwas']),
+    ['name', 'ansprechpartner', 'strasse', 'plz', 'ort', 'telefon', 'email', 'gewerk', '']);
+  const z = e.zuordnungVorschlagen(['Firma', 'Ort', 'E-Mail', 'Anrede']);
+  const v = e.kontakteAus([['Kunz GmbH', 'Essen', 'info@kunz.de', 'herr'], ['Neu AG', 'Bochum', '', 'Divers'], ['', '', '', '']], z,
+    [{ id: 'k1', werte: { name: 'kunz gmbh', ort: '', telefon: '0201' } }]);
+  assert.deepEqual(v.map((x) => [x.werte.name, x.aktion, x.vorhanden ?? null, x.werte.anrede ?? null]), [['Kunz GmbH', 'ergaenzen', 'k1', 'Herr'], ['Neu AG', 'neu', null, null]], 'leere Zeilen fallen weg');
+  assert.deepEqual(e.ergaenzung({ name: 'kunz gmbh', ort: '', telefon: '0201' }, v[0]!.werte), { ort: 'Essen', email: 'info@kunz.de', anrede: 'Herr' }, 'Name und Telefon bleiben, Leeres wird gefüllt');
+});

@@ -1012,3 +1012,19 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .ava-leiter td { padding: 3px 0; border-bottom: 1px solid var(--rand); }
 .ava-leiter td.zahl { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ava-leiter tr.summe td { font-weight: 700; }
+
+/* Adressen einlesen */
+.einlesen h3 { margin: 4px 0 8px; font-size: 1em; }
+.einlesen-spalten { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.einlesen-spalte { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border: 1px solid var(--rand); border-radius: 6px; min-width: 0; }
+.einlesen-spalte.leer { opacity: .6; }
+.einlesen-spalte small { color: var(--text-still); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.2em; }
+.einlesen-liste { max-height: 45vh; overflow-y: auto; border: 1px solid var(--rand); border-radius: 6px; }
+.einlesen-tabelle { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.einlesen-tabelle th, .einlesen-tabelle td { padding: 3px 6px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--rand); }
+.einlesen-tabelle th:first-child, .einlesen-tabelle td:first-child { width: 28px; }
+.einlesen-tabelle th:last-child { width: 220px; }
+.einlesen-tabelle td:last-child { overflow: visible; }
+.einlesen-aktion { display: flex; align-items: center; gap: 4px; min-height: 36px; }
+.einlesen-tabelle tr.schon td { background: var(--warn-hell); }
+.einlesen-tabelle tr.aus td { opacity: .45; }
