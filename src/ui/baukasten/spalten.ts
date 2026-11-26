@@ -104,4 +104,4 @@ export function zusatzMessen(zellen: { spalte: string; el: Element; text: string
 export type Spaltenwahl = Pick<ReturnType<typeof spaltenwahl<Spaltenart>>, 'alle' | 'istAn' | 'istFest' | 'schalten' | 'schieben' | 'schritt' | 'zuruecksetzen'>;
 
 /** Die Spalten einer Tabelle aus dem Datenmodell: jedes Feld außer langen Texten und verborgenen Feldern. */
-export const spaltenFuer = (m: ObjektModell) => spaltenwahl<Feld>(`bp_spalten_${m.name}`, m.felder.filter((f) => f.art !== 'langtext' && !f.verborgen));
+export const spaltenFuer = (m: ObjektModell) => spaltenwahl<Feld>(`bp_spalten_${m.name}`, m.felder.filter((f) => (f.inListe || f.spalte) && f.art !== 'langtext' && !f.verborgen));

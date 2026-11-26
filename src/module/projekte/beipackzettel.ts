@@ -20,13 +20,13 @@ export const projekt: ObjektModell = {
       { wert: 'archiviert', titel: 'Archiviert' },
     ] },
     { name: 'bauherr', titel: 'Bauherr:in', art: 'text', inListe: true, breite: 200, gruppe: 'Projekt' },
-    { name: 'strasse', titel: 'Straße und Hausnummer', art: 'text', gruppe: 'Baustelle' },
-    { name: 'plz', titel: 'PLZ', art: 'text', gruppe: 'Baustelle' },
+    { name: 'strasse', spalte: true, titel: 'Straße und Hausnummer', art: 'text', gruppe: 'Baustelle' },
+    { name: 'plz', spalte: true, titel: 'PLZ', art: 'text', gruppe: 'Baustelle' },
     { name: 'ort', titel: 'Ort', art: 'text', inListe: true, breite: 150, gruppe: 'Baustelle' },
     // Grundstück: „Aus dem Kataster holen“ (ALKIS und Geländemodell von Geobasis NRW) oder von Hand
-    { name: 'gemarkung', titel: 'Gemarkung', art: 'text', kartenBreite: 2, gruppe: 'Grundstück' },
-    { name: 'flur', titel: 'Flur', art: 'text', kartenBreite: 1, gruppe: 'Grundstück' },
-    { name: 'flurstueck', titel: 'Flurstück(e)', art: 'text', kartenBreite: 3, gruppe: 'Grundstück' },
+    { name: 'gemarkung', spalte: true, titel: 'Gemarkung', art: 'text', kartenBreite: 2, gruppe: 'Grundstück' },
+    { name: 'flur', spalte: true, titel: 'Flur', art: 'text', kartenBreite: 1, gruppe: 'Grundstück' },
+    { name: 'flurstueck', spalte: true, titel: 'Flurstück(e)', art: 'text', kartenBreite: 3, gruppe: 'Grundstück' },
     { name: 'flaeche', titel: 'Grundstücksfläche in m²', art: 'zahl', kartenBreite: 3, gruppe: 'Grundstück' },
     { name: 'hoehe_nhn', titel: 'Geländehöhe in m über NHN', art: 'zahl', kartenBreite: 3, gruppe: 'Grundstück' },
     { name: 'ordner', titel: 'Ordner auf dem Dateiserver', art: 'text', gruppe: 'Ablage' },
@@ -75,8 +75,8 @@ export const projektKontakt: ObjektModell = {
   felder: [
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
     { name: 'kontakt', titel: 'Kontakt', art: 'verweis', ziel: 'kontakt', pflicht: true },
-    { name: 'aufgabe', titel: 'Aufgabe im Projekt (z. B. das Gewerk)', art: 'text' },
-    { name: 'vergabe', titel: 'Vergabe', art: 'auswahl', optionen: [
+    { name: 'aufgabe', spalte: true, titel: 'Aufgabe im Projekt (z. B. das Gewerk)', art: 'text' },
+    { name: 'vergabe', spalte: true, titel: 'Vergabe', art: 'auswahl', optionen: [
       { wert: '', titel: '–' }, { wert: 'offen', titel: 'offen' }, { wert: 'angefragt', titel: 'angefragt' }, { wert: 'angebot', titel: 'Angebot liegt vor' },
       { wert: 'beauftragt', titel: 'beauftragt' }, { wert: 'abgeschlossen', titel: 'abgeschlossen' },
     ] },

@@ -420,6 +420,10 @@ a.knopf { display: inline-flex; align-items: center; text-decoration: none; colo
 .ordnerliste li { border-bottom: 1px solid var(--rand); } .ordnerliste li:last-child { border-bottom: 0; } .ordnerliste li.still-text { padding: 10px; }
 .ordnerliste button { width: 100%; text-align: left; min-height: 38px; padding: 0 12px; border: 0; background: transparent; cursor: pointer; } .ordnerliste button:hover { background: var(--still-hell); }
 .hinweis-kasten { background: var(--warn-hell); border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--flaeche)); border-radius: calc(8px * var(--rund)); padding: 8px 12px; margin: 0; font-size: 13px; }
+.neues-lv-kopf { align-items: end; gap: 12px; } .neues-lv-kopf > :first-child { flex: 2; } .neues-lv-nr { width: 90px; }
+.neues-lv-wege { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; } .neues-lv-wege > .still-text { grid-column: 1 / -1; }
+.neues-lv-weg { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; padding: 10px 12px; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); cursor: pointer; }
+.neues-lv-weg small { grid-column: 2; color: var(--text-still); } .neues-lv-weg.an { border-color: var(--akzent); background: var(--akzent-hell); }
 .modell-lv-kg { margin: 8px 0 4px; } .modell-lv-aufbau { margin: 2px 0 6px 22px; }
 .modell-lv-pos { display: flex; gap: 8px; margin-left: 22px; } .modell-lv-pos.still { color: var(--text-still); } .modell-lv-menge { margin-left: auto; font-variant-numeric: tabular-nums; }
 .hinweis-leiste { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 6px 12px; font-size: 13px; background: var(--flaeche); border-bottom: 1px solid var(--rand); }

@@ -16,7 +16,8 @@ export interface Feld {
   eigeneWerte?: boolean;   // bei art = auswahl: außer den Optionen auch eigene Werte (z. B. eigene Kontaktarten) – sie erscheinen danach in der Auswahl
   vorschlagen?: boolean;   // bei Text: beim Tippen schlägt das Feld vor, was an anderen Einträgen schon steht (bei Listen „a, b“ je Teil)
   gruppe?: string;         // Abschnitt in der Detailkarte
-  inListe?: boolean;       // Spalte in der Tabelle
+  inListe?: boolean;       // Spalte in der Tabelle (ab Werk gezeigt)
+  spalte?: boolean;        // als Spalte wählbar, ab Werk aus (nur was als Spalte Sinn ergibt – nicht jedes Feld der Karte)
   breite?: number;         // Spaltenbreite in px
   kartenBreite?: number;   // Breite in der Karte in Sechsteln (ab Werk 3 = halbe Breite; 6 = ganze), z. B. Anrede 1, Name 3
   ziel?: string;           // nur bei art = verweis: Name des Objekts, auf das verwiesen wird

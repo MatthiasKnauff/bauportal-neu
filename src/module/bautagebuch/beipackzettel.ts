@@ -31,7 +31,7 @@ export const tagesbericht: ObjektModell = {
       { wert: 'frost', titel: 'Frost' },
       { wert: 'sturm', titel: 'Sturm' },
     ] },
-    { name: 'temperatur', titel: 'Temperatur in °C', art: 'zahl', gruppe: 'Wetter' },
+    { name: 'temperatur', spalte: true, titel: 'Temperatur in °C', art: 'zahl', gruppe: 'Wetter' },
     { name: 'luftfeuchte', titel: 'Luftfeuchte in %', art: 'zahl', gruppe: 'Wetter' },
     { name: 'wind', titel: 'Wind in km/h', art: 'zahl', gruppe: 'Wetter' },
     { name: 'niederschlag', titel: 'Niederschlag in mm', art: 'zahl', gruppe: 'Wetter' },

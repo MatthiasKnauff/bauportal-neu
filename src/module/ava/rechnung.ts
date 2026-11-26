@@ -1,5 +1,7 @@
 // Ausschreibung: Summen und Wertung – reine Rechnung, im Browser, auf dem Server und in den Tests gleich.
 import type { Werte } from '../../kern/modell';
+import { nachOz } from '../../kern/oz';
+export { nachOz, ozVergleich } from '../../kern/oz';
 
 type E = { id: string; werte: Werte };
 /** Positionen, die in die Summe eingehen: Bedarfs- und Alternativpositionen nicht (sie stehen nur mit EP im LV), Titel und Hinweise ohnehin nicht. */
@@ -7,16 +9,6 @@ export const zaehlt = (p: E) => ['normal', 'pauschal', 'stundenlohn', ''].includ
 export const zahl = (w: unknown): number => (typeof w === 'number' ? w : Number(String(w ?? '').replace(/\./g, '').replace(',', '.')) || 0);
 export const gp = (menge: unknown, ep: unknown) => Math.round(zahl(menge) * zahl(ep) * 100) / 100;
 
-/** Ordnungszahlen natürlich sortieren: „01.2.10“ nach „01.2.9“. */
-export function ozVergleich(a: unknown, b: unknown): number {
-  const x = String(a ?? '').split(/[.\s]+/), y = String(b ?? '').split(/[.\s]+/);
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    const p = x[i] ?? '', q = y[i] ?? '';
-    const d = /^\d+$/.test(p) && /^\d+$/.test(q) ? Number(p) - Number(q) : p.localeCompare(q, 'de');
-    if (d) return d;
-  }
-  return 0;
-}
 /** OZ für eine neue Position: hinter der letzten Position des LV, in Zehnerschritten mit gleicher Stellenzahl (01.0030 → 01.0040). */
 export function naechsteOz(positionen: E[]): string {
   const letzte = nachOz(positionen.filter((p) => p.werte.oz)).at(-1);
@@ -26,7 +18,6 @@ export function naechsteOz(positionen: E[]): string {
   const ende = teile.pop()!, n = Number(ende);
   return Number.isNaN(n) ? '' : [...teile, String(n + 10).padStart(ende.length, '0')].join('.');
 }
-export const nachOz = <T extends E>(l: T[]) => [...l].sort((a, b) => ozVergleich(a.werte.oz, b.werte.oz) || Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0));
 
 /** Summe eines LV mit den geschätzten Preisen. */
 export const summeGeschaetzt = (positionen: E[]) => Math.round(positionen.filter(zaehlt).reduce((s, p) => s + gp(p.werte.menge, p.werte.ep), 0) * 100) / 100;

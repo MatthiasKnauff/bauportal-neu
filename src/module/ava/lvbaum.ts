@@ -2,9 +2,10 @@
 // Ordnungszahl – ein Titel „01.02“ steht auf Ebene 2, seine Positionen „01.02.0010“ darunter. Nummerieren nach einer OZ-Maske wie
 // in GAEB: je Titelebene feste Stellen, Positionen in Zehnerschritten. Reine Rechnung, ohne Oberfläche.
 
-import { nachOz } from './rechnung';
+import type { Werte } from '../../kern/modell';
+import { nachOz } from '../../kern/oz';
 
-type E = Parameters<typeof nachOz>[0][number];
+type E = { id: string; werte: Werte };
 export interface LvZeile { id: string; ebene: number; titel: boolean; oz: string; eltern: string | null }
 export interface OzMaske { titel: number[]; position: number; schritt: number }   // Stellen je Titelebene, Stellen der Position, Schrittweite
 export const MASKE_VORGABE: OzMaske = { titel: [2, 2, 2, 2], position: 4, schritt: 10 };
@@ -97,3 +98,43 @@ export function maskeLesen(t: unknown): OzMaske {
   return titel.every((x) => x >= 1 && x <= 4) && position >= 1 && position <= 6 && schritt >= 1 ? { titel, position, schritt } : MASKE_VORGABE;
 }
 export const maskeSchreiben = (m: OzMaske) => `${m.titel.join('.')}:${m.position}:${m.schritt}`;
+
+/** Teilbaum einer Zeile: sie selbst und alles, was (in der Reihenfolge) unter ihr hängt. */
+function teilbaum(zeilen: LvZeile[], i: number): number {
+  const z = zeilen[i]!, unter = new Set([z.id]);
+  let e = i + 1;
+  while (e < zeilen.length && zeilen[e]!.eltern && unter.has(zeilen[e]!.eltern!)) { unter.add(zeilen[e]!.id); e++; }
+  return e;   // erste Zeile danach
+}
+
+/** Neuer Gliederungspunkt (wie im bisherigen Bauportal) – immer eine Ebene unter der markierten Zeile:
+ *  · Positionen gewählt (oder eine markiert): genau sie kommen hinein; er steht hinter den übrigen Positionen ihres Titels.
+ *  · ein Titel markiert: als letzter Punkt darin; hat er nur Positionen, kommen sie mit hinein (Titel und Positionen nie gemischt, GAEB).
+ *  · nichts markiert: oberste Ebene, am Ende.
+ *  → die neue Reihenfolge (zum Nummerieren) oder ein Fehlertext. */
+export function gliederungEinfuegen(zeilen: LvZeile[], id: string, markiert: string | null, gewaehlt: string[], tiefe = MASKE_VORGABE.titel.length): LvZeile[] | string {
+  const I = zeilen.map((z) => ({ ...z }));
+  const nach = (ids: Set<string>, eltern: string) => { for (const z of I) if (ids.has(z.id)) z.eltern = eltern; };
+  const ebeneVon = (eltern: string | null) => (eltern ? I.find((z) => z.id === eltern)!.ebene + 1 : 0);
+  const zuTief = 'GAEB erlaubt höchstens 4 Gliederungsebenen – hier geht keine weitere.';
+  const g = new Set(gewaehlt.length > 1 ? gewaehlt : markiert ? [markiert] : []);
+  const pos = I.filter((z) => g.has(z.id) && !z.titel);
+  if (pos.length) {
+    const n0 = I.indexOf(pos[0]!), eltern = pos[0]!.eltern, ebene = ebeneVon(eltern);
+    if (ebene >= tiefe) return zuTief;
+    let e = n0; while (e < I.length && !I[e]!.titel) e++;
+    const nachE = I[e] ?? null, rest = I.filter((z) => !g.has(z.id)), st = nachE ? rest.indexOf(nachE) : rest.length;
+    rest.splice(st, 0, { id, ebene, titel: true, oz: '', eltern }, ...pos.map((p) => ({ ...p, eltern: id, ebene: ebene + 1 })));
+    return rest;
+  }
+  const n = markiert ? I.findIndex((z) => z.id === markiert) : -1, akt = n >= 0 ? I[n]! : null;
+  if (!akt) { I.push({ id, ebene: 0, titel: true, oz: '', eltern: null }); return I; }
+  if (!akt.titel) return 'Bitte eine Position oder einen Titel markieren.';
+  const eltern = akt.id, ebene = ebeneVon(eltern);
+  if (ebene >= tiefe) return zuTief;
+  const neu: LvZeile = { id, ebene, titel: true, oz: '', eltern };
+  const e = teilbaum(I, n), drin = I.slice(n + 1, e);
+  if (drin.some((z) => z.titel)) { I.splice(e, 0, neu); return I; }
+  nach(new Set(drin.map((z) => z.id)), id); for (const z of drin) z.ebene = ebene + 1;
+  I.splice(n + 1, 0, neu); return I;
+}

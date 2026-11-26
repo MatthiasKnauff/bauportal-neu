@@ -1604,8 +1604,8 @@ test('LV als Baum: Ebenen aus der OZ, Nummerieren, neue OZ', async () => {
   const { lvZeilen, nummerieren, neueOz, titelSumme } = await import('../src/module/ava/lvbaum');
   const P = (id: string, oz: string, art = 'normal') => ({ id, werte: { oz, art } });
   const z = lvZeilen([P('t1', '01', 'titel'), P('p1', '01.0010'), P('t2', '01.02', 'titel'), P('p2', '01.02.0010'), P('p3', '01.02.0030'), P('t3', '02', 'titel'), P('p4', '02.0010')]);
-  // Reihenfolge nach OZ (Zahlen je Stelle): Titel 01.02 kommt vor Position 01.0010
-  assert.deepEqual(z.map((x) => [x.id, x.ebene, x.eltern]), [['t1', 0, null], ['t2', 1, 't1'], ['p2', 2, 't2'], ['p3', 2, 't2'], ['p1', 1, 't1'], ['t3', 0, null], ['p4', 1, 't3']]);
+  // Reihenfolge nach OZ (Zahlen je Stelle); Positionen und Untertitel im selben Titel: die Positionen zuerst (wie bisher)
+  assert.deepEqual(z.map((x) => [x.id, x.ebene, x.eltern]), [['t1', 0, null], ['p1', 1, 't1'], ['t2', 1, 't1'], ['p2', 2, 't2'], ['p3', 2, 't2'], ['t3', 0, null], ['p4', 1, 't3']]);
   assert.deepEqual([...nummerieren(z)], [['t2', '01.01'], ['p2', '01.01.0010'], ['p3', '01.01.0020']]);
   assert.equal(neueOz(z, { nach: 'p2', titel: false }), '01.02.0020');   // zwischen 0010 und 0030
   assert.equal(neueOz(z, { nach: 'p3', titel: false }), '01.02.0040');   // am Ende
@@ -1836,4 +1836,23 @@ test('Bietertextergänzung: im Langtext, im Ausdruck und in GAEB (TextComplement
   const datei = g.gaebSchreiben({ projekt: 'P', name: 'WDVS', nummer: '1' }, [{ oz: '01', art: 'titel', kurztext: 'Fassade', langtext: '', menge: null, einheit: '', ep: null },
     { oz: '01.0010', art: 'normal', kurztext: 'WDVS', langtext: lang, menge: 100, einheit: 'm2', ep: null }], '83');
   assert.equal(g.gaebLesen(datei).posten[1]!.langtext, lang, 'GAEB hin und zurück: dieselben Felder');
+});
+
+test('LV: neuer Gliederungspunkt eine Ebene unter der markierten Zeile (wie bisher)', async () => {
+  const b = await import('../src/module/ava/lvbaum');
+  const z = (oz: string, art = 'normal') => ({ id: oz, werte: { oz, art } as Werte });
+  const Z = b.lvZeilen([z('01', 'titel'), z('01.0010'), z('01.0020'), z('01.0030'), z('02', 'titel'), z('02.01', 'titel'), z('02.01.0010')]);
+  const oz = (r: ReturnType<typeof b.gliederungEinfuegen>) => { assert.ok(typeof r !== 'string', String(r)); const n = b.nummerieren(r); return r.map((x) => `${x.id}→${n.get(x.id) ?? x.oz}`); };
+  // zwei Positionen gewählt: sie kommen in den neuen Punkt hinter der übrigen
+  assert.deepEqual(oz(b.gliederungEinfuegen(Z, 'N', '01.0010', ['01.0010', '01.0030'])), ['01→01', '01.0020→01.0010', 'N→01.01', '01.0010→01.01.0010', '01.0030→01.01.0020', '02→02', '02.01→02.01', '02.01.0010→02.01.0010']);
+  // Titel mit nur Positionen markiert: sie wandern hinein
+  assert.deepEqual(oz(b.gliederungEinfuegen(Z, 'N', '01', [])).slice(0, 3), ['01→01', 'N→01.01', '01.0010→01.01.0010']);
+  // Titel mit Untertiteln: als letzter Punkt darin
+  assert.deepEqual(oz(b.gliederungEinfuegen(Z, 'N', '02', [])).slice(-1), ['N→02.02']);
+  // eine Position markiert: sie kommt in den neuen Punkt
+  assert.deepEqual(oz(b.gliederungEinfuegen(Z, 'N', '01.0020', [])).slice(0, 5), ['01→01', '01.0010→01.0010', '01.0030→01.0020', 'N→01.01', '01.0020→01.01.0010']);
+  // nichts markiert: oberste Ebene am Ende
+  assert.deepEqual(oz(b.gliederungEinfuegen(Z, 'N', null, [])).slice(-1), ['N→03']);
+  const tief = b.lvZeilen([z('01', 'titel'), z('01.01', 'titel'), z('01.01.01', 'titel'), z('01.01.01.01', 'titel'), z('01.01.01.01.0010')]);
+  assert.equal(typeof b.gliederungEinfuegen(tief, 'N', '01.01.01.01', []), 'string', 'höchstens 4 Ebenen');
 });

@@ -458,7 +458,7 @@ const MODUL_ANPASSUNG: Record<string, Anpassung> = { ava: AVA_OBEN };
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
-  'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
+  'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse', neuTitel: 'LV',
     detailsHinweis: 'Eine Zeile anklicken – hier stehen dann alle Angaben der Position (Kurz- und Langtext, Menge, Einheit, Preis), direkt änderbar.',
     details: (_, heftzwecke) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={z} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : undefined; } },
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',

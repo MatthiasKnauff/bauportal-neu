@@ -30,18 +30,18 @@ export const kontakt: ObjektModell = {
       { wert: '', titel: '–' }, { wert: 'Herr', titel: 'Herr' }, { wert: 'Frau', titel: 'Frau' },
     ] },
     { name: 'titel', titel: 'Titel', art: 'text', vorschlagen: true, kartenBreite: 1, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
-    { name: 'ansprechpartner', titel: 'Vorname Name', art: 'text', kartenBreite: 3, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'ansprechpartner', spalte: true, titel: 'Vorname Name', art: 'text', kartenBreite: 3, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
     { name: 'zusatz', titel: 'Zusatz', art: 'text', vorschlagen: true, kartenBreite: 1, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'bauherr', 'behoerde', 'plotdienst', 'eigen'] } },
-    { name: 'funktion', titel: 'Funktion', art: 'text', vorschlagen: true, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'behoerde', 'plotdienst', 'eigen'] } },
+    { name: 'funktion', spalte: true, titel: 'Funktion', art: 'text', vorschlagen: true, gruppe: 'Ansprechpartner:in', wenn: { art: ['firma', 'behoerde', 'plotdienst', 'eigen'] } },
     { name: 'telefon', titel: 'Telefon', art: 'telefon', inListe: true, breite: 160, gruppe: 'Erreichbarkeit' },
-    { name: 'mobil', titel: 'Mobil', art: 'telefon', gruppe: 'Erreichbarkeit' },
+    { name: 'mobil', spalte: true, titel: 'Mobil', art: 'telefon', gruppe: 'Erreichbarkeit' },
     { name: 'email', titel: 'E-Mail', art: 'email', inListe: true, breite: 230, gruppe: 'Erreichbarkeit' },
-    { name: 'web', titel: 'Internet', art: 'text', gruppe: 'Erreichbarkeit' },
-    { name: 'strasse', titel: 'Straße, Nr.', art: 'text', gruppe: 'Anschrift' },
-    { name: 'plz', titel: 'PLZ', art: 'text', gruppe: 'Anschrift' },
+    { name: 'web', spalte: true, titel: 'Internet', art: 'text', gruppe: 'Erreichbarkeit' },
+    { name: 'strasse', spalte: true, titel: 'Straße, Nr.', art: 'text', gruppe: 'Anschrift' },
+    { name: 'plz', spalte: true, titel: 'PLZ', art: 'text', gruppe: 'Anschrift' },
     { name: 'ort', titel: 'Ort', art: 'text', vorschlagen: true, inListe: true, breite: 150, gruppe: 'Anschrift' },
-    { name: 'stichworte', titel: 'Stichwörter', art: 'schlagworte', gruppe: 'Einordnung' },   // was die Firma kann – zum Finden
-    { name: 'tags', titel: 'Tags', art: 'schlagworte', gruppe: 'Einordnung' },                                        // eure Einschätzung (z. B. Stammfirma)
+    { name: 'stichworte', spalte: true, titel: 'Stichwörter', art: 'schlagworte', gruppe: 'Einordnung' },   // was die Firma kann – zum Finden
+    { name: 'tags', spalte: true, titel: 'Tags', art: 'schlagworte', gruppe: 'Einordnung' },                                        // eure Einschätzung (z. B. Stammfirma)
     { name: 'rechtsform', titel: 'Rechtsform', art: 'text', vorschlagen: true, gruppe: 'Firma / Rechnung', wenn: { art: ['firma', 'bauherr', 'plotdienst'] } },
     { name: 'sitz', titel: 'Sitz / Registergericht', art: 'text', vorschlagen: true, gruppe: 'Firma / Rechnung', wenn: { art: ['firma', 'bauherr', 'plotdienst'] } },
     { name: 'hrb', titel: 'Handelsregister', art: 'text', gruppe: 'Firma / Rechnung', wenn: { art: ['firma', 'bauherr', 'plotdienst'] } },

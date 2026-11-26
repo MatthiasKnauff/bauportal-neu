@@ -5,6 +5,7 @@
 // ein Befehl wie alles andere (Rückgängig, Abgleich). Reine Textfunktion: läuft im Browser und auf dem Server gleich.
 import { zumDrucken } from './textergaenzung';
 import type { Feld, ObjektModell, Wert, Werte } from './modell';
+import { nachOz } from './oz';
 
 export type Druckblock =
   | { id: string; art: 'briefkopf' }                                   // Büro links, Projekt rechts
@@ -219,23 +220,12 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
 // ------------------------------------------------------------------ Leistungsverzeichnis
 const geld = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const zahlVon = (w: Wert | undefined) => { const n = typeof w === 'number' ? w : Number(String(w ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
-/** OZ „01.02.0010“ → Teile zum Sortieren (Zahlen als Zahlen). */
-const ozTeile = (oz: string) => oz.split('.').map((t) => (/^\d+$/.test(t) ? Number(t) : t));
-const ozVergleich = (a: string, b: string) => {
-  const x = ozTeile(a), y = ozTeile(b);
-  for (let i = 0; i < Math.max(x.length, y.length); i++) {
-    if (x[i] === undefined) return -1;
-    if (y[i] === undefined) return 1;
-    if (x[i] !== y[i]) return typeof x[i] === 'number' && typeof y[i] === 'number' ? (x[i] as number) - (y[i] as number) : String(x[i]).localeCompare(String(y[i]), 'de');
-  }
-  return 0;
-};
 const OHNE_GP: Record<string, string> = { bedarf: 'Bedarfsposition – nur Einheitspreis', alternativ: 'Alternativposition – nur Einheitspreis' };
 
 /** Die Tabelle des LV: Titel öffnen eine Gruppe (Ebene aus der OZ), nach ihrer letzten Position steht die Titelsumme. */
 function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; werte: Werte }[], e: Einstellungen): string {
   const preise = e[`${b.id}.preise`] === 'ja', nurKurz = e[`${b.id}.kurz`] === 'ja';
-  const z = [...eintraege].sort((a, c) => ozVergleich(String(a.werte.oz ?? ''), String(c.werte.oz ?? '')));
+  const z = nachOz(eintraege);
   const leer = '<span class="leer"></span>';
   const offen: { oz: string; text: string; ebene: number; summe: number }[] = [];
   const oben: { oz: string; text: string; summe: number }[] = [];

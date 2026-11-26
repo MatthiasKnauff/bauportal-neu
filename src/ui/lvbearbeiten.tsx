@@ -5,13 +5,15 @@
 // 🔒 schaltet es bis zum Neuladen frei (Positionen sind dann Vertragsinhalt).
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Wert } from '../kern/modell';
-import { lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, titelSumme, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
+import { gliederungEinfuegen, lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, titelSumme, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
 import { Dialog } from './baukasten/dialog';
 import { langtextMenue, ErgaenzungFenster } from './textergaenzung';
 import { LvQuellenLeiste } from './lvquelle';
 import { ModellInsLv } from './modellinslv';
+import { NeuesLv } from './neueslv';
+import { projektId } from './projekt';
 import { gp, zaehlt, zahl } from '../module/ava/rechnung';
-import { lvVon } from './avakopf';
+import { lvVon, lvWaehlen } from './avakopf';
 import { druckOeffnen } from './druck';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
@@ -70,7 +72,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     }
   };
   // ---------- Zellen bearbeiten ----------
-  const [edit, setEdit] = createSignal<{ id: string; spalte: Sp; text: string } | null>(null);
+  const [edit, setEdit] = createSignal<{ id: string; spalte: Sp; text: string; alles?: boolean } | null>(null);   // alles: Text markiert (neue Zeile – Tippen ersetzt den Vorschlag)
   const [spalte, setSpalte] = createSignal<Sp>('kurztext');
   const aendern = (id: string, werte: Record<string, Wert>, titel: string) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: id, werte }, titel);
   const uebernehmen = (): boolean => {
@@ -90,16 +92,27 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     } else aendern(e.id, { [e.spalte]: t }, e.spalte === 'kurztext' ? 'Kurztext' : 'Einheit');
     setEdit(null); return true;
   };
-  const bearbeiten = (id: string, s: Sp, text?: string) => {
+  const bearbeiten = (id: string, s: Sp, text?: string, alles = false) => {
     const z = zeilen().find((x) => x.id === id); if (!z || !schreiben() || !BEARBEITBAR.has(s) || (z.titel && !['oz', 'kurztext'].includes(s))) return;
-    setSpalte(s); wahl.setMarkiert(id); setEdit({ id, spalte: s, text: text ?? (s === 'ep' ? zahlText(nachId(id)?.werte.ep) : wert(z, s)) });
+    setSpalte(s); wahl.setMarkiert(id); setEdit({ id, spalte: s, text: text ?? (s === 'ep' ? zahlText(nachId(id)?.werte.ep) : wert(z, s)), alles });
   };
   // ---------- neue Zeilen, löschen, nummerieren ----------
   const neu = (titel: boolean) => {
     if (!schreiben() || !lv()) return;
     const nach = wahl.markiert(), id = neueKennung(), oz = neueOz(zeilen(), { nach, titel }, maske());
-    ausfuehren({ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Titel' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } }, titel ? 'Titel einfügen' : 'Position einfügen');
-    wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext'));
+    ausfuehren({ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Gliederungspunkt' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } }, titel ? 'Titel einfügen' : 'Position einfügen');
+    wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext', undefined, true));
+  };
+  /** Neuer Gliederungspunkt eine Ebene unter der markierten Zeile – gewählte Positionen kommen hinein (wie bisher). */
+  const gliederung = () => {
+    if (!schreiben() || !lv()) return;
+    const id = neueKennung(), r = gliederungEinfuegen(zeilen(), id, wahl.markiert(), wahl.gewaehlt(), maske().titel.length);
+    if (typeof r === 'string') { hinweis(r, { art: 'fehler' }); return; }
+    const oz = nummerieren(r, maske()), mit = r.filter((z) => z.eltern === id).length;
+    ausfuehrenMehrere([{ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(id) ?? '', art: 'titel', kurztext: 'Neuer Gliederungspunkt' } },
+      ...[...oz].filter(([k]) => k !== id).map(([k, v]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: k, werte: { oz: v } }))], mit ? `Gliederungspunkt mit ${mit} ${mit === 1 ? 'Position' : 'Positionen'}` : 'Gliederungspunkt einfügen');
+    if (mit) hinweis(`${mit === 1 ? 'Die Position steht' : `Die ${mit} Positionen stehen`} jetzt unter ${oz.get(id)} – rückgängig mit Strg+Z.`);
+    wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext', undefined, true));
   };
   const loeschen = () => {
     const ids = new Set(wahl.gewaehlt()); if (!ids.size || !darf('lv_position', 'loeschen') || gesperrt()) return;
@@ -164,9 +177,11 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     wahl.mehrere(neueIds);
   };
   const [modellFenster, setModellFenster] = createSignal(false);
+  const [neuFenster, setNeuFenster] = createSignal(false);
+  p.setNeu(() => setNeuFenster(true));   // „LV“ unter Neu: Womit anfangen? (statt der leeren Karte)
   const freischalten = () => { const id = lv()?.id; if (!id) return; if (FREI.has(id)) FREI.delete(id); else FREI.add(id); setFrei(frei() + 1); };
   createEffect(() => p.setKnoepfe([
-    ...(darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Titel', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(true) },
+    ...(darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Gliederung', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: gliederung },
       { titel: 'Position', zeichen: 'neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(false) },
       { titel: 'Aus dem Gebäudemodell …', zeichen: 'modell3d', gruppe: 'Neu', gesperrt: String(lv()!.werte.status ?? 'bearbeitung') !== 'bearbeitung', tun: () => setModellFenster(true) },
       { titel: 'Nummerieren …', zeichen: 'liste', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !zeilen().length, tun: () => setNumFenster(true) },
@@ -208,7 +223,8 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
   const menue = (e: MouseEvent, z: LvZeile) => {
     e.preventDefault(); if (!wahl.istGewaehlt(z.id)) wahl.setMarkiert(z.id);
     zeigeMenue(e, [
-      ...(schreiben() ? [{ titel: 'Position darunter', tun: () => neu(false) }, { titel: 'Titel darunter', tun: () => neu(true) }] : []),
+      ...(schreiben() ? (z.titel ? [{ titel: 'Position darin', tun: () => neu(false) }, { titel: 'Gliederungspunkt darin', tun: gliederung }]
+        : [{ titel: 'Position darunter', tun: () => neu(false) }, { titel: 'Gliederungspunkt darunter', tun: () => neu(true) }]) : []),
       { titel: 'Kopieren', tun: () => kopieren() }, ...(schreiben() ? [{ titel: 'Einfügen darunter', tun: einfuegen }] : []),
       ...(!z.titel ? [{ titel: lang().has(z.id) ? 'Langtext zuklappen' : 'Langtext zeigen', tun: () => umschaltenLang(z.id) }] : []),
       ...(z.titel ? [{ titel: zu().has(z.id) ? 'Aufklappen' : 'Zuklappen', tun: () => umschalten(z.id) }] : []),
@@ -224,7 +240,8 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
   };
   return (
     <div class="lvt" ref={flaeche} tabIndex={0} onKeyDown={taste} role="treegrid" aria-label="Leistungsverzeichnis">
-      <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – unter „Leistungsverzeichnisse“ anlegen.</p>}>
+      <Show when={neuFenster() && projektId()}><NeuesLv projekt={projektId()!} onZu={() => setNeuFenster(false)} onFertig={(id, weg) => { lvWaehlen(p, id); if (weg === 'modell') setModellFenster(true); }} /></Show>
+      <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – oben unter Neu „LV“ anlegen.</p>}>
         <div class="lvt-kopf-lv"><h2>{[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
           <Show when={vergeben()}><button type="button" class="knopf klein still" onClick={freischalten} title={gesperrt() ? 'Beauftragt – Positionen sind Vertragsinhalt. Klick schaltet das Bearbeiten frei.' : 'Bearbeiten freigeschaltet – Klick sperrt wieder'}>{gesperrt() ? '🔒 gesperrt' : '🔓 freigeschaltet'}</button></Show>
           <span class="lvt-summe">Summe netto geschätzt <b>{eur(summe())} €</b></span></div>
@@ -254,7 +271,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
                       s.id === 'oz' ? <span class="lvt-baum" style={{ 'padding-left': `${z().ebene * 16}px` }} title="Zum Verschieben hier greifen und ziehen" onPointerDown={(e) => zugStart(e, id)}>
                         <Show when={z().titel} fallback={<button type="button" class="lvt-lang-knopf" classList={{ an: lang().has(z().id) || !!nachId(z().id)?.werte.langtext }} title="Langtext" onClick={(e) => { e.stopPropagation(); umschaltenLang(z().id); }}>¶</button>}>
                           <Klappe zu={zu().has(z().id)} onKlick={() => umschalten(z().id)} /><Ordner offen={!zu().has(z().id)} /></Show>{z().oz}</span> : wert(z(), s.id as Sp)}>
-                      <input class="lvt-edit" value={edit()!.text} ref={(el) => queueMicrotask(() => { el.focus(); el.setSelectionRange(el.value.length, el.value.length); })}
+                      <input class="lvt-edit" value={edit()!.text} ref={(el) => queueMicrotask(() => { el.focus(); if (edit()?.alles) el.select(); else el.setSelectionRange(el.value.length, el.value.length); })}
                         onInput={(e) => setEdit({ ...edit()!, text: e.currentTarget.value })} onKeyDown={(e) => editTaste(e, z())} onBlur={() => { const e = edit(); if (e && e.id === id && e.spalte === s.id) uebernehmen(); }} />
                     </Show>
                   </div>)}</For>
