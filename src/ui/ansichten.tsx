@@ -9,7 +9,7 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
-import { ausfuehren, sicht, lebende } from './unterbau/abgleich';
+import { ausfuehren, gemerkt, sicht, lebende } from './unterbau/abgleich';
 import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { versionenBauen } from './baukasten/versionen';
@@ -155,6 +155,24 @@ function Nachfolger(p: { vorgang: Zeile }) {
 }
 
 // ---------- Adressen: ein Kontakt als Kachel ----------
+/** Kachel eines Projekts: Nummer und Stand, Name, Bauherr:in, Baustelle – darunter, was es im Projekt schon gibt. */
+function ProjektKachel(p: { projekt: Zeile }) {
+  const w = () => p.projekt.werte;
+  const status = () => modell('projekt').felder.find((f) => f.name === 'status')?.optionen?.find((o) => o.wert === w().status)?.titel;
+  const zahl = (objekt: string) => gemerkt(objekt, 'je-projekt', () => { const m = new Map<string, number>(); for (const z of lebende(objekt)) m.set(String(z.werte.projekt), (m.get(String(z.werte.projekt)) ?? 0) + 1); return m; }).get(p.projekt.id) ?? 0;
+  const inhalt = () => [[zahl('tagesbericht'), 'Bericht', 'Berichte'], [zahl('vorgang'), 'Leistung im Plan', 'Leistungen im Plan'], [zahl('lv'), 'LV', 'LVs']]
+    .filter(([n]) => Number(n) > 0).map(([n, e, m]) => `${n} ${n === 1 ? e : m}`).join(' · ');
+  return (
+    <div class="kontakt-kachel projekt-kachel">
+      <span class="leise">{[w().nummer, status()].filter(Boolean).join(' · ')}</span>
+      <strong>{String(w().name ?? '')}</strong>
+      <Show when={w().bauherr}><span>{String(w().bauherr)}</span></Show>
+      <Show when={w().ort || w().strasse}><span class="leise">{[w().strasse, [w().plz, w().ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</span></Show>
+      <Show when={inhalt()}><span class="leise klein-text">{inhalt()}</span></Show>
+    </div>
+  );
+}
+
 function KontaktKachel(p: { kontakt: Zeile }) {
   const w = () => p.kontakt.werte;
   const art = () => modell('kontakt').felder.find((f) => f.name === 'art')?.optionen?.find((o) => o.wert === w().art)?.titel;
@@ -346,6 +364,7 @@ const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKont
 const gemeinsam = (h: AuswahlHilfen): AuswahlBefehl[] => [{ titel: 'Ändern …', tun: h.aendern }, { titel: 'Excel', tun: h.excel }];
 const ANPASSUNG: Record<string, Anpassung> = {
   projekt: {
+    kachel: (z) => <ProjektKachel projekt={z} />,   // Projekte als Karten (wie im bisherigen Bauportal)
     kartenZusatz: (z) => <><OrdnerWahl projekt={z} /><Beteiligte projekt={z} /><Mitglieder projekt={z} /></>,
     zelle: (f, z) => (f.name === 'status' ? <span class={`marke-${z.werte.status}`}>{f.optionen!.find((o) => o.wert === z.werte.status)?.titel}</span> : undefined),
   },
