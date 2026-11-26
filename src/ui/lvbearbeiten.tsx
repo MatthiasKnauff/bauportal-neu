@@ -10,6 +10,7 @@ import { Dialog } from './baukasten/dialog';
 import { kiOeffnen } from './baukasten/ki';
 import { gp, zaehlt, zahl } from '../module/ava/rechnung';
 import { lvVon } from './avakopf';
+import { druckOeffnen } from './druck';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
 import { zeigeMenue } from './baukasten/kontextmenue';
@@ -168,6 +169,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
       { titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bearbeiten', gesperrt: gesperrt() || !wahl.markiert(), tun: loeschen }] : []),
     ...(lv() ? [{ titel: 'Vorbemerkungen', zeichen: 'bericht', gruppe: 'Ansicht', an: vorbem(), tun: () => setVorbem(!vorbem()) }] : []),
     ...(lv() ? [{ titel: 'Langtexte', zeichen: 'notiz', gruppe: 'Ansicht', an: lang().size > 0, tun: () => setLang(lang().size ? new Set<string>() : new Set(zeilen().filter((z) => !z.titel).map((z) => z.id))) }] : []),
+    ...(lv() ? [{ titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => druckOeffnen('ava.lv', lv()!.id) }] : []),
     ...(vergeben() ? [{ titel: gesperrt() ? 'Gesperrt' : 'Freigeschaltet', zeichen: 'schluessel', gruppe: 'Vertrag', an: !gesperrt(), tun: freischalten }] : []),
   ]));
   // ---------- Tastatur ----------

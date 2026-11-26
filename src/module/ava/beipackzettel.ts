@@ -258,6 +258,19 @@ export const ava: Beipackzettel = {
     { art: 'lv', titel: 'Leistungsverzeichnis', ordner: 'Ausschreibung/{lv}', ansichten: ['lvs', 'positionen'], merkmale: ['leistungsverzeichnis', 'leistungsbeschreibung', 'vorbemerkungen'] },
   ],
   ausdrucke: [{
+    // Das LV zum Versand an die Bieter:innen: Angaben zur Ausschreibung, Vorbemerkungen, Positionen mit EP/GP zum Ausfüllen,
+    // Zusammenstellung, Angebotssumme und Unterschrift (einstellbar: mit den geschätzten Preisen, nur Kurztexte)
+    id: 'ava.lv', titel: 'Leistungsverzeichnis', objekt: 'lv',
+    dateiname: 'LV {nummer} {name}', fuss: '{buero} · Leistungsverzeichnis {nummer} {name}', ordner: 'AVA/Ausschreibung',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Leistungsverzeichnis', unter: '{nummer} {name}' },
+      { id: 'angaben', art: 'felder', felder: ['vergabenummer', 'gewerk', 'abgabe', 'bindefrist', 'ausfuehrung_beginn', 'ausfuehrung_ende'] },
+      { id: 'vorbemerkungen', art: 'text', feld: 'vorbemerkungen' },
+      { id: 'positionen', art: 'lv', objekt: 'lv_position', ueber: 'lv', ohne: 'nachtrag', titel: 'Leistungen' },
+      { id: 'unterschrift', art: 'unterschriften', parteien: ['Bieter:in (Firma, Stempel, Unterschrift)'] },
+    ],
+  }, {
     id: 'ava.bauvertrag', titel: 'Bauvertrag', objekt: 'bauvertrag',
     dateiname: 'Bauvertrag {lv} {datum}', fuss: '{buero} · Bauvertrag {lv}', ordner: 'AVA/Vergabe',
     bloecke: [

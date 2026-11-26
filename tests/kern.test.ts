@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { register } from '../src/module';
 import { kontakt } from '../src/module/adressen/beipackzettel';
-import { Eingabefehler, mengenSumme, pruefeWerte } from '../src/kern/modell';
+import { Eingabefehler, mengenSumme, pruefeWerte, type Werte } from '../src/kern/modell';
 import { sammelfilter } from '../src/kern/modul';
 import { bauteil } from '../src/module/gebaeudemodell/beipackzettel';
 import { anwenden, gegenbefehl, type Befehl, type Zeile } from '../src/kern/befehl';
@@ -1702,4 +1702,23 @@ test('Kataster: Anschrift → Flurstück aus ALKIS und Geländehöhe aus dem DGM
     assert.ok(gesehen.some((u) => u.includes('COVERAGEID=nw_dgm&') && u.includes('SUBSET=x')), 'das Geländemodell, nicht die Schummerung');
     assert.ok(!gesehen.join(' ').includes('Haus'), 'hinaus geht die Anschrift, nicht der Projektname');
   } finally { await weg(); netz.close(); }
+});
+
+test('Druckwerk: Leistungsverzeichnis mit Titelsummen, Zusammenstellung, leer zum Ausfüllen oder mit Preisen', async () => {
+  const { druckInhalt } = await import('../src/kern/druck');
+  const ava = register.module.find((m) => m.id === 'ava')!;
+  const a = ava.ausdrucke!.find((x) => x.id === 'ava.lv')!;
+  const m = register.modell('lv')!;
+  const pos = [
+    ['t1', { oz: '01', art: 'titel', kurztext: 'Innenwände' }], ['p1', { oz: '01.0010', art: 'normal', kurztext: 'Wände streichen', langtext: 'Zweimal deckend', menge: 200, einheit: 'm²', ep: 8 }],
+    ['p2', { oz: '01.0020', art: 'bedarf', kurztext: 'Risse', menge: 10, einheit: 'm', ep: 20 }], ['t2', { oz: '02', art: 'titel', kurztext: 'Decken' }],
+    ['p3', { oz: '02.0010', art: 'normal', kurztext: 'Decken streichen', menge: 80, einheit: 'm²', ep: 10 }],
+  ].map(([id, werte]) => ({ id: id as string, werte: werte as Werte })).reverse();
+  const d = { werte: { nummer: '034', name: 'Maler', vorbemerkungen: 'Baustelle frei' }, buero: { name: 'GK3' }, projekt: 'Haus', verweis: () => '', kinder: (b: string) => (b === 'positionen' ? pos : []), bild: () => '', modell: (o: string) => register.modell(o)! };
+  const leer = druckInhalt(a, m, d, {});
+  assert.ok(leer.indexOf('01.0010') < leer.indexOf('02.0010') && leer.includes('Zweimal deckend') && leer.includes('Bedarfsposition'), 'nach OZ, mit Langtext und Merk');
+  assert.ok(leer.includes('Summe 01 Innenwände') && leer.includes('Angebotssumme netto') && !leer.includes('1.600,00'), 'zum Ausfüllen: Summenzeilen ohne Beträge');
+  const mit = druckInhalt(a, m, d, { 'positionen.preise': 'ja', 'positionen.kurz': 'ja' });
+  assert.ok(mit.includes('1.600,00') && mit.includes('800,00') && mit.includes('2.400,00') && mit.includes('2.856,00'), 'mit Preisen: GP, Summe ohne Bedarfsposition, brutto');
+  assert.ok(!mit.includes('Zweimal deckend'), 'nur Kurztexte');
 });

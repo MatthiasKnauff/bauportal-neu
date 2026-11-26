@@ -51,6 +51,10 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   if (b.art === 'bilder') return { titel: b.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel },
     { name: 'spalten', titel: 'Bilder je Zeile', art: 'auswahl', optionen: [{ wert: '2', titel: 'zwei nebeneinander' }, { wert: '1', titel: 'eins, groß' }], stelle: `${b.id}.spalten`, vorgabe: '2' }, zeigen(b.id)] };
+  if (b.art === 'lv') return { titel: b.titel, felder: [
+    { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel }, zeigen(b.id),
+    { name: 'preise', titel: 'Mit den geschätzten Preisen (sonst leer zum Ausfüllen)', art: 'ja_nein', stelle: `${b.id}.preise` },
+    { name: 'kurz', titel: 'Nur Kurztexte (ohne Langtexte)', art: 'ja_nein', stelle: `${b.id}.kurz` }] };
   if (b.art === 'liste' || b.art === 'verzeichnis') return { titel: b.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel }, zeigen(b.id),
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] };
@@ -79,8 +83,8 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
     if (!z || z.geloescht) return null;
     const pid = m.projektFeld && m.projektFeld !== 'id' ? String(z.werte[m.projektFeld] ?? '') : '';
     return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: pid ? verweisname('projekt', pid) : '', verweis: verweisname, modell,
-      kinder: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder') return [];
-        return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && Object.entries(b.art === 'liste' ? b.filter ?? {} : {}).every(([n, w]) => k.werte[n] === w)).sort(listenfolge).map((k) => ({ id: k.id, werte: { ...k.werte } })); },
+      kinder: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder' && b?.art !== 'lv') return [];
+        return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && (b.art !== 'lv' || !b.ohne || k.werte[b.ohne] == null || k.werte[b.ohne] === '') && Object.entries(b.art === 'liste' ? b.filter ?? {} : {}).every(([n, w]) => k.werte[n] === w)).sort(listenfolge).map((k) => ({ id: k.id, werte: { ...k.werte } })); },
       bild: (id) => `/api/foto/vorschau/${id}` };
   });
 

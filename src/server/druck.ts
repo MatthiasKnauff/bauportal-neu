@@ -35,12 +35,14 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
     // Listen: die Einträge, die am Objekt hängen – gelesen als der Benutzer, in der Reihenfolge des Berichts
     const kinder = new Map<string, { id: string; werte: Werte }[]>();
     const bildIds: string[] = [];
-    for (const b of a.bloecke) if (b.art === 'liste' || b.art === 'bilder') {
+    for (const b of a.bloecke) if (b.art === 'liste' || b.art === 'bilder' || b.art === 'lv') {
       const k = register.modell(b.objekt)!;
       const filter = Object.entries(b.art === 'liste' ? b.filter ?? {} : {});
-      const zeilen = (await c.query(`select * from ${tabelle(k.name)} where ${spalte(b.ueber)} = $1 and not geloescht${filter.map(([n], i) => ` and ${spalte(n)} = $${i + 2}`).join('')}`, [objektId, ...filter.map(([, w]) => w)])).rows
+      const ohne = b.art === 'lv' && b.ohne ? ` and ${spalte(b.ohne)} is null` : '';
+      const zeilen = (await c.query(`select * from ${tabelle(k.name)} where ${spalte(b.ueber)} = $1 and not geloescht${ohne}${filter.map(([n], i) => ` and ${spalte(n)} = $${i + 2}`).join('')}`, [objektId, ...filter.map(([, w]) => w)])).rows
         .map((z) => ({ id: z.id as string, werte: werteAus(k, z) })).sort(listenfolge);
       kinder.set(b.id, zeilen);
+      if (b.art === 'lv') continue;   // Reihenfolge nach OZ, keine Verweise
       if (b.art === 'bilder') {
         bildIds.push(...zeilen.map((z) => z.id));   // welche Fotos der Benutzer sehen darf, steht damit fest
         continue;

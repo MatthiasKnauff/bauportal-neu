@@ -16,6 +16,11 @@ export type Druckblock =
   | { id: string; art: 'bilder'; objekt: string; ueber: string; titel: string; beschriftung: string }
   // Verzeichnis: die gewählten bzw. gefilterten Einträge des Objekts selbst als Tabelle (z. B. Adressverzeichnis)
   | { id: string; art: 'verzeichnis'; titel: string; spalten: string[] }
+  // Leistungsverzeichnis: Titel und Positionen nach OZ mit Kurz- und Langtext, Menge, Einheit, EP/GP – zum Ausfüllen durch die
+  // Bieter:in oder mit den geschätzten Preisen (Stelle „<block>.preise“); Titelsummen, Zusammenstellung, Angebotssumme.
+  // Die Einträge brauchen oz, art (titel, normal, bedarf, alternativ, pauschal, stundenlohn, hinweis), kurztext, langtext, menge, einheit, ep;
+  // ohne: Einträge, bei denen dieses Feld gesetzt ist, gehören nicht dazu (z. B. Nachtragspositionen).
+  | { id: string; art: 'lv'; objekt: string; ueber: string; ohne?: string; titel: string }
   // Unterschriften (z. B. Bauvertrag): je Partei eine Linie mit „Ort, Datum“ und der Rolle darunter; {feld} wird ersetzt
   | { id: string; art: 'unterschriften'; parteien: string[] };
 
@@ -138,6 +143,23 @@ export const CSS = (schrift: number) => `
   .bilder.eins .bildraster img { max-height: 200mm; }
   .bildraster figcaption { font-size: .9em; color: #333; padding-top: 1mm; min-height: 1em; }
   .fuss { color: #444; font-size: .85em; }
+  .lv h2 { font-size: 1.05em; margin: 0 0 1mm; break-after: avoid; }
+  .lv table { width: 100%; border-collapse: collapse; }
+  .lv th { text-align: left; font-weight: 400; color: #444; font-size: .9em; border-bottom: .3mm solid #111; padding: .8mm 2mm .8mm 0; }
+  .lv td { vertical-align: top; padding: 1.4mm 2mm 1.4mm 0; border-bottom: .2mm solid #ddd; }
+  .lv tr { break-inside: avoid; }
+  .lv .oz { width: 1%; white-space: nowrap; }
+  .lv .zahl { width: 1%; white-space: nowrap; text-align: right; }
+  .lv .betrag { width: 24mm; white-space: nowrap; text-align: right; }
+  .lv .leer { display: inline-block; width: 22mm; border-bottom: .2mm solid #111; height: 1em; }
+  .lv .lv-titel td { font-weight: 700; padding-top: 3mm; border-bottom: .3mm solid #111; break-after: avoid; }
+  .lv .lv-summe td { font-weight: 600; border-bottom: .3mm solid #111; }
+  .lv .kurz { font-weight: 600; }
+  .lv .lang { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: .8mm; }
+  .lv .merk { color: #444; font-size: .9em; }
+  .lv .zusammen { margin-top: 6mm; break-inside: avoid; }
+  .lv .zusammen td { border-bottom: .2mm solid #ccc; }
+  .lv .zusammen .gesamt td { font-weight: 700; border-bottom: .4mm solid #111; }
 `;
 
 /**
@@ -178,6 +200,7 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       const rumpf = zeilen.map(({ werte: z }) => `<tr>${spalten.map((f) => `<td class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}">${sicher(f.art === 'ja_nein' ? (z[f.name] ? '✓' : '') : feldtext(f, z[f.name], d.verweis))}</td>`).join('')}</tr>`).join('');
       return huelle(b.id, `liste${zeilen.length ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2><table><thead><tr>${kopf}</tr></thead><tbody>${rumpf || `<tr><td colspan="${spalten.length}">–</td></tr>`}</tbody></table>`);
     }
+    if (b.art === 'lv') return huelle(b.id, 'lv', lvTabelle(b, d.kinder(b.id), e));
     if (b.art === 'bilder') {
       const bilder = d.kinder(b.id);
       if (!bilder.length && !bearbeiten) return '';
@@ -190,6 +213,58 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
     return huelle(b.id, `textblock${text ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || feld(b.feld).titel)}</h2><p>${sicher(text) || '–'}</p>`);
   });
   return teile.join('');
+}
+
+// ------------------------------------------------------------------ Leistungsverzeichnis
+const geld = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const zahlVon = (w: Wert | undefined) => { const n = typeof w === 'number' ? w : Number(String(w ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+/** OZ „01.02.0010“ → Teile zum Sortieren (Zahlen als Zahlen). */
+const ozTeile = (oz: string) => oz.split('.').map((t) => (/^\d+$/.test(t) ? Number(t) : t));
+const ozVergleich = (a: string, b: string) => {
+  const x = ozTeile(a), y = ozTeile(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if (x[i] === undefined) return -1;
+    if (y[i] === undefined) return 1;
+    if (x[i] !== y[i]) return typeof x[i] === 'number' && typeof y[i] === 'number' ? (x[i] as number) - (y[i] as number) : String(x[i]).localeCompare(String(y[i]), 'de');
+  }
+  return 0;
+};
+const OHNE_GP: Record<string, string> = { bedarf: 'Bedarfsposition – nur Einheitspreis', alternativ: 'Alternativposition – nur Einheitspreis' };
+
+/** Die Tabelle des LV: Titel öffnen eine Gruppe (Ebene aus der OZ), nach ihrer letzten Position steht die Titelsumme. */
+function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; werte: Werte }[], e: Einstellungen): string {
+  const preise = e[`${b.id}.preise`] === 'ja', nurKurz = e[`${b.id}.kurz`] === 'ja';
+  const z = [...eintraege].sort((a, c) => ozVergleich(String(a.werte.oz ?? ''), String(c.werte.oz ?? '')));
+  const leer = '<span class="leer"></span>';
+  const offen: { oz: string; text: string; ebene: number; summe: number }[] = [];
+  const oben: { oz: string; text: string; summe: number }[] = [];
+  let gesamt = 0;
+  const zeilen: string[] = [];
+  const schliessen = (bis: number) => {
+    while (offen.length && offen[offen.length - 1]!.ebene >= bis) {
+      const t = offen.pop()!;
+      if (offen.length) offen[offen.length - 1]!.summe += t.summe; else oben.push({ oz: t.oz, text: t.text, summe: t.summe });
+      zeilen.push(`<tr class="lv-summe"><td class="oz"></td><td colspan="3">Summe ${sicher(t.oz)} ${sicher(t.text)}</td><td class="betrag"></td><td class="betrag">${preise ? geld(t.summe) : leer}</td></tr>`);
+    }
+  };
+  for (const { werte: w } of z) {
+    const oz = String(w.oz ?? ''), art = String(w.art ?? 'normal'), ebene = oz.split('.').length;
+    const kurz = sicher(String(w.kurztext ?? '')), lang = nurKurz ? '' : String(w.langtext ?? '').trim();
+    if (art === 'titel') { schliessen(ebene); offen.push({ oz, text: String(w.kurztext ?? ''), ebene, summe: 0 }); zeilen.push(`<tr class="lv-titel"><td class="oz">${sicher(oz)}</td><td colspan="5">${kurz}</td></tr>`); continue; }
+    if (art === 'hinweis') { zeilen.push(`<tr><td class="oz">${sicher(oz)}</td><td colspan="5"><div class="kurz">${kurz}</div>${lang ? `<div class="lang">${sicher(lang)}</div>` : ''}</td></tr>`); continue; }
+    const menge = zahlVon(w.menge), ep = zahlVon(w.ep), gp = Math.round(menge * ep * 100) / 100, zaehlt = !OHNE_GP[art];
+    if (zaehlt) { if (offen.length) offen[offen.length - 1]!.summe += gp; else gesamt += gp; }
+    zeilen.push(`<tr><td class="oz">${sicher(oz)}</td><td><div class="kurz">${kurz}</div>${lang ? `<div class="lang">${sicher(lang)}</div>` : ''}${OHNE_GP[art] ? `<div class="merk">${OHNE_GP[art]}</div>` : art === 'stundenlohn' ? '<div class="merk">Stundenlohnarbeiten</div>' : ''}</td>`
+      + `<td class="zahl">${w.menge != null && w.menge !== '' ? sicher(menge.toLocaleString('de', { maximumFractionDigits: 3 })) : ''}</td><td>${sicher(String(w.einheit ?? ''))}</td>`
+      + `<td class="betrag">${preise ? (ep ? geld(ep) : '') : leer}</td><td class="betrag">${zaehlt ? (preise ? geld(gp) : leer) : ''}</td></tr>`);
+  }
+  schliessen(1);
+  gesamt += oben.reduce((s2, t) => s2 + t.summe, 0);
+  const betrag = (n: number) => (preise ? geld(n) : leer);
+  const zus = `<table class="zusammen"><thead><tr><th colspan="2">Zusammenstellung</th><th class="betrag">€</th></tr></thead><tbody>${oben.map((t) => `<tr><td class="oz">${sicher(t.oz)}</td><td>${sicher(t.text)}</td><td class="betrag">${betrag(t.summe)}</td></tr>`).join('')}`
+    + `<tr class="gesamt"><td></td><td>Angebotssumme netto</td><td class="betrag">${betrag(gesamt)}</td></tr><tr><td></td><td>zzgl. Umsatzsteuer 19 %</td><td class="betrag">${betrag(Math.round(gesamt * 19) / 100)}</td></tr>`
+    + `<tr class="gesamt"><td></td><td>Angebotssumme brutto</td><td class="betrag">${betrag(Math.round(gesamt * 119) / 100)}</td></tr></tbody></table>`;
+  return `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2><table><thead><tr><th class="oz">OZ</th><th>Leistung</th><th class="zahl">Menge</th><th>Einheit</th><th class="betrag">EP €</th><th class="betrag">GP €</th></tr></thead><tbody>${zeilen.join('') || '<tr><td colspan="6">–</td></tr>'}</tbody></table>${zus}`;
 }
 
 export const schriftgroesse = (e: Einstellungen) => (SCHRIFT[e['seite.schrift'] ?? ''] ?? SCHRIFT.normal!).pt;
