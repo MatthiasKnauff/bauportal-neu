@@ -21,7 +21,7 @@ export function Altdaten() {
   onCleanup(() => clearInterval(uhr));
   const holen = () => void vorschauZeigen({ titel: 'Aus dem alten Bautagebuch übernehmen', wartetext: 'Anmeldung am alten Bautagebuch, der Export wird geholt und mit dem Bauportal verglichen …', fertig: 'Die Daten sind übernommen. Die Fotos werden jetzt nachgeholt.', danach: () => void refetch() },
     () => ruf<Vorschau>('/api/altdaten/abholen', {}));
-  const darstellung = () => void vorschauZeigen({ titel: 'Darstellung der Benutzer übernehmen', wartetext: 'Die Benutzer werden aus dem bisherigen Bauportal geholt und zugeordnet …', fertig: 'Die Darstellung ist übernommen.' },
+  const darstellung = () => void vorschauZeigen({ titel: 'Benutzer übernehmen', wartetext: 'Die Benutzer werden aus dem bisherigen Bauportal geholt und zugeordnet …', fertig: 'Die Benutzer sind übernommen – alle melden sich mit ihrem bisherigen Kennwort an.' },
     () => ruf<Vorschau>('/api/altdaten/darstellung', {}));
   type AltPlan = { id: string; name: string; leistungen: number; geaendert: string; uebernommen: boolean };
   const [plaene, setPlaene] = createSignal<AltPlan[] | null>(null);
@@ -132,10 +132,10 @@ export function Altdaten() {
         </Show>
       </div>
       <div class="update-kasten">
-        <h3>4. Darstellung der Benutzer</h3>
-        <Show when={verbunden()} fallback={<p class="still-text">Mit der Verbindung aus Schritt 1 übernimmt das Bauportal die Darstellung jeder Person: Farbschema, Akzent, Schrift, Größe und Stil.</p>}>
-          <p class="still-text">Je Person, die es hier schon gibt (gleicher Name oder Anmeldename): Farbschema, Akzent, Schrift, Größe und Stil wie im bisherigen Bauportal. Jede:r kann es danach unter „Darstellung“ ändern.</p>
-          <div class="reihe"><button class="knopf haupt" onClick={darstellung}>Darstellung übernehmen</button></div>
+        <h3>4. Benutzer</h3>
+        <Show when={verbunden()} fallback={<p class="still-text">Mit der Verbindung aus Schritt 1 übernimmt das Bauportal die Benutzer: Name, Rolle, Kennwort und Darstellung.</p>}>
+          <p class="still-text">Wer hier noch fehlt, wird angelegt (Rolle wie bisher; gesperrt, wenn dort nicht mehr aktiv). Alle melden sich mit ihrem bisherigen Kennwort an – übernommen wird nur sein Prüfwert, nie das Kennwort selbst; wer hier schon ein Kennwort hat, behält es. Dazu je Person Farbschema, Akzent, Schrift, Größe und Stil – jede:r kann das danach unter „Darstellung“ ändern.</p>
+          <div class="reihe"><button class="knopf haupt" onClick={darstellung}>Benutzer übernehmen</button></div>
         </Show>
       </div>
     </section>} />

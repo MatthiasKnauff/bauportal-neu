@@ -58,8 +58,12 @@ export function KontaktOben(p: { kontakt: Zeile }) {
   );
 }
 
-/** Nach den Kontaktangaben: weitere Nummern, E-Mails, Anschriften und Ansprechpartner:innen. */
-export function Kontaktwege(p: { kontakt: Zeile }) {
+/** Hat die Karte die Gruppe „Ansprechpartner:in“ (Firma, Amt …)? Sonst stehen weitere Ansprechpartner:innen unter der Anschrift. */
+export const mitAnsprechpartner = (k: Zeile) => modell('kontakt').felder.some((f) => f.gruppe === 'Ansprechpartner:in' && gilt(f, k.werte, modell('kontakt')));
+
+/** Unter dem ersten Eintrag seiner Art: weitere Nummern (unter Telefon/Mobil), E-Mails (unter E-Mail/Internet), Anschriften
+ *  (unter der Anschrift) und Ansprechpartner:innen (unter der ersten) – je mit ihrem Knopf „＋ weitere …“. */
+export function Kontaktwege(p: { kontakt: Zeile; art: keyof typeof ARTEN }) {
   const m = () => modell('kontaktweg');
   const schreiben = () => darf('kontaktweg', 'schreiben');
   const [neu, setNeu] = createSignal<string | null>(null);   // eben angelegt: erstes Feld bekommt den Fokus
@@ -72,7 +76,7 @@ export function Kontaktwege(p: { kontakt: Zeile }) {
     .map((f) => (f.name === 'wert' && ARTEN[String(z.werte.art)]?.wert ? { ...f, titel: ARTEN[String(z.werte.art)]!.wert!, art: z.werte.art === 'email' ? 'email' as const : z.werte.art === 'telefon' ? 'telefon' as const : f.art } : f.name === 'bezeichnung' ? { ...f, titel: 'Funktion' } : f));
   return (
     <div class="kontaktwege">
-      <For each={wegeVon(p.kontakt.id)}>{(z) => {
+      <For each={wegeVon(p.kontakt.id).filter((z) => z.werte.art === p.art)}>{(z) => {
         const a = () => ARTEN[String(z.werte.art)] ?? ARTEN.telefon!;
         return (
           <div class="kw-block" ref={(el) => { if (neu() === z.id) queueMicrotask(() => { el.querySelector<HTMLElement>('input, button.auswahlliste-knopf')?.focus(); setNeu(null); }); }}>
@@ -96,7 +100,7 @@ export function Kontaktwege(p: { kontakt: Zeile }) {
       }}</For>
       <Show when={schreiben()}>
         <div class="kw-neu">
-          <For each={Object.entries(ARTEN)}>{([k, a]) => <button type="button" class="knopf klein" onClick={() => anlegen(k)}>＋ {a.zeichen} {a.knopf}</button>}</For>
+          <button type="button" class="knopf klein" onClick={() => anlegen(p.art)}>＋ {ARTEN[p.art]!.zeichen} {ARTEN[p.art]!.knopf}</button>
         </div>
       </Show>
     </div>

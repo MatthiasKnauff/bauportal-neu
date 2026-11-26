@@ -59,7 +59,7 @@ export function Detailkarte(p: {
   symbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
   verborgen?: string[];                    // Felder, die der Zusammenhang schon festlegt (Projekt, Version)
   oben?: (z: Zeile) => JSX.Element;        // über den Angaben (z. B. Anrufen, E-Mail, Route beim Kontakt)
-  einschub?: Record<string, (z: Zeile) => JSX.Element>;   // nach dieser Gruppe (z. B. weitere Nummern und Ansprechpartner:innen nach „Kontakt“)
+  einschub?: Record<string, (z: Zeile) => JSX.Element>;   // nach dieser Gruppe (Titel) oder diesem Feld (Name), über die ganze Breite (z. B. weitere Nummern unter Telefon/Mobil)
   blaettern?: { nr: number; anzahl: number; onSchritt: (schritt: -1 | 1) => void };   // „3 von 42“ mit ‹ › durch die gezeigten Einträge
   gruppe?: string;                         // zu dieser Gruppe springen und ihr erstes Feld wählen (z. B. „Wetter“ beim Stift am Wetter)
 }) {
@@ -100,7 +100,7 @@ export function Detailkarte(p: {
       <div class="karte-inhalt">
         {p.oben?.(p.zeile)}
         <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => {
-          const felder = () => <For each={g.felder}>{(f) => <FeldEingabe feld={f} breit={f.name === p.modell.anzeigeFeld} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />}</For>;
+          const felder = () => <For each={g.felder}>{(f) => <><FeldEingabe feld={f} breit={f.name === p.modell.anzeigeFeld} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />{p.einschub?.[f.name]?.(p.zeile)}</>}</For>;
           return <>{p.modell.eingeklappt?.includes(g.titel)
             ? <details class="feldgruppe" data-gruppe={g.titel} open={p.gruppe === g.titel || undefined}><summary>{g.titel}</summary><div class="feldgruppe-inhalt">{felder()}</div></details>
             : <fieldset data-gruppe={g.titel}><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>}{p.einschub?.[g.titel]?.(p.zeile)}</>;

@@ -1,6 +1,6 @@
 // Anmeldung: Kennwörter und Sitzungen. Die Benutzer selbst sind Objekte wie alle anderen
 // (Modul Verwaltung) und ändern sich nur über Befehle; Kennwörter stehen nie im Protokoll.
-import { createHash, randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
+import { createHash, pbkdf2, randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { Eingabefehler } from '../kern/modell';
 import type { Modulregister } from '../kern/modul';
@@ -9,7 +9,8 @@ import { SYSTEM, alsBenutzer, type Db } from './db';
 import { befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 
-const scryptP = promisify(scrypt) as (pw: string, salz: Buffer, laenge: number) => Promise<Buffer>;
+const scryptP = promisify(scrypt) as (pw: string, salz: Buffer, laenge: number, o?: { N: number; r: number; p: number; maxmem: number }) => Promise<Buffer>;
+const pbkdf2P = promisify(pbkdf2);
 
 export interface Benutzer { id: string; name: string; anmeldename: string; rolle: string }
 
@@ -18,10 +19,30 @@ async function hash(kennwort: string): Promise<string> {
   return `scrypt$${salz.toString('base64')}$${(await scryptP(kennwort, salz, 64)).toString('base64')}`;
 }
 async function passt(kennwort: string, gespeichert: string): Promise<boolean> {
+  if (gespeichert.startsWith(ALT)) return passtAlt(kennwort, gespeichert.slice(ALT.length));
   const [, s, h] = gespeichert.split('$');
   if (!s || !h) return false;
   const soll = Buffer.from(h, 'base64');
   return timingSafeEqual(soll, await scryptP(kennwort, Buffer.from(s, 'base64'), soll.length));
+}
+
+// Aus dem bisherigen Bauportal übernommen (Entscheidung 26.11.2026): dessen Prüfwert (werkzeug, „scrypt:N:r:p$salz$hex“ oder
+// „pbkdf2:sha256:n$salz$hex“) gilt bis zur ersten Anmeldung hier; dann steht das Kennwort im eigenen Format.
+const ALT = 'werkzeug$';
+const ALT_FORM = /^(scrypt:\d+:\d+:\d+|pbkdf2:sha(?:256|512):\d+)\$[^$]+\$[0-9a-f]{32,256}$/;
+async function passtAlt(kennwort: string, w: string): Promise<boolean> {
+  const [art, salz, hex] = w.split('$') as [string, string, string];
+  const soll = Buffer.from(hex, 'hex'), t = art.split(':');
+  const ist = t[0] === 'scrypt'
+    ? await scryptP(kennwort, Buffer.from(salz, 'utf8'), soll.length, { N: Number(t[1]), r: Number(t[2]), p: Number(t[3]), maxmem: 132 * Number(t[1]) * Number(t[2]) * Number(t[3]) })
+    : await pbkdf2P(kennwort, Buffer.from(salz, 'utf8'), Number(t[2]), soll.length, t[1]!);
+  return ist.length === soll.length && timingSafeEqual(soll, ist);
+}
+/** Prüfwert aus dem bisherigen Bauportal übernehmen (nur wenn es hier noch kein Kennwort gibt). */
+export async function pruefwertUebernehmen(db: Db, benutzerId: string, pruefwert: string): Promise<boolean> {
+  if (!ALT_FORM.test(pruefwert)) return false;
+  const r = await db.query('insert into kern_kennwort (benutzer_id, kennwort) values ($1,$2) on conflict (benutzer_id) do nothing', [benutzerId, ALT + pruefwert]);
+  return r.rowCount === 1;
 }
 const tokenHash = (t: string) => createHash('sha256').update(t).digest('hex');
 const AKTIV = 'not b.gesperrt and not b.geloescht';
@@ -104,6 +125,7 @@ export async function anmelden(db: Db, anmeldename: unknown, kennwort: unknown):
   // Auch ohne Treffer rechnen, damit die Antwortzeit nichts über vorhandene Namen verrät.
   const ok = await passt(String(kennwort ?? ''), z?.kennwort ?? 'scrypt$AAAAAAAAAAAAAAAAAAAAAA==$' + 'A'.repeat(86) + '==');
   if (!z?.kennwort || !ok) return null;
+  if (String(z.kennwort).startsWith(ALT)) await db.query('update kern_kennwort set kennwort = $2, geaendert = now() where benutzer_id = $1', [z.id, await hash(String(kennwort))]);   // ab jetzt im eigenen Format
   return { benutzer: { id: z.id, name: z.name, anmeldename: z.anmeldename, rolle: z.rolle }, token: await sitzungAnlegen(db, z.id) };
 }
 

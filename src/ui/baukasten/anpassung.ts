@@ -10,6 +10,7 @@ import type { Feld } from '../../kern/modell';
 import type { Menuepunkt } from './kontextmenue';
 import type { Knoten } from './baum';
 import type { Knopf } from './menueleiste';
+import type { Schritt } from './abfolgeleiste';
 
 export interface Mitte {
   alle: () => Zeile[];                  // alle Einträge im Zusammenhang (Projekt, Version)
@@ -36,6 +37,12 @@ export interface Anpassung {
   kartenReiter?: (z: Zeile) => { titel: string; inhalt: () => JSX.Element }[];
   /** Andere Zeichen für die Knöpfe im Kopf der Detailkarte. */
   kartenSymbole?: Partial<Record<'schliessen' | 'zuklappen' | 'fenster', string>>;
+  // --- Ganz oben (über der Menüleiste) ---
+  /** Kopf der Ansicht über Abfolge und Menüleiste (z. B. das gewählte LV mit Stand und Vergabe). */
+  kopf?: (p: Mitte) => JSX.Element;
+  /** Abfolge-Leiste: die Schritte (id = Ansicht der App, die der Schritt öffnet), wie weit der Eintrag ist (stand) und welcher Schritt
+   *  zur offenen Ansicht gehört (hier). Ein Klick öffnet die Ansicht des Schritts. */
+  abfolge?: (p: Mitte, ansicht: string) => { schritte: Schritt[]; stand: string; hier?: string } | undefined;
   // --- Oben (unter der Menüleiste) ---
   /** Einstellungen, die für alle Einträge der Ansicht gelten (z. B. Arbeitszeit des Plans). Bekommt den Zusammenhang (Projekt, Version). */
   oben?: (zusammenhang: Record<string, string | number | boolean | null>) => JSX.Element;

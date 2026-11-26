@@ -1,7 +1,7 @@
 // Die übliche Ansicht eines Objekts: Sie baut nichts selbst, sondern setzt die fertigen Bausteine
 // in den Rahmen – Baum links, Tabelle in die Mitte, Detailkarte rechts – und verbindet sie.
 import { herunterladen } from './baukasten/herunterladen';
-import { Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, type JSX } from 'solid-js';
+import { Show, createEffect, createMemo, createSignal, on, onCleanup, untrack, useContext, type JSX } from 'solid-js';
 import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
 import { leerwert, type Feld, type ObjektModell, type Werte } from '../kern/modell';
@@ -20,7 +20,7 @@ import { sammelfilter, type LinksFilter } from '../kern/modul';
 import { Schwebefenster } from './baukasten/schwebefenster';
 import { Detailkarte, NeuFenster, inEigenemFenster, loesche, feldAendern } from './baukasten/detailkarte';
 import { anzeige, excelWert } from './baukasten/feld';
-import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
+import { AppUmgebung, Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 import { Tabelle, sortieren, type Sortierung, type TabellenSteuer } from './baukasten/tabelle';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Kacheln } from './baukasten/kacheln';
@@ -45,6 +45,7 @@ export function ObjektAnsicht(p: {
 }) {
   const m = p.modell;
   const a = p.anpassung ?? {};
+  const app = useContext(AppUmgebung);
   const baumFelder = (p.baum ?? []).map((n) => m.felder.find((f) => f.name === n)!);
   // Sammelfilter links: die Filter der Ansicht – oder, wo sie keine nennt, je Auswahl-/Verweisfeld der Liste einer (UND, ODER, NICHT)
   const lfs: LinksFilter[] = p.linksFilter ?? sammelfilter(m, [...Object.keys(p.fest?.() ?? {}), ...(p.baum ?? [])]);
@@ -279,6 +280,8 @@ export function ObjektAnsicht(p: {
   return (
     <div class="ansicht" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented && (e.target as HTMLElement).closest('.karte')) { e.preventDefault(); tabelle?.fokus(); } }}>
       <Rahmen schluessel={p.schluessel} steuer={(s) => (rahmen = s)}
+        kopf={a.kopf?.(mitteP)}
+        abfolge={(() => { const f = a.abfolge?.(mitteP, app?.aktiv() ?? ''); return f ? { schritte: f.schritte, aktiv: f.stand, hier: f.hier, onWahl: app?.onReiter } : undefined; })()}
         knoepfe={[
           ...(darf(m.name, 'schreiben') ? [{ titel: a.neuTitel ?? m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => (a.mitte && mitteNeu ? mitteNeu() : neuStart()) }] : []),
           ...(a.knoepfe?.(fest()) ?? []),

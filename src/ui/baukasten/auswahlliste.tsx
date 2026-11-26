@@ -4,10 +4,11 @@
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
 import { Portal } from 'solid-js/web';
 
-export interface Option { wert: string; titel: string }
+export interface Option { wert: string; titel: string; anzahl?: number }   // anzahl: rechts neben dem Titel (z. B. Treffer eines Filterwerts)
 
 /** Stellschraube „neu“: Steht das Gesuchte nicht in der Liste, bietet die Liste „＋ „…“ neu anlegen“ an (z. B. eine neue Firma) – mit dem getippten Text. */
-export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string; platzhalter?: string; neu?: { titel: string; tun: (text: string) => void } }) {
+/** Stellschraube „gewaehlt“: mehrere Werte sind gewählt (z. B. Filter) – sie sind in der Liste markiert, der Knopf zeigt den Platzhalter. */
+export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string; platzhalter?: string; neu?: { titel: string; tun: (text: string) => void }; gewaehlt?: (w: string) => boolean }) {
   const [offen, setOffen] = createSignal(false);
   const [suche, setSuche] = createSignal('');
   const [zeiger, setZeiger] = createSignal(0);
@@ -63,8 +64,8 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
           </Show>
           <div role="listbox" tabindex="-1" aria-label={p.titel}>
             <For each={treffer()}>{(o, i) => (
-              <div role="option" aria-selected={o.wert === p.wert} classList={{ zeiger: zeiger() === i(), gewaehlt: o.wert === p.wert }}
-                onMouseEnter={() => setZeiger(i())} onClick={() => nimm(o)}>{o.titel}</div>
+              <div role="option" aria-selected={o.wert === p.wert || !!p.gewaehlt?.(o.wert)} classList={{ zeiger: zeiger() === i(), gewaehlt: o.wert === p.wert || !!p.gewaehlt?.(o.wert) }}
+                onMouseEnter={() => setZeiger(i())} onClick={() => nimm(o)}>{o.titel}<Show when={o.anzahl !== undefined}><span class="auswahlliste-anzahl">{o.anzahl}</span></Show></div>
             )}</For>
             <Show when={neuText()}><div role="option" aria-selected="false" class="auswahlliste-neu" onClick={neuNehmen}>＋ „{neuText()}“ {p.neu!.titel}</div></Show>
             <Show when={!treffer().length && !neuText()}><div class="auswahlliste-leer">Kein Treffer</div></Show>

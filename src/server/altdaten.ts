@@ -7,9 +7,10 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Modulregister } from '../kern/modul';
 import type { Befehl } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
-import { alsBenutzer, type Db } from './db';
-import { Ablehnung, ALLES_GESEHEN } from './protokoll';
-import type { Benutzer } from './anmeldung';
+import { SYSTEM, alsBenutzer, type Db } from './db';
+import { Ablehnung, ALLES_GESEHEN, vorgangAusfuehren } from './protokoll';
+import { pruefwertUebernehmen, type Benutzer } from './anmeldung';
+import { ROLLEN } from '../kern/rechte';
 import { fotoAblegen } from './foto';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { randomUUID } from 'node:crypto';
@@ -256,29 +257,45 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
   app.post('/api/altdaten/darstellung', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
     admin(req);
     const q = await anmelden();
-    let l: { name: string; darstellung: AlteDarstellung }[];
+    let l: { name: string; email?: string; admin?: boolean; aktiv?: boolean; rolle?: string; pruefwert?: string; darstellung: AlteDarstellung }[];
     try { l = (JSON.parse((await q.holen('api/bp/umzug/benutzer')).toString('utf8')) as { benutzer?: typeof l }).benutzer ?? []; }
     catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung('Das bisherige Bauportal gibt die Benutzer noch nicht heraus (es braucht dort den Stand vom 26.11.2026)'); }
-    const plan = await alsBenutzer(db, req.benutzer!, async (c) => {
-      const liste: Befehl[] = [], fehlt: string[] = [];
-      let neu = 0, geaendert = 0, gleich = 0;
+    // Benutzer: wer fehlt, wird angelegt (Rolle wie bisher, gesperrt, wenn dort inaktiv); das Kennwort kommt als Prüfwert mit
+    // (Entscheidung 26.11.2026) – alle melden sich mit ihrem bisherigen Kennwort an. Dazu je Person die Darstellung.
+    // Die Darstellung gehört der Person (eigenFeld): Die Verwaltung darf die der anderen weder sehen noch anlegen – beim Umzug
+    // legt das System sie an (wie bei der Einrichtung), nachdem die Benutzer angelegt sind; die eigene geht den üblichen Weg
+    // (kommt so sofort an). Gelesen wird deshalb als System.
+    const pruefwerte: [string, string][] = [], darstellungen: Befehl[] = [];
+    const plan = await alsBenutzer(db, SYSTEM, async (c) => {
+      const liste: Befehl[] = [];
+      let neu = 0, geaendert = 0, gleich = 0, neuB = 0, gleichB = 0;
       const benutzer = (await c.query('select id, name, anmeldename from o_benutzer where not geloescht')).rows as { id: string; name: string; anmeldename: string }[];
+      const kopf = () => ({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'uebernahme' });
       for (const a of l) {
         const n = String(a.name ?? '').trim().toLowerCase();
-        const b = benutzer.find((x) => String(x.name).toLowerCase() === n || String(x.anmeldename).toLowerCase() === n);
-        if (!b) { if (n && n !== 'admin') fehlt.push(a.name); continue; }
+        if (!n || n === 'admin') continue;
+        let b = benutzer.find((x) => String(x.name).toLowerCase() === n || String(x.anmeldename).toLowerCase() === n);
+        if (!b) {
+          b = { id: randomUUID(), name: String(a.name).trim(), anmeldename: n };
+          liste.push({ ...kopf(), objekt: 'benutzer', art: 'anlegen', objektId: b.id, werte: { name: b.name, anmeldename: n, rolle: rolleAusAlt(a), gesperrt: a.aktiv === false } });
+          neuB++;
+        } else gleichB++;
+        if (a.pruefwert) pruefwerte.push([b.id, a.pruefwert]);
         const { design, werte } = darstellungAusAlt(a.darstellung ?? {});
         const w = { ...werte, design: festeKennung(`design:${design}`) };
         const da = (await c.query('select * from o_design_wahl where benutzer = $1 and not geloescht', [b.id])).rows[0] as Record<string, unknown> | undefined;
-        const kopf = { id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'uebernahme' };
-        if (!da) { liste.push({ ...kopf, objekt: 'design_wahl', art: 'anlegen', objektId: randomUUID(), werte: { benutzer: b.id, ...w } }); neu++; continue; }
+        const ziel = b.id === req.benutzer!.id ? liste : darstellungen;
+        if (!da) { ziel.push({ ...kopf(), objekt: 'design_wahl', art: 'anlegen', objektId: randomUUID(), werte: { benutzer: b.id, ...w } }); neu++; continue; }
         const anders = Object.fromEntries(Object.entries(w).filter(([k, v]) => String(da[k] ?? '') !== String(v ?? '')));
-        if (Object.keys(anders).length) { liste.push({ ...kopf, objekt: 'design_wahl', art: 'aendern', objektId: String(da.id), werte: anders }); geaendert++; } else gleich++;
+        if (Object.keys(anders).length) { ziel.push({ ...kopf(), objekt: 'design_wahl', art: 'aendern', objektId: String(da.id), werte: anders }); geaendert++; } else gleich++;
       }
-      return { je: { design_wahl: { neu, geaendert, entfernt: 0, unveraendert: gleich, behalten: 0 } },
-        hinweise: fehlt.length ? [`Noch nicht angelegt – deren Darstellung kommt mit, sobald es sie hier gibt: ${fehlt.join(', ')}`] : [], liste };
+      return { je: { benutzer: { neu: neuB, geaendert: 0, entfernt: 0, unveraendert: gleichB, behalten: 0 }, design_wahl: { neu, geaendert, entfernt: 0, unveraendert: gleich, behalten: 0 } },
+        hinweise: pruefwerte.length ? [`Kennwörter: ${pruefwerte.length} Personen melden sich mit ihrem bisherigen Kennwort an (wer hier schon eines hat, behält es).`] : [], liste };
     });
-    return merken(req.benutzer!.id, plan);
+    return merken(req.benutzer!.id, plan, async () => {
+      if (darstellungen.length) await vorgangAusfuehren(db, e.register, SYSTEM, darstellungen);
+      for (const [id, w] of pruefwerte) await pruefwertUebernehmen(db, id, w);
+    });
   });
   app.post('/api/altdaten/fotos-holen', { preHandler: e.nurAngemeldet }, async (req) => {
     admin(req);
@@ -299,6 +316,13 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     if (!f.schon) e.nachBefehlen();
     return f;
   });
+}
+
+/** Rolle aus dem bisherigen Bauportal: Verwaltung → Administrator:in, gleichnamige Rollen bleiben, sonst Mitarbeiter:in. */
+function rolleAusAlt(a: { admin?: boolean; rolle?: string }): string {
+  if (a.admin) return 'admin';
+  const r = String(a.rolle ?? '');
+  return ROLLEN.some((x) => x.name === r) ? r : r === 'gf' ? 'bueroleitung' : 'mitarbeiter';
 }
 
 /** Die Angaben, die das bisherige Bauportal je Kontakt im Feld „extra“ führt (Ansprechpartner zerlegt, Firma / Rechnung), dazu Funktion und Stichwörter. */

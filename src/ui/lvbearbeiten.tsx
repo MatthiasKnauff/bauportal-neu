@@ -9,6 +9,7 @@ import { lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, titelSumme, 
 import { Dialog } from './baukasten/dialog';
 import { kiOeffnen } from './baukasten/ki';
 import { gp, zaehlt, zahl } from '../module/ava/rechnung';
+import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
 import { zeigeMenue } from './baukasten/kontextmenue';
@@ -35,7 +36,7 @@ const FREI = new Set<string>();   // freigeschaltete vergebene LVs – bis zum N
 export const [lvZeiger, setLvZeiger] = createSignal<string | null>(null);
 
 export function LvBearbeiten(p: Mitte): JSX.Element {
-  const lv = () => { const id = p.gewaehlt() ?? p.alle()[0]?.id; return id ? sicht.lv?.[id] : undefined; };
+  const lv = () => lvVon(p);
   const positionen = createMemo(() => (lv() ? lebende('lv_position').filter((x) => x.werte.lv === lv()!.id && !x.werte.nachtrag) : []));
   const zeilen = createMemo(() => lvZeilen(positionen()));
   const nachZeile = createMemo(() => new Map(zeilen().map((z) => [z.id, z])));   // Zeilen über ihre Kennung – die Darstellung hängt an der Kennung, nicht am Objekt (sonst ginge ein offenes Feld bei jedem Abgleich verloren)

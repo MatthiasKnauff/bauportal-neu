@@ -3,9 +3,10 @@
 // Abschnitte mit vielen Einträgen bekommen ein eigenes Suchfeld.
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import { Zeichen, istZeichen } from './zeichen';
+import { Auswahlliste } from './auswahlliste';
 
 export interface SeitenEintrag { id: string; titel: string; zeichen?: string; anzahl?: number; nach?: JSX.Element }   // nach: steht unter dem Eintrag (z. B. eine Einstellung)
-export interface SeitenAbschnitt { titel: string; eintraege: SeitenEintrag[]; suche?: boolean; abgesetzt?: boolean; schluessel?: string; zu?: boolean }   // zu: als Filter von Haus aus zugeklappt   // abgesetzt: farbig abgesetzt (z. B. „Für mich“); schluessel: zum Merken, wenn der Titel wechselt
+export interface SeitenAbschnitt { titel: string; eintraege: SeitenEintrag[]; suche?: boolean; abgesetzt?: boolean; schluessel?: string; zu?: boolean }   // zu: als Filter nur ein Knopf je Feld (Sammelfilter), sonst offen   // abgesetzt: farbig abgesetzt (z. B. „Für mich“); schluessel: zum Merken, wenn der Titel wechselt
 
 const FARBEN = ['#e8f0fd', '#e6f4ea', '#f1ebfa', '#fdf0e2', '#fde8e8', '#e7f6f6', '#fbf3dc'];
 
@@ -14,10 +15,6 @@ const FARBEN = ['#e8f0fd', '#e6f4ea', '#f1ebfa', '#fdf0e2', '#fde8e8', '#e7f6f6'
 // sichtbar; gemerkt je Browser.
 const ZU = 'bp.navzu';
 const [zu, setZu] = createSignal<Set<string>>((() => { try { return new Set<string>(JSON.parse(localStorage.getItem(ZU) ?? '[]')); } catch { return new Set<string>(); } })());
-// Filter: gemerkt wird, welche jemand gegenüber der Vorgabe auf- oder zugeklappt hat
-const AUF = 'bp.filterumgeklappt';
-const [auf, setAuf] = createSignal<Set<string>>((() => { try { return new Set<string>(JSON.parse(localStorage.getItem(AUF) ?? '[]')); } catch { return new Set<string>(); } })());
-const aufSchalten = (k: string) => { const s = new Set(auf()); if (s.has(k)) s.delete(k); else s.add(k); setAuf(s); try { localStorage.setItem(AUF, JSON.stringify([...s])); } catch { /* gilt bis zum Neuladen */ } };
 const zuSchalten = (k: string) => { const s = new Set(zu()); if (s.has(k)) s.delete(k); else s.add(k); setZu(s); try { localStorage.setItem(ZU, JSON.stringify([...s])); } catch { /* gilt bis zum Neuladen */ } };
 
 export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | ((id: string) => boolean); nicht?: (id: string) => boolean; onWahl: (id: string) => void; name: string; art?: 'ansichten' | 'filter'; klappbar?: boolean }) {
@@ -25,61 +22,66 @@ export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | 
   let nr = 0;
   const farbe = new Map<string, string>();
   const farbeVon = (id: string) => farbe.get(id) ?? (farbe.set(id, FARBEN[nr++ % FARBEN.length]!), farbe.get(id)!);
-  // Filter links (Entscheidung A, 26.11.2026): je Feld eine zugeklappte Zeile mit der Zahl seiner Werte (die Sammelfilter; fest
-  // eingestellte wie „Kontakte“ in den Adressen stehen von Haus aus offen); aufgeklappt die 5 häufigsten
-  // und „alle n zeigen …“. Gewählte Werte bleiben auch zugeklappt sichtbar; offen bleibt, was man zuletzt offen hatte (je Liste
-  // gemerkt). Einträge ohne Treffer fallen weg; ein Eintrag mit Zusatz (Beteiligte des Projekts) steht immer als Kasten.
-  if (p.art === 'filter') return (
-    <nav class="ansichten-nav seitenliste-filter seitenliste-chips" aria-label={p.name}>
-      <For each={p.abschnitte}>{(a) => {
-        const [alle, setAlle] = createSignal(false);
-        const HAEUFIG = 5;
-        const k = `${p.name}|${a.schluessel ?? a.titel}`;
-        const klapp = () => p.abschnitte.length > 1 && !!a.titel;
-        const offen = () => !klapp() || (!a.zu !== auf().has(k));
-        const kasten = () => a.eintraege.filter((e) => e.nach);
-        const rest = () => a.eintraege.filter((e) => !e.nach && (e.anzahl !== 0 || an(e.id) || !!p.nicht?.(e.id)));
-        const werte = () => rest().filter((e) => !e.id.endsWith(':*'));
-        const lang = () => rest().length > HAEUFIG + 1;
-        const gewaehlt = (e: SeitenEintrag) => an(e.id) || !!p.nicht?.(e.id);
-        const gezeigt = () => {
-          if (!offen()) return werte().filter(gewaehlt);
-          if (!lang() || alle()) return rest();
-          const vorn = rest().filter((e) => e.id.endsWith(':*'));
-          const oft = werte().sort((x, y) => (y.anzahl ?? 0) - (x.anzahl ?? 0)).slice(0, HAEUFIG);
-          return [...vorn, ...oft, ...rest().filter((e) => gewaehlt(e) && !oft.includes(e) && !vorn.includes(e))];
-        };
-        return (
-          <Show when={kasten().length || rest().length}>
-            <div class="filter-abschnitt" classList={{ offen: offen() }}>
-              <Show when={a.titel}>
-                <Show when={klapp()} fallback={<h3>{a.titel}</h3>}>
-                  <h3><button type="button" class="abschnitt-kopf" aria-expanded={offen()} onClick={() => aufSchalten(k)}>
-                    <i aria-hidden="true">{offen() ? '▾' : '▸'}</i><span>{a.titel}</span><span class="filter-werte">{werte().length} {werte().length === 1 ? 'Wert' : 'Werte'}</span></button></h3>
-                </Show>
-              </Show>
-              <For each={kasten()}>{(e) => (
+  // Filter links (Entscheidung B, 26.11.2026): oben „Filter hinzufügen“ und die Kästen (in der Ansicht), hier die fest eingestellten
+  // Filter offen (z. B. Kontakte nach Art) und darunter je weiteres Feld ein Knopf; der Knopf öffnet die Werte des Feldes als
+  // Auswahlliste mit ihrer Anzahl. Einträge ohne Treffer fallen weg; ein Eintrag mit Zusatz (Beteiligte des Projekts) steht als Kasten.
+  if (p.art === 'filter') {
+    const gewaehlt = (e: SeitenEintrag) => an(e.id) || !!p.nicht?.(e.id);
+    const rest = (a: SeitenAbschnitt) => a.eintraege.filter((e) => !e.nach && (e.anzahl !== 0 || gewaehlt(e)));
+    const werte = (a: SeitenAbschnitt) => rest(a).filter((e) => !e.id.endsWith(':*'));
+    const feste = () => p.abschnitte.filter((a) => !a.zu || a.eintraege.some((e) => e.nach));
+    const knoepfe = () => p.abschnitte.filter((a) => a.zu && !a.eintraege.some((e) => e.nach) && werte(a).length);
+    return (
+      <nav class="ansichten-nav seitenliste-filter seitenliste-chips" aria-label={p.name}>
+        <For each={feste()}>{(a) => {
+          const [alle, setAlle] = createSignal(false);
+          const HAEUFIG = 5;
+          const lang = () => rest(a).length > HAEUFIG + 1;
+          const gezeigt = () => {
+            if (!lang() || alle()) return rest(a);
+            const vorn = rest(a).filter((e) => e.id.endsWith(':*'));
+            const oft = werte(a).sort((x, y) => (y.anzahl ?? 0) - (x.anzahl ?? 0)).slice(0, HAEUFIG);
+            return [...vorn, ...oft, ...rest(a).filter((e) => gewaehlt(e) && !oft.includes(e) && !vorn.includes(e))];
+          };
+          return (
+            <div class="filter-abschnitt offen">
+              <Show when={a.titel}><h3>{a.titel}</h3></Show>
+              <For each={a.eintraege.filter((e) => e.nach)}>{(e) => (
                 <div class="chip-kasten" classList={{ aktiv: an(e.id) }}>
                   <button type="button" aria-pressed={an(e.id)} onClick={() => p.onWahl(e.id)}><span>{e.titel}</span><span class="seitenliste-anzahl">{e.anzahl}</span></button>
                   {e.nach}
                 </div>
               )}</For>
-              <Show when={gezeigt().length || (offen() && lang())}>
+              <Show when={gezeigt().length}>
                 <div class="chips">
                   <For each={gezeigt()}>{(e) => (
                     <button type="button" class="chip" aria-pressed={gewaehlt(e)} classList={{ aktiv: an(e.id), nicht: !!p.nicht?.(e.id) }} onClick={() => p.onWahl(e.id)}>
                       {e.titel}<Show when={e.anzahl !== undefined}> <span class="chip-anzahl">{e.anzahl}</span></Show>
                     </button>
                   )}</For>
-                  <Show when={offen() && lang()}><button type="button" class="chip still" onClick={() => setAlle(!alle())}>{alle() ? 'weniger' : `alle ${werte().length} zeigen …`}</button></Show>
+                  <Show when={lang()}><button type="button" class="chip still" onClick={() => setAlle(!alle())}>{alle() ? 'weniger' : `alle ${werte(a).length} zeigen …`}</button></Show>
                 </div>
               </Show>
             </div>
-          </Show>
-        );
-      }}</For>
-    </nav>
-  );
+          );
+        }}</For>
+        <Show when={knoepfe().length}>
+          <div class="filter-felder">
+            <Show when={feste().length}><span class="filter-felder-titel">nach Feld:</span></Show>
+            <For each={knoepfe()}>{(a) => {
+              const n = () => werte(a).filter(gewaehlt).length;
+              return (
+                <div class="filter-feld" classList={{ aktiv: n() > 0 }}>
+                  <Auswahlliste titel={a.titel} wert={null} platzhalter={n() ? `${a.titel} · ${n()}` : a.titel} gewaehlt={(id) => gewaehlt({ id, titel: '' })}
+                    optionen={werte(a).map((e) => ({ wert: e.id, titel: e.titel, anzahl: e.anzahl }))} onWert={p.onWahl} />
+                </div>
+              );
+            }}</For>
+          </div>
+        </Show>
+      </nav>
+    );
+  }
   return (
     <nav class="ansichten-nav" aria-label={p.name} role="tablist" aria-orientation="vertical">
       <For each={p.abschnitte}>{(a) => {

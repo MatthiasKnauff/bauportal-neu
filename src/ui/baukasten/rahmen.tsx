@@ -81,7 +81,8 @@ const HEFT_GROESSE = 18;   // eine Größe für alle Heftzwecken
 
 export function Rahmen(p: {
   schluessel: string;                       // merkt sich je Ansicht, was zugeklappt ist
-  abfolge?: { schritte: Schritt[]; aktiv: string; onWahl?: (id: string) => void };
+  kopf?: JSX.Element;                       // über Abfolge und Menüleiste: was die ganze Ansicht betrifft (z. B. das gewählte LV)
+  abfolge?: { schritte: Schritt[]; aktiv: string; hier?: string; onWahl?: (id: string) => void };
   knoepfe?: Knopf[]; menueMitte?: JSX.Element;
   unterMenue?: JSX.Element;                 // unter der Menüleiste (Dialoge, Umfang „Dieses Projekt / Alle“)
   linksOben?: () => JSX.Element;            // oben in der Gliederung, steht still beim Rollen – z. B. die Auswahl der Version
@@ -152,7 +153,8 @@ export function Rahmen(p: {
   const obenWeiter = () => { const s = (oben() + 1) % 3; setOben(s); obenSetzen(s); try { localStorage.setItem(obenMerk(), String(s)); } catch { /* gesperrt */ } };
   return (
     <div class="rahmen">
-      <Show when={p.abfolge}>{(a) => <Abfolgeleiste schritte={a().schritte} aktiv={a().aktiv} onWahl={a().onWahl} />}</Show>
+      {p.kopf}
+      <Show when={p.abfolge}>{(a) => <Abfolgeleiste schritte={a().schritte} aktiv={a().aktiv} hier={a().hier} onWahl={a().onWahl} />}</Show>
       <Menueleiste rueckgaengig={nurAnsehen() ? undefined : app?.rueckgaengig} reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}
         ende={<button type="button" class="heftzwecke oben-heftzwecke nur-breit-flex" classList={{ geloest: oben() !== 0 }} aria-label={OBEN_TEXT[oben()]} title={OBEN_TEXT[oben()]} onClick={obenWeiter}>
           <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={HEFT_GROESSE} />

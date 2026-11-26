@@ -12,6 +12,7 @@ import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Seitenliste } from './baukasten/seitenliste';
+import { lvVon, lvWaehlen } from './avakopf';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { darf, neueKennung } from './unterbau/api';
 
@@ -87,12 +88,12 @@ export function PositionSumme(p: { pos: Zeile }): JSX.Element | undefined {
 
 /** Links im Preisspiegel: die LVs des Projekts. */
 export function LvWahl(p: Mitte): JSX.Element {
-  return <Seitenliste name="Leistungsverzeichnisse" aktiv={p.gewaehlt() ?? p.alle()[0]?.id ?? ''} onWahl={(id) => p.onWahl(id)}
+  return <Seitenliste name="Leistungsverzeichnisse" aktiv={lvVon(p)?.id ?? ''} onWahl={(id) => lvWaehlen(p, id)}
     abschnitte={[{ titel: 'Leistungsverzeichnisse', eintraege: [...p.alle()].sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true })).map((l) => ({ id: l.id, titel: [l.werte.nummer, l.werte.name].filter(Boolean).join(' · '), zeichen: 'ausschreibung', anzahl: angeboteVon(l.id).length })) }]} />;
 }
 
 export function Preisspiegel(p: Mitte): JSX.Element {
-  const lv = () => { const id = p.gewaehlt() ?? p.alle()[0]?.id; return id ? sicht.lv?.[id] : undefined; };
+  const lv = () => lvVon(p);
   const pos = createMemo(() => (lv() ? positionenVon(lv()!.id) : []));
   const ang = createMemo(() => (lv() ? angeboteVon(lv()!.id) : []));
   const preise = createMemo(() => preiseVon(ang()));
@@ -206,7 +207,7 @@ export function RechnungLeiter(p: { rechnung: Zeile }): JSX.Element {
 
 /** Aufmaßprüfung (wie im bisherigen Bauportal): je Position Menge laut Firma ↔ eigener Rechenweg, mal EP des Auftrags. */
 export function Aufmasspruefung(p: Mitte): JSX.Element {
-  const lv = () => { const id = p.gewaehlt() ?? p.alle()[0]?.id; return id ? sicht.lv?.[id] : undefined; };
+  const lv = () => lvVon(p);
   const pos = createMemo(() => (lv() ? allePositionenVon(lv()!.id) : []));
   const auftrag = createMemo(() => (lv() ? angeboteVon(lv()!.id).find((a) => a.werte.beauftragt === true) : undefined));
   const preise = createMemo(() => (auftrag() ? preiseVon([auftrag()!]) : new Map<string, Zeile>()));
@@ -304,7 +305,7 @@ export function Aufmasspruefung(p: Mitte): JSX.Element {
 
 /** Aufträge (wie im bisherigen Bauportal): Hauptauftrag und Nachträge mit Stand und Betrag, Prognose und abgerechnet. */
 export function Auftraege(p: Mitte): JSX.Element {
-  const lv = () => { const id = p.gewaehlt() ?? p.alle()[0]?.id; return id ? sicht.lv?.[id] : undefined; };
+  const lv = () => lvVon(p);
   const z = createMemo(() => (lv() ? lvZahlen(lv()!.id) : undefined));
   const auftrag = () => z()?.auftrag, nachlass = () => z()?.nachlass ?? 0, haupt = () => z()?.haupt ?? 0;
   const stand = () => z()!.stand, abgerechnet = () => z()?.abgerechnet ?? 0;
@@ -433,7 +434,7 @@ function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string
 /** Versand & Rücklauf (wie im bisherigen Bauportal): je LV die angeschriebenen Bieter:innen – Rückmeldung, Nachfassen, Eingang –
  *  mit Fristen und Zählern; Unterlagen als GAEB X83. Das Verschicken per E-Mail kommt über die zentrale Versandstelle. */
 export function Versand(p: Mitte): JSX.Element {
-  const lv = () => { const id = p.gewaehlt() ?? p.alle()[0]?.id; return id ? sicht.lv?.[id] : undefined; };
+  const lv = () => lvVon(p);
   const bieter = createMemo(() => (lv() ? angeboteVon(lv()!.id) : []));
   const z = createMemo(() => ruecklaufZaehlen(bieter()));
   // Firmen zum Anschreiben: die mit passendem Gewerk zuerst (★)

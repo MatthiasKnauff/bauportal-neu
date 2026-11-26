@@ -6,7 +6,7 @@ import { KatalogListe, KatalogNetz } from './katalognetz';
 import { Darstellungsseite } from './designwahl';
 import { GebaeudeAssistent, GebaeudeTeile } from './gebaeudeschritte';
 import { Kostenrahmen } from './kostenrahmen';
-import { KontaktOben, Kontaktwege } from './kontaktwege';
+import { KontaktOben, Kontaktwege, mitAnsprechpartner } from './kontaktwege';
 import { Nachschlagen } from './baukasten/nachschlagen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
@@ -22,6 +22,7 @@ import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { hinweis } from './unterbau/meldungen';
 import type { Anpassung } from './baukasten/anpassung';
+import { AVA_OBEN } from './avakopf';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
@@ -428,9 +429,11 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,
-    // wie im bisherigen Bauportal: oben Anrufen, E-Mail, Route, Ins Handy; nach der Erreichbarkeit die weiteren Kontaktwege
+    // wie im bisherigen Bauportal: oben Anrufen, E-Mail, Route, Ins Handy
     kartenOben: (z) => <KontaktOben kontakt={z} />,
-    kartenEinschub: { Erreichbarkeit: (z) => <Kontaktwege kontakt={z} /> },
+    // weitere Kontaktwege jeweils unter dem ersten Eintrag ihrer Art; ohne Gruppe Ansprechpartner:in (Privatperson) stehen Ansprechpartner:innen unter der Anschrift
+    kartenEinschub: { 'Ansprechpartner:in': (z) => <Kontaktwege kontakt={z} art="person" />, mobil: (z) => <Kontaktwege kontakt={z} art="telefon" />, web: (z) => <Kontaktwege kontakt={z} art="email" />,
+      Anschrift: (z) => <><Kontaktwege kontakt={z} art="anschrift" /><Show when={!mitAnsprechpartner(z)}><Kontaktwege kontakt={z} art="person" /></Show></> },
     kartenReiter: (z) => [{ titel: 'Projekte', inhalt: () => <KontaktProjekte kontakt={z} /> }],
     knoepfe: () => [...(darf('kontakt', 'schreiben') ? [{ titel: 'Einlesen …', zeichen: 'datei_hoch', gruppe: 'Liste', tun: () => adressenEinlesen() }] : []), ...(darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: () => aufraeumenOeffnen() }] : [])],
     auswahl: kontaktAuswahl,   // mehrere wählen: Projekt, Ändern, Ausgeben, Zusammenführen
@@ -446,7 +449,9 @@ const ANPASSUNG: Record<string, Anpassung> = {
 };
 
 // Anpassung je Objekt; eine einzelne Ansicht kann darüber eigene Stellschrauben haben (Schlüssel „modul.ansicht“, z. B. die 3D-Ansicht der Bauteile)
-const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSUNG[objekt], ...(ansicht ? ANSICHT_ANPASSUNG[ansicht] : {}), kartenZusatz: kartenZusatz(objekt) });
+// und eine ganze App eigene für alle ihre Ansichten (Schlüssel „modul“, z. B. AVA: Kopf des LV und Ablauf)
+const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSUNG[objekt], ...(ansicht ? { ...MODUL_ANPASSUNG[ansicht.split('.')[0]!], ...ANSICHT_ANPASSUNG[ansicht] } : {}), kartenZusatz: kartenZusatz(objekt) });
+const MODUL_ANPASSUNG: Record<string, Anpassung> = { ava: AVA_OBEN };
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },

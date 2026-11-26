@@ -13,7 +13,7 @@ import { anwenden, gegenbefehl, type Befehl, type Zeile } from '../src/kern/befe
 import { SYSTEM, alsBenutzer, schemaAnlegen, verbinden, type Absender, type Db } from '../src/server/db';
 import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss } from '../src/server/protokoll';
 import { festeKennung, grundausstattung } from '../src/server/grundausstattung';
-import { kennwortSetzen } from '../src/server/anmeldung';
+import { kennwortSetzen, pruefwertUebernehmen } from '../src/server/anmeldung';
 import { baueServer } from '../src/server/server';
 import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen';
 import { gebaeudemodellRegelnAnmelden } from '../src/server/gebaeudemodell';
@@ -1604,4 +1604,41 @@ test('LV: OZ-Maske lesen und damit nummerieren', async () => {
   assert.deepEqual(maskeLesen('quatsch').titel, [2, 2, 2, 2]);
   const z = lvZeilen([{ id: 't', werte: { oz: '01', art: 'titel' } }, { id: 'u', werte: { oz: '01.01', art: 'titel' } }, { id: 'p', werte: { oz: '01.01.0010', art: 'normal' } }]);
   assert.deepEqual([...nummerieren(z, m)], [['t', '1'], ['u', '1.01'], ['p', '1.01.005']]);
+});
+
+test('AVA: Ablauf des LV aus seinem Inhalt', async () => {
+  const { avaAbfolge, avaSchrittVon } = await import('../src/module/ava/abfolge');
+  const leer = { status: 'bearbeitung', angeschrieben: 0, eingegangen: 0, besprochen: false, vergeben: false, aufmass: false, abgerechnet: false };
+  assert.equal(avaAbfolge(leer).stand, 'lv');
+  assert.equal(avaAbfolge({ ...leer, angeschrieben: 3 }).stand, 'versand');
+  assert.equal(avaAbfolge({ ...leer, angeschrieben: 3, eingegangen: 1 }).stand, 'preisspiegel');
+  assert.equal(avaAbfolge({ ...leer, angeschrieben: 3, eingegangen: 2, vergeben: true, aufmass: true }).stand, 'aufmass');
+  assert.equal(avaAbfolge({ ...leer, aufmass: true }).stand, 'lv');                                  // Aufmaß zählt erst nach der Vergabe
+  const weg = avaAbfolge({ ...leer, status: 'aufgehoben', angeschrieben: 2 });
+  assert.equal(weg.stand, 'auftraege');
+  assert.equal(weg.schritte.find((s) => s.id === 'auftraege')!.titel, 'nicht vergeben');
+  assert.deepEqual(weg.schritte.filter((s) => s.weg).map((s) => s.id), ['aufmass', 'rechnungen']);
+  assert.equal(avaSchrittVon('nachverfolgen'), 'versand');
+  assert.equal(avaSchrittVon('kostenkontrolle'), undefined);
+});
+
+test('Anmeldung: Kennwort-Prüfwert aus dem bisherigen Bauportal (werkzeug scrypt/pbkdf2), ab der ersten Anmeldung im eigenen Format', async () => {
+  const { db, weg } = await frischeDb();
+  const app = await baueServer({ db, register, version: 'v-test', umgebung: 'test' });
+  try {
+    const anm = (k: string) => app.inject({ method: 'POST', url: '/api/anmelden', payload: { anmeldename: 'mk', kennwort: k } });
+    await app.inject({ method: 'POST', url: '/api/einrichtung', payload: { name: 'Matthias', anmeldename: 'mk', kennwort: 'ein-langes-kennwort', bueroname: 'GK3', bundesland: 'Nordrhein-Westfalen' } });
+    const id = (await db.query("select id from o_benutzer where anmeldename = 'mk'")).rows[0].id as string;
+    assert.equal(await pruefwertUebernehmen(db, id, 'scrypt:32768:8:1$Qw3rTy12abcdEFGH$051894aadd383033bbeee8fa5ac38f0e8208e1a2fa8f0c0a5e235894c82f4747f39f1b24062b8912abfc35c61b5f7d6047d38ff7cc5cd1c902a27335c0c9b999'), false, 'wer schon ein Kennwort hat, behält es');
+    await db.query('delete from kern_kennwort');
+    assert.equal(await pruefwertUebernehmen(db, id, 'scrypt:1$x$zz'), false, 'nur gültige Prüfwerte');
+    assert.equal(await pruefwertUebernehmen(db, id, 'scrypt:32768:8:1$Qw3rTy12abcdEFGH$051894aadd383033bbeee8fa5ac38f0e8208e1a2fa8f0c0a5e235894c82f4747f39f1b24062b8912abfc35c61b5f7d6047d38ff7cc5cd1c902a27335c0c9b999'), true);
+    assert.equal((await anm('falsch-falsch')).statusCode, 401);
+    assert.equal((await anm('altes-kennwort')).statusCode, 200);
+    assert.match((await db.query('select kennwort from kern_kennwort')).rows[0].kennwort, /^scrypt\$/, 'danach im eigenen Format');
+    assert.equal((await anm('altes-kennwort')).statusCode, 200);
+    await db.query('delete from kern_kennwort');
+    await pruefwertUebernehmen(db, id, 'pbkdf2:sha256:600000$Zz9yXx8wVv7u$0efff73c14fb0b0bd49972c259e64d95e9c42950d773be5e244b19e871d45e2d');
+    assert.equal((await anm('kurz')).statusCode, 200, 'pbkdf2, auch ein kurzes altes Kennwort');
+  } finally { await app.close(); await weg(); }
 });
