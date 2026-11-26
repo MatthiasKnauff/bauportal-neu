@@ -421,6 +421,11 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 
 /* Balkenplan (Bauzeitenplan): Tabelle links (beim waagerechten Blättern fest), Balken rechts, Kopf oben fest */
 .bzp-flaeche.teilen .bzp-balken-teil { cursor: crosshair; }
+/* Soll unter dem Ist (wie bisher): schmaler grauer Balken, Abweichung hinter dem Namen, neue Leistungen grün getönt */
+.bzp-soll { fill: color-mix(in srgb, var(--text-still) 75%, transparent); }
+.bzp-soll-text { fill: var(--text-still); font-weight: 600; } .bzp-soll-text.spaet { fill: var(--gefahr); } .bzp-soll-text.frueh { fill: var(--gut); }
+.bzp-zeile.soll-neu { background: color-mix(in srgb, var(--gut) 10%, var(--flaeche)); }
+.bzp-soll-stand { font-weight: 600; } .bzp-soll-stand.spaet { color: var(--gefahr); }
 .bzp { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--flaeche); }
 .bzp-flaeche { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; }
 .bzp-flaeche:focus-visible .bzp-zelle.zeiger { box-shadow: inset 0 0 0 2px var(--akzent); }

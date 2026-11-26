@@ -2,7 +2,7 @@
 // Anfang und Ende werden nicht gespeichert, sondern gerechnet (rechnung.ts) – aus Projektanfang, Kalender und Kette.
 import type { Beipackzettel } from '../../kern/modul';
 import type { ObjektModell } from '../../kern/modell';
-import { ALLE } from '../../kern/rechte';
+import { ALLE, OHNE_GAST } from '../../kern/rechte';
 import { BUNDESLAENDER } from './kalender';
 import { ARTEN } from './rechnung';
 
@@ -116,6 +116,23 @@ export const planregel: ObjektModell = {
   ],
 };
 
+/** Festgehaltenes Soll eines Plans (wie im bisherigen Bauzeitenplan): der Stand der Termine an einem Tag, blass unter dem
+ *  laufenden Plan (Ist). Je Version gilt höchstens eines; ein neues ersetzt es (das alte bleibt, nicht mehr gültig).
+ *  Festhalten und Zurücknehmen darf jede Rolle außer Gästen – in den Rechten der Rolle einschränkbar. Nicht Teil des
+ *  Versionsbereichs: eine Kopie der Version beginnt ohne Soll. */
+export const soll: ObjektModell = {
+  name: 'soll', titel: 'Soll', titelMehrzahl: 'Soll-Stände', anzeigeFeld: 'name', projektFeld: 'projekt',
+  rechte: { lesen: ALLE, schreiben: OHNE_GAST, loeschen: [] },
+  felder: [
+    ...zusammenhang,
+    { name: 'name', titel: 'Name', art: 'text', pflicht: true, inListe: true, breite: 220 },
+    { name: 'begruendung', titel: 'Begründung', art: 'langtext' },
+    { name: 'gilt', titel: 'Gilt', art: 'ja_nein', inListe: true, breite: 70 },
+    { name: 'zurueck_grund', titel: 'Zurückgenommen, weil', art: 'langtext' },
+    { name: 'stand', titel: 'Termine (JSON)', art: 'langtext', verborgen: true },   // [{ id, name, reihe, anfang, ende, gruppe }] – gerechnet beim Festhalten
+  ],
+};
+
 export const bauzeitenplan: Beipackzettel = {
   id: 'bauzeitenplan',
   handy: 'ansicht',
@@ -125,7 +142,7 @@ export const bauzeitenplan: Beipackzettel = {
   version: '0.2.0',
   beschreibung: 'Balkenplan eines Projekts: Leistungen mit Dauer in Arbeitstagen, Verknüpfungen, Gruppen, Unterbrechungen, Arbeitskalender mit Feiertagen, kritischer Weg – in benannten Versionen.',
   braucht: ['projekte', 'kataloge', 'adressen'],
-  objekte: [zeitplan, freierTag, vorgang, verknuepfung, leistungsvorlage, planregel],
+  objekte: [zeitplan, freierTag, vorgang, verknuepfung, soll, leistungsvorlage, planregel],
   ansichten: [
     { id: 'plan', titel: 'Balkenplan', abschnitt: 'Terminplan', zeichen: 'plan', objekt: 'vorgang', brauchtProjekt: true, hilfe: `Links die Leistungen, rechts die Balken. Anfang und Ende rechnet das Bauportal aus Projektanfang, Arbeitswoche, Feiertagen und den Vorgängern.
 

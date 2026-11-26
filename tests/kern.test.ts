@@ -1542,3 +1542,21 @@ test('Bauzeitenplan: Unterbrechen an einem Tag im Balken', async () => {
   assert.equal(typeof unterbrechen('x', 10, '', [{ s: 0, f: 10 }], 0, []), 'string');
   assert.equal(typeof unterbrechen('x', 1, '', [{ s: 0, f: 1 }], 0, []), 'string');
 });
+
+test('Bauzeitenplan: Soll und Ist vergleichen', async () => {
+  const { vergleichen, sollLesen, sollStand } = await import('../src/module/bauzeitenplan/soll');
+  const soll = sollLesen(sollStand([
+    { id: 'a', name: 'Rohbau', reihe: 1, anfang: '2026-11-02', ende: '2026-11-20' },
+    { id: 'b', name: 'Dach', reihe: 2, anfang: '2026-11-23', ende: '2026-11-27' },
+    { id: 'c', name: 'Gerüst', reihe: 3, anfang: '2026-11-02', ende: '2026-11-03' },
+  ]));
+  const v = vergleichen(soll, [
+    { id: 'a', name: 'Rohbau', reihe: 1, anfang: '2026-11-02', ende: '2026-11-20' },
+    { id: 'b2', name: 'Dach', reihe: 2, anfang: '2026-11-25', ende: '2026-12-02' },   // neu angelegt, gleicher Name: dieselbe Leistung
+    { id: 'd', name: 'Fenster', reihe: 3, anfang: '2026-12-03', ende: '2026-12-04' },
+  ]);
+  assert.deepEqual([v.je.get('a')!.art, v.je.get('b2')!.art, v.je.get('b2')!.tage, v.je.get('d')!.art], ['gleich', 'zeit', 5, 'neu']);
+  assert.deepEqual(v.entfallen.map((z) => z.name), ['Gerüst']);
+  assert.deepEqual([v.endeSoll, v.endeIst, v.abweichung], ['2026-11-27', '2026-12-04', 7]);
+  assert.deepEqual(sollLesen('kaputt'), []);
+});

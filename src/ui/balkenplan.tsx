@@ -29,6 +29,8 @@ import { PlanHandy } from './planhandy';
 import { herunterladen } from './baukasten/herunterladen';
 import { csvAus, mspdiAus, planJsonAus } from '../module/bauzeitenplan/austausch';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
+import { SollFesthalten, SollZurueck } from './sollfenster';
+import { sollLesen, vergleichen, type SollZeile } from '../module/bauzeitenplan/soll';
 import { handy as geraetHandy } from './unterbau/geraet';
 
 const H = 30, KOPF = 46;
@@ -39,8 +41,8 @@ const SPALTEN: Spalte[] = [
   { id: 'gewerk', titel: 'Gewerk', breite: 120 }, { id: 'pct', titel: '%', breite: 46, rechts: true },
 ];
 const BEARBEITBAR = new Set(['name', 'dauer', 'anfang', 'vorg', 'gewerk', 'pct']);
-const ZOOM = [3, 6, 12, 24, 40];
-const STUFEN: [number, string][] = [[0, '0'], [25, '25'], [50, '50'], [75, '75'], [100, '100']];   // Fortschritt in Stufen (Menüleiste; Zahl als Symbol)   // Bildpunkte je Kalendertag
+const ZOOM = [3, 6, 12, 24, 40];   // Bildpunkte je Kalendertag
+const STUFEN: [number, string][] = [[0, '0'], [25, '25'], [50, '50'], [75, '75'], [100, '100']];   // Fortschritt in Stufen (Menüleiste; Zahl als Symbol)
 const tagname = (iso: string) => (iso ? `${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][wochentag(tagAus(iso))]} ${kurz(iso)}` : '');
 const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}` : '');
 const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -139,7 +141,10 @@ export function Balkenplan(p: Mitte) {
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
     // Fortschritt der gewählten Leistungen in Stufen wie bisher (bei einer Gruppe: alle Leistungen darunter)
     ...(schreiben() ? STUFEN.map(([w, z]) => ({ titel: `${w} %`, zeichen: z, gruppe: 'Fortschritt', gesperrt: !fortschrittIds().length, an: fortschrittIds().length > 0 && fortschrittJetzt() === w, tun: () => fortschrittSetzen(w) })) : []),
+    ...(darf('soll', 'schreiben') && vorgaenge().length ? [{ titel: sollJetzt() ? 'Soll neu …' : 'Scharf schalten …', zeichen: 'anheften', gruppe: 'Fortschritt', tun: () => setSollFenster('fest') },
+      ...(sollJetzt() ? [{ titel: 'Soll zurück …', zeichen: 'zurueck', gruppe: 'Fortschritt', tun: () => setSollFenster('zurueck') }] : [])] : []),
     ...(gruppenIds().length ? (['grob', 'mittel', 'fein'] as const).map((d) => ({ titel: d[0]!.toUpperCase() + d.slice(1), zeichen: 'liste', gruppe: 'Detail', an: detailJetzt() === d, tun: () => detail(d) })) : []),
+    ...(sollJetzt() ? [{ titel: 'Soll', zeichen: 'version', gruppe: 'Ansicht', an: !sollAus(), tun: () => setSollAus(!sollAus()) }] : []),
     { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
     { titel: `Pfeile: ${PFEILE.find((x) => x.wert === pfeile())?.titel ?? ''}`, zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
     { titel: 'Größer', zeichen: 'groesser', gruppe: 'Ansicht', gesperrt: zoom() === ZOOM.length - 1, tun: () => setZoom(zoom() + 1) },
@@ -159,6 +164,13 @@ export function Balkenplan(p: Mitte) {
   const fortschrittJetzt = () => Math.round(Number(sicht.vorgang?.[fortschrittIds()[0] ?? '']?.werte.fortschritt ?? 0));
   const fortschrittSetzen = (w: number) => tun(fortschrittIds().filter((id) => Number(sicht.vorgang?.[id]?.werte.fortschritt ?? 0) !== w)
     .map((id) => ({ objekt: 'vorgang', art: 'aendern' as const, objektId: id, werte: { fortschritt: w } })), `Fortschritt ${w} %`);
+  // Soll und Ist wie bisher: das gültige Soll der Version liegt blass unter dem Plan; je Person ausblendbar
+  const sollJetzt = createMemo(() => lebend('soll').find((x) => x.werte.gilt === true));
+  const [sollAus, setSollAus] = createSignal<boolean>(holen('bzp.sollAus', false));
+  createEffect(() => merken('bzp.sollAus', sollAus()));
+  const [sollFenster, setSollFenster] = createSignal<'fest' | 'zurueck' | null>(null);
+  const istZeilen = (): SollZeile[] => vorgaenge().flatMap((v) => { const t = erg().termine.get(v.id); return t ? [{ id: v.id, name: String(v.werte.name ?? ''), reihe: Number(v.werte.reihe ?? 0), anfang: t.anfang, ende: t.ende, gruppe: t.gruppe }] : []; });
+  const vgl = createMemo(() => { const s = sollJetzt(); return s && !sollAus() ? { soll: s, ...vergleichen(sollLesen(s.werte.stand), istZeilen()) } : null; });
   // Unterbrechen wie bisher: Knopf an, dann auf die Stelle im Balken klicken, an der die Pause beginnt (Esc bricht ab)
   const [teilen, setTeilenRoh] = createSignal(false);
   const setTeilen = (an: boolean) => { setTeilenRoh(an); if (an) hinweis('Unterbrechen: auf die Stelle im Balken klicken, an der die Pause beginnen soll (Esc bricht ab).'); };
@@ -727,6 +739,8 @@ export function Balkenplan(p: Mitte) {
                               fill={fb()} class="bzp-balken-teil" classList={{ kritisch: kritisch() && tt().kritisch }} onPointerDown={(e) => startZiehen(e, v, 'schieben', y())} />
                           </>
                         )}</For>
+                        <Show when={vgl()?.je.get(v.id)?.soll}>{(so) => (
+                          <rect x={(tagAus(so().anfang) - achse().t0) * px()} y={y() + 23} height={4} rx={2} width={Math.max(2, (tagAus(so().ende) + 1 - tagAus(so().anfang)) * px())} class="bzp-soll"><title>{`Soll: ${kurz(so().anfang)} – ${kurz(so().ende)}`}</title></rect>)}</Show>
                         <Show when={Number(v.werte.fortschritt ?? 0) > 0}>
                           <rect x={x(tt().s) + verschiebung(v.id)} y={y() + 13} height={4} width={(xEnde(tt().s, tt().f) - x(tt().s)) * Math.min(100, Number(v.werte.fortschritt)) / 100} class="bzp-fortschritt" />
                         </Show>
@@ -743,7 +757,7 @@ export function Balkenplan(p: Mitte) {
                       <For each={tt().abschnitte.length > 1 ? tt().abschnitte.slice(0, -1) : []}>{(a, k) => (
                         <circle cx={xEnde(a.s, a.f) + verschiebung(v.id) + 4} cy={y() + H / 2 - 9} r={3.5} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y(), k())}><title>{`Teil ${k() + 1} auf eine andere Leistung ziehen: verknüpfen`}</title></circle>
                       )}</For></Show>
-                    <text x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 18} y={y() + 19} class="bzp-text">{String(v.werte.name ?? '')}{v.werte.unternehmer ? ` · ${v.werte.unternehmer}` : ''}</text>
+                    <text x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 18} y={y() + 19} class="bzp-text">{String(v.werte.name ?? '')}{v.werte.unternehmer ? ` · ${v.werte.unternehmer}` : ''}<Show when={vgl()?.je.get(v.id)}>{(g) => <Show when={g().art === 'neu' || g().tage}><tspan class="bzp-soll-text" classList={{ spaet: g().tage > 0, frueh: g().tage < 0 }}>{g().art === 'neu' ? '  neu' : `  ${g().tage > 0 ? '+' : ''}${g().tage} T`}</tspan></Show>}</Show></text>
                   </g>
                 )}</Show>
               );
@@ -759,7 +773,7 @@ export function Balkenplan(p: Mitte) {
             <For each={sichtbar()}>{(v) => {
               const t = () => erg().termine.get(v.id);
               return (
-                <div class="bzp-links bzp-zeile" classList={{ gewaehlt: v.id === markiert() || istGewaehlt(v.id), gruppe: !!t()?.gruppe, kritisch: kritisch() && !!t()?.kritisch }} role="row" aria-selected={istGewaehlt(v.id)}
+                <div class="bzp-links bzp-zeile" classList={{ 'soll-neu': vgl()?.je.get(v.id)?.art === 'neu', gewaehlt: v.id === markiert() || istGewaehlt(v.id), gruppe: !!t()?.gruppe, kritisch: kritisch() && !!t()?.kritisch }} role="row" aria-selected={istGewaehlt(v.id)}
                   onClick={(e) => { if (!klickSchlucken) zeileKlick(e, v.id); }} onPointerDown={(e) => zeileDruecken(e, v.id)} onDblClick={() => oeffnen(v.id)} onContextMenu={(e) => balkenMenue(e, v)}>
                   <For each={spalten()}>{(s) => (
                     <div class="bzp-zelle" role="gridcell" classList={{ rechts: !!s.rechts, zeiger: v.id === markiert() && spalte() === s.id, fest: !!(s.id === 'anfang' && v.werte.anfang_nicht_vor) }} style={{ width: `${s.breite}px` }}
@@ -802,6 +816,8 @@ export function Balkenplan(p: Mitte) {
           <span>Ende <strong>{tagname(erg().endeDatum)}</strong></span>
           <span class="nur-breit">{erg().ende} Arbeitstage</span>
         </Show>
+        <Show when={vgl()}>{(g) => <span class="bzp-soll-stand" classList={{ spaet: g().abweichung > 0 }} title={String(g().soll.werte.begruendung ?? '')}>
+          Soll „{String(g().soll.werte.name ?? '')}“: Ende {tagname(g().endeSoll)} → {tagname(g().endeIst)}{g().abweichung ? ` (${g().abweichung > 0 ? '+' : ''}${g().abweichung} T)` : ''}{g().entfallen.length ? ` · ${g().entfallen.length} entfallen` : ''}</span>}</Show>
         <span class="nur-breit">{kal().woche}-Tage-Woche</span>
         <span class="nur-breit">Feiertage {zp()?.werte.bundesland ? BUNDESLAENDER.find((b) => b.wert === zp()!.werte.bundesland)?.titel : land() ? `${BUNDESLAENDER.find((b) => b.wert === land())?.titel} (Baustelle)` : 'bundesweit'}</span>
         <Show when={schreiben()}><span class="nur-breit">{autom() ? 'Neue Leistungen: automatisch verknüpft' : 'Neue Leistungen: ohne Verknüpfung'}</span></Show>
@@ -816,6 +832,8 @@ export function Balkenplan(p: Mitte) {
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
       <Show when={dupl()}>{(ids) => <DuplizierenFenster v={V_()} l={L_()} ids={ids()} vorgaenge={vorgaenge()} links={links()} plan={plan()} probe={probe} werteVon={werteVon} zu={zu()} neu={neueKennung}
         onZu={() => setDupl(null)} onFertig={(b, tops, t) => { tun(b, t); setDupl(null); if (tops[0]) { markieren(tops[0]); p.onWahl(tops[0]); setAuswahl(new Set(tops)); anker = tops[0]; } }} />}</Show>
+      <Show when={sollFenster() === 'fest'}><SollFesthalten bisher={sollJetzt()} zusammenhang={zu()} ist={istZeilen} onZu={() => setSollFenster(null)} /></Show>
+      <Show when={sollFenster() === 'zurueck' && sollJetzt()}>{(x) => <SollZurueck soll={x()} onZu={() => setSollFenster(null)} />}</Show>
       <Show when={grp()}><GruppierenFenster v={GV_()} l={L_()} zu={zu()} neu={neueKennung} onZu={() => setGrp(false)}
         onFertig={(b) => { tun(b, 'Gruppieren'); setGrp(false); setEingeklappt(new Set<string>()); }} /></Show>
       <Show when={spaltenFeld()}>{(o) => <Spaltenfeld spalten={spw} ort={o()} onZu={() => setSpaltenFeld(null)} />}</Show>
