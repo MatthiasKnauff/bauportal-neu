@@ -158,7 +158,7 @@ export function ObjektAnsicht(p: {
     if (lf.beteiligt) {
       const pid = projektId() && sicht.projekt?.[projektId()!] && !sicht.projekt[projektId()!]!.geloescht ? projektId()! : '';
       const andere = [...zahl.keys()].filter((x) => x !== pid).sort((x, y) => vergleich.compare(projektName(x), projektName(y)));
-      return [{ titel: lf.titel, suche: lf.suche && andere.length > 6, eintraege: [
+      return [{ titel: lf.titel, suche: lf.suche && andere.length > 6, zu: !!lf.auto, eintraege: [
         ...(pid ? [{ id: `${nr}:${pid}`, titel: `${lf.beteiligt.titel} ${projektName(pid)}`, anzahl: zahl.get(pid) ?? 0, zeichen: 'projekte',
           nach: <label class="seitenliste-schalter"><input type="checkbox" checked={ohneProjekt()} onChange={(e) => ohneMerken(e.currentTarget.checked)} /> immer ohne Projekt beginnen</label> }] : []),
         ...andere.map((x) => ({ id: `${nr}:${x}`, titel: projektName(x), anzahl: zahl.get(x) ?? 0, zeichen: 'projekte' })),
@@ -168,7 +168,7 @@ export function ObjektAnsicht(p: {
     const eigene = f.eigeneWerte ? [...zahl.keys()].filter((w) => w && !f.optionen!.some((o) => o.wert === w)).sort((x, y) => vergleich.compare(x, y)) : [];
     const werte = f.art === 'auswahl' ? [...f.optionen!.map((o) => o.wert).filter((w) => w !== ''), ...eigene] : [...zahl.keys()].sort((x, y) => vergleich.compare(anzeige(f, x) || x, anzeige(f, y) || y));
     if (lf.auto && [...zahl.keys()].filter(Boolean).length < 2 && !bed().gruppen.some((g) => g.art === key)) return [];
-    return [{ titel: lf.titel, suche: lf.suche, eintraege: [
+    return [{ titel: lf.titel, suche: lf.suche, zu: !!lf.auto, eintraege: [
       ...(lf.alle !== undefined ? [{ id: `${nr}:*`, titel: lf.alle, anzahl: lebend().length, zeichen: 'personen' }] : []),
       ...werte.map((w) => ({ id: `${nr}:${w}`, titel: lf.mehrzahl?.[w] ?? (anzeige(f, w) || w), anzahl: zahl.get(w) ?? 0, zeichen: lf.zeichen?.[w] ?? (f.art === 'auswahl' ? undefined : 'liste') })),
     ] }];
@@ -219,7 +219,9 @@ export function ObjektAnsicht(p: {
   };
   const darfLoeschen = () => darf(m.name, 'loeschen') && !m.einzeln;
   // ---------- Mehrere wählen (nur wo das Modul Befehle dafür einstellt) ----------
-  const auswahl = a.auswahl ? auswahlAnlegen() : undefined;
+  // Von Haus aus in jeder Liste, die man ändern darf: Haken, Leiste unten mit „Gemeinsam bearbeiten …“ und Excel
+  const mitAuswahl = !!a.auswahl || (!a.mitte && !m.einzeln && darf(m.name, 'schreiben'));
+  const auswahl = mitAuswahl ? auswahlAnlegen() : undefined;
   const reiheJetzt = () => ((!kacheln() && reihe()) || kachelZeilen().map((z) => z.id));
   // Excel: eine echte .xlsx (Zahlen und Daten rechnen in Excel weiter), Name wie die Liste mit Datum
   const excelSpeichern = (zeilen: (string | number | Date | null)[][]) =>
@@ -265,7 +267,9 @@ export function ObjektAnsicht(p: {
       { titel: `Alle ${m.titelMehrzahl}`, ids: alle, filter: '' },
     ]);
   };
-  const auswahlBefehle = (): AuswahlBefehl[] => (a.auswahl ? [...a.auswahl({ excel, drucken: verzeichnis() ? (ids) => drucken(ids) : undefined, aendern: (ids) => feldSetzenOeffnen(m.name, ids, Object.keys(fest()), 'gewählt') }), papierkorb] : []);
+  const hilfen = () => ({ excel, drucken: verzeichnis() ? (ids: string[]) => drucken(ids) : undefined, aendern: (ids: string[]) => feldSetzenOeffnen(m.name, ids, Object.keys(fest()), 'gewählt') });
+  const standard = (h: ReturnType<typeof hilfen>): AuswahlBefehl[] => [{ titel: 'Gemeinsam bearbeiten …', tun: h.aendern }, { titel: 'Excel', tun: h.excel }];
+  const auswahlBefehle = (): AuswahlBefehl[] => (auswahl ? [...(a.auswahl ?? standard)(hilfen()), papierkorb] : []);
   // Am Handy erscheinen die Haken erst, wenn etwas gewählt ist (lange tippen)
   if (auswahl) { createEffect(() => document.documentElement.classList.toggle('auswahl-an', auswahl.anzahl() > 0)); onCleanup(() => document.documentElement.classList.remove('auswahl-an')); }
   // Gelöschte fallen aus der Auswahl
@@ -278,9 +282,6 @@ export function ObjektAnsicht(p: {
         knoepfe={[
           ...(darf(m.name, 'schreiben') ? [{ titel: a.neuTitel ?? m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => (a.mitte && mitteNeu ? mitteNeu() : neuStart()) }] : []),
           ...(a.knoepfe?.(fest()) ?? []),
-          // Gemeinsam bearbeiten: die gewählten – sonst alle, die der Filter gerade zeigt – in einer Maske
-          ...(darf(m.name, 'schreiben') && !m.einzeln ? [{ titel: 'Gemeinsam bearbeiten', zeichen: 'bearbeiten', gruppe: 'Bearbeiten', gesperrt: (auswahl?.anzahl() || zeilen().length) < 2,
-            tun: () => { const gew = [...(auswahl?.ids() ?? [])]; feldSetzenOeffnen(m.name, gew.length ? gew : zeilen().map((z) => z.id), Object.keys(fest()), gew.length ? 'gewählt' : zeilen().length < lebend().length ? 'gefiltert' : 'alle'); } }] : []),
           ...(a.mitte ? mitteKnoepfe() : []),
           ...(a.kachel ? [{ titel: 'Karten', zeichen: 'kacheln', gruppe: 'Ansicht', an: kacheln(), tun: () => { if (!kacheln()) formWechseln(); } },
             { titel: 'Tabelle', zeichen: 'tabelle', gruppe: 'Ansicht', an: !kacheln(), tun: () => { if (kacheln()) formWechseln(); } }] : []),

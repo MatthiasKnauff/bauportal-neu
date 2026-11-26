@@ -9,14 +9,15 @@ import { Klappe, Ordner } from './baukasten/baum';
 import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { unwrap } from 'solid-js/store';
-import type { Zeile } from '../kern/befehl';
+import type { Vorlage as KernVorlage, Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
 import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenplan/kalender';
 import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
-import { einfuegen, gliedern, loeschen, verschieben, vorgaengerSetzen, type L, type V, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
-import { ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
+import { ablageAus, ablageEinfuegen, bloeckeVon, block, kopienVon, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { DuplizierenFenster } from './duplizieren';
+import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
 import { darf, neueKennung, ruf } from './unterbau/api';
 import type { Mitte } from './baukasten/anpassung';
 import { hinweis } from './unterbau/meldungen';
@@ -79,7 +80,7 @@ export function Balkenplan(p: Mitte) {
   const plan = createMemo(() => planAus({ vorgaenge: vorgaenge(), links: links(), zeitplan: zp()?.werte, frei: lebend('freier_tag'), land: land() ?? '', heute: new Date().toLocaleDateString('sv') }));
   const kal = () => plan().kal;
   const erg = () => plan().erg;
-  const V_ = (): V[] => vorgaenge().map((v) => ({ id: v.id, reihe: Number(v.werte.reihe ?? 0), ebene: Number(v.werte.ebene ?? 0) }));
+  const V_ = (): VM[] => vorgaenge().map((v) => ({ id: v.id, reihe: Number(v.werte.reihe ?? 0), ebene: Number(v.werte.ebene ?? 0), master: v.werte.master === true, kopieVon: (v.werte.kopie_von as string | null) || null }));
   const L_ = (): L[] => links().map((l) => ({ id: l.id, von: String(l.werte.von), nach: String(l.werte.nach), art: (l.werte.art || 'ea') as Art, abstand: Number(l.werte.abstand ?? 0),
     vonAbschnitt: l.werte.von_abschnitt == null ? null : Number(l.werte.von_abschnitt), nachAbschnitt: l.werte.nach_abschnitt == null ? null : Number(l.werte.nach_abschnitt) }));
   const zu = () => ({ projekt: z().projekt, version: z().version });
@@ -104,17 +105,20 @@ export function Balkenplan(p: Mitte) {
   const PFEILE = [{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }] as const;
   p.setNeu(() => neuDarunter());
   // Bearbeiten und Gliederung im Band wie im bisherigen Bauportal – dieselben Befehle wie Tastatur und Kontextmenü
+  // mit Mehrfachauswahl: jede oberste gewählte Zeile mit allem darunter; hoch/runter rücken alle gewählten zusammen
   const gliederung = (art: 'aus' | 'ein' | 'hoch' | 'runter') => {
-    const id = markiert(); if (!id) return;
-    const b = art === 'ein' ? gliedern(V_(), L_(), id, 1) : art === 'aus' ? gliedern(V_(), L_(), id, -1) : verschieben(V_(), id, art === 'hoch' ? -1 : 1);
-    if (b) tun(b, art === 'ein' ? 'Einrücken' : art === 'aus' ? 'Ausrücken' : 'Verschieben');
+    const ids = gewaehlt(); if (!ids.length) return;
+    const v = V_(), l = L_();
+    const b = art === 'hoch' || art === 'runter' ? verschiebenAlle(v, ids, art === 'hoch' ? -1 : 1)
+      : bloeckeVon(v, ids).flatMap(([a]) => gliedern(v, l, v[a]!.id, art === 'ein' ? 1 : -1));
+    tun(b, art === 'ein' ? 'Einrücken' : art === 'aus' ? 'Ausrücken' : 'Verschieben');
   };
   createEffect(() => p.setKnoepfe([
     ...(schreiben() ? [
       { titel: 'Kopieren', zeichen: 'kopieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: kopieren },
       { titel: 'Ausschneiden', zeichen: 'ausschneiden', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: ausschneiden },
-      { titel: 'Einfügen', zeichen: 'einfuegen', gruppe: 'Bearbeiten', gesperrt: !ablage(), tun: ablageEinfuegen },
-      { titel: 'Duplizieren', zeichen: 'duplizieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: duplizieren },
+      { titel: 'Einfügen', zeichen: 'einfuegen', gruppe: 'Bearbeiten', gesperrt: !ablage(), tun: ablageEinfuegenHier },
+      { titel: 'Duplizieren …', zeichen: 'duplizieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: duplizieren },
       { titel: 'Löschen', zeichen: 'loeschen', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: () => entfernen() },
       { titel: 'Höher', zeichen: 'ausruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('aus') },
       { titel: 'Tiefer', zeichen: 'einruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('ein') },
@@ -184,7 +188,23 @@ export function Balkenplan(p: Mitte) {
   // ---------- Tabelle: Zeiger, Bearbeiten ----------
   // Markieren zeigt die Karte rechts (wie bisher); Doppelklick, Umschalt+Enter oder „Informationen“ springen hinein
   const [markiert, markieren] = createSignal<string | null>(null);
-  const setMarkiert = (id: string | null) => { markieren(id); p.onWahl(id); };
+  // Mehrere wählen wie in Windows: Strg+Klick dazu/ab, Umschalt+Klick (oder Umschalt+↑/↓) von … bis, Strg+A alle, Esc nur noch die eine
+  const [auswahl, setAuswahl] = createSignal<Set<string>>(new Set());
+  let anker: string | null = null;
+  const setMarkiert = (id: string | null) => { markieren(id); p.onWahl(id); setAuswahl(new Set(id ? [id] : [])); anker = id; };
+  const zeiger = (id: string) => { markieren(id); p.onWahl(id); };   // die Karte folgt, die Auswahl bleibt
+  const bisZu = (id: string) => {
+    const l = sichtbar().map((v) => v.id), a = l.indexOf(anker ?? id), b = l.indexOf(id);
+    setAuswahl(new Set(l.slice(Math.min(a, b), Math.max(a, b) + 1))); zeiger(id);
+  };
+  const zeileKlick = (e: MouseEvent, id: string) => {
+    if (e.ctrlKey || e.metaKey) { const n = new Set(auswahl()); if (n.has(id) && n.size > 1) n.delete(id); else n.add(id); setAuswahl(n); anker = id; zeiger(id); }
+    else if (e.shiftKey && anker) bisZu(id);
+    else setMarkiert(id);
+  };
+  const istGewaehlt = (id: string) => auswahl().has(id);
+  /** Die gewählten in Plan-Reihenfolge – ohne Auswahl die markierte. */
+  const gewaehlt = (): string[] => { const s = auswahl(); return s.size ? vorgaenge().filter((v) => s.has(v.id)).map((v) => v.id) : markiert() ? [markiert()!] : []; };
   createEffect(() => { const g = p.gewaehlt(); if (g && g !== untrack(markiert)) markieren(g); });   // z. B. Sprung aus der Suche
   const oeffnen = (id = markiert()) => { if (id) { setMarkiert(id); p.onWahl(id); p.onOeffnen(); } };
   const [spalte, setSpalte] = createSignal<Spalte['id']>('name');
@@ -284,20 +304,53 @@ export function Balkenplan(p: Mitte) {
     setMarkiert(r.id);
     queueMicrotask(() => bearbeiten(r.id, 'name'));
   };
-  // Zwischenablage für Leistungen (Kopieren/Ausschneiden → Einfügen unterhalb der markierten), wie im bisherigen Bauportal
+  // Zwischenablage (Strg+C/X/V, wie im bisherigen Bauportal): die gewählten Leistungen mit allem darunter und den Verknüpfungen
+  // zwischen ihnen – in diesem Browser gemerkt, also auch über Pläne und Versionen hinweg. Eingefügt wird unter der markierten Zeile
+  // (hinter ihrer Gruppe), auf ihrer Ebene.
   const KOPIERT = ['name', 'dauer', 'anfang_nicht_vor', 'unterbrechung', 'gewerk', 'vob', 'unternehmer', 'firma', 'farbe', 'notiz'];
-  const [ablage, setAblage] = createSignal<Record<string, Wert> | null>(null);
-  const werteVon = (id = markiert()) => { const v = vorgaenge().find((x) => x.id === id); return v ? Object.fromEntries(KOPIERT.map((k) => [k, v.werte[k] ?? null])) : null; };
-  const kopieEinfuegen = (werte: Record<string, Wert>, titel: string) => {
-    if (!schreiben()) return;
-    const i = markiert() ? vorgaenge().findIndex((v) => v.id === markiert()) + 1 : vorgaenge().length;
-    const r = einfuegen(V_(), L_(), i, werte, zu(), neueKennung, autom());
-    tun(r.befehle, titel); setMarkiert(r.id);
+  const [ablage, setAblageRoh] = createSignal<Ablage | null>((() => { try { return JSON.parse(localStorage.getItem('bzp.ablage') ?? 'null') as Ablage | null; } catch { return null; } })());
+  const setAblage = (a: Ablage) => { setAblageRoh(a); try { localStorage.setItem('bzp.ablage', JSON.stringify(a)); } catch { /* nur in diesem Fenster */ } };
+  const werteVon = (id: string) => { const v = vorgaenge().find((x) => x.id === id)!; return Object.fromEntries(KOPIERT.map((k) => [k, v.werte[k] ?? null])); };
+  const anzahlText = (n: number) => `${n} ${n === 1 ? 'Leistung' : 'Leistungen'}`;
+  const einfuegenBei = (a: Ablage, ziel: number, ebene: number | undefined, titel: string) => {
+    if (!schreiben() || !a.zeilen.length) return;
+    const r = ablageEinfuegen(V_(), ziel, a, zu(), neueKennung, ebene);
+    tun(r.befehle, titel);
+    const neu = [...r.neu.values()];
+    markieren(neu[0]!); p.onWahl(neu[0]!); setAuswahl(new Set(neu)); anker = neu[0]!;
   };
-  const kopieren = () => setAblage(werteVon());
-  const ausschneiden = () => { const w = werteVon(); if (w) { setAblage(w); entfernen(); } };
-  const ablageEinfuegen = () => { const w = ablage(); if (w) kopieEinfuegen(w, `„${String(w.name ?? '')}“ einfügen`); };
-  const duplizieren = () => { const w = werteVon(); if (w) kopieEinfuegen(w, `„${String(w.name ?? '')}“ duplizieren`); };
+  /** unter der markierten Zeile, hinter ihrer Gruppe, auf ihrer Ebene (ohne Markierung am Ende) */
+  const unterMarkierter = (): [number, number | undefined] => { const v = V_(), i = v.findIndex((x) => x.id === markiert()); return i < 0 ? [v.length, undefined] : [block(v, i), v[i]!.ebene]; };
+  const kopieren = () => { const ids = gewaehlt(); if (!ids.length) return; setAblage(ablageAus(V_(), L_(), ids, werteVon)); hinweis(`${anzahlText(ablage()!.zeilen.length)} kopiert – mit Strg+V unter einer Zeile einfügen.`); };
+  const ausschneiden = () => { const ids = gewaehlt(); if (!ids.length) return; setAblage(ablageAus(V_(), L_(), ids, werteVon)); entfernen(ids); };
+  const ablageEinfuegenHier = () => { const a = ablage(); if (!a) return hinweis('Nichts zum Einfügen – erst Leistungen kopieren (Strg+C).', { art: 'fehler' }); const [z, e] = unterMarkierter(); einfuegenBei(a, z, e, `${anzahlText(a.zeilen.length)} einfügen`); };
+  // Änderung am Master → auf Nachfrage in alle Kopien; übernommen wird nur, was in einer Kopie noch so steht wie vorher im Master
+  // (von Hand Geändertes bleibt). Der Name der obersten Zeile bleibt in jeder Kopie ihr eigener.
+  const MASTERFELDER = ['name', 'dauer', 'unterbrechung', 'gewerk', 'vob', 'unternehmer', 'firma', 'farbe', 'notiz'];
+  const masterSchritt = ({ wieder, gegen }: { wieder: KernVorlage[]; gegen: KernVorlage[] }) => {
+    const v = V_(), aenderungen = wieder.filter((b) => b.objekt === 'vorgang' && b.art === 'aendern' && Object.keys(b.werte ?? {}).some((k) => MASTERFELDER.includes(k)));
+    if (!aenderungen.length) return;
+    // zu welchem Master gehört die geänderte Zeile? (der Master selbst oder eine Zeile darin)
+    const masterVon = (id: string) => { let i = v.findIndex((x) => x.id === id); const e = v[i]!.ebene; for (; i >= 0; i--) if (v[i]!.master && v[i]!.ebene <= e && block(v, i) > v.findIndex((x) => x.id === id)) return v[i]!; return undefined; };
+    const befehle: KernVorlage[] = []; let kopien = 0; let mname = '';
+    for (const b of aenderungen) {
+      const m = masterVon(b.objektId); if (!m) continue;
+      const K = kopienVon(v, m.id); if (!K.length) continue;
+      kopien = K.length; mname = String(vorgaenge().find((x) => x.id === m.id)?.werte.name ?? '');
+      const alt = gegen.find((g) => g.objektId === b.objektId)?.werte ?? {};
+      for (const k of K) {
+        const ziel = k.glieder.get(b.objektId), z0 = ziel && vorgaenge().find((x) => x.id === ziel); if (!z0) continue;
+        const w = Object.fromEntries(Object.entries(b.werte ?? {}).filter(([f]) => MASTERFELDER.includes(f) && !(f === 'name' && b.objektId === m.id) && (z0.werte[f] ?? null) === (alt[f] ?? null)));
+        if (Object.keys(w).length) befehle.push({ objekt: 'vorgang', art: 'aendern', objektId: z0.id, werte: w });
+      }
+    }
+    if (befehle.length) hinweis(`„${mname}“ ist Master von ${kopien} ${kopien === 1 ? 'Kopie' : 'Kopien'}.`, { aktion: { titel: `In ${kopien === 1 ? 'die Kopie' : `alle ${kopien} Kopien`} übernehmen`, tun: () => ausfuehrenMehrere(befehle, `Änderung am Master „${mname}“ in die Kopien übernehmen`) } });
+  };
+  nachEigenemSchritt.add(masterSchritt); onCleanup(() => nachEigenemSchritt.delete(masterSchritt));
+  // Duplizieren … (Strg+D): Kopien mit Master, Verknüpfung wählbar – im Fenster mit Vorschau
+  const [dupl, setDupl] = createSignal<string[] | null>(null);
+  const duplizieren = () => { const ids = gewaehlt(); if (ids.length && schreiben()) setDupl(ids); };
+  const probe = (vg: Zeile[], lk: Zeile[]) => planAus({ vorgaenge: vg, links: lk, zeitplan: zp()?.werte, frei: lebend('freier_tag'), land: land() ?? '', heute: new Date().toLocaleDateString('sv') });
   // Verknüpfen: die markierte Leistung folgt der darüber (Ende–Anfang); Lösen: alle Verknüpfungen der markierten entfernen
   const mitVorigerVerknuepfen = () => {
     const i = vorgaenge().findIndex((v) => v.id === markiert()); const vor = vorgaenge()[i - 1], v = vorgaenge()[i];
@@ -308,10 +361,10 @@ export function Balkenplan(p: Mitte) {
     const id = markiert(); const weg = links().filter((l) => l.werte.von === id || l.werte.nach === id);
     if (weg.length) ausfuehrenMehrere(weg.map((l) => ({ objekt: 'verknuepfung', art: 'loeschen' as const, objektId: l.id })), 'Verknüpfungen lösen');
   };
-  const entfernen = (id = markiert()) => {
-    if (!id || !darf('vorgang', 'loeschen')) return;
-    const i = zeileIndex(), name = String(vorgaenge().find((v) => v.id === id)?.werte.name ?? '');
-    tun(loeschen(V_(), L_(), [id], zu(), neueKennung, autom()), `„${name}“ löschen`);
+  const entfernen = (ids = gewaehlt()) => {
+    if (!ids.length || !darf('vorgang', 'loeschen')) return;
+    const i = zeileIndex(), name = ids.length === 1 ? `„${String(vorgaenge().find((v) => v.id === ids[0])?.werte.name ?? '')}“` : anzahlText(ids.length);
+    tun(loeschen(V_(), L_(), ids, zu(), neueKennung, autom()), `${name} löschen`);
     queueMicrotask(() => waehle(i));
   };
   const umschalten = (id: string) => setEingeklappt((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -321,8 +374,25 @@ export function Balkenplan(p: Mitte) {
     const i = zeileIndex(), c = spalten().findIndex((s) => s.id === spalte()), id = markiert();
     const k = e.key;
     if (e.altKey && e.shiftKey && id && schreiben()) {
-      const b = k === 'ArrowRight' ? gliedern(V_(), L_(), id, 1) : k === 'ArrowLeft' ? gliedern(V_(), L_(), id, -1) : k === 'ArrowUp' ? verschieben(V_(), id, -1) : k === 'ArrowDown' ? verschieben(V_(), id, 1) : null;
-      if (b) { e.preventDefault(); tun(b, k === 'ArrowRight' ? 'Einrücken' : k === 'ArrowLeft' ? 'Ausrücken' : 'Verschieben'); }
+      const art = ({ ArrowRight: 'ein', ArrowLeft: 'aus', ArrowUp: 'hoch', ArrowDown: 'runter' } as const)[k as 'ArrowRight'];
+      if (art) { e.preventDefault(); gliederung(art); }
+      return;
+    }
+    // Windows-Tasten: Strg+C/X/V kopieren, ausschneiden, einfügen · Strg+D duplizieren · Strg+A alle · Esc nur noch die markierte
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const t = k.toLowerCase();
+      if (t === 'a') { e.preventDefault(); const l = sichtbar().map((v) => v.id); setAuswahl(new Set(l)); anker = l[0] ?? null; return; }
+      if (t === 'c' && id) { e.preventDefault(); kopieren(); return; }
+      if (schreiben() && t === 'x' && id && darf('vorgang', 'loeschen')) { e.preventDefault(); ausschneiden(); return; }
+      if (schreiben() && t === 'v') { e.preventDefault(); ablageEinfuegenHier(); return; }
+      if (schreiben() && t === 'd' && id) { e.preventDefault(); duplizieren(); return; }
+    }
+    if (k === 'Escape' && auswahl().size > 1 && id) { e.preventDefault(); setMarkiert(id); return; }
+    // Umschalt+↑/↓: Auswahl erweitern
+    if ((k === 'ArrowDown' || k === 'ArrowUp') && e.shiftKey && id) {
+      e.preventDefault();
+      const l = sichtbar(), n = l[Math.max(0, Math.min(l.length - 1, i + (k === 'ArrowDown' ? 1 : -1)))];
+      if (n) { if (!anker) anker = id; bisZu(n.id); }
       return;
     }
     if (k === 'ArrowDown') { e.preventDefault(); waehle(i + 1); }
@@ -429,6 +499,33 @@ export function Balkenplan(p: Mitte) {
       ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { dauer, ...(abschnitteLesen(v.werte.unterbrechung as string) ? { unterbrechung: '' } : {}) } }, `Dauer von „${name}“ ändern`);
     }
   };
+  // ---------- Zeilen ziehen (links in der Tabelle): die gewählten an eine andere Stelle; mit Strg als Kopie ----------
+  const [zeilenZug, setZeilenZug] = createSignal<{ ids: string[]; ziel: number; kopie: boolean } | null>(null);
+  let klickSchlucken = false;
+  const zeileDruecken = (e: PointerEvent, id: string) => {
+    if (e.button !== 0 || !schreiben() || edit() || (e.target as Element).closest('input, .klappe, button')) return;
+    const y0 = e.clientY, liste = (e.currentTarget as HTMLElement).parentElement!;
+    const stelle = (m: PointerEvent) => Math.max(0, Math.min(sichtbar().length, Math.round((m.clientY - liste.getBoundingClientRect().top) / H)));
+    const bewegt = (m: PointerEvent) => {
+      let z = zeilenZug();
+      if (!z) {
+        if (Math.abs(m.clientY - y0) < 6) return;
+        if (!istGewaehlt(id)) setMarkiert(id);
+        z = { ids: gewaehlt(), ziel: 0, kopie: false };
+      }
+      setZeilenZug({ ...z, ziel: stelle(m), kopie: m.ctrlKey || m.metaKey });
+    };
+    const fertig = (m: PointerEvent) => {
+      removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig);
+      const z = zeilenZug(); setZeilenZug(null);
+      if (!z) return;
+      klickSchlucken = true; setTimeout(() => (klickSchlucken = false));
+      const l = sichtbar(), v = V_(), i = stelle(m), ziel = i < l.length ? v.findIndex((x) => x.id === l[i]!.id) : v.length;
+      if (m.ctrlKey || m.metaKey) einfuegenBei(ablageAus(v, L_(), z.ids, werteVon), ziel, undefined, `${anzahlText(bloeckeVon(v, z.ids).reduce((n, [a, b]) => n + b - a, 0))} kopieren`);
+      else tun(verschiebenNach(v, z.ids, ziel), `${anzahlText(z.ids.length)} verschieben`);
+    };
+    addEventListener('pointermove', bewegt); addEventListener('pointerup', fertig);
+  };
   const verschiebung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'schieben' ? tageAus(g.dx) * px() : 0; };
   const verlaengerung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'dauer' ? tageAus(g.dx) * px() : 0; };
 
@@ -457,6 +554,16 @@ export function Balkenplan(p: Mitte) {
     ]);
   };
   const balkenMenue = (e: MouseEvent, v: Zeile) => {
+    // auf einer gewählten Zeile gilt das Menü für alle gewählten (wie im Explorer)
+    if (istGewaehlt(v.id) && auswahl().size > 1) {
+      zeiger(v.id);
+      const n = anzahlText(auswahl().size);
+      return zeigeMenue(e, [
+        { titel: `${n} kopieren`, tun: kopieren },
+        ...(schreiben() ? [{ titel: `${n} duplizieren …`, tun: duplizieren }, { titel: 'Einfügen darunter', gesperrt: !ablage(), tun: ablageEinfuegenHier }] : []),
+        ...(schreiben() && darf('vorgang', 'loeschen') ? [{ titel: `${n} ausschneiden`, tun: ausschneiden }, { titel: `${n} löschen`, gefahr: true, tun: () => entfernen() }] : []),
+      ]);
+    }
     setMarkiert(v.id);
     zeigeMenue(e, [
       { titel: 'Informationen …', tun: () => oeffnen(v.id) },
@@ -465,7 +572,7 @@ export function Balkenplan(p: Mitte) {
         { titel: 'Hier unterbrechen …', gesperrt: erg().termine.get(v.id)!.gruppe || Number(v.werte.dauer ?? 0) < 2, tun: () => unterbrechen(e, v) },
         { titel: 'Anfang wieder automatisch', gesperrt: !v.werte.anfang_nicht_vor, tun: () => ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { anfang_nicht_vor: null } }, 'Anfang wieder automatisch') },
       ] : []),
-      ...(darf('vorgang', 'loeschen') ? [{ titel: 'Löschen', gefahr: true, tun: () => entfernen(v.id) }] : []),
+      ...(darf('vorgang', 'loeschen') ? [{ titel: 'Löschen', gefahr: true, tun: () => entfernen([v.id]) }] : []),
     ]);
   };
   /** Unterbrechen an der Stelle, auf die geklickt wurde: zwei Abschnitte mit 5 Arbeitstagen Pause (in der Karte änderbar). */
@@ -544,7 +651,7 @@ export function Balkenplan(p: Mitte) {
           <svg class="bzp-balken" width={breiteR()} height={flaechenZeilen() * H} style={{ left: `${breiteL()}px`, top: `${KOPF}px` }}
             onPointerDown={aufziehen} onPointerMove={bewegen} onPointerUp={loslassen}>
             <For each={freieTage()}>{(f) => <rect x={f.x} y={0} width={px()} height="100%" class={f.feiertag ? 'bzp-feiertag' : 'bzp-wochenende'}>{f.feiertag ? <title>{f.feiertag}</title> : null}</rect>}</For>
-            <For each={sichtbar()}>{(v, i) => <rect x={0} y={i() * H} width="100%" height={H} class="bzp-streifen" classList={{ gewaehlt: v.id === markiert() }} />}</For>
+            <For each={sichtbar()}>{(v, i) => <rect x={0} y={i() * H} width="100%" height={H} class="bzp-streifen" classList={{ gewaehlt: v.id === markiert() || istGewaehlt(v.id) }} />}</For>
             <line x1={heute()} x2={heute()} y1={0} y2="100%" class="bzp-heute" />
             <For each={sichtbar()}>{(v, i) => {
               const t = (): Termin | undefined => erg().termine.get(v.id);
@@ -596,8 +703,8 @@ export function Balkenplan(p: Mitte) {
             <For each={sichtbar()}>{(v) => {
               const t = () => erg().termine.get(v.id);
               return (
-                <div class="bzp-links bzp-zeile" classList={{ gewaehlt: v.id === markiert(), gruppe: !!t()?.gruppe, kritisch: kritisch() && !!t()?.kritisch }} role="row"
-                  onClick={() => setMarkiert(v.id)} onDblClick={() => oeffnen(v.id)} onContextMenu={(e) => balkenMenue(e, v)}>
+                <div class="bzp-links bzp-zeile" classList={{ gewaehlt: v.id === markiert() || istGewaehlt(v.id), gruppe: !!t()?.gruppe, kritisch: kritisch() && !!t()?.kritisch }} role="row" aria-selected={istGewaehlt(v.id)}
+                  onClick={(e) => { if (!klickSchlucken) zeileKlick(e, v.id); }} onPointerDown={(e) => zeileDruecken(e, v.id)} onDblClick={() => oeffnen(v.id)} onContextMenu={(e) => balkenMenue(e, v)}>
                   <For each={spalten()}>{(s) => (
                     <div class="bzp-zelle" role="gridcell" classList={{ rechts: !!s.rechts, zeiger: v.id === markiert() && spalte() === s.id, fest: !!(s.id === 'anfang' && v.werte.anfang_nicht_vor) }} style={{ width: `${s.breite}px` }}
                       onClick={() => setSpalte(s.id)} onDblClick={(e) => { if (BEARBEITBAR.has(s.id) && schreiben()) { e.stopPropagation(); bearbeiten(v.id, s.id); } }}>
@@ -617,6 +724,7 @@ export function Balkenplan(p: Mitte) {
                 </div>
               );
             }}</For>
+            <Show when={zeilenZug()}>{(z) => <div class="bzp-zug-linie" classList={{ kopie: z().kopie }} style={{ top: `${z().ziel * H - 1}px`, width: `${breiteL()}px` }}><span>{z().kopie ? `+ ${anzahlText(z().ids.length)} kopieren` : `${anzahlText(z().ids.length)} hierher`}</span></div>}</Show>
             <Show when={schreiben()}>
               <div class="bzp-links bzp-zeile bzp-neu" onClick={() => bearbeiten('neu', 'name')}>
                 <div class="bzp-zelle" style={{ width: `${spalten()[0]!.breite}px` }} />
@@ -650,6 +758,8 @@ export function Balkenplan(p: Mitte) {
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
+      <Show when={dupl()}>{(ids) => <DuplizierenFenster v={V_()} l={L_()} ids={ids()} vorgaenge={vorgaenge()} links={links()} plan={plan()} probe={probe} werteVon={werteVon} zu={zu()} neu={neueKennung}
+        onZu={() => setDupl(null)} onFertig={(b, tops, t) => { tun(b, t); setDupl(null); if (tops[0]) { markieren(tops[0]); p.onWahl(tops[0]); setAuswahl(new Set(tops)); anker = tops[0]; } }} />}</Show>
       <Show when={spaltenFeld()}>{(o) => <Spaltenfeld spalten={spw} ort={o()} onZu={() => setSpaltenFeld(null)} />}</Show>
     </div>
   );

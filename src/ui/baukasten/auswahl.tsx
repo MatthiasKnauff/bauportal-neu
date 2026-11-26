@@ -6,6 +6,7 @@
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
 import { handy } from '../unterbau/geraet';
+import { Zeichen } from './zeichen';
 
 export interface Auswahl {
   ids: () => Set<string>;
@@ -96,13 +97,30 @@ const ausfuehren = (b: AuswahlBefehl, ids: string[], ort: { clientX: number; cli
   else b.tun?.(ids);
 };
 
+// Die Leiste lässt sich am Griff wegziehen, wenn sie im Weg ist (Doppelklick: zurück); die Lage gilt für alle Listen bis zum Neuladen.
+const [verschub, setVerschub] = createSignal({ x: 0, y: 0 });
+function ziehen(e: PointerEvent, leiste: HTMLElement) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const start = { x: e.clientX, y: e.clientY }, v0 = verschub(), r0 = leiste.getBoundingClientRect();
+  const bewegt = (m: PointerEvent) => {
+    // im Bild bleiben: höchstens bis an den Rand des Fensters
+    const dx = Math.max(-r0.left, Math.min(innerWidth - r0.right, m.clientX - start.x)), dy = Math.max(-r0.top, Math.min(innerHeight - r0.bottom, m.clientY - start.y));
+    setVerschub({ x: v0.x + dx, y: v0.y + dy });
+  };
+  const fertig = () => { removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig); };
+  addEventListener('pointermove', bewegt); addEventListener('pointerup', fertig);
+}
+
 /** Schwebende Leiste unten über der Liste: „n von m gewählt“, Befehle. reihe: die gerade gezeigten (gefilterten) Einträge. */
 export function Auswahlleiste(p: { auswahl: Auswahl; reihe: () => string[]; befehle: AuswahlBefehl[] }) {
   const sichtbar = createMemo(() => p.reihe().filter((x) => p.auswahl.hat(x)).length);
   const ids = () => [...p.auswahl.ids()];
   return (
     <Show when={p.auswahl.anzahl()}>
-      <div class="auswahlleiste" role="toolbar" aria-label="Auswahl">
+      <div class="auswahlleiste" role="toolbar" aria-label="Auswahl" style={{ '--vx': `${verschub().x}px`, '--vy': `${verschub().y}px` }}>
+        <button type="button" class="auswahlleiste-griff" aria-label="Leiste verschieben" title="Ziehen: Leiste verschieben · Doppelklick: zurück"
+          onPointerDown={(e) => ziehen(e, e.currentTarget.parentElement!)} onDblClick={() => setVerschub({ x: 0, y: 0 })}><Zeichen name="griff" groesse={18} /></button>
         <b>{sichtbar()} von {p.reihe().length} gewählt</b>
         <Show when={p.auswahl.anzahl() > sichtbar()}>
           <span class="still-text">dazu {p.auswahl.anzahl() - sichtbar()}, die der Filter ausblendet · <button type="button" class="verweis-knopf" onClick={() => p.auswahl.nur(p.reihe())}>nur sichtbare</button></span>

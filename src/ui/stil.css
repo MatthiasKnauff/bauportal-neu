@@ -432,6 +432,10 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .bzp-zeile { height: 30px; border-bottom: 1px solid var(--rand); cursor: default; width: max-content; }
 .bzp-zeile.gewaehlt, .bzp-zeile.gewaehlt .bzp-zelle { background: var(--akzent-hell); }
 .bzp-zeile.gruppe { font-weight: 600; }
+.bzp-zeile { user-select: none; }
+.bzp-zug-linie { position: absolute; left: 0; height: 2px; background: var(--akzent); z-index: 3; pointer-events: none; }
+.bzp-zug-linie span { position: absolute; left: 36px; top: -11px; background: var(--akzent); color: var(--auf-akzent); font-size: 11.5px; padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+.bzp-zug-linie.kopie { background: var(--gut); } .bzp-zug-linie.kopie span { background: var(--gut); }
 .bzp-zeile.kritisch .bzp-zelle:first-child { box-shadow: inset 3px 0 0 var(--gefahr); }
 .bzp-name { display: inline-flex; align-items: center; gap: 4px; }
 .bzp-farbe { width: 8px; height: 8px; border-radius: 50%; flex: none; margin-right: 2px; }
@@ -888,11 +892,13 @@ html[data-oben="2"][data-oben-zeigen] .menueleiste { display: flex; position: fi
 .kachelliste-eintrag.mit-haken { position: relative; padding-left: 36px; } .kachelliste-eintrag > .auswahl-haken { position: absolute; left: 12px; top: 14px; }
 .kachelliste-eintrag.markiert { background: color-mix(in srgb, var(--akzent) 8%, var(--flaeche)); }
 @media (max-width: 820px) { html:not(.auswahl-an) .kachelliste-eintrag > .auswahl-haken { display: none; } html:not(.auswahl-an) .kachelliste-eintrag.mit-haken { padding-left: 14px; } }
-.auswahlleiste { position: fixed; left: 50%; transform: translateX(-50%); bottom: 22px; z-index: 40;   /* unter den Fenstern (50) – sie verdeckt nie deren Knöpfe */ display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; width: min(1100px, calc(100vw - 48px));
+.auswahlleiste { position: fixed; left: 50%; transform: translate(calc(-50% + var(--vx, 0px)), var(--vy, 0px)); bottom: 22px; z-index: 40;   /* unter den Fenstern (50) – sie verdeckt nie deren Knöpfe */ display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; width: min(1100px, calc(100vw - 48px));
   background: var(--flaeche); border: 2px solid var(--akzent); border-radius: calc(14px * var(--rund)); padding: 14px 20px; box-shadow: 0 10px 32px rgba(0, 0, 0, .22); font-size: 15px; }
 .auswahlleiste > b { font-size: 16px; }
 .auswahlleiste-platz { flex: 1; min-width: 8px; }
-@media (max-width: 820px) { .auswahlleiste { left: 8px; right: 8px; width: auto; padding: 10px 12px; transform: none; bottom: calc(var(--handyleiste-h, 64px) + 8px); } }
+.auswahlleiste-griff { border: 0; background: none; padding: 4px 2px; margin: -4px 0; cursor: grab; color: var(--text-still); touch-action: none; display: grid; place-items: center; }
+.auswahlleiste-griff:active { cursor: grabbing; }
+@media (max-width: 820px) { .auswahlleiste { left: 8px; right: 8px; width: auto; padding: 10px 12px; transform: translate(var(--vx, 0px), var(--vy, 0px)); bottom: calc(var(--handyleiste-h, 64px) + 8px); } }
 /* Darstellung direkt auf der Seite: Abschnitte Farben, Schrift, Stil – je Zeile Bezeichnung links, Wahl rechts */
 .darstellung { max-width: 980px; } .darstellung h3 { margin: 18px 0 4px; font-size: 15px; border-bottom: 1px solid var(--rand); padding-bottom: 4px; }
 .darstellung-reihe { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; align-items: center; }
@@ -1284,3 +1290,23 @@ html[data-scrollbalken="pille"] ::-webkit-scrollbar-thumb:hover { background-col
 .eingang-knoepfe { display: flex; gap: 8px; }
 .eingang-tabelle th:first-child, .eingang-tabelle td:first-child { width: 50%; }
 .eingang-tabelle th:last-child, .eingang-tabelle td:last-child { width: 110px; text-align: right; }
+/* Duplizieren (Bauzeitenplan) */
+.dup { display: flex; flex-direction: column; gap: 10px; }
+.dup p { margin: 0; }
+.dup-zahl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dup-zahl input { width: 70px; min-height: 32px; padding: 4px 8px; border: 1px solid var(--rand-stark); border-radius: calc(6px * var(--rund)); }
+.dup-arten { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.dup-arten button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; border: 1px solid var(--rand-stark); border-radius: calc(8px * var(--rund)); background: var(--flaeche); cursor: pointer; font: inherit; }
+.dup-arten button small { color: var(--text-still); font-size: 12px; }
+.dup-arten button.aktiv { border-color: var(--akzent); background: var(--akzent-hell); box-shadow: inset 0 0 0 1px var(--akzent); }
+.dup-paare { display: flex; flex-direction: column; gap: 6px; }
+.dup-paar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dup-paar .auswahlliste { min-width: 0; }
+.dup-schema { display: flex; align-items: center; gap: 6px; }
+.dup-vorschau { border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: var(--flaeche); }
+.dup-text { font-size: 11px; fill: var(--text); }
+.dup-balken { fill: var(--text-still); } .dup-balken.kopie { fill: var(--akzent); }
+.dup-linie { stroke: var(--rand-stark); stroke-dasharray: 3 3; }
+.dup-pfeil { fill: none; stroke: var(--gefahr); stroke-width: 1.5; }
+#dupPf path { fill: var(--gefahr); }
+@media (max-width: 820px) { .dup-arten { grid-template-columns: 1fr; } }

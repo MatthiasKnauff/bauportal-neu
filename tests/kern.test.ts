@@ -1419,3 +1419,54 @@ test('Dokument erkennen: Art nach Merkmalen, Projekt, Firma (nicht das eigene B�
   assert.equal(dokumentErkennen('Hallo Welt', q).art, null);
   assert.equal(dokumentErkennen('Vertragserfüllungsbürgschaft der Sparkasse', q).art, 'buergschaft');
 });
+
+test('Bauzeitenplan mit Mehrfachauswahl: Blöcke, verschieben (auch in eine Gruppe), hoch/runter, Zwischenablage mit Verknüpfungen innen', async () => {
+  const b = await import('../src/module/bauzeitenplan/bearbeiten');
+  const v = [{ id: 'g', reihe: 1, ebene: 0 }, { id: 'a', reihe: 2, ebene: 1 }, { id: 'b', reihe: 3, ebene: 1 }, { id: 'c', reihe: 4, ebene: 0 }, { id: 'd', reihe: 5, ebene: 0 }];
+  assert.deepEqual(b.bloeckeVon(v, ['b', 'g', 'd']), [[0, 3], [4, 5]], 'Kind einer gewählten Gruppe zählt nicht extra');
+  const anwenden = (cmds: { objektId: string; werte?: Record<string, unknown> }[]) => {
+    const w = v.map((x) => ({ ...x }));
+    for (const c of cmds) Object.assign(w.find((x) => x.id === c.objektId)!, c.werte);
+    return w.sort((p, q) => p.reihe - q.reihe).map((x) => `${x.id}${x.ebene}`).join(' ');
+  };
+  assert.equal(anwenden(b.verschiebenNach(v, ['c', 'd'], 0)), 'c0 d0 g0 a1 b1', 'c und d nach oben');
+  assert.equal(anwenden(b.verschiebenNach(v, ['d'], 2)), 'g0 a1 d1 b1 c0', 'd in die Gruppe: Ebene 1');
+  assert.deepEqual(b.verschiebenNach(v, ['g'], 1), [], 'nicht in sich selbst');
+  assert.equal(anwenden(b.verschiebenAlle(v, ['c'], -1)), 'c0 g0 a1 b1 d0', 'hoch: vor die Gruppe');
+  assert.equal(anwenden(b.verschiebenAlle(v, ['g'], 1)), 'c0 g0 a1 b1 d0', 'runter: die ganze Gruppe hinter c');
+  const l = [{ id: 'l1', von: 'a', nach: 'b', art: 'ea' as const, abstand: 0 }, { id: 'l2', von: 'b', nach: 'c', art: 'ea' as const, abstand: 0 }];
+  const ab = b.ablageAus(v, l, ['g'], (id) => ({ name: id.toUpperCase() }));
+  assert.deepEqual(ab.zeilen.map((z) => [z.alt, z.ebene]), [['g', 0], ['a', 1], ['b', 1]]);
+  assert.equal(ab.links.length, 1, 'nur die Verknüpfung innen');
+  let n = 0;
+  const e = b.ablageEinfuegen(v, 5, ab, { projekt: 'p' }, () => `n${++n}`);
+  assert.deepEqual(e.befehle.map((x) => [x.objekt, x.werte?.name ?? x.werte?.von, x.werte?.ebene, x.werte?.reihe]),
+    [['vorgang', 'G', 0, 6], ['vorgang', 'A', 1, 7], ['vorgang', 'B', 1, 8], ['verknuepfung', 'n2', undefined, undefined]]);
+  assert.equal(e.befehle[3]!.werte!.nach, 'n3');
+});
+
+test('Bauzeitenplan: Duplizieren mit Master – Ende→Anfang, Takt, parallel, Kette, Namen hochgezählt, Schema nach außen', async () => {
+  const b = await import('../src/module/bauzeitenplan/bearbeiten');
+  assert.equal(b.nummer('Wohnung 1', 2), 'Wohnung 3'); assert.equal(b.nummer('1. OG', 1), '2. OG'); assert.equal(b.nummer('Bad', 1), 'Bad (2)');
+  const v: { id: string; reihe: number; ebene: number; master?: boolean; kopieVon?: string | null }[] = [{ id: 'W', reihe: 1, ebene: 0 }, { id: 'a', reihe: 2, ebene: 1 }, { id: 'b', reihe: 3, ebene: 1 }, { id: 'X', reihe: 4, ebene: 0 }];
+  const l = [{ id: 'l1', von: 'a', nach: 'b', art: 'ea' as const, abstand: 0 }, { id: 'l2', von: 'b', nach: 'X', art: 'ea' as const, abstand: 0 }];
+  const werte = (id: string) => ({ name: id === 'W' ? 'Wohnung 1' : id });
+  let n = 0; const neu = () => `n${++n}`;
+  const links = (r: { befehle: { objekt: string; werte?: Record<string, unknown> }[] }) => r.befehle.filter((x) => x.objekt === 'verknuepfung').map((x) => `${x.werte!.von}>${x.werte!.nach}:${x.werte!.art}`);
+  const namen = (r: { befehle: { objekt: string; art: string; werte?: Record<string, unknown> }[] }) => r.befehle.filter((x) => x.objekt === 'vorgang' && x.art === 'anlegen').map((x) => `${x.werte!.name}/${x.werte!.kopie_von}`);
+  const e = b.duplizieren(v, l, ['W'], 2, 'ende', false, werte, {}, neu);
+  assert.deepEqual(namen(e), ['Wohnung 2/W', 'a/a', 'b/b', 'Wohnung 3/W', 'a/a', 'b/b']);
+  assert.deepEqual(e.befehle[0], { objekt: 'vorgang', art: 'aendern', objektId: 'W', werte: { master: true } }, 'W wird Master');
+  assert.deepEqual(links(e), ['n2>n3:ea', 'b>n2:ea', 'n7>n8:ea', 'n3>n7:ea'], 'innen kopiert; Ende der vorigen → Anfang der nächsten');
+  const reihen = e.befehle.filter((x) => x.art === 'anlegen' && x.objekt === 'vorgang').map((x) => x.werte!.reihe as number);
+  assert.ok(reihen.every((r, i) => r > 3 && r < 4 && (i === 0 || r > reihen[i - 1]!)), 'hinter dem Block, vor X');
+  n = 0; assert.deepEqual(links(b.duplizieren(v, l, ['W'], 1, 'takt', false, werte, {}, neu)), ['n2>n3:ea', 'a>n2:ea', 'b>n3:ea'], 'Takt: jede wartet auf dieselbe');
+  n = 0; assert.deepEqual(links(b.duplizieren(v, l, ['W'], 1, 'parallel', true, werte, {}, neu)), ['n2>n3:ea', 'n3>X:ea'], 'parallel; Schema: X wartet auch auf die Kopie');
+  // Kette: eine Kopie (ihre oberste Zeile) gewählt → vom Master aus hinten anhängen, Nummer läuft weiter, Ende der letzten Kopie → Anfang
+  const v2 = [{ id: 'W', reihe: 1, ebene: 0, master: true }, { id: 'a', reihe: 2, ebene: 1 }, { id: 'b', reihe: 3, ebene: 1 },
+    { id: 'W2', reihe: 3.2, ebene: 0, kopieVon: 'W' }, { id: 'a2', reihe: 3.4, ebene: 1, kopieVon: 'a' }, { id: 'b2', reihe: 3.6, ebene: 1, kopieVon: 'b' }, { id: 'X', reihe: 4, ebene: 0 }];
+  n = 0; const k = b.duplizieren(v2, l, ['W2'], 1, 'ende', false, werte, {}, neu);
+  assert.deepEqual(namen(k), ['Wohnung 3/W', 'a/a', 'b/b']);
+  assert.deepEqual(links(k), ['n2>n3:ea', 'b2>n2:ea']);
+  assert.ok(k.befehle.every((x) => x.art !== 'aendern'), 'Master ist schon Master');
+});

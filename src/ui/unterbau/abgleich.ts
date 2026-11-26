@@ -238,6 +238,8 @@ export function ausfuehren(v: Vorlage, titel: string, ohneVerlauf = false): void
   if (ohneVerlauf) { eigenAnwenden(v); return; }
   ausfuehrenMehrere([v], titel);
 }
+/** Wer auf eigene Schritte reagieren will (z. B. der Bauzeitenplan: „Änderung am Master in die Kopien übernehmen?“) – nicht bei Rückgängig/Wiederholen. */
+export const nachEigenemSchritt = new Set<(schritt: { wieder: Vorlage[]; gegen: Vorlage[] }) => void>();
 /** Mehrere Befehle als ein Schritt: Rückgängig nimmt sie zusammen zurück (z. B. Vorgang löschen und die Kette überbrücken). */
 export function ausfuehrenMehrere(vs: Vorlage[], titel: string): void {
   if (!vs.length) return;
@@ -248,6 +250,7 @@ export function ausfuehrenMehrere(vs: Vorlage[], titel: string): void {
   if (zurueck.length > 200) zurueck.shift();
   vor.length = 0;
   setVerlauf({ zurueck: zurueck.length, vor: 0 });
+  for (const f of nachEigenemSchritt) f({ wieder: vs, gegen });
 }
 function eigenAnwenden(v: Vorlage): void {
   const b: Befehl = { ...v, werte: v.werte && { ...v.werte }, id: neueKennung(), gesehen: stand };

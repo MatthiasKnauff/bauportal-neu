@@ -21,8 +21,7 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { hinweis } from './unterbau/meldungen';
-import type { Anpassung, AuswahlHilfen } from './baukasten/anpassung';
-import type { AuswahlBefehl } from './baukasten/auswahl';
+import type { Anpassung } from './baukasten/anpassung';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
@@ -367,7 +366,6 @@ function Darstellung() {
 const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht, 'dateien.alle': AlleDateien, 'dateien.eingang': EingangAnsicht };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
 // Mehrere wählen: ein Feld für alle setzen und die Auswahl als Excel – dazu kommt vom Baustein der Papierkorb
-const gemeinsam = (h: AuswahlHilfen): AuswahlBefehl[] => [{ titel: 'Gemeinsam bearbeiten …', tun: h.aendern }, { titel: 'Excel', tun: h.excel }];
 const ANPASSUNG: Record<string, Anpassung> = {
   projekt: {
     kachel: (z) => <ProjektKachel projekt={z} />,   // Projekte als Karten (wie im bisherigen Bauportal)
@@ -378,7 +376,6 @@ const ANPASSUNG: Record<string, Anpassung> = {
   ...Object.fromEntries(['bauteil', 'raum', 'geschoss', 'gebaeude'].map((o) => [o, {
     knoepfe: (z) => (darf('bauteil', 'schreiben') ? [{ titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => assistentStarten(String(z.projekt), String(z.version)) }, { titel: 'IFC einlesen', zeichen: 'datei_hoch', gruppe: 'Planen', tun: () => ifcEinlesen(String(z.projekt), String(z.version)) }] : []),
     // mehrere wählen und gemeinsam ändern (ein Feld für alle setzen), Excel der Auswahl
-    auswahl: gemeinsam,
     // die Gebäudekarte: Assistent, Kostenrahmen und weitere Gebäudeteile
     ...(o === 'gebaeude' ? {
       kartenZusatz: (z: Zeile) => <><GebaeudeAssistent gebaeude={z.id} /><Kostenrahmen gebaeude={z} /><GebaeudeTeile gebaeude={z} /></>,
@@ -407,11 +404,11 @@ const ANPASSUNG: Record<string, Anpassung> = {
     detailsHinweis: 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift ✎ im Kopf öffnet den ganzen Bericht.',
     details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
   },
-  aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} />, auswahl: gemeinsam },
+  aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   // Ausschreibung: Summen in den Karten
-  lv: { kartenZusatz: (z) => <LvSummen lv={z} />, auswahl: gemeinsam,
+  lv: { kartenZusatz: (z) => <LvSummen lv={z} />,
     knoepfe: (z) => (darf('lv_position', 'schreiben') ? [{ titel: 'GAEB einlesen', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => gaebEinlesen(String(z.projekt)) }] : []) },
-  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), auswahl: gemeinsam, neuVorgabe: (vorh, schon) => {
+  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), neuVorgabe: (vorh, schon) => {
     // im Nachtrag: dessen Nummer vorne (N1.0010, N1.0020 …), sonst hinter der letzten Position der Ausschreibung
     const nt = schon.nachtrag ? sicht.nachtrag?.[String(schon.nachtrag)] : undefined;
     if (nt) { const eigene = vorh.filter((x) => x.werte.nachtrag === nt.id); return { art: 'normal', oz: eigene.length ? naechsteOz(eigene) : `${String(nt.werte.nummer || 'N')}.0010` }; }
@@ -419,7 +416,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   } },
   angebot: { kartenZusatz: (z) => <><AngebotSumme angebot={z} /><BesprechungKnopf angebot={z} /></> },
   besprechung: { kartenOben: (z) => <BesprechungAbgleich z={z} /> },
-  rechnung: { auswahl: gemeinsam, kartenZusatz: (z) => <RechnungLeiter rechnung={z} />,
+  rechnung: { kartenZusatz: (z) => <RechnungLeiter rechnung={z} />,
     knoepfe: (z) => (darf('rechnung', 'schreiben') ? [{ titel: 'E-Rechnung einlesen …', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => rechnungEinlesen(String(z.projekt)) }] : []) },
   // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)
   foto: {

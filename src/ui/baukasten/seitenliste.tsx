@@ -5,7 +5,7 @@ import { For, Show, createSignal, type JSX } from 'solid-js';
 import { Zeichen, istZeichen } from './zeichen';
 
 export interface SeitenEintrag { id: string; titel: string; zeichen?: string; anzahl?: number; nach?: JSX.Element }   // nach: steht unter dem Eintrag (z. B. eine Einstellung)
-export interface SeitenAbschnitt { titel: string; eintraege: SeitenEintrag[]; suche?: boolean; abgesetzt?: boolean; schluessel?: string }   // abgesetzt: farbig abgesetzt (z. B. „Für mich“); schluessel: zum Merken, wenn der Titel wechselt
+export interface SeitenAbschnitt { titel: string; eintraege: SeitenEintrag[]; suche?: boolean; abgesetzt?: boolean; schluessel?: string; zu?: boolean }   // zu: als Filter von Haus aus zugeklappt   // abgesetzt: farbig abgesetzt (z. B. „Für mich“); schluessel: zum Merken, wenn der Titel wechselt
 
 const FARBEN = ['#e8f0fd', '#e6f4ea', '#f1ebfa', '#fdf0e2', '#fde8e8', '#e7f6f6', '#fbf3dc'];
 
@@ -14,8 +14,8 @@ const FARBEN = ['#e8f0fd', '#e6f4ea', '#f1ebfa', '#fdf0e2', '#fde8e8', '#e7f6f6'
 // sichtbar; gemerkt je Browser.
 const ZU = 'bp.navzu';
 const [zu, setZu] = createSignal<Set<string>>((() => { try { return new Set<string>(JSON.parse(localStorage.getItem(ZU) ?? '[]')); } catch { return new Set<string>(); } })());
-// Filter: zu sind sie von Haus aus – gemerkt wird, welche offen sind
-const AUF = 'bp.filterauf';
+// Filter: gemerkt wird, welche jemand gegenüber der Vorgabe auf- oder zugeklappt hat
+const AUF = 'bp.filterumgeklappt';
 const [auf, setAuf] = createSignal<Set<string>>((() => { try { return new Set<string>(JSON.parse(localStorage.getItem(AUF) ?? '[]')); } catch { return new Set<string>(); } })());
 const aufSchalten = (k: string) => { const s = new Set(auf()); if (s.has(k)) s.delete(k); else s.add(k); setAuf(s); try { localStorage.setItem(AUF, JSON.stringify([...s])); } catch { /* gilt bis zum Neuladen */ } };
 const zuSchalten = (k: string) => { const s = new Set(zu()); if (s.has(k)) s.delete(k); else s.add(k); setZu(s); try { localStorage.setItem(ZU, JSON.stringify([...s])); } catch { /* gilt bis zum Neuladen */ } };
@@ -25,7 +25,8 @@ export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | 
   let nr = 0;
   const farbe = new Map<string, string>();
   const farbeVon = (id: string) => farbe.get(id) ?? (farbe.set(id, FARBEN[nr++ % FARBEN.length]!), farbe.get(id)!);
-  // Filter links (Entscheidung A, 26.11.2026): je Feld eine zugeklappte Zeile mit der Zahl seiner Werte; aufgeklappt die 5 häufigsten
+  // Filter links (Entscheidung A, 26.11.2026): je Feld eine zugeklappte Zeile mit der Zahl seiner Werte (die Sammelfilter; fest
+  // eingestellte wie „Kontakte“ in den Adressen stehen von Haus aus offen); aufgeklappt die 5 häufigsten
   // und „alle n zeigen …“. Gewählte Werte bleiben auch zugeklappt sichtbar; offen bleibt, was man zuletzt offen hatte (je Liste
   // gemerkt). Einträge ohne Treffer fallen weg; ein Eintrag mit Zusatz (Beteiligte des Projekts) steht immer als Kasten.
   if (p.art === 'filter') return (
@@ -35,7 +36,7 @@ export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | 
         const HAEUFIG = 5;
         const k = `${p.name}|${a.schluessel ?? a.titel}`;
         const klapp = () => p.abschnitte.length > 1 && !!a.titel;
-        const offen = () => !klapp() || auf().has(k);
+        const offen = () => !klapp() || (!a.zu !== auf().has(k));
         const kasten = () => a.eintraege.filter((e) => e.nach);
         const rest = () => a.eintraege.filter((e) => !e.nach && (e.anzahl !== 0 || an(e.id) || !!p.nicht?.(e.id)));
         const werte = () => rest().filter((e) => !e.id.endsWith(':*'));

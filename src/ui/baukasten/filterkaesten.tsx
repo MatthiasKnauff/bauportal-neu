@@ -55,16 +55,23 @@ export function Filtersuche(p: {
 }) {
   const [offen, setOffen] = createSignal(false);
   const [markiert, setMarkiert] = createSignal(-1);
-  const liste = createMemo((): { art: FilterArt; l: [string, number][] }[] => {
-    const roh = p.text.trim(), q = klein(roh.startsWith('-') ? roh.slice(1) : roh);
-    if (!offen() || !q) return [];
+  // Je Art einmal je Datenstand: welche Werte es gibt, wie oft, und ihr Titel klein geschrieben – beim Tippen wird nur noch darin
+  // gesucht (vorher bei jedem Tastendruck alle Einträge mal alle Arten: bei 2000 Adressen über 100 ms).
+  const verzeichnis = createMemo(() => {
+    if (!offen()) return [];
     const ids = p.ids();
     return p.arten.filter((art) => art.vorschlagen !== false).map((art) => {
       const z = new Map<string, number>();
-      for (const id of ids) for (const w of new Set(art.werte(id))) { const t = art.wertTitel?.(w) ?? w; if (w && klein(t).includes(q)) z.set(w, (z.get(w) ?? 0) + 1); }
-      const t = (w: string) => klein(art.wertTitel?.(w) ?? w);
-      return { art, l: [...z].sort((x, y) => Number(!t(x[0]).startsWith(q)) - Number(!t(y[0]).startsWith(q)) || y[1] - x[1]).slice(0, 6) };
-    }).filter((x) => x.l.length);
+      for (const id of ids) for (const w of new Set(art.werte(id))) if (w) z.set(w, (z.get(w) ?? 0) + 1);
+      return { art, werte: [...z].map(([w, n]) => ({ w, n, t: klein(art.wertTitel?.(w) ?? w) })) };
+    });
+  });
+  const liste = createMemo((): { art: FilterArt; l: [string, number][] }[] => {
+    const roh = p.text.trim(), q = klein(roh.startsWith('-') ? roh.slice(1) : roh);
+    if (!offen() || !q) return [];
+    return verzeichnis().map(({ art, werte }) => ({ art, l: werte.filter((x) => x.t.includes(q))
+      .sort((x, y) => Number(!x.t.startsWith(q)) - Number(!y.t.startsWith(q)) || y.n - x.n).slice(0, 6).map((x): [string, number] => [x.w, x.n]) }))
+      .filter((x) => x.l.length);
   });
   const flach = createMemo((): Vorschlag[] => [...liste().flatMap((x) => x.l.map(([w, n]) => ({ art: x.art, w, n }))), ...(liste().length ? [{ text: true as const }] : [])]);
   const nicht = () => p.text.trim().startsWith('-');

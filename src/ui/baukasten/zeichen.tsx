@@ -2,7 +2,7 @@
 // Wer ein Symbol braucht, nimmt es hier; neue kommen in die Liste unten. Gezeichnet in der Textfarbe (currentColor).
 import type { JSX } from 'solid-js';
 import {
-  ArrowRightLeft, Database, IndentIncrease, IndentDecrease, ArrowUp, ArrowDown, Blocks, BookOpen, BookUser, Building2, Calendar, CalendarClock, CalendarPlus, Camera, ChartGantt, Check, ChevronDown, ChevronLeft,
+  GripVertical, ArrowRightLeft, Database, IndentIncrease, IndentDecrease, ArrowUp, ArrowDown, Blocks, BookOpen, BookUser, Building2, Calendar, CalendarClock, CalendarPlus, Camera, ChartGantt, Check, ChevronDown, ChevronLeft,
   ChevronRight, CircleCheck, CircleHelp, ClipboardCheck, ClipboardList, Cloud, Columns3, Contact, Copy, Diamond, Download, ExternalLink, Eye,
   FileDown, FileText, FileUp, Flag, Folder, FolderKanban, GitBranch, Grid3x3, History, House, ImagePlus, Info, KeyRound, LayoutGrid, Library,
   List, ListPlus, ListTree, Mail, MapPin, Merge, Mic, NotebookPen, NotebookText, PanelLeft, PanelRightClose, Paintbrush, Pencil, Plus, Printer,
@@ -12,7 +12,7 @@ import {
 
 const ZEICHEN = {
   // allgemein
-  zurueck: Undo2, wieder: Redo2, neu: Plus, loeschen: Trash2, bearbeiten: Pencil, kopieren: Copy, ausschneiden: Scissors, einfuegen: ClipboardPaste, duplizieren: CopyPlus, verknuepfen: Link, entkoppeln: Unlink, schliessen: X, fenster: ExternalLink,
+  griff: GripVertical, zurueck: Undo2, wieder: Redo2, neu: Plus, loeschen: Trash2, bearbeiten: Pencil, kopieren: Copy, ausschneiden: Scissors, einfuegen: ClipboardPaste, duplizieren: CopyPlus, verknuepfen: Link, entkoppeln: Unlink, schliessen: X, fenster: ExternalLink,
   zuklappen: PanelRightClose, suche: Search, aktualisieren: RefreshCw, hilfe: CircleHelp, info: Info, apps: Grid3x3, einstellungen: Settings,
   links: ChevronLeft, rechts: ChevronRight, runter: ChevronDown, haken: Check, erledigt: CircleCheck, ansehen: Eye, schluessel: KeyRound,
   // Ansicht und Liste

@@ -58,6 +58,8 @@ export const vorgang: ObjektModell = {
     { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
     { name: 'ebene', titel: 'Gliederungsebene', art: 'zahl', verborgen: true },
     { name: 'kennung', titel: 'Kennung (Übernahme, Assistent)', art: 'text', verborgen: true },
+    { name: 'master', titel: 'Master (hat Kopien)', art: 'ja_nein', verborgen: true },
+    { name: 'kopie_von', titel: 'Kopie von (Gegenstück im Master)', art: 'text', verborgen: true },
   ],
 };
 
