@@ -3,6 +3,7 @@
 // Ein Modul beschreibt seinen Ausdruck im Beipackzettel als Folge von Blöcken; das Büro stellt daran, was es will
 // (Beschriftungen, Texte, ein/aus, Schriftgröße) – jede Einstellung ist ein Eintrag „druckeinstellung“ und damit
 // ein Befehl wie alles andere (Rückgängig, Abgleich). Reine Textfunktion: läuft im Browser und auf dem Server gleich.
+import { zumDrucken } from './textergaenzung';
 import type { Feld, ObjektModell, Wert, Werte } from './modell';
 
 export type Druckblock =
@@ -249,7 +250,7 @@ function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; we
   };
   for (const { werte: w } of z) {
     const oz = String(w.oz ?? ''), art = String(w.art ?? 'normal'), ebene = oz.split('.').length;
-    const kurz = sicher(String(w.kurztext ?? '')), lang = nurKurz ? '' : String(w.langtext ?? '').trim();
+    const kurz = sicher(String(w.kurztext ?? '')), lang = nurKurz ? '' : zumDrucken(String(w.langtext ?? '').trim());
     if (art === 'titel') { schliessen(ebene); offen.push({ oz, text: String(w.kurztext ?? ''), ebene, summe: 0 }); zeilen.push(`<tr class="lv-titel"><td class="oz">${sicher(oz)}</td><td colspan="5">${kurz}</td></tr>`); continue; }
     if (art === 'hinweis') { zeilen.push(`<tr><td class="oz">${sicher(oz)}</td><td colspan="5"><div class="kurz">${kurz}</div>${lang ? `<div class="lang">${sicher(lang)}</div>` : ''}</td></tr>`); continue; }
     const menge = zahlVon(w.menge), ep = zahlVon(w.ep), gp = Math.round(menge * ep * 100) / 100, zaehlt = !OHNE_GP[art];

@@ -7,7 +7,7 @@ import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'sol
 import type { Wert } from '../kern/modell';
 import { lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, titelSumme, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
 import { Dialog } from './baukasten/dialog';
-import { kiOeffnen } from './baukasten/ki';
+import { langtextMenue, ErgaenzungFenster } from './textergaenzung';
 import { gp, zaehlt, zahl } from '../module/ava/rechnung';
 import { lvVon } from './avakopf';
 import { druckOeffnen } from './druck';
@@ -230,6 +230,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
               onChange={(e) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { vorbemerkungen: e.currentTarget.value } }, 'Vorbemerkungen')} /></div>
         </Show>
         <Show when={numFenster()}><NummerierenFenster maske={maske()} beispiel={zeilen()} onZu={() => setNumFenster(false)} onFertig={(m) => { setNumFenster(false); neuNummerieren(m); }} /></Show>
+        <ErgaenzungFenster />
         <div class="lvt-tabelle">
           <div class="lvt-zeile lvt-kopf" role="row">
             <For each={spalten()}>{(s) => <div class="lvt-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }} role="columnheader" {...spw.ziehbar(s.id)}>{s.titel}
@@ -255,9 +256,8 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
               <Show when={!z().titel && lang().has(z().id)}>
                 <div class="lvt-lang" style={{ 'padding-left': `${z().ebene * 16 + 40}px` }}>
                   <textarea rows={5} value={String(nachId(z().id)?.werte.langtext ?? '')} readOnly={!schreiben()} placeholder="Langtext – Leistungsbeschreibung, Material, Fabrikat, Ausführung, Abrechnung"
-                    aria-label={`Langtext ${z().oz}`} onChange={(e) => aendern(z().id, { langtext: e.currentTarget.value }, 'Langtext')} />
-                  <Show when={schreiben()}><button type="button" class="knopf klein still lvt-ki" title="Langtext aus Kurztext und Stichworten vorschlagen lassen – die KI schlägt vor, du übernimmst"
-                    onClick={() => { const w = nachId(z().id)?.werte ?? {}; kiOeffnen({ titel: `Langtext ${z().oz}`, text: [String(w.kurztext ?? ''), String(w.langtext ?? '')].filter(Boolean).join('\n'), onUebernehmen: (t) => aendern(z().id, { langtext: t }, 'Langtext von der KI') }); }}>✦ Langtext vorschlagen</button></Show>
+                    aria-label={`Langtext ${z().oz}`} onChange={(e) => aendern(z().id, { langtext: e.currentTarget.value }, 'Langtext')}
+                    onContextMenu={(e) => { if (schreiben()) langtextMenue(e, e.currentTarget, (t) => aendern(z().id, { langtext: t }, 'Bietertextergänzung')); }} />
                 </div>
               </Show>
             </>); }}</For>

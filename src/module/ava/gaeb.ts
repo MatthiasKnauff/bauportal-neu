@@ -3,6 +3,7 @@
 // Unterstützt der übliche Umfang: Titel in beliebiger Tiefe, Positionen mit Kurz- und Langtext, Menge, Einheit, Einheitspreis,
 // Bedarfs-, Wahl- und Pauschalpositionen, Hinweistexte. Ältere Formate (GAEB 90/2000) bitte im anderen Programm als DA XML ausgeben.
 import { alleText, kind, kinder, xmlLesen, xmlText, type XmlKnoten } from '../../kern/xml';
+import { gaebFeld, gaebText, gaebZusammen } from '../../kern/textergaenzung';
 
 export interface GaebPosten {
   kennung: string;                 // ID aus der Datei oder die OZ – bleibt beim nächsten Einlesen derselbe Eintrag
@@ -16,9 +17,14 @@ const zahl = (s: string) => { const t = s.trim().replace(',', '.'); return t && 
 function text(k: XmlKnoten | undefined): string {
   if (!k) return '';
   const absaetze: string[] = [];
-  const geh = (x: XmlKnoten) => { if (x.name === 'p') absaetze.push(alleText(x).replace(/ /g, ' ')); else x.kinder.forEach(geh); };
+  // Textergänzungen (TextComplement) werden Felder im Langtext – [[Bieter: …]] bzw. [[Büro: … = …]]
+  // (Leerzeichen am Rand eines <span> gehören zum Text – daher hier roh, nicht alleText)
+  const roh = (x: XmlKnoten): string => x.text + x.kinder.map(roh).join('');
+  const absatz = (x: XmlKnoten): string => (x.text + x.kinder.map((c) => (c.name === 'TextComplement'
+    ? gaebFeld(c.attr.Kind ?? '', alleText(kind(c, 'ComplCaption')), alleText(kind(c, 'ComplBody'))).marke : roh(c))).join('')).replace(/[ \t\r\n]+/g, ' ').trim();
+  const geh = (x: XmlKnoten) => { if (x.name === 'p') absaetze.push(absatz(x).replace(/\u00a0/g, ' ')); else x.kinder.forEach(geh); };
   geh(k);
-  return absaetze.length ? absaetze.join('\n').replace(/\n+$/, '').trim() : alleText(k);
+  return gaebZusammen(absaetze.length ? absaetze.join('\n').replace(/\n+$/, '').trim() : alleText(k));
 }
 
 export function gaebLesen(quelle: string): GaebLv {
@@ -89,7 +95,7 @@ export function gaebSchreiben(lv: { projekt: string; name: string; nummer: strin
     const ep = dp === '83' ? null : preis?.(x.oz) ?? null;
     return `<Item ID="${id()}" RNoPart="${xmlText(teil(x.oz, vorne))}">${x.art === 'bedarf' ? '<Provis>WithoutTotal</Provis>' : ''}${x.art === 'pauschal' ? '<LumpSumItem>Yes</LumpSumItem>' : ''}${x.art === 'alternativ' ? '<ALNGroupNo>1</ALNGroupNo><ALNSerNo>1</ALNSerNo>' : ''}`
       + `<Qty>${x.menge ?? 0}</Qty><QU>${xmlText(gaebEinheit(x.einheit))}</QU>${ep != null ? `<UP>${ep.toFixed(2)}</UP>` : ''}`
-      + `<Description><CompleteText><DetailTxt><Text>${p(x.langtext || x.kurztext)}</Text></DetailTxt><OutlineText><OutlTxt><TextOutlTxt>${p(x.kurztext)}</TextOutlTxt></OutlTxt></OutlineText></CompleteText></Description></Item>`;
+      + `<Description><CompleteText><DetailTxt><Text>${x.langtext ? gaebText(x.langtext) : p(x.kurztext)}</Text></DetailTxt><OutlineText><OutlTxt><TextOutlTxt>${p(x.kurztext)}</TextOutlTxt></OutlTxt></OutlineText></CompleteText></Description></Item>`;
   };
   const body = (vorne: string): string => {
     const hier = vorne ? unter(vorne) : posten.filter((x) => (x.oz && !x.oz.includes('.')) || (!x.oz && !titel.length));

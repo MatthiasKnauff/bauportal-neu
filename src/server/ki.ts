@@ -16,7 +16,6 @@ export const AUFGABEN: Record<string, { titel: string; anweisung: string; json?:
   glaetten: { titel: 'Text glätten', anweisung: 'Glätte den Text sprachlich: klare, sachliche Sätze, gleiche Zeitform, keine Wiederholungen. Der Inhalt bleibt vollständig und unverändert; füge nichts hinzu.' },
   rechtschreibung: { titel: 'Rechtschreibung prüfen', anweisung: 'Korrigiere nur Rechtschreibung, Grammatik und Zeichensetzung. Wortwahl, Satzbau und Inhalt bleiben, wie sie sind.' },
   // LV: aus Kurztext und Stichworten ein Langtext (wie im bisherigen Bauportal „✨ Langtext vorschlagen“)
-  langtext: { titel: 'LV-Langtext schreiben', anweisung: 'Schreibe aus Kurztext und Stichworten den Langtext einer Position eines Leistungsverzeichnisses nach VOB/C: was zu leisten ist, Material, Ausführung, Maße und Abrechnung – sachlich, im Stil eines Leistungsverzeichnisses, ohne Anrede und ohne die immer gleichen Floskeln (die stehen in den Vorbemerkungen). Erfinde keine Fabrikate, Mengen oder Maße, die nicht genannt sind; wo eine Angabe fehlt, schreibe „…“ als Platzhalter.' },
   kuerzen: { titel: 'Kürzen', anweisung: 'Kürze den Text auf das Wesentliche, etwa auf die Hälfte. Alle Fakten (Mengen, Namen, Termine, Mängel, Anordnungen) bleiben erhalten.' },
   // Bautagebuch per Sprache: der frei diktierte Bericht wird auf die Bereiche des Tagesberichts verteilt
   diktat: { titel: 'Diktat ordnen', json: true, anweisung: `Der Text ist ein frei diktierter Baustellenbericht (Spracherkennung, Fehler möglich). Verteile ihn auf die Bereiche eines Bautagesberichts.

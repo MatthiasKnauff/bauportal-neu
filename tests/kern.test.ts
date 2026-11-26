@@ -1790,3 +1790,17 @@ test('Fenster- & Türliste: gleiche Ausführung = eine Position, Systembeschreib
   assert.deepEqual(a.null, ['p6'], 'die DIN-R-Tür ist weg: Menge 0');
   assert.ok(a.aendern.some((x) => x.id === 'p5' && x.werte.menge === 3), 'T05 dazu: Menge 3');
 });
+
+test('Bietertextergänzung: im Langtext, im Ausdruck und in GAEB (TextComplement) hin und zurück', async () => {
+  const t = await import('../src/kern/textergaenzung');
+  const g = await import('../src/module/ava/gaeb');
+  const lang = 'Wärmedämmverbundsystem\nAngeboten: [[Bieter: Fabrikat | Sto Therm Classic]]\nFarbton: [[Bieter: Farbton]]';
+  assert.deepEqual(t.ergaenzungen(lang).map((e) => [e.art, e.frage, e.wert]), [['bieter', 'Fabrikat', 'Sto Therm Classic'], ['bieter', 'Farbton', '']]);
+  assert.equal(t.ergaenzungBei(lang, lang.indexOf('Farbton]') + 2)?.frage, 'Farbton');
+  assert.match(t.zumDrucken(lang), /Fabrikat: …+ \(Vorschlag: Sto Therm Classic oder gleichwertig\)/);
+  const x = t.gaebText(lang);
+  assert.ok(x.includes('<TextComplement Kind="Owner"><ComplCaption><span>Fabrikat: </span></ComplCaption><ComplBody><span>Sto Therm Classic oder gleichwertig</span></ComplBody></TextComplement><TextComplement Kind="Bidder"><ComplCaption><span>Angeboten: </span>'), 'Vorschlag als Feld des Büros, dahinter das Feld der Bieter:in');
+  const datei = g.gaebSchreiben({ projekt: 'P', name: 'WDVS', nummer: '1' }, [{ oz: '01', art: 'titel', kurztext: 'Fassade', langtext: '', menge: null, einheit: '', ep: null },
+    { oz: '01.0010', art: 'normal', kurztext: 'WDVS', langtext: lang, menge: 100, einheit: 'm2', ep: null }], '83');
+  assert.equal(g.gaebLesen(datei).posten[1]!.langtext, lang, 'GAEB hin und zurück: dieselben Felder');
+});
