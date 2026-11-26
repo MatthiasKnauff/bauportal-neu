@@ -4,7 +4,7 @@
 // Bedienung wie gewohnt: Zelle anklicken und lostippen, F2, Enter/Tab/Esc; Einfg, Entf; Alt+Umschalt+Pfeile gliedern und
 // verschieben; Balken ziehen (verschieben), rechte Kante ziehen (Dauer), Punkt am Balkenende auf einen anderen ziehen (verknüpfen).
 import { Zeichen } from './baukasten/zeichen';
-import { spaltenwahl } from './baukasten/spalten';
+import { spaltenwahl, zusatzMessen } from './baukasten/spalten';
 import { Klappe, Ordner } from './baukasten/baum';
 import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup, onMount, untrack } from 'solid-js';
@@ -293,6 +293,15 @@ export function Balkenplan(p: Mitte) {
     const y = KOPF + k * H;
     if (y < flaeche.scrollTop + KOPF) flaeche.scrollTop = y - KOPF;
     else if (y + H > flaeche.scrollTop + flaeche.clientHeight) flaeche.scrollTop = y + H - flaeche.clientHeight;
+  };
+  // Doppelklick auf eine Trennlinie im Kopf: alle Spalten passend zum Inhalt (wie in jeder Tabelle); Einrückung, Klappe und Ordner gemessen
+  const spaltenPassend = () => {
+    const zelle = flaeche.querySelector('.bzp-zeilen .bzp-zelle') ?? flaeche;
+    const sp = spalten(), zellen: Parameters<typeof zusatzMessen>[0] = [], sb = sichtbar();
+    flaeche.querySelectorAll('.bzp-zeilen .bzp-zeile').forEach((r, k) => r.querySelectorAll(':scope > .bzp-zelle').forEach((el, i) => {
+      const s = sp[i], v = sb[k]; if (s && v) zellen.push({ spalte: s.id, el, text: wert(v, s.id) });
+    }));
+    spw.allePassend((n) => vorgaenge().map((v) => wert(v, n as Spalte['id'])), getComputedStyle(zelle).font, `600 13px ${getComputedStyle(flaeche).fontFamily}`, zusatzMessen(zellen, getComputedStyle(zelle).font));
   };
   const wert = (v: Zeile, s: Spalte['id']): string => {
     const t = erg().termine.get(v.id);
@@ -708,7 +717,7 @@ export function Balkenplan(p: Mitte) {
               <For each={spalten()}>{(s) => (
                 // wie in jeder Tabelle: Kopf mit der Maus verschieben (Reihenfolge), an der Kante ziehen (Breite)
                 <div class="bzp-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }} {...(schmal() ? {} : spw.ziehbar(s.id))}>{s.titel}
-                  <Show when={!schmal()}><i class="griff" aria-hidden="true" title="Ziehen: Breite ändern" onPointerDown={(e) => spw.breiteZiehen(e, s.id)} /></Show>
+                  <Show when={!schmal()}><i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: alle Spalten passend zum Inhalt" onPointerDown={(e) => spw.breiteZiehen(e, s.id)} onDblClick={(e) => { e.stopPropagation(); spaltenPassend(); }} /></Show>
                 </div>)}</For>
             </div>
             <svg class="bzp-achse" width={breiteR()} height={KOPF}>

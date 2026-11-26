@@ -8,7 +8,7 @@ import { mengenSumme, type Feld, type ObjektModell, type Wert } from '../../kern
 import { HERKUNFT, type Zeile } from '../../kern/befehl';
 import { anzeige, excelWert } from './feld';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
-import { spaltenFuer } from './spalten';
+import { spaltenFuer, zusatzMessen } from './spalten';
 import { Spaltenfeld } from './spaltenfeld';
 import { Haken, KopfHaken, auswahlKlick, langTippen, type Auswahl } from './auswahl';
 import { objektname } from '../unterbau/abgleich';
@@ -218,17 +218,17 @@ export function Tabelle(p: {
       </tr>
     );
   };
-  // Doppelklick auf die Kante: so breit wie der längste Inhalt der Spalte (alle Zeilen, nicht nur die sichtbaren)
-  const passend = (f: Feld) => {
-    const stift = document.createElement('canvas').getContext('2d')!;
+  // Doppelklick auf eine Trennlinie: alle Spalten so breit wie ihr längster Inhalt (alle Zeilen, nicht nur die sichtbaren)
+  const passend = () => {
     const zelle = kasten.querySelector('tbody td:not(.haken-zelle)') ?? kasten;
-    stift.font = getComputedStyle(zelle).font;
-    let breit = 0;
-    for (const z of sortiert()) breit = Math.max(breit, stift.measureText(anzeige(f, unwrap(z).werte[f.name])).width);
-    stift.font = `600 13px ${getComputedStyle(kasten).fontFamily}`;
-    breit = Math.max(breit + 21, stift.measureText(f.titel).width + 21 + 18);   // Innenabstand und Trennlinie; im Kopf Platz für den Sortierpfeil
-    festhalten();
-    spalten.setzeBreite(f.name, Math.min(800, Math.ceil(breit)), true);
+    // was eine Zelle außer dem Text zeigt (Symbol, Abstand eines Bausteins) – an den gezeigten Zeilen gemessen
+    const sp = spalten.sichtbare(), gezeigt = sortiert().slice(fenster().von), zellen: Parameters<typeof zusatzMessen>[0] = [];
+    kasten.querySelectorAll('tbody tr:not([aria-hidden]):not(.summenzeile)').forEach((tr, k) => tr.querySelectorAll('td:not(.haken-zelle)').forEach((td, i) => {
+      const f = sp[i], z = gezeigt[k]; if (f && z) zellen.push({ spalte: f.name, el: td, text: anzeige(f, unwrap(z).werte[f.name]) });
+    }));
+    const zusatz = zusatzMessen(zellen, getComputedStyle(zelle).font);
+    spalten.allePassend((n) => { const f = sp.find((x) => x.name === n)!; return sortiert().map((z) => anzeige(f, unwrap(z).werte[n])); },
+      getComputedStyle(zelle).font, `600 13px ${getComputedStyle(kasten).fontFamily}`, zusatz);
   };
 
   return (
@@ -243,7 +243,7 @@ export function Tabelle(p: {
                 <button onClick={() => { if (!p.reihenfolgeFest) setSort((s) => ({ feld: f.name, ab: s.feld === f.name ? !s.ab : false })); }}>
                   <span>{f.titel}</span><span class="pfeil">{!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? '▼' : '▲') : ''}</span>
                 </button>
-                <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: passend zum Inhalt" onPointerDown={(e) => spalten.breiteZiehen(e, f.name, festhalten)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => { e.stopPropagation(); passend(f); }} />
+                <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: alle Spalten passend zum Inhalt" onPointerDown={(e) => spalten.breiteZiehen(e, f.name, festhalten)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => { e.stopPropagation(); passend(); }} />
               </th>
             )}</For>
           </tr>

@@ -52,7 +52,20 @@ export function spaltenwahl<S extends Spaltenart>(schluessel: string, moeglich: 
     /** Hat der Benutzer schon Breiten gezogen? Dann gelten sie wie in Excel genau – sonst passt die Tabelle sich dem Platz an. */
     eigeneBreiten: () => Object.keys(stand.breiten).length > 0,
     /** Alle Breiten auf einmal festhalten (z. B. die gerade sichtbaren, bevor zum ersten Mal gezogen wird). */
-    setzeBreiten(b: Record<string, number>) { setStand('breiten', Object.fromEntries(Object.entries(b).map(([n, px]) => [n, Math.max(40, Math.round(px))]))); },
+    setzeBreiten(b: Record<string, number>, fertig = false) { setStand('breiten', Object.fromEntries(Object.entries(b).map(([n, px]) => [n, Math.max(40, Math.round(px))]))); if (fertig) merken(); },
+    /** Doppelklick auf eine Trennlinie (in jeder Tabelle gleich): alle sichtbaren Spalten so breit wie ihr längster Inhalt.
+     *  texte(n): die Inhalte der Spalte, wie sie in den Zellen stehen; schrift: die Schrift der Zellen. */
+    allePassend(texte: (n: string) => string[], schrift: string, kopfschrift: string, zusatz: Record<string, number> = {}) {   // zusatz: was eine Zelle außer dem Text zeigt (z. B. ☎ vor der Nummer)
+      const stift = document.createElement('canvas').getContext('2d')!;
+      const b: Record<string, number> = {};
+      for (const f of this_.sichtbare()) {
+        stift.font = schrift; let breit = 0;
+        for (const t of texte(f.name)) breit = Math.max(breit, stift.measureText(t).width);
+        stift.font = kopfschrift;
+        b[f.name] = Math.min(800, Math.ceil(Math.max(breit + (zusatz[f.name] ?? 0) + 21, stift.measureText(f.titel).width + 21 + 18)));   // Innenabstand und Trennlinie; im Kopf Platz für den Sortierpfeil
+      }
+      this_.setzeBreiten(b, true);
+    },
     setzeBreite(n: string, px: number, fertig: boolean) { setStand('breiten', n, Math.max(40, Math.round(px))); if (fertig) merken(); },
     zuruecksetzen() { setStand(werk()); merken(); },
     /** Kopfzelle: mit der Maus an eine andere Stelle ziehen – die Reihenfolge, in jeder Tabelle gleich (nicht nur im Spaltenfeld). */
@@ -74,6 +87,18 @@ export function spaltenwahl<S extends Spaltenart>(schluessel: string, moeglich: 
     },
   };
   return this_;
+}
+/** Was gezeigte Zellen außer ihrem Text zeigen (Symbol, Einrückung, Klappe): Breite des Inhalts minus Breite des Texts, je Spalte das Größte.
+ *  Für „alle Spalten passend“ – gemessen an den Zellen, die gerade zu sehen sind. */
+export function zusatzMessen(zellen: { spalte: string; el: Element; text: string }[], schrift: string): Record<string, number> {
+  const stift = document.createElement('canvas').getContext('2d')!; stift.font = schrift;
+  const bereich = document.createRange(), aus: Record<string, number> = {};
+  for (const z of zellen) {
+    if (!z.text) continue;
+    bereich.selectNodeContents(z.el);
+    aus[z.spalte] = Math.max(aus[z.spalte] ?? 0, Math.ceil(bereich.getBoundingClientRect().width - stift.measureText(z.text).width));
+  }
+  return aus;
 }
 /** Was das Spaltenfeld von einer Spaltenwahl braucht – gleich, welche Art Spalten sie verwaltet. */
 export type Spaltenwahl = Pick<ReturnType<typeof spaltenwahl<Spaltenart>>, 'alle' | 'istAn' | 'istFest' | 'schalten' | 'schieben' | 'schritt' | 'zuruecksetzen'>;
