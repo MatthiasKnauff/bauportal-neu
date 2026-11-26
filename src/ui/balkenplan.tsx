@@ -175,13 +175,15 @@ export function Balkenplan(p: Mitte) {
   const nrVon = (id: string) => erg().termine.get(id)?.nr ?? 0;
   const vorgaengerText = (id: string) => vorgaengerSchreiben(L_().filter((l) => l.nach === id).map((l) => ({ nr: nrVon(l.von), art: l.art, abstand: l.abstand })).sort((a, b) => a.nr - b.nr));
 
-  // Zeitachse: vom Montag vor dem Anfang bis vier Wochen nach dem Ende
+  // Zeitachse: vom Montag vor dem Anfang bis vier Wochen nach dem Ende – und mindestens so weit, dass sie die sichtbare Fläche füllt
+  const [sichtBreite, setSichtBreite] = createSignal(0);
   const achse = createMemo(() => {
     const k = kal(), t = [...erg().termine.values()];
     let a = k.tag(0), e = k.tag(Math.max(1, erg().ende));
     for (const x of t) { a = Math.min(a, k.tag(x.s)); e = Math.max(e, k.tag(Math.max(x.s, x.f - 1))); }
     a -= 7 + wochentag(a - 7);
-    return { t0: a, t1: e + 28 };
+    const fuellen = Math.ceil((sichtBreite() - spalten().reduce((n, c) => n + c.breite, 0)) / px());
+    return { t0: a, t1: Math.max(e + 28, a + fuellen) };
   });
   const x = (w: number) => (kal().tag(w) - achse().t0) * px();
   const xEnde = (s: number, f: number) => (f > s ? (kal().tag(f - 1) + 1 - achse().t0) * px() : x(s));
@@ -215,7 +217,7 @@ export function Balkenplan(p: Mitte) {
   let flaeche!: HTMLDivElement;
   // Die Balkenfläche reicht immer bis unten: auch unter der letzten Leistung lässt sich eine neue aufziehen (sie kommt ans Ende)
   const [sichtHoehe, setSichtHoehe] = createSignal(0);
-  onMount(() => { const ro = new ResizeObserver(() => setSichtHoehe(flaeche.clientHeight)); ro.observe(flaeche); onCleanup(() => ro.disconnect()); });
+  onMount(() => { const ro = new ResizeObserver(() => { setSichtHoehe(flaeche.clientHeight); setSichtBreite(flaeche.clientWidth); }); ro.observe(flaeche); onCleanup(() => ro.disconnect()); });
   const flaechenZeilen = () => Math.max(sichtbar().length + 1, Math.floor((sichtHoehe() - KOPF) / H));
   const zeileIndex = () => sichtbar().findIndex((v) => v.id === markiert());
   const waehle = (i: number) => {
