@@ -59,8 +59,8 @@ async function rufOhneUhr<T>(pfad: string, body?: unknown): Promise<T> {
   return daten as T;
 }
 
-/** Holt eine Datei vom Server (z. B. ein PDF) und legt sie über den Browser beim Benutzer ab. */
-export async function ladeDatei(pfad: string, body: unknown): Promise<void> {
+/** Holt eine Datei vom Server (z. B. ein PDF) – als Inhalt mit dem Namen, den der Server ihr gibt. */
+export async function holeDatei(pfad: string, body: unknown): Promise<{ blob: Blob; name: string }> {
   let lange = false;
   const uhr = setTimeout(() => { lange = true; setWartetLange((n) => n + 1); }, 1500);
   try {
@@ -68,12 +68,17 @@ export async function ladeDatei(pfad: string, body: unknown): Promise<void> {
     try { r = await fetch(pfad, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }); }
     catch { throw new Netzfehler('Keine Verbindung zum Server'); }
     if (!r.ok) throw new Serverfehler((await r.json().catch(() => ({}))).fehler ?? `Fehler ${r.status}`, r.status);
-    const name = decodeURIComponent(/filename\*=UTF-8''([^;]+)/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? 'Datei');
-    const verweis = document.createElement('a');
-    verweis.href = URL.createObjectURL(await r.blob()); verweis.download = name;
-    verweis.click();
-    setTimeout(() => URL.revokeObjectURL(verweis.href), 60000);
+    return { blob: await r.blob(), name: decodeURIComponent(/filename\*=UTF-8''([^;]+)/.exec(r.headers.get('content-disposition') ?? '')?.[1] ?? 'Datei') };
   } finally { clearTimeout(uhr); if (lange) setWartetLange((n) => n - 1); }
+}
+
+/** Holt eine Datei vom Server und legt sie über den Browser beim Benutzer ab. */
+export async function ladeDatei(pfad: string, body: unknown): Promise<void> {
+  const d = await holeDatei(pfad, body);
+  const verweis = document.createElement('a');
+  verweis.href = URL.createObjectURL(d.blob); verweis.download = d.name;
+  verweis.click();
+  setTimeout(() => URL.revokeObjectURL(verweis.href), 60000);
 }
 
 export function neueKennung(): string {

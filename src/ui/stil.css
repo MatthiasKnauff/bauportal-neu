@@ -720,6 +720,10 @@ td.aktiv-zelle { outline: 2px solid var(--akzent); outline-offset: -2px; }
 .schlagworte .marke button { border: 0; background: transparent; cursor: pointer; color: var(--text-still); padding: 0; }
 .schlagworte-vorschlaege { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .schlagworte-vorschlaege small { color: var(--text-still); }
+.bt-rechts .bt-rechts-reiter { flex: none; padding-top: 6px; }
+.bt-rechts .karte { flex: 1; min-height: 0; width: auto; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.bt-pdf { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
+.bt-pdf-rahmen { flex: 1; min-height: 300px; width: 100%; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: #fff; }
 .karte-reiter { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--rand); }
 .karte-reiter button { border: 0; background: transparent; padding: 8px 10px; cursor: pointer; color: var(--text-still); border-bottom: 2px solid transparent; font-weight: 600; }
 .karte-reiter button[aria-selected="true"] { color: var(--akzent); border-bottom-color: var(--akzent); }

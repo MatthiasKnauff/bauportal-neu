@@ -28,6 +28,7 @@ import { ObjektAnsicht } from './objektansicht';
 import { AlleDateien, DateienAnsicht, OrdnerFenster } from './dateien';
 import { assistentStarten, gaebEinlesen, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
+import { handy } from './unterbau/geraet';
 import { Updates } from './updates';
 import { AufbauAnsicht } from './aufbau';
 import { Altdaten } from './altdaten';
@@ -401,8 +402,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     // wie im bisherigen Bautagebuch: oben links das Projekt und wie viele Berichte es hat
     linksTitel: (m) => { const n = m.alle().length, pr = sicht.projekt?.[projektId() ?? '']?.werte; return `${pr ? [pr.nummer, pr.name].filter(Boolean).join(' ') + ' · ' : ''}${n} ${n === 1 ? 'Bericht' : 'Berichte'}`; },
     linksZuerst: true,
-    detailsHinweis: 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift ✎ im Kopf öffnet den ganzen Bericht.',
-    details: (z) => (berichtDetailsDa() ? BerichtDetails(z) : undefined),
+    details: (z) => (berichtDetailsDa() || !handy() ? BerichtDetails(z) : undefined),
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   // Ausschreibung: Summen in den Karten

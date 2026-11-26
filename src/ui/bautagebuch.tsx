@@ -3,14 +3,14 @@
 // Eintrags. Die Abschnitte sind dieselben Bausteine wie in „Schritt für Schritt“ (Unterliste, Bilder, Feld).
 import { Seitenliste } from './baukasten/seitenliste';
 import { springeZu } from './sprung';
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createResource, createRoot, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Feld, Wert } from '../kern/modell';
 import { ausfuehren, ausfuehrenMehrere, rueckgaengig, sicht, lebende, gemerkt } from './unterbau/abgleich';
 import { RUEGE_AB, erwartet, laufendAm, type Laufend } from '../module/bautagebuch/soll';
 import { MIT_ERLEDIGT } from '../module/bautagebuch/beipackzettel';
 import { planDerVersion, planVersionen } from './plandaten';
-import { ausdrucke, darf, modell, neueKennung, ruf } from './unterbau/api';
+import { ausdrucke, darf, holeDatei, modell, neueKennung, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
 import { Bilder, FotoGross } from './baukasten/bilder';
@@ -453,17 +453,61 @@ export function Berichtsseite(p: Mitte) {
   );
 }
 
-// ---------- rechts: das Detail des angeklickten Eintrags oder der Bericht zum Bearbeiten ----------
-export function BerichtDetails(z: Zeile): JSX.Element | undefined {
-  const fotos = () => lebende('foto').filter((f) => f.werte.bericht === z.id).sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0) || String(a.werte.name).localeCompare(String(b.werte.name)));
+// ---------- rechts: Reiter Details | Foto | PDF wie im bisherigen Bautagebuch ----------
+// Details: der angeklickte Eintrag oder der Bericht zum Bearbeiten · Foto: das angeklickte Foto groß · PDF: der Bericht als PDF
+type RechtsReiter = 'details' | 'foto' | 'pdf';
+const [reiterRechts, setReiterRechts] = createSignal<RechtsReiter>('details');
+createRoot(() => {
+  createEffect(on(foto, (f) => { if (f) setReiterRechts('foto'); }, { defer: true }));
+  createEffect(on(() => [eintrag(), bearbeiten()] as const, ([e, b]) => { if (e || b) setReiterRechts('details'); }, { defer: true }));
+});
+const HINWEIS_RECHTS = 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift im Kopf öffnet den ganzen Bericht.';
+
+function BerichtPdf(p: { bericht: Zeile }) {
+  const a = () => ausdrucke('tagesbericht')[0];
+  const [stand, setStand] = createSignal(0);   // „Neu erzeugen“
+  const [pdf] = createResource(() => (a() ? { id: p.bericht.id, n: stand(), a: a()!.id } : false), async ({ id, a: ausdruck }) => {
+    const d = await holeDatei('/api/druck/pdf', { ausdruck, objekt: id });
+    return URL.createObjectURL(d.blob);
+  });
+  createEffect((vorher?: string) => { const u = pdf.latest; if (vorher && vorher !== u) URL.revokeObjectURL(vorher); return u; });
+  onCleanup(() => { if (pdf.latest) URL.revokeObjectURL(pdf.latest); });
   return (
-    <Show when={!(foto() && fotos().some((f) => f.id === foto()))} fallback={<FotoGross objekt="foto" id={foto()!} alle={fotos()} beschriftung="beschriftung" onWahl={setFoto} onZu={() => setFoto(null)} />}>
-    <Show when={eintrag() && sicht.bericht_eintrag?.[eintrag()!] && !sicht.bericht_eintrag[eintrag()!]!.geloescht ? sicht.bericht_eintrag[eintrag()!] : undefined}
-      fallback={<Show when={bearbeiten()}><Detailkarte modell={modell('tagesbericht')} zeile={z} onZu={() => setBearbeiten(false)} verborgen={['projekt']} gruppe={bearbeitenBei()} /></Show>}>
-      {(e) => <Detailkarte modell={modell('bericht_eintrag')} zeile={e()} onZu={() => setEintrag(null)} verborgen={['projekt', 'bericht', 'reihe']} />}
-    </Show>
-    </Show>
+    <div class="bt-pdf">
+      <div class="reihe"><button class="knopf klein" disabled={pdf.loading} onClick={() => setStand(stand() + 1)}>{pdf.loading ? 'PDF wird erzeugt …' : 'Neu erzeugen'}</button>
+        <Show when={a()}><button class="knopf klein" onClick={() => druckOeffnen(a()!.id, p.bericht.id)}>Drucken / ablegen …</button></Show></div>
+      <Show when={!pdf.error} fallback={<p class="fehler-text">{(pdf.error as Error)?.message}</p>}>
+        <Show when={pdf.latest} fallback={<p class="still-text">PDF wird erzeugt …</p>}>{(u) => <iframe class="bt-pdf-rahmen" title="Tagesbericht als PDF" src={u()} />}</Show>
+      </Show>
+    </div>
   );
 }
-/** Rechts ist nur etwas, wenn ein Eintrag gewählt ist oder der Bericht bearbeitet wird – sonst bekommt die Seite den Platz. */
+
+export function BerichtDetails(z: Zeile): JSX.Element {
+  const fotos = () => lebende('foto').filter((f) => f.werte.bericht === z.id).sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0) || String(a.werte.name).localeCompare(String(b.werte.name)));
+  const gezeigt = () => (foto() && fotos().some((f) => f.id === foto()) ? foto()! : fotos()[0]?.id);
+  const details = () => (
+    <Show when={eintrag() && sicht.bericht_eintrag?.[eintrag()!] && !sicht.bericht_eintrag[eintrag()!]!.geloescht ? sicht.bericht_eintrag[eintrag()!] : undefined}
+      fallback={<Show when={bearbeiten()} fallback={<div class="karte-inhalt"><p class="still-text">{HINWEIS_RECHTS}</p></div>}>
+        <Detailkarte modell={modell('tagesbericht')} zeile={z} onZu={() => setBearbeiten(false)} verborgen={['projekt']} gruppe={bearbeitenBei()} /></Show>}>
+      {(e) => <Detailkarte modell={modell('bericht_eintrag')} zeile={e()} onZu={() => setEintrag(null)} verborgen={['projekt', 'bericht', 'reihe']} />}
+    </Show>
+  );
+  return (
+    <aside class="karte bt-rechts" aria-label="Details">
+      <div class="karte-reiter bt-rechts-reiter" role="tablist" aria-label="Rechts zeigen">
+        <For each={[['details', 'Details'], ['foto', 'Foto'], ['pdf', 'PDF']] as const}>{([k, t]) =>
+          <button type="button" role="tab" aria-selected={reiterRechts() === k} onClick={() => setReiterRechts(k)}>{t}</button>}</For>
+      </div>
+      <Show when={reiterRechts() === 'details'}>{details()}</Show>
+      <Show when={reiterRechts() === 'foto'}>
+        <Show when={gezeigt()} fallback={<div class="karte-inhalt"><p class="still-text">Noch keine Fotos in diesem Bericht. Im Bericht ein Foto anklicken – hier steht es dann groß.</p></div>}>
+          {(id) => <FotoGross objekt="foto" id={id()} alle={fotos()} beschriftung="beschriftung" onWahl={setFoto} onZu={() => { setFoto(null); setReiterRechts('details'); }} />}
+        </Show>
+      </Show>
+      <Show when={reiterRechts() === 'pdf'}><BerichtPdf bericht={z} /></Show>
+    </aside>
+  );
+}
+/** Rechts ist am großen Bildschirm immer da (Reiter); am Handy nur, wenn ein Eintrag gewählt ist oder der Bericht bearbeitet wird. */
 export const berichtDetailsDa = () => !!eintrag() || bearbeiten() || !!foto();
