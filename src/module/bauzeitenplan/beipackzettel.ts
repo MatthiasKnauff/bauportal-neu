@@ -24,6 +24,7 @@ export const zeitplan: ObjektModell = {
     { name: 'bundesland', titel: 'Feiertage', art: 'auswahl', inListe: true, gruppe: 'Arbeitszeit', optionen: [{ wert: '', titel: 'wie die Baustelle' }, ...BUNDESLAENDER] },
     { name: 'notiz', titel: 'Notiz', art: 'langtext', gruppe: 'Notiz' },
     { name: 'assistent', titel: 'Angaben des Planungsassistenten', art: 'langtext', verborgen: true },
+    { name: 'gewerkfarben', titel: 'Farben der Gewerke', art: 'langtext', verborgen: true },   // {Gewerk: Farbe} – „Gewerke & Farben“
   ],
 };
 

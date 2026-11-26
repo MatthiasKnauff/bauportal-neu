@@ -274,7 +274,7 @@ export function ObjektAnsicht(p: {
     <div class="ansicht" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented && (e.target as HTMLElement).closest('.karte')) { e.preventDefault(); tabelle?.fokus(); } }}>
       <Rahmen schluessel={p.schluessel} steuer={(s) => (rahmen = s)}
         knoepfe={[
-          ...(darf(m.name, 'schreiben') ? [{ titel: m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => (a.mitte && mitteNeu ? mitteNeu() : neuStart()) }] : []),
+          ...(darf(m.name, 'schreiben') ? [{ titel: a.neuTitel ?? m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => (a.mitte && mitteNeu ? mitteNeu() : neuStart()) }] : []),
           ...(a.knoepfe?.(fest()) ?? []),
           // Gemeinsam bearbeiten: die gewählten – sonst alle, die der Filter gerade zeigt – in einer Maske
           ...(darf(m.name, 'schreiben') && !m.einzeln ? [{ titel: 'Gemeinsam bearbeiten', zeichen: 'bearbeiten', gruppe: 'Bearbeiten', gesperrt: (auswahl?.anzahl() || zeilen().length) < 2,

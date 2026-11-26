@@ -7,7 +7,7 @@ import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { xlsxSchreiben } from '../kern/xlsx';
 import { isoAus } from '../module/bauzeitenplan/kalender';
-import { gewerkFarbe } from '../module/bauzeitenplan/plan';
+import { GEWERKFARBEN, gewerkFarbe, gewerkFarbenAus } from '../module/bauzeitenplan/plan';
 import { firmaInDenPlan, gewerkeAus, passtZumGewerk, type Gewerkzeile } from '../module/bauzeitenplan/gewerke';
 import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
@@ -34,6 +34,10 @@ export function GewerkeFirmen(p: Mitte) {
   const plan = createMemo(() => (version() ? planDerVersion(version()!.id) : undefined));
   const leistungen = createMemo(() => (version() ? lebende('vorgang').filter((v) => v.werte.version === version()!.id) : []));
   const beteiligte = () => p.alle();
+  // Farben der Gewerke: am Kalender der Version („Gewerke & Farben“) – sonst fest aus dem Namen
+  const kalender = createMemo(() => (version() ? lebende('zeitplan').find((z) => z.werte.version === version()!.id) : undefined));
+  const farben = createMemo(() => gewerkFarbenAus(kalender()?.werte));
+  const farbe = (g: string) => gewerkFarbe(g, farben());
   const eintrag = (g: string) => beteiligte().find((b) => String(b.werte.aufgabe ?? '').trim().toLowerCase() === g.toLowerCase());   // wie firmaDesGewerks, aber der Eintrag selbst
   // Gewerke aus dem Plan, dazu Beteiligte mit einer Aufgabe, die (noch) nicht im Plan steht – z. B. Statiker:in
   const zeilen = createMemo((): Gewerkzeile[] => {
@@ -95,8 +99,60 @@ export function GewerkeFirmen(p: Mitte) {
           vergabe.find((o) => o.wert === b?.werte.vergabe)?.titel ?? '', r.leistungen.length || null, r.anfang == null ? null : new Date(isoAus(r.anfang)), r.ende == null ? null : new Date(isoAus(r.ende)), String(b?.werte.notiz ?? '')]; })];
     herunterladen(new Blob([xlsxSchreiben(z, 'Gewerke und Firmen')], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Gewerke und Firmen ${String(sicht.projekt?.[projekt() ?? '']?.werte.name ?? '')}.xlsx`);
   };
+  // ---------- Gewerk ergänzen (ohne Leistung im Plan, z. B. Statiker:in): ein Eintrag der Beteiligten ----------
+  const [neuGewerk, setNeuGewerk] = createSignal<{ gewerk: string; firma: string | null } | null>(null);
+  const gewerkAnlegen = () => {
+    const n = neuGewerk()!, g = n.gewerk.trim();
+    if (!g || !n.firma) return;
+    setNeuGewerk(null);
+    firmaSetzen(g, n.firma);
+  };
+
+  // ---------- Gewerke erkennen: Leistungen ohne Gewerk – Vorschlag aus dem Leistungskatalog, der Firma oder einem Gewerk im Namen ----------
+  const [vorschlaege, setVorschlaege] = createSignal<{ id: string; name: string; gewerk: string; an: boolean }[] | null>(null);
+  const erkennen = () => {
+    const katalog = new Map(lebende('leistungsvorlage').filter((l) => l.werte.gewerk).map((l) => [String(l.werte.name ?? '').trim().toLowerCase(), String(l.werte.gewerk)]));
+    const bekannt = zeilen().map((r) => r.gewerk);
+    const ohne = (plan()?.zeilen ?? []).filter((z) => !z.termin.gruppe && z.dauer > 0 && !String(sicht.vorgang?.[z.id]?.werte.gewerk ?? '').trim());
+    const l = ohne.flatMap((z) => {
+      const w = sicht.vorgang?.[z.id]?.werte ?? {}, n = z.name.trim().toLowerCase();
+      const imNamen = bekannt.filter((g) => n.includes(g.toLowerCase()));
+      const g = katalog.get(n) || String(kontakt(w.firma)?.werte.gewerk ?? '').trim() || (imNamen.length === 1 ? imNamen[0]! : '');
+      return g ? [{ id: z.id, name: z.name, gewerk: g, an: true }] : [];
+    });
+    if (!l.length) { hinweis(ohne.length ? `Keine eindeutige Zuordnung gefunden – ${ohne.length} ${ohne.length === 1 ? 'Leistung' : 'Leistungen'} bitte von Hand eintragen.` : 'Alle Leistungen haben schon ein Gewerk.'); return; }
+    setVorschlaege(l);
+  };
+  const erkanntUebernehmen = () => {
+    const l = vorschlaege()!.filter((x) => x.an);
+    setVorschlaege(null);
+    if (l.length) ausfuehrenMehrere(l.map((x): Vorlage => ({ objekt: 'vorgang', art: 'aendern', objektId: x.id, werte: { gewerk: x.gewerk } })), `Gewerke erkannt (${l.length})`);
+  };
+
+  // ---------- Gewerke & Farben: Farbe je Gewerk (am Kalender der Version) und umbenennen (in Leistungen und Beteiligten) ----------
+  const [farbwahl, setFarbwahl] = createSignal<{ gewerk: string; name: string; farbe: string }[] | null>(null);
+  const farbenOeffnen = () => setFarbwahl(zeilen().filter((r) => r.leistungen.length).map((r) => ({ gewerk: r.gewerk, name: r.gewerk, farbe: farbe(r.gewerk) })));
+  const farbenUebernehmen = () => {
+    const l = farbwahl()!, befehle: Vorlage[] = [], neu: Record<string, string> = {};
+    for (const x of l) {
+      const name = x.name.trim() || x.gewerk;
+      if (x.farbe !== gewerkFarbe(name)) neu[name] = x.farbe;   // nur was von der festen Farbe abweicht
+      if (name !== x.gewerk) {
+        for (const v of leistungen().filter((v) => String(v.werte.gewerk ?? '').trim() === x.gewerk)) befehle.push({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { gewerk: name } });
+        const b = eintrag(x.gewerk); if (b) befehle.push({ objekt: 'projekt_kontakt', art: 'aendern', objektId: b.id, werte: { aufgabe: name } });
+      }
+    }
+    const text = JSON.stringify(neu);
+    if (kalender() && text !== String(kalender()!.werte.gewerkfarben || '{}')) befehle.push({ objekt: 'zeitplan', art: 'aendern', objektId: kalender()!.id, werte: { gewerkfarben: text } });
+    setFarbwahl(null);
+    if (befehle.length) ausfuehrenMehrere(befehle, 'Gewerke & Farben');
+  };
+
+  p.setNeu(() => setNeuGewerk({ gewerk: '', firma: null }));   // „＋ Gewerk“ im Menüband (Stellschraube neuTitel)
   p.setKnoepfe([
     ...(schreiben() ? [{ titel: 'Firmen in den Plan', zeichen: 'personen', gruppe: 'Plan', tun: firmenInDenPlan }] : []),
+    ...(darf('vorgang', 'schreiben') && version() ? [{ titel: 'Farben', zeichen: 'farben', gruppe: 'Gewerke', tun: farbenOeffnen },
+      { titel: 'Gewerke erkennen', zeichen: 'assistent', gruppe: 'Gewerke', tun: erkennen }] : []),
     { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: excel },
   ]);
 
@@ -114,7 +170,7 @@ export function GewerkeFirmen(p: Mitte) {
   const Zeitleiste = (q: { r?: Gewerkzeile; kopf?: boolean }) => (
     <div class="gf-zeit" classList={{ kopf: !!q.kopf }}>
       <For each={achse()?.monate ?? []}>{(m) => <><i style={{ left: `${achse()!.pos(m.tag)}%` }} />{q.kopf && m.zeigen ? <span style={{ left: `${achse()!.pos(m.tag)}%` }}>{m.text}</span> : null}</>}</For>
-      <For each={q.r?.einsatz ?? []}>{([a, b]) => <b style={{ left: `${achse()!.pos(a)}%`, width: `${achse()!.breite(a, b)}%`, background: gewerkFarbe(q.r!.gewerk) }} title={a === b ? datum(a) : `${datum(a)} – ${datum(b)}`} />}</For>
+      <For each={q.r?.einsatz ?? []}>{([a, b]) => <b style={{ left: `${achse()!.pos(a)}%`, width: `${achse()!.breite(a, b)}%`, background: farbe(q.r!.gewerk) }} title={a === b ? datum(a) : `${datum(a)} – ${datum(b)}`} />}</For>
     </div>
   );
   const mitFirma = () => zeilen().filter((r) => eintrag(r.gewerk)).length;
@@ -143,7 +199,7 @@ export function GewerkeFirmen(p: Mitte) {
                         <Show when={r.leistungen.length} fallback={<span class="gf-auf" />}>
                           <button type="button" class="gf-auf" aria-expanded={offen().has(r.gewerk)} aria-label={`Leistungen ${r.gewerk}`} onClick={(e) => { e.stopPropagation(); klapp(r.gewerk); }}>{offen().has(r.gewerk) ? '▾' : '▸'}</button>
                         </Show>
-                        <span class="gf-punkt" style={{ background: gewerkFarbe(r.gewerk) }} /><b>{r.gewerk}</b>
+                        <span class="gf-punkt" style={{ background: farbe(r.gewerk) }} /><b>{r.gewerk}</b>
                         <small class="still-text">{[r.leistungen.length ? `${r.leistungen.length} ${r.leistungen.length === 1 ? 'Leistung' : 'Leistungen'}` : 'nicht im Plan', r.vob ? String(sicht.gewerk?.[r.vob]?.werte.name ?? '') : ''].filter(Boolean).join(' · ')}</small>
                       </td>
                       <td class="gf-firma" onClick={(e) => e.stopPropagation()}>
@@ -193,6 +249,49 @@ export function GewerkeFirmen(p: Mitte) {
           <p class="still-text klein-text">Firma wählen oder neu eintragen – sie wird bei den Leistungen des Gewerks eingetragen, wo noch keine oder die bisherige steht. Kontaktdaten stehen in den Adressen und gelten für alle Projekte.</p>
         </Show>
       </Show>
+      <Show when={neuGewerk()}>{(n) => (
+        <Dialog titel="Gewerk ergänzen" onAbbrechen={() => setNeuGewerk(null)} geaendert={() => !!n().gewerk || !!n().firma}
+          knoepfe={<><button class="knopf" data-abbrechen onClick={() => setNeuGewerk(null)}>Abbrechen</button><button class="knopf haupt" disabled={!n().gewerk.trim() || !n().firma} onClick={gewerkAnlegen}>OK</button></>}>
+          <p class="still-text">Ein Gewerk ohne Leistung im Plan – z. B. Statiker:in, Vermessung.</p>
+          <div class="formular">
+            <div class="feld"><label for="gf-neu-gewerk">Gewerk</label><input id="gf-neu-gewerk" value={n().gewerk} autocomplete="off" onInput={(e) => setNeuGewerk({ ...n(), gewerk: e.currentTarget.value })} /></div>
+            <div class="feld"><label>Firma</label><Auswahlliste titel="Firma" platzhalter="Firma wählen …" wert={n().firma} optionen={firmenFuer(n().gewerk)} onWert={(w) => setNeuGewerk({ ...n(), firma: w })}
+              neu={{ titel: 'als neue Firma anlegen', tun: (t) => { const id = neueKennung(); ausfuehren({ objekt: 'kontakt', art: 'anlegen', objektId: id, werte: { name: t, art: 'firma', gewerk: n().gewerk.trim() } }, `Firma „${t}“ anlegen`); setNeuGewerk({ ...n(), firma: id }); } }} /></div>
+          </div>
+        </Dialog>
+      )}</Show>
+      <Show when={vorschlaege()}>{(l) => (
+        <Dialog titel="Gewerke erkennen" onAbbrechen={() => setVorschlaege(null)}
+          knoepfe={<><button class="knopf" data-abbrechen onClick={() => setVorschlaege(null)}>Abbrechen</button><button class="knopf haupt" disabled={!l().some((x) => x.an)} onClick={erkanntUebernehmen}>Übernehmen ({l().filter((x) => x.an).length})</button></>}>
+          <p class="still-text">Für {l().length} {l().length === 1 ? 'Leistung' : 'Leistungen'} ohne Gewerk gibt es eine eindeutige Zuordnung (Leistungskatalog, Firma oder ein Gewerk im Namen). Bereits eingetragene Gewerke bleiben.</p>
+          <div class="gf-vorschlaege">
+            <For each={l()}>{(x, i) => (
+              <label class="gf-vorschlag"><input type="checkbox" checked={x.an} onChange={(e) => setVorschlaege(l().map((y, k) => (k === i() ? { ...y, an: e.currentTarget.checked } : y)))} />
+                <span>{x.name}</span><span class="gf-punkt" style={{ background: farbe(x.gewerk) }} /><b>{x.gewerk}</b></label>
+            )}</For>
+          </div>
+        </Dialog>
+      )}</Show>
+      <Show when={farbwahl()}>{(l) => (
+        <Dialog titel="Gewerke & Farben" breit onAbbrechen={() => setFarbwahl(null)} geaendert={() => l().some((x) => x.name !== x.gewerk || x.farbe !== farbe(x.gewerk))}
+          knoepfe={<><button class="knopf" data-abbrechen onClick={() => setFarbwahl(null)}>Abbrechen</button><button class="knopf haupt" onClick={farbenUebernehmen}>OK</button></>}>
+          <Show when={l().length} fallback={<p class="still-text">Noch keine Gewerke im Plan – Spalte „Gewerk“ ausfüllen oder „Gewerke erkennen“ verwenden.</p>}>
+            <div class="gf-farben">
+              <For each={l()}>{(x, i) => (
+                <div class="gf-farbzeile">
+                  <input aria-label={`Name des Gewerks ${x.gewerk}`} value={x.name} onInput={(e) => setFarbwahl(l().map((y, k) => (k === i() ? { ...y, name: e.currentTarget.value } : y)))} />
+                  <div class="gf-palette" role="radiogroup" aria-label={`Farbe ${x.gewerk}`}>
+                    <For each={GEWERKFARBEN}>{(c) => <button type="button" role="radio" aria-checked={x.farbe === c} classList={{ aktiv: x.farbe === c }} style={{ background: c }} title={c}
+                      onClick={() => setFarbwahl(l().map((y, k) => (k === i() ? { ...y, farbe: c } : y)))} />}</For>
+                  </div>
+                  <small class="still-text">{zeilen().find((r) => r.gewerk === x.gewerk)?.leistungen.length ?? 0} Leistungen</small>
+                </div>
+              )}</For>
+            </div>
+            <p class="still-text klein-text">Die Farbe gilt für alle Leistungen des Gewerks – im Balkenplan, hier und beim Drucken. Umbenennen ändert das Gewerk bei allen seinen Leistungen.</p>
+          </Show>
+        </Dialog>
+      )}</Show>
       <Show when={frage()}>{(f) => (
         <Dialog titel="Firmen in den Plan" onAbbrechen={() => setFrage(null)}
           knoepfe={<><button class="knopf" onClick={() => setFrage(null)}>Abbrechen</button>

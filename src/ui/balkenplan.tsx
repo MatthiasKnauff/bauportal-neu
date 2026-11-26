@@ -13,7 +13,7 @@ import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
 import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenplan/kalender';
 import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
-import { balkenFarbe, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
+import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
 import { einfuegen, gliedern, loeschen, verschieben, vorgaengerSetzen, type L, type V, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
@@ -65,6 +65,7 @@ export function Balkenplan(p: Mitte) {
   const links = createMemo(() => lebend('verknuepfung'));
   const zp = createMemo(() => lebend('zeitplan')[0], undefined, { equals: false });   // dasselbe Objekt mit neuen Werten: trotzdem melden
   const [land] = createResource(() => z().projekt, (id) => ruf<{ land: string }>('/api/projekt/land', { projekt: id }).then((r) => r.land, () => ''));
+  const farben = createMemo(() => gewerkFarbenAus(zp()?.werte));   // „Gewerke & Farben“
   // Jede Version hat einen Kalender – fehlt er, legt ihn an, wer schreiben darf (einmal je Version)
   const angelegt = new Set<string>();
   createEffect(() => {
@@ -548,7 +549,7 @@ export function Balkenplan(p: Mitte) {
             <For each={sichtbar()}>{(v, i) => {
               const t = (): Termin | undefined => erg().termine.get(v.id);
               const y = () => i() * H;
-              const fb = () => balkenFarbe(v.werte);
+              const fb = () => balkenFarbe(v.werte, farben());
               return (
                 <Show when={t()}>{(tt) => (
                   <g class="bzp-vorgang" onDblClick={() => oeffnen(v.id)} onContextMenu={(e) => balkenMenue(e, v)}>
@@ -604,7 +605,7 @@ export function Balkenplan(p: Mitte) {
                         s.id === 'name'
                           ? <span class="bzp-name" style={{ 'padding-left': `${Number(v.werte.ebene ?? 0) * 16}px` }}>
                               <Show when={t()?.gruppe} fallback={<i class="klappe-platz" />}><Klappe zu={eingeklappt().has(v.id)} onKlick={() => umschalten(v.id)} /><Ordner offen={!eingeklappt().has(v.id)} /></Show>
-                              <Show when={!t()?.gruppe}><i class="bzp-farbe" style={{ background: balkenFarbe(v.werte) }} /></Show>
+                              <Show when={!t()?.gruppe}><i class="bzp-farbe" style={{ background: balkenFarbe(v.werte, farben()) }} /></Show>
                               {wert(v, 'name')}
                             </span>
                           : wert(v, s.id)}>

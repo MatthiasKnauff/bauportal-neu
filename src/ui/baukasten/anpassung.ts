@@ -42,6 +42,8 @@ export interface Anpassung {
   // --- Inhalt (Mitte) ---
   /** Statt der Tabelle eine eigene Darstellung in der Mitte (z. B. der Balkenplan) – Rahmen, Suche, Karte und Anlegen bleiben. */
   mitte?: (p: Mitte) => JSX.Element;
+  /** Beschriftung des Neu-Knopfs, wenn die eigene Mitte etwas anderes anlegt (z. B. „Gewerk“ statt „Beteiligte:r“) – mit setNeu der Mitte. */
+  neuTitel?: string;
   /** Die Einträge auch als Kacheln: was in einer Kachel steht. Die Ansicht bietet dann Tabelle oder Kacheln zum Umschalten (am Handy zuerst Kacheln). */
   kachel?: (z: Zeile) => JSX.Element;
   /** Eigene Darstellung einer Tabellenzelle; ohne Rückgabe gilt die übliche. */

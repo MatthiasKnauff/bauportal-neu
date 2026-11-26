@@ -444,7 +444,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
 const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSUNG[objekt], ...(ansicht ? ANSICHT_ANPASSUNG[ansicht] : {}), kartenZusatz: kartenZusatz(objekt) });
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
-  'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
+  'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },
   'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
