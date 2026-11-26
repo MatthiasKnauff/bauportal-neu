@@ -7,6 +7,7 @@ import type { Zeile } from '../kern/befehl';
 import type { Feld, Wert } from '../kern/modell';
 import { ausfuehren, ausfuehrenMehrere, rueckgaengig, sicht, lebende, gemerkt } from './unterbau/abgleich';
 import { RUEGE_AB, erwartet, laufendAm, type Laufend } from '../module/bautagebuch/soll';
+import { MIT_ERLEDIGT } from '../module/bautagebuch/beipackzettel';
 import { planDerVersion, planVersionen } from './plandaten';
 import { ausdrucke, darf, modell, neueKennung, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
@@ -45,7 +46,7 @@ const ABSCHNITTE: { id: string; titel: string; zeichen: Zeichenname; art?: strin
   { id: 'weisung', titel: 'Weisungen', zeichen: 'weisung', art: 'weisung' },
 ];
 const offen = (bericht: string, a: (typeof ABSCHNITTE)[number]) =>
-  a.art === 'mangel' || a.art === 'aufgabe' ? lebende('bericht_eintrag').filter((e) => e.werte.bericht === bericht && e.werte.art === a.art && e.werte.erledigt !== true).length : 0;
+  MIT_ERLEDIGT.includes(a.art ?? '') ? lebende('bericht_eintrag').filter((e) => e.werte.bericht === bericht && e.werte.art === a.art && e.werte.erledigt !== true).length : 0;
 // Am Handy (wie im bisherigen Bautagebuch): die Abschnitte als Kacheln; ein angetippter Abschnitt steht allein, „‹ Bericht“ führt zurück
 const [fokus, setFokus] = createSignal<string | null>(null);
 const [hinzu, setHinzu] = createSignal(false);   // Blatt „Hinzufügen“ – das ＋ unten in der Leiste
@@ -84,7 +85,7 @@ export function BerichtLinks(p: Mitte) {
       <Show when={form() === 'kalender'} fallback={
         <ul class="bt-berichte"><For each={liste()} fallback={<li class="still-text">Keine Berichte.</li>}>{(z) => (
           <li><button classList={{ an: z.id === p.gewaehlt() }} onClick={() => waehle(z.id)}>
-            <strong>Nr. {String(z.werte.nummer ?? '')}</strong> <span>{datumText(z.werte.datum)}</span><span class="still-text">{String(z.werte.titel ?? '')}</span>
+            <strong>Nr. {String(z.werte.nummer ?? '')}</strong> <span>{datumText(z.werte.datum)}</span>
           </button></li>)}</For></ul>}>
         <div class="bt-kalender" onClick={(e) => e.stopPropagation()}>
           <div class="bt-monat"><button class="knopf klein still" aria-label="Voriger Monat" onClick={() => blaettern(-1)}>‹</button><strong>{titelMonat()}</strong><button class="knopf klein still" aria-label="Nächster Monat" onClick={() => blaettern(1)}>›</button></div>
@@ -253,7 +254,7 @@ function listen(bericht: Zeile, seite: boolean): Record<string, () => JSX.Elemen
       {...(seite ? { gewaehlt: foto(), onWahl: (id: string) => { setEintrag(null); setBearbeiten(false); setFoto(id); } } : {})} /></Show>,
     mangel: () => <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
     aufgabe: () => <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
-    weisung: () => <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
+    weisung: () => <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
   };
 }
 

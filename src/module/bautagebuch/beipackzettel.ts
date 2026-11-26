@@ -20,7 +20,7 @@ export const tagesbericht: ObjektModell = {
     { name: 'nummer', titel: 'Nr.', art: 'zahl', inListe: true, breite: 70, gruppe: 'Bericht' },
     { name: 'datum', titel: 'Datum', art: 'datum', pflicht: true, inListe: true, breite: 120, gruppe: 'Bericht' },
     { name: 'uhrzeit', titel: 'Uhrzeit', art: 'text', inListe: true, breite: 90, gruppe: 'Bericht' },
-    { name: 'titel', titel: 'Kurzbeschreibung', art: 'text', inListe: true, breite: 300, gruppe: 'Bericht' },
+    { name: 'titel', titel: 'Kurzbeschreibung', art: 'text', verborgen: true },   // braucht der Tagesbericht nicht (26.11.2026) – bleibt für alte Einträge in der Datenbank
     { name: 'bauleitung', titel: 'Bauleitung', art: 'verweis', ziel: 'benutzer', inListe: true, breite: 160, gruppe: 'Bericht' },
     { name: 'wetter', titel: 'Wetter', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Wetter', optionen: [
       { wert: '', titel: 'keine Angabe' },
@@ -52,6 +52,8 @@ export const EINTRAGSARTEN = [
   { wert: 'aufgabe', titel: 'Zu erledigen', mehrzahl: 'Zu erledigen' }, { wert: 'weisung', titel: 'Weisung', mehrzahl: 'Weisungen' },
 ];
 const MIT_FRIST = ['notiz', 'mangel', 'aufgabe', 'weisung'];
+/** Einträge, die sich abhaken lassen (Schalter „Erledigt“) – überall dieselbe Liste. */
+export const MIT_ERLEDIGT = ['mangel', 'aufgabe', 'weisung'];
 export const berichtEintrag: ObjektModell = {
   name: 'bericht_eintrag',
   titel: 'Eintrag',
@@ -69,7 +71,7 @@ export const berichtEintrag: ObjektModell = {
     // erwartet laut Bauzeitenplan, aber nicht gekommen – der Text ist dann die Begründung; zählt für die Terminrüge
     { name: 'nicht_da', titel: 'Nicht da', art: 'ja_nein', gruppe: 'Eintrag', wenn: { art: ['anwesend'] } },
     { name: 'frist', titel: 'Frist', art: 'datum', inListe: true, breite: 120, gruppe: 'Erledigung', wenn: { art: MIT_FRIST } },
-    { name: 'erledigt', titel: 'Erledigt', art: 'ja_nein', inListe: true, breite: 100, gruppe: 'Erledigung', wenn: { art: ['mangel', 'aufgabe'] } },
+    { name: 'erledigt', titel: 'Erledigt', art: 'ja_nein', inListe: true, breite: 100, gruppe: 'Erledigung', wenn: { art: MIT_ERLEDIGT } },
     { name: 'reihe', titel: 'Reihenfolge im Bericht', art: 'zahl', verborgen: true },
     { name: 'kennung', titel: 'Kennung aus der Übernahme', art: 'text', verborgen: true },
   ],
@@ -119,14 +121,14 @@ export const bautagebuch: Beipackzettel = {
     dateiname: 'Tagesbericht {nummer} {datum} {projekt}', fuss: '{buero} · Tagesbericht Nr. {nummer} vom {datum}', ordner: 'Bautagebuch/Berichte', vermerk: 'pdf',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
-      { id: 'titel', art: 'titel', text: 'Tagesbericht Nr. {nummer}', unter: '{datum} · {titel}' },
+      { id: 'titel', art: 'titel', text: 'Tagesbericht Nr. {nummer}', unter: '{datum}' },
       { id: 'angaben', art: 'felder', felder: ['datum', 'uhrzeit', 'nummer', 'bauleitung', 'wetter', 'temperatur', 'luftfeuchte', 'wind', 'niederschlag'] },
       { id: 'kontrollen', art: 'felder', felder: ['aufgeraeumt', 'masskontrolle', 'fotodoku', 'firmen_angesprochen'] },
       liste('anwesend', ['firma', 'text', 'personen']),
       liste('notiz', ['text', 'frist']),
       liste('mangel', ['text', 'firma', 'frist', 'erledigt']),
       liste('aufgabe', ['text', 'frist', 'erledigt']),
-      liste('weisung', ['text', 'firma', 'frist']),
+      liste('weisung', ['text', 'firma', 'frist', 'erledigt']),
       { id: 'fotos', art: 'bilder', objekt: 'foto', ueber: 'bericht', titel: 'Fotos', beschriftung: 'beschriftung' },
     ],
   }],

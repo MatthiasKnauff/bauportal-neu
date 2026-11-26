@@ -480,7 +480,7 @@ test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man seh
     const A = 'bautagebuch.tagesbericht';
     let s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
     assert.equal(s.name, 'Tagesbericht 7 24.11.2026 Haus -A- & Söhne.pdf');
-    for (const t of ['<h1 data-stelle="titel.text">Tagesbericht Nr. 7</h1>', '24.11.2026 · Bodenplatte', '<dt>Wetter</dt><dd>Regen</dd>', '<dd>4,5</dd>', '<dt>Bauleitung</dt><dd>leitung</dd>', '<dt>Baustelle aufgeräumt</dt><dd>Ja</dd>', '<dt>Maßkontrolle</dt><dd>Nein</dd>',
+    for (const t of ['<h1 data-stelle="titel.text">Tagesbericht Nr. 7</h1>', '24.11.2026<', '<dt>Wetter</dt><dd>Regen</dd>', '<dd>4,5</dd>', '<dt>Bauleitung</dt><dd>leitung</dd>', '<dt>Baustelle aufgeräumt</dt><dd>Ja</dd>', '<dt>Maßkontrolle</dt><dd>Nein</dd>',
       'Haus &lt;A&gt; &amp; Söhne', '45127 Essen', '&lt;b&gt;fett?&lt;/b&gt;', 'GK3 · Tagesbericht Nr. 7 vom 24.11.2026', 'counter(pages)', '<h2>Mängel</h2>', '<h2>Anwesende</h2>', 'Rohbau Schmitz GmbH</td>', '01.12.2026', '>✓</td>']) assert.ok(s.html.includes(t), t);
     assert.ok(s.html.indexOf('Abstandhalter fehlen') < s.html.indexOf('Riss in der Sohle'), 'Einträge stehen in der Reihenfolge des Berichts');
     assert.ok(!s.html.includes('<h2>Weisungen</h2>'), 'leere Abschnitte fallen weg');
@@ -977,9 +977,10 @@ test('Name eines Eintrags: Anzeigefeld, sonst Ersatzname (Tagesbericht ohne Kurz
   const { benennen } = await import('../src/kern/druck');
   const { tagesbericht } = await import('../src/module/bautagebuch/beipackzettel');
   const ohne = (z: string, id: string) => `${z}:${id}`;
-  assert.equal(benennen(tagesbericht, { titel: 'Bodenplatte', nummer: 3, datum: '2026-11-25' }, ohne), 'Bodenplatte');
+  // die Kurzbeschreibung braucht der Tagesbericht nicht (26.11.2026): verborgen – auch alte Einträge heißen Nr. und Datum
+  assert.equal(benennen(tagesbericht, { titel: 'Bodenplatte', nummer: 3, datum: '2026-11-25' }, ohne), 'Nr. 3 · 25.11.2026');
   assert.equal(benennen(tagesbericht, { titel: null, nummer: 3, datum: '2026-11-25' }, ohne), 'Nr. 3 · 25.11.2026');
-  assert.ok(!tagesbericht.felder.find((f) => f.name === 'titel')!.pflicht, 'Kurzbeschreibung ist keine Pflicht');
+  assert.ok(tagesbericht.felder.find((f) => f.name === 'titel')!.verborgen, 'Kurzbeschreibung steht nirgends');
 });
 
 test('Eigene Einträge: Projekt-Merker sieht und ändert nur, wem sie gehören', async () => {

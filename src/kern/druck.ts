@@ -64,7 +64,8 @@ export const RAND = { oben: 18, seite: 18, unten: 20 };
 /** Name eines Objekts, wie er überall dasteht (Karte, Suche, Verweise, Rückgängig): das Anzeigefeld, sonst der Ersatzname. */
 export function benennen(m: ObjektModell, w: Werte, verweis: (ziel: string, id: string) => string): string {
   const feld = (n: string) => m.felder.find((f) => f.name === n)!;
-  const haupt = feldtext(feld(m.anzeigeFeld), w[m.anzeigeFeld], verweis);
+  // ein verborgenes Namensfeld (z. B. die frühere Kurzbeschreibung des Tagesberichts) steht nirgends – dann die Ersatzbenennung
+  const haupt = feld(m.anzeigeFeld).verborgen ? '' : feldtext(feld(m.anzeigeFeld), w[m.anzeigeFeld], verweis);
   if (haupt || !m.ersatzName) return haupt;
   return m.ersatzName.map((n) => { const f = feld(n), t = feldtext(f, w[n], verweis); return t && f.art !== 'datum' ? `${f.titel} ${t}` : t; }).filter(Boolean).join(' · ');
 }

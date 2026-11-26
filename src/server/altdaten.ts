@@ -14,6 +14,7 @@ import { fotoAblegen } from './foto';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { randomUUID } from 'node:crypto';
 import { altplanLesen, type Altplan } from '../module/bauzeitenplan/austausch';
+import { MIT_ERLEDIGT } from '../module/bautagebuch/beipackzettel';
 import { planUebernehmen } from './bauzeitenplan';
 import { abgleicher, merken, type Eintrag, type Vorschau, type Zahl } from './uebernahme';
 
@@ -66,7 +67,7 @@ export function altdatenLesen(roh: unknown): Uebersetzt {
     const firma = i.contact_id != null ? `alt:kontakt:${i.contact_id}` : namen.get(firmenname.toLowerCase()) ?? '';
     return { kennung: `alt:eintrag:${i.id}`, bericht, firma, werte: {
       art, text: art === 'anwesend' ? [firma ? '' : firmenname, text(i.activity)].filter(Boolean).join(' – ') : [text(i.text), !firma && firmenname ? `(${firmenname})` : ''].filter(Boolean).join(' '),
-      personen: art === 'anwesend' ? zahl(i.headcount) : null, frist: art === 'anwesend' ? '' : datum(i.due), erledigt: (art === 'mangel' || art === 'aufgabe') && !!Number(i.done), reihe: n } as Werte };
+      personen: art === 'anwesend' ? zahl(i.headcount) : null, frist: art === 'anwesend' ? '' : datum(i.due), erledigt: MIT_ERLEDIGT.includes(art) && !!Number(i.done), reihe: n } as Werte };
   });
   if (fremd) hinweise.push(`${fremd} Einträge aus Abschnitten, die es im neuen Bautagebuch nicht gibt, wurden ausgelassen.`);
   const bildreihe = new Map<string, number>();
