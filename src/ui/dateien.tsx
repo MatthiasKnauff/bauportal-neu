@@ -1,6 +1,7 @@
 // Modul „Pläne und Dateien“: der Ordner des gewählten Projekts auf dem Dateiserver.
 // Setzt nur fertige Bausteine in den Rahmen: Baum (Ordner) | Tabelle (Inhalt) | Details (Datei).
 // Die Dateien bleiben auf dem Dateiserver und werden nicht ins Gerät geholt – diese Ansicht braucht Verbindung.
+import { dateiZeigen } from './baukasten/ansehen';
 import { For, Show, createEffect, createMemo, createSignal, on } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
@@ -91,7 +92,10 @@ export function DateienAnsicht() {
   const eintrag = (name: string | null) => (ordner[pfad()] ?? []).find((e) => e.name === name);
   const datei = createMemo(() => { const e = eintrag(gewaehlt()); return e && !e.ordner ? e : undefined; });
   const adresse = (name: string, laden = false) => `/api/ablage/datei?projekt=${projekt()!.id}&pfad=${encodeURIComponent(pfad() ? `${pfad()}/${name}` : name)}${laden ? '&laden=1' : ''}`;
-  const oeffne = (z: Zeile) => { const e = eintrag(z.id); if (!e) return; if (e.ordner) gehe(pfad() ? `${pfad()}/${e.name}` : e.name); else window.open(adresse(e.name), '_blank', 'noopener'); };
+  const oeffne = (z: Zeile) => { const e = eintrag(z.id); if (!e) return; if (e.ordner) gehe(pfad() ? `${pfad()}/${e.name}` : e.name); else zeigen(e.name); };
+  // Fotos und PDFs im Fenster des Bauportals ansehen (mit ‹ › durch die übrigen im Ordner), alles andere herunterladen – nie ein neuer Tab
+  const zeigen = (name: string) => dateiZeigen((ordner[pfad()] ?? []).filter((x) => !x.ordner).map((x) => ({ name: x.name, url: adresse(x.name), laden: adresse(x.name, true) })), name);
+
   const krumen = () => pfad().split('/').filter(Boolean);
   const leer = (text: string) => <div class="mitte"><p class="still-text">{text}</p></div>;
 
@@ -143,7 +147,7 @@ function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordne
         <button class="knopf still nur-breit" aria-label="Details schließen" onClick={p.onZu}>×</button>
       </div>
       <div class="karte-inhalt">
-        <Show when={MIT_VORSCHAU.includes(endung(p.name)) && !fehlt()}><a class="vorschau-verweis" href={p.adresse()} target="_blank" rel="noopener" title="Öffnen"><img class="vorschau" src={p.vorschau} alt={`Vorschau ${p.name}`} onError={() => setFehlt(true)} /></a></Show>
+        <Show when={MIT_VORSCHAU.includes(endung(p.name)) && !fehlt()}><a class="vorschau-verweis" href={p.adresse()} title="Ansehen" onClick={(e) => { e.preventDefault(); dateiZeigen([{ name: p.name, url: p.adresse(), laden: p.adresse(true) }], p.name); }}><img class="vorschau" src={p.vorschau} alt={`Vorschau ${p.name}`} onError={() => setFehlt(true)} /></a></Show>
         <dl class="angaben">
           <dt>Art</dt><dd>{endung(p.name).toUpperCase() || 'Datei'}</dd>
           <dt>Größe</dt><dd>{groesse(p.groesse)}</dd>
@@ -151,7 +155,7 @@ function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordne
           <dt>Ordner</dt><dd>{p.ordner || '(oberste Ebene)'}</dd>
         </dl>
         <div class="reihe">
-          <a class="knopf haupt" href={p.adresse()} target="_blank" rel="noopener">Öffnen</a>
+          <a class="knopf haupt" href={p.adresse()} onClick={(e) => { e.preventDefault(); dateiZeigen([{ name: p.name, url: p.adresse(), laden: p.adresse(true) }], p.name); }}>Öffnen</a>
           <a class="knopf" href={p.adresse(true)}>Herunterladen</a>
         </div>
         <p class="still-text klein-text">Das Original liegt auf dem Dateiserver und bleibt dort.</p>
@@ -216,6 +220,7 @@ export function AlleDateien() {
     werte: { name: d.name, ordner: d.ordner, art: endung(d.name).toUpperCase() || 'Datei', groesse: d.groesse, geaendert: d.geaendert } })));
   const datei = createMemo(() => alle().find((d) => d.pfad === gewaehlt()));
   const adresse = (pfad: string, laden = false) => `/api/ablage/datei?projekt=${projekt()!.id}&pfad=${encodeURIComponent(pfad)}${laden ? '&laden=1' : ''}`;
+  const zeigen = (pfad: string) => dateiZeigen(zeilen().map((z) => ({ name: z.id, url: adresse(z.id), laden: adresse(z.id, true) })), pfad);
   const leer = (text: string) => <div class="mitte"><p class="still-text">{text}</p></div>;
   return (
     <Show when={projekt()} fallback={<Rahmen schluessel="dateien.alle" inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
@@ -237,9 +242,9 @@ export function AlleDateien() {
                 <Kacheln zeilen={zeilen()} gewaehlt={gewaehlt()} breite={kachelBreite()} leer="Keine Dateien zu diesen Filtern." onWahl={(id) => setGewaehlt(id)} onOeffnen={() => rahmen.detailsZeigen()}
                   inhalt={(z) => <DateiKachel name={String(z.werte.name)} vorschau={MIT_VORSCHAU.includes(endung(String(z.werte.name))) ? vorschauAdresse(projekt()!.id, z.id, String(z.werte.geaendert), kachelBreite()) : undefined} />} />}>
               <Tabelle modell={ALLE} zeilen={zeilen()} gewaehlt={gewaehlt()} reihenfolgeFest onWahl={(id) => { setGewaehlt(id); if (id) rahmen.detailsZeigen(); }}
-                onOeffnen={(z) => window.open(adresse(z.id), '_blank', 'noopener')} leer="Keine Dateien zu diesen Filtern."
+                onOeffnen={(z) => zeigen(z.id)} leer="Keine Dateien zu diesen Filtern."
                 zelle={(f, z) => (f.name === 'groesse' ? groesse(Number(z.werte.groesse)) : f.name === 'geaendert' ? zeit(String(z.werte.geaendert)) : String(z.werte[f.name] ?? ''))}
-                zeilenMenue={(z) => [{ titel: 'Öffnen', tun: () => window.open(adresse(z.id), '_blank', 'noopener') }, { titel: 'Herunterladen', tun: () => { location.href = adresse(z.id, true); } }]} />
+                zeilenMenue={(z) => [{ titel: 'Öffnen', tun: () => zeigen(z.id) }, { titel: 'Herunterladen', tun: () => { location.href = adresse(z.id, true); } }]} />
               </Show>
             </Show>
           </Show>

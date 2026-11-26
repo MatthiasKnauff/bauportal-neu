@@ -1,6 +1,7 @@
 // Baustein „Bilder“: Fotos, die an einem Objekt hängen, in dessen Karte – ansehen, beschriften, hinzufügen, entfernen.
 // Hochladen braucht die Verbindung zum Server: Der Browser verkleinert jedes Foto zu einem Vorschaubild und schickt
 // es zusammen mit dem Original; das Original wandert in den Projektordner, im Bauportal bleibt das Vorschaubild.
+import { ansehen, type Ansehbar } from './ansehen';
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { listenfolge } from '../../kern/druck';
 import type { Werte } from '../../kern/modell';
@@ -60,8 +61,8 @@ export function Bilder(p: {
       <div class="bilder-raster">
         <For each={bilder()}>{(z) => (
           <figure>
-            <a href={`/api/foto/original/${z.id}`} target="_blank" rel="noopener" classList={{ an: p.gewaehlt === z.id }} title={p.onWahl ? `${z.werte.name} – groß zeigen` : `${z.werte.name} – Original öffnen (${z.werte.ort === 'ablage' ? 'liegt im Projektordner' : 'liegt im Bauportal'})`}
-              onClick={(e) => { if (p.onWahl && !e.ctrlKey && !e.metaKey) { e.preventDefault(); p.onWahl(z.id); } }}><img src={`/api/foto/vorschau/${z.id}`} alt={String(z.werte[p.beschriftung] || z.werte.name)} loading="lazy" /></a>
+            <a href={`/api/foto/original/${z.id}`} classList={{ an: p.gewaehlt === z.id }} title={p.onWahl ? `${z.werte.name} – groß zeigen` : `${z.werte.name} – Original öffnen (${z.werte.ort === 'ablage' ? 'liegt im Projektordner' : 'liegt im Bauportal'})`}
+              onClick={(e) => { if (e.ctrlKey || e.metaKey) return; e.preventDefault(); if (p.onWahl) p.onWahl(z.id); else ansehen(alleAnsehbar(bilder(), p.beschriftung), bilder().indexOf(z)); }}><img src={`/api/foto/vorschau/${z.id}`} alt={String(z.werte[p.beschriftung] || z.werte.name)} loading="lazy" /></a>
             <figcaption>
               <input aria-label={`Beschriftung: ${z.werte.name}`} placeholder="Beschriftung" value={String(z.werte[p.beschriftung] ?? '')} readOnly={!schreiben()}
                 onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} onChange={(e) => feldAendern(m(), z, m().felder.find((f) => f.name === p.beschriftung)!, e.currentTarget.value)} />
@@ -78,6 +79,7 @@ export function Bilder(p: {
   );
 }
 
+const alleAnsehbar = (l: Zeile[], beschriftung: string): Ansehbar[] => l.map((x) => ({ url: `/api/foto/original/${x.id}`, name: String(x.werte[beschriftung] || x.werte.name || 'Foto'), typ: 'bild' }));
 /** Ein Foto groß – wie rechts im bisherigen Bautagebuch: Bild (Klick öffnet das Original), ‹ 1 von n ›, Beschriftung, darunter alle als Streifen. */
 export function FotoGross(p: { objekt: string; id: string; alle: Zeile[]; beschriftung: string; onWahl: (id: string) => void; onZu: () => void }) {
   const m = () => modell(p.objekt);
@@ -95,7 +97,7 @@ export function FotoGross(p: { objekt: string; id: string; alle: Zeile[]; beschr
           <span class="still-text klein-text foto-name">{String(f().werte.name)}</span>
           <button class="knopf still" aria-label="Foto schließen" title="Schließen (Esc)" onClick={p.onZu}>×</button>
         </div>
-        <a class="foto-gross" href={`/api/foto/original/${f().id}`} target="_blank" rel="noopener" title="Original öffnen"><img src={`/api/foto/original/${f().id}`} alt={String(f().werte[p.beschriftung] || f().werte.name)} /></a>
+        <a class="foto-gross" href={`/api/foto/original/${f().id}`} title="Groß ansehen – mit ‹ › durch alle Fotos" onClick={(e) => { e.preventDefault(); ansehen(alleAnsehbar(p.alle, p.beschriftung), i()); }}><img src={`/api/foto/original/${f().id}`} alt={String(f().werte[p.beschriftung] || f().werte.name)} /></a>
         <label class="foto-beschriftung">Beschreibung
           <input value={String(f().werte[p.beschriftung] ?? '')} readOnly={!darf(p.objekt, 'schreiben')} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
             onChange={(e) => feldAendern(m(), f(), m().felder.find((x) => x.name === p.beschriftung)!, e.currentTarget.value)} />

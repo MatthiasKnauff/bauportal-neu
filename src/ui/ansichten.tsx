@@ -29,6 +29,7 @@ import { AlleDateien, DateienAnsicht, OrdnerFenster } from './dateien';
 import { assistentStarten, gaebEinlesen, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
 import { handy } from './unterbau/geraet';
+import { ansehen } from './baukasten/ansehen';
 import { Updates } from './updates';
 import { AufbauAnsicht } from './aufbau';
 import { Altdaten } from './altdaten';
@@ -422,7 +423,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   foto: {
     kachelnZuerst: true, kachelBreite: 150,
     kachel: (z) => <figure class="foto-kachel"><img src={`/api/foto/vorschau/${z.id}`} alt={String(z.werte.beschriftung || z.werte.name)} loading="lazy" /><figcaption>{String(z.werte.beschriftung || '') || <span class="still-text">{String(sicht.tagesbericht?.[String(z.werte.bericht)]?.werte.nummer ? `Bericht ${String(sicht.tagesbericht[String(z.werte.bericht)]!.werte.nummer)}` : '')}</span>}</figcaption></figure>,
-    kartenOben: (z) => <a class="foto-gross" href={`/api/foto/original/${z.id}`} target="_blank" rel="noopener" title="Original öffnen"><img src={`/api/foto/original/${z.id}`} alt={String(z.werte.beschriftung || z.werte.name)} /></a>,
+    kartenOben: (z) => <a class="foto-gross" href={`/api/foto/original/${z.id}`} title="Groß ansehen" onClick={(e) => { e.preventDefault(); ansehen([{ url: `/api/foto/original/${z.id}`, name: String(z.werte.beschriftung || z.werte.name), typ: 'bild' }]); }}><img src={`/api/foto/original/${z.id}`} alt={String(z.werte.beschriftung || z.werte.name)} /></a>,
   },
   kontakt: {
     kachel: (z) => <KontaktKachel kontakt={z} />,

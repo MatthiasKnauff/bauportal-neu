@@ -3,6 +3,7 @@
 // ein Dialog zeigt alles zum Prüfen → „Ablegen“ legt das Original in den Projektordner und den Eintrag an (Rechnung, Angebot …).
 // Vorbelegt ist die Art der Seite, auf der man steht; erkennt der Text ausdrücklich etwas anderes (eine Rechnung, ein anderes
 // Projekt), steht das Erkannte drin und das Feld blinkt rot. Was es gibt, sagen die Beipackzettel (dokumentarten).
+import { dateiZeigen } from './baukasten/ansehen';
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import { dokumentErkennen, type Erkennung } from '../kern/dokumenterkennung';
@@ -195,7 +196,9 @@ export function DokumentListe(p: { dokumente: Zeile[] }) {
   return (
     <div class="dok-liste">
       <For each={p.dokumente}>{(d) => (
-        <a class="dok-kachel" href={`/api/dokument/original/${d.id}`} target="_blank" rel="noopener" title="Original öffnen">
+        <a class="dok-kachel" href={`/api/dokument/original/${d.id}`} title="Ansehen" onClick={(e) => { e.preventDefault();
+          const l = p.dokumente.map((x) => ({ name: String(x.werte.name ?? 'Dokument'), url: `/api/dokument/original/${x.id}`, laden: `/api/dokument/original/${x.id}` }));
+          dateiZeigen(l, String(d.werte.name ?? 'Dokument')); }}>
           <img src={`/api/dokument/vorschau/${d.id}`} alt="" loading="lazy" /><span>{String(d.werte.name ?? '')}</span>
         </a>
       )}</For>

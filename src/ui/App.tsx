@@ -1,4 +1,5 @@
 // Das Portal: Einrichtung, Anmeldung, Startseite mit den Kacheln und der Rahmen um jedes Modul (Kopfleiste, Reiter, Rückgängig).
+import { Ansehen } from './baukasten/ansehen';
 import { AppSymbol } from './baukasten/zeichen';
 import { designBeobachten, meineWahl } from './unterbau/design';
 import { ERSATZ, handyPlus, handyleistePlaetze, setHandystufe } from './unterbau/geraet';
@@ -71,6 +72,7 @@ export function App() {
       <Aufraeumen />
       <AdressenEinlesen />
       <RechnungEinlesen />
+      <Ansehen />
       <KontaktAuswahlFenster />
       <FeldSetzen />
       <ProjektLoeschen />

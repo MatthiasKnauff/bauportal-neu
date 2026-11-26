@@ -729,7 +729,8 @@ td.aktiv-zelle { outline: 2px solid var(--akzent); outline-offset: -2px; }
 .bt-rechts .bt-rechts-reiter { flex: none; padding-top: 6px; }
 .bt-rechts .karte { flex: 1; min-height: 0; width: auto; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 .bt-pdf { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
-.bt-pdf-rahmen { flex: 1; min-height: 300px; width: 100%; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: #fff; }
+.pdf-ansicht { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px; background: var(--still); border-radius: calc(8px * var(--rund)); }
+.pdf-seite { flex: none; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .18); }
 .karte-reiter { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--rand); }
 .karte-reiter button { border: 0; background: transparent; padding: 8px 10px; cursor: pointer; color: var(--text-still); border-bottom: 2px solid transparent; font-weight: 600; }
 .karte-reiter button[aria-selected="true"] { color: var(--akzent); border-bottom-color: var(--akzent); }
@@ -1383,3 +1384,12 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .grp-stufen { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-still); margin-top: -6px; }
 .grp-stufen .an { color: var(--text); font-weight: 600; }
 .grp-aussen { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Ansehen: Fotos und PDFs im Fenster des Bauportals blättern (Baustein Ansehen) */
+.ansehen { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; background: rgba(15, 18, 22, .94); color: #f3f4f6; }
+.ansehen-kopf { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 12px; }
+.ansehen-kopf .knopf { color: #f3f4f6; background: transparent; border-color: transparent; } .ansehen-kopf .knopf:hover:not(:disabled) { background: rgba(255, 255, 255, .1); }
+.ansehen-zahl { font-variant-numeric: tabular-nums; } .ansehen-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .8; }
+.ansehen-inhalt { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px 12px; }
+.ansehen-inhalt img { max-width: 100%; max-height: 100%; object-fit: contain; user-select: none; }
+.ansehen-inhalt .pdf-ansicht { align-self: stretch; width: min(100%, 1000px); margin: 0 auto; background: transparent; }

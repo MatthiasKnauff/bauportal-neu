@@ -14,6 +14,7 @@ import { ausdrucke, darf, holeDatei, modell, neueKennung, ruf } from './unterbau
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
 import { Bilder, FotoGross } from './baukasten/bilder';
+import { PdfAnsicht } from './baukasten/pdfansicht';
 import { Detailkarte, feldAendern, inEigenemFenster, loesche } from './baukasten/detailkarte';
 import { FeldEingabe, anzeige } from './baukasten/feld';
 import { Schrittweise } from './baukasten/schrittweise';
@@ -466,18 +467,13 @@ const HINWEIS_RECHTS = 'Im Bericht einen Eintrag anklicken – hier stehen dann 
 function BerichtPdf(p: { bericht: Zeile }) {
   const a = () => ausdrucke('tagesbericht')[0];
   const [stand, setStand] = createSignal(0);   // „Neu erzeugen“
-  const [pdf] = createResource(() => (a() ? { id: p.bericht.id, n: stand(), a: a()!.id } : false), async ({ id, a: ausdruck }) => {
-    const d = await holeDatei('/api/druck/pdf', { ausdruck, objekt: id });
-    return URL.createObjectURL(d.blob);
-  });
-  createEffect((vorher?: string) => { const u = pdf.latest; if (vorher && vorher !== u) URL.revokeObjectURL(vorher); return u; });
-  onCleanup(() => { if (pdf.latest) URL.revokeObjectURL(pdf.latest); });
+  const [pdf] = createResource(() => (a() ? { id: p.bericht.id, n: stand(), a: a()!.id } : false), async ({ id, a: ausdruck }) => (await holeDatei('/api/druck/pdf', { ausdruck, objekt: id })).blob);
   return (
     <div class="bt-pdf">
       <div class="reihe"><button class="knopf klein" disabled={pdf.loading} onClick={() => setStand(stand() + 1)}>{pdf.loading ? 'PDF wird erzeugt …' : 'Neu erzeugen'}</button>
         <Show when={a()}><button class="knopf klein" onClick={() => druckOeffnen(a()!.id, p.bericht.id)}>Drucken / ablegen …</button></Show></div>
       <Show when={!pdf.error} fallback={<p class="fehler-text">{(pdf.error as Error)?.message}</p>}>
-        <Show when={pdf.latest} fallback={<p class="still-text">PDF wird erzeugt …</p>}>{(u) => <iframe class="bt-pdf-rahmen" title="Tagesbericht als PDF" src={u()} />}</Show>
+        <Show when={pdf.latest} fallback={<p class="still-text">PDF wird erzeugt …</p>}>{(b) => <PdfAnsicht inhalt={b()} titel="Tagesbericht als PDF" />}</Show>
       </Show>
     </div>
   );
