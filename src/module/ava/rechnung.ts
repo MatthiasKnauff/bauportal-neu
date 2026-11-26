@@ -110,12 +110,20 @@ export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | n
     const nachlass = r2(stand * b.nachlass / 100), netto = r2(stand - nachlass);
     const si = sicherheit(r, b), einbehalt = r2(netto * si.satz / 100), anerkannt = r2(netto - einbehalt);
     const bisher = folge ? (vorher[folge] ?? 0) : 0, zahlNetto = r2(anerkannt - bisher), ust = r2(zahlNetto * UST), brutto = r2(zahlNetto + ust);
-    if (r.id !== id) { if (folge) vorher[folge] = r2(bisher + zahlNetto); continue; }
     const strafe = r.werte.art === 'schluss' ? zahl(r.werte.strafe) : 0;
     const nachStrafe = r2(brutto - strafe);
     const datum = String(r.werte.datum ?? r.werte.eingang ?? '');
     const bau = b.bauabzug && !(b.freistellungBis && b.freistellungBis >= (datum || '0000')) && nachStrafe > 0 ? r2(nachStrafe * BAUABZUG) : 0;
     const auszahlung = r2(nachStrafe - bau);
+    const skontoBetrag = b.skonto && auszahlung > 0 ? r2(auszahlung * b.skonto / 100) : 0;
+    if (r.id !== id) {
+      // gezahlt (brutto) weniger als freigegeben (Skonto gilt als bezahlt): der Rest zählt nicht als „bisher“ – die nächste Rechnung holt ihn nach
+      const gz = r.werte.gezahlt == null || r.werte.gezahlt === '' ? null : zahl(r.werte.gezahlt);
+      const fehlt = gz == null ? 0 : Math.max(0, auszahlung - skontoBetrag - gz);
+      const fehltNetto = fehlt > 0.005 ? r2(fehlt / ((1 + UST) * (bau ? 1 - BAUABZUG : 1))) : 0;
+      if (folge) vorher[folge] = r2(bisher + zahlNetto - fehltNetto);
+      continue;
+    }
     const z: Leiterzeile[] = [
       { titel: `Leistungsstand netto${r.werte.geprueft != null && r.werte.geprueft !== '' ? ' (geprüft)' : ' (angefordert)'}`, betrag: stand },
       ...(nachlass ? [{ titel: `− Nachlass ${prozent(b.nachlass)} %`, betrag: -nachlass }, { titel: 'netto nach Nachlass', betrag: netto, summe: true }] : []),
@@ -127,11 +135,12 @@ export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | n
       ...(bau ? [{ titel: '− Bauabzugsteuer 15 % (ans Finanzamt)', betrag: -bau }] : []),
       ...(strafe || bau ? [{ titel: 'Auszahlung an die Firma', betrag: auszahlung, summe: true }] : []),
     ];
-    if (b.skonto && auszahlung > 0) {
-      const sk = r2(auszahlung * b.skonto / 100), eingang = String(r.werte.eingang ?? '');
-      z.push({ titel: `bei Zahlung ${b.skontoTage ? (eingang ? `bis ${tageNach(eingang, b.skontoTage).split('-').reverse().join('.')}` : `binnen ${b.skontoTage} Tagen`) : 'mit Skonto'}: − ${prozent(b.skonto)} % Skonto`, betrag: -sk, hinweis: true },
+    if (skontoBetrag) {
+      const sk = skontoBetrag, eingang = String(r.werte.eingang ?? '');
+      z.push({ titel: `bei Zahlung ${b.skontoTage ? (eingang ? `bis ${tageNach(eingang, b.skontoTage).split('-').reverse().join('.')}` : `binnen ${b.skontoTage} Tagen`) : 'mit Skonto'}: − ${prozent(b.skonto ?? 0)} % Skonto`, betrag: -sk, hinweis: true },
         { titel: 'Auszahlung mit Skonto', betrag: r2(auszahlung - sk), summe: true, hinweis: true });
     }
+    if (r.werte.gezahlt != null && r.werte.gezahlt !== '') z.push({ titel: `gezahlt${r.werte.bezahlt_am ? ` am ${String(r.werte.bezahlt_am).split('-').reverse().join('.')}` : ''}`, betrag: zahl(r.werte.gezahlt), hinweis: true });
     return z;
   }
   return [];

@@ -228,6 +228,9 @@ export const rechnung: ObjektModell = {
     { name: 'strafe', titel: 'Vertragsstrafe in €', art: 'zahl', gruppe: 'Beträge', wenn: { art: ['schluss'] } },
     { name: 'status', titel: 'Stand', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Prüfung', optionen: [{ wert: 'offen', titel: 'offen' }, { wert: 'geprueft', titel: 'geprüft' }, { wert: 'bezahlt', titel: 'bezahlt' }] },
     { name: 'faellig', titel: 'Zahlung fällig am', art: 'datum', gruppe: 'Prüfung' },
+    // tatsächlich gezahlt (wie im bisherigen Bauportal): weniger als freigegeben → die nächste Rechnung holt den Rest nach; Skonto gilt als bezahlt
+    { name: 'bezahlt_am', titel: 'Bezahlt am', art: 'datum', kartenBreite: 3, gruppe: 'Zahlung' },
+    { name: 'gezahlt', titel: 'Gezahlt brutto in €', art: 'zahl', kartenBreite: 3, gruppe: 'Zahlung' },
     { name: 'notiz', titel: 'Prüfvermerk', art: 'langtext', gruppe: 'Prüfung' },
   ],
 };
