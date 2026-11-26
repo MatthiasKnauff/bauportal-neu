@@ -11,6 +11,7 @@ import { Baum, type Knoten } from './baukasten/baum';
 import { Dialog } from './baukasten/dialog';
 import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 import { Tabelle } from './baukasten/tabelle';
+import { Seitenliste } from './baukasten/seitenliste';
 import { projektId } from './projekt';
 
 interface Eintrag { name: string; ordner: boolean; groesse: number; geaendert: string; kennung: string }
@@ -84,30 +85,113 @@ export function DateienAnsicht() {
           </Show>
         }
         detailsTitel={datei()?.name}
-        details={datei() ? <Show when={datei()}>{(d) => (
-          <aside class="karte" aria-label={`Datei ${d().name}`}>
-            <div class="karte-kopf">
-              <button class="knopf still nur-schmal" onClick={() => setGewaehlt(null)}>‹ Liste</button>
-              <h2>{d().name}</h2>
-              <button class="knopf still nur-breit" aria-label="Details zuklappen" title="Zuklappen" onClick={() => rahmen.detailsZuklappen()}>⇥</button>
-              <button class="knopf still nur-breit" aria-label="Details schließen" onClick={() => setGewaehlt(null)}>×</button>
-            </div>
-            <div class="karte-inhalt">
-              <Show when={BILD.includes(endung(d().name))}><img class="vorschau" src={adresse(d().name)} alt={`Vorschau ${d().name}`} loading="lazy" /></Show>
-              <dl class="angaben">
-                <dt>Art</dt><dd>{endung(d().name).toUpperCase() || 'Datei'}</dd>
-                <dt>Größe</dt><dd>{groesse(d().groesse)}</dd>
-                <dt>Geändert</dt><dd>{zeit(d().geaendert)}</dd>
-                <dt>Ordner</dt><dd>{pfad() || '(oberste Ebene)'}</dd>
-              </dl>
-              <div class="reihe">
-                <a class="knopf haupt" href={adresse(d().name)} target="_blank" rel="noopener">Öffnen</a>
-                <a class="knopf" href={adresse(d().name, true)}>Herunterladen</a>
-              </div>
-              <p class="still-text klein-text">Das Original liegt auf dem Dateiserver und bleibt dort.</p>
-            </div>
-          </aside>
-        )}</Show> : undefined} />
+        details={datei() ? <DateiKarte name={datei()!.name} groesse={datei()!.groesse} geaendert={datei()!.geaendert} ordner={pfad()} adresse={(laden) => adresse(datei()!.name, laden)}
+          onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} /> : undefined} />
+    </Show>
+  );
+}
+
+/** Karte einer Datei rechts: Vorschau bei Bildern, Angaben, Öffnen und Herunterladen – in beiden Ansichten gleich. */
+function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordner: string; adresse: (laden?: boolean) => string; onZu: () => void; onZuklappen: () => void }) {
+  return (
+    <aside class="karte" aria-label={`Datei ${p.name}`}>
+      <div class="karte-kopf">
+        <button class="knopf still nur-schmal" onClick={p.onZu}>‹ Liste</button>
+        <h2>{p.name}</h2>
+        <button class="knopf still nur-breit" aria-label="Details zuklappen" title="Zuklappen" onClick={p.onZuklappen}>⇥</button>
+        <button class="knopf still nur-breit" aria-label="Details schließen" onClick={p.onZu}>×</button>
+      </div>
+      <div class="karte-inhalt">
+        <Show when={BILD.includes(endung(p.name))}><img class="vorschau" src={p.adresse()} alt={`Vorschau ${p.name}`} loading="lazy" /></Show>
+        <dl class="angaben">
+          <dt>Art</dt><dd>{endung(p.name).toUpperCase() || 'Datei'}</dd>
+          <dt>Größe</dt><dd>{groesse(p.groesse)}</dd>
+          <dt>Geändert</dt><dd>{zeit(p.geaendert)}</dd>
+          <dt>Ordner</dt><dd>{p.ordner || '(oberste Ebene)'}</dd>
+        </dl>
+        <div class="reihe">
+          <a class="knopf haupt" href={p.adresse()} target="_blank" rel="noopener">Öffnen</a>
+          <a class="knopf" href={p.adresse(true)}>Herunterladen</a>
+        </div>
+        <p class="still-text klein-text">Das Original liegt auf dem Dateiserver und bleibt dort.</p>
+      </div>
+    </aside>
+  );
+}
+
+// ---------- Alle Dateien: der ganze Projektordner mit Unterordnern, gefiltert nach Art, Zeitraum, Ordner und Suche ----------
+const ARTEN: [string, string, string[]][] = [
+  ['pdf', 'PDF', ['pdf']], ['foto', 'Fotos', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp', 'tif', 'tiff']],
+  ['cad', 'CAD', ['dwg', 'dxf', 'ifc', 'pln', 'plt', 'ndw', 'skp', 'rvt', 'nd1']], ['office', 'Office', ['doc', 'docx', 'xls', 'xlsx', 'xlsm', 'ppt', 'pptx', 'odt', 'ods', 'rtf', 'txt', 'csv']],
+  ['mail', 'Mails', ['msg', 'eml']],
+];
+const artVon = (name: string) => ARTEN.find(([, , e]) => e.includes(endung(name)))?.[0] ?? 'andere';
+const ZEITEN: [string, string, number][] = [['7', 'letzte 7 Tage', 7], ['30', 'letzte 30 Tage', 30], ['365', 'letztes Jahr', 365]];
+const ALLE: ObjektModell = {
+  ...DATEI, name: 'datei_alle',
+  felder: [DATEI.felder[0]!, { name: 'ordner', titel: 'Ordner', art: 'text', inListe: true, breite: 260 }, ...DATEI.felder.slice(1)],
+};
+
+export function AlleDateien() {
+  const projekt = () => { const id = projektId(); const z = id ? sicht.projekt?.[id] : undefined; return z && !z.geloescht ? z : undefined; };
+  const [daten, setDaten] = createSignal<{ dateien: { pfad: string; groesse: number; geaendert: string }[]; abgeschnitten: boolean } | null>(null);
+  const [stoerung, setStoerung] = createSignal('');
+  const [filter, setFilter] = createSignal<Record<string, string>>({});   // art, zeit, ordner
+  const [suche, setSuche] = createSignal('');
+  const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
+  let rahmen!: RahmenSteuer;
+  const laden = async () => {
+    const p = projekt(); if (!p) return;
+    setDaten(null); setStoerung('');
+    try { setDaten(await ruf(`/api/ablage/alle?projekt=${p.id}`)); } catch (e) { setStoerung((e as Error).message); }
+  };
+  createEffect(on(() => [projekt()?.id, projekt()?.werte.ordner], () => { setGewaehlt(null); setFilter({}); void laden(); }));
+  const oben = (pfad: string) => (pfad.includes('/') ? pfad.split('/')[0]! : '');
+  const alle = createMemo(() => (daten()?.dateien ?? []).map((d) => ({ ...d, name: d.pfad.split('/').pop()!, art: artVon(d.pfad), ordner: d.pfad.split('/').slice(0, -1).join('/') })));
+  const passt = (d: ReturnType<typeof alle>[number], ohne?: string) => {
+    const f = filter();
+    if (ohne !== 'art' && f.art && d.art !== f.art) return false;
+    if (ohne !== 'ordner' && f.ordner && oben(d.pfad) !== f.ordner) return false;
+    if (ohne !== 'zeit' && f.zeit) { const tage = ZEITEN.find((z) => z[0] === f.zeit)![2]; if (Date.now() - new Date(d.geaendert).getTime() > tage * 86400000) return false; }
+    const w = suche().toLowerCase().split(/\s+/).filter(Boolean);
+    return w.every((x) => d.pfad.toLowerCase().includes(x));
+  };
+  const treffer = createMemo(() => alle().filter((d) => passt(d)));
+  const zahl = (art: string, wert: string) => alle().filter((d) => passt(d, art) && (art === 'art' ? d.art === wert : art === 'ordner' ? oben(d.pfad) === wert : Date.now() - new Date(d.geaendert).getTime() <= ZEITEN.find((z) => z[0] === wert)![2] * 86400000)).length;
+  const abschnitte = createMemo(() => [
+    { titel: 'Art', eintraege: [...ARTEN.map(([k, t]) => ({ id: `art:${k}`, titel: t, anzahl: zahl('art', k) })), { id: 'art:andere', titel: 'Sonstige', anzahl: zahl('art', 'andere') }] },
+    { titel: 'Geändert', eintraege: ZEITEN.map(([k, t]) => ({ id: `zeit:${k}`, titel: t, anzahl: zahl('zeit', k) })) },
+    { titel: 'Ordner', eintraege: [...new Set(alle().map((d) => oben(d.pfad)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de')).map((o) => ({ id: `ordner:${o}`, titel: o, anzahl: zahl('ordner', o) })) },
+  ]);
+  const wahl = (id: string) => { const [k, w] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)]; setFilter({ ...filter(), [k]: filter()[k] === w ? '' : w }); };
+  const zeilen = createMemo((): Zeile[] => [...treffer()].sort((a, b) => (a.geaendert < b.geaendert ? 1 : -1)).map((d) => ({ id: d.pfad, geloescht: false,
+    werte: { name: d.name, ordner: d.ordner, art: endung(d.name).toUpperCase() || 'Datei', groesse: d.groesse, geaendert: d.geaendert } })));
+  const datei = createMemo(() => alle().find((d) => d.pfad === gewaehlt()));
+  const adresse = (pfad: string, laden = false) => `/api/ablage/datei?projekt=${projekt()!.id}&pfad=${encodeURIComponent(pfad)}${laden ? '&laden=1' : ''}`;
+  const leer = (text: string) => <div class="mitte"><p class="still-text">{text}</p></div>;
+  return (
+    <Show when={projekt()} fallback={<Rahmen schluessel="dateien.alle" inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
+      <Rahmen schluessel="dateien.alle" steuer={(x) => (rahmen = x)}
+        knoepfe={[{ titel: 'Neu einlesen', zeichen: 'aktualisieren', gruppe: 'Ansicht', tun: () => void laden() }]}
+        menueMitte={<>
+          <input class="suche" type="search" placeholder="Dateien durchsuchen (Name, Ordner)" aria-label="Dateien durchsuchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)} />
+          <span class="zaehler">{daten() ? `${treffer().length === alle().length ? alle().length : `${treffer().length} von ${alle().length}`} Dateien${daten()!.abgeschnitten ? ' – sehr viele, nicht alle eingelesen' : ''}` : ''}</span>
+        </>}
+        baumTitel="Filter"
+        baum={<Seitenliste name="Filter" art="filter" abschnitte={abschnitte()} aktiv={(id) => { const i = id.indexOf(':'); return filter()[id.slice(0, i)] === id.slice(i + 1); }} onWahl={wahl} />}
+        inhalt={
+          <Show when={!stoerung()} fallback={leer(stoerung())}>
+            <Show when={daten()} fallback={leer('Der Projektordner wird gelesen …')}>
+              <Tabelle modell={ALLE} zeilen={zeilen()} gewaehlt={gewaehlt()} reihenfolgeFest onWahl={(id) => { setGewaehlt(id); if (id) rahmen.detailsZeigen(); }}
+                onOeffnen={(z) => window.open(adresse(z.id), '_blank', 'noopener')} leer="Keine Dateien zu diesen Filtern."
+                zelle={(f, z) => (f.name === 'groesse' ? groesse(Number(z.werte.groesse)) : f.name === 'geaendert' ? zeit(String(z.werte.geaendert)) : String(z.werte[f.name] ?? ''))}
+                zeilenMenue={(z) => [{ titel: 'Öffnen', tun: () => window.open(adresse(z.id), '_blank', 'noopener') }, { titel: 'Herunterladen', tun: () => { location.href = adresse(z.id, true); } }]} />
+            </Show>
+          </Show>
+        }
+        detailsTitel={datei()?.name}
+        details={datei() ? <DateiKarte name={datei()!.name} groesse={datei()!.groesse} geaendert={datei()!.geaendert} ordner={datei()!.ordner} adresse={(l) => adresse(datei()!.pfad, l)}
+          onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} /> : undefined} />
     </Show>
   );
 }

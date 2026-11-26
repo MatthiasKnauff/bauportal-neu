@@ -156,6 +156,15 @@ export function ablageRouten(app: FastifyInstance, e: { db: Db; umgebung: string
     } catch (err) { return melde(reply, err); }
   });
 
+  // Alle Dateien des Projektordners mit Unterordnern (für „Alle Dateien“: filtern nach Art, Zeit, Ordner, Suche)
+  app.get('/api/ablage/alle', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    const q = req.query as { projekt?: string };
+    try {
+      const ordner = await projektordner(req.benutzer!, q.projekt);
+      return await (await dienst('/alle', { zugang: await zugang(db), pfad: sauber(ordner, '') }, 120000)).json();
+    } catch (err) { return melde(reply, err); }
+  });
+
   app.get('/api/ablage/datei', { preHandler: e.nurAngemeldet }, async (req, reply) => {
     const q = req.query as { projekt?: string; pfad?: string; laden?: string };
     try {

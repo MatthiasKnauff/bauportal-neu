@@ -110,6 +110,9 @@ def health():
     return {"status": "ok", "version": os.environ.get("APP_VERSION", "dev")}
 
 
+_UNSICHTBAR = ("Thumbs.db", "desktop.ini")
+
+
 @app.post("/liste")
 def liste(a: Anfrage, x_schluessel: str | None = Header(default=None)):
     """Inhalt eines Ordners. kennung = Dateikennung des Dateiservers: bleibt beim Umbenennen und Verschieben gleich."""
@@ -118,7 +121,7 @@ def liste(a: Anfrage, x_schluessel: str | None = Header(default=None)):
         v, wurzel = _ziel(a.zugang)
         eintraege = []
         for e in smbclient.scandir(_pfad(wurzel, a.pfad), **v):
-            if e.name.startswith(("~$", ".")) or e.name in ("Thumbs.db", "desktop.ini"):
+            if e.name.startswith(("~$", ".")) or e.name in _UNSICHTBAR:
                 continue
             i = e.smb_info   # kommt mit der Ordnerliste – keine weitere Anfrage je Datei
             ordner = bool(i.file_attributes & 0x10)
@@ -129,6 +132,34 @@ def liste(a: Anfrage, x_schluessel: str | None = Header(default=None)):
     except Fehler:
         raise
     except Exception as e:  # noqa: BLE001 – jede Störung wird in eine verständliche Meldung übersetzt
+        raise _deute(e) from e
+
+
+@app.post("/alle")
+def alle(a: Anfrage, x_schluessel: str | None = Header(default=None)):
+    """Alle Dateien unter einem Ordner, mit Unterordnern (Pfad relativ dazu, Größe, Änderung) – höchstens 20 000;
+    darüber steht „abgeschnitten“. Eine Ordnerliste je Ordner, keine Anfrage je Datei."""
+    _pruefe(x_schluessel)
+    try:
+        v, wurzel = _ziel(a.zugang)
+        dateien, offen, abgeschnitten = [], [""], False
+        while offen and not abgeschnitten:
+            rel = offen.pop()
+            for e in smbclient.scandir(_pfad(wurzel, "/".join(t for t in (a.pfad, rel) if t)), **v):
+                if e.name.startswith(("~$", ".")) or e.name in _UNSICHTBAR:
+                    continue
+                i, pfad = e.smb_info, f"{rel}/{e.name}" if rel else e.name
+                if i.file_attributes & 0x10:
+                    offen.append(pfad)
+                elif len(dateien) >= 20000:
+                    abgeschnitten = True
+                    break
+                else:
+                    dateien.append({"pfad": pfad, "groesse": i.end_of_file, "geaendert": i.last_write_time.isoformat(timespec="seconds")})
+        return {"dateien": dateien, "abgeschnitten": abgeschnitten}
+    except Fehler:
+        raise
+    except Exception as e:  # noqa: BLE001
         raise _deute(e) from e
 
 

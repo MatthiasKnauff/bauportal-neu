@@ -23,7 +23,7 @@ import type { AuswahlBefehl } from './baukasten/auswahl';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
-import { DateienAnsicht, OrdnerFenster } from './dateien';
+import { AlleDateien, DateienAnsicht, OrdnerFenster } from './dateien';
 import { assistentStarten, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
 import { Updates } from './updates';
@@ -337,7 +337,7 @@ function Darstellung() {
   return <Rahmen schluessel="verwaltung.darstellung" inhalt={<Darstellungsseite />} />;
 }
 
-const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht };
+const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht, 'dateien.alle': AlleDateien };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
 // Mehrere wählen: ein Feld für alle setzen und die Auswahl als Excel – dazu kommt vom Baustein der Papierkorb
 const gemeinsam = (h: AuswahlHilfen): AuswahlBefehl[] => [{ titel: 'Ändern …', tun: h.aendern }, { titel: 'Excel', tun: h.excel }];

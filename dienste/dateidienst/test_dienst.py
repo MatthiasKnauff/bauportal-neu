@@ -41,6 +41,8 @@ def main() -> None:
         r = c.post("/liste", json={"zugang": z, "pfad": "2026-01 Haus A"}, headers=k).json()["eintraege"]
         assert [e["name"] for e in r] == ["Pläne", "Notiz.txt"], r   # Ordner zuerst, Sperrdateien ausgeblendet
         assert r[1]["groesse"] == 5 and r[1]["geaendert"].endswith("+00:00")
+        r = c.post("/alle", json={"zugang": z, "pfad": "2026-01 Haus A"}, headers=k).json()
+        assert sorted(d["pfad"] for d in r["dateien"]) == ["Notiz.txt", "Pläne/Grundriss EG.pdf"] and not r["abgeschnitten"], r   # mit Unterordnern
         r = c.post("/datei", json={"zugang": z, "pfad": "2026-01 Haus A/Pläne/Grundriss EG.pdf"}, headers=k)
         assert r.status_code == 200 and len(r.content) == 3_000_009 and r.content.startswith(b"%PDF")
         r = c.post("/liste", json={"zugang": z, "pfad": "gibt/es/nicht"}, headers=k)

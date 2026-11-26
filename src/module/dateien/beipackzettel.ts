@@ -11,5 +11,9 @@ export const dateien: Beipackzettel = {
   beschreibung: 'Der Projektordner auf dem Dateiserver: durchblättern, ansehen, herunterladen.',
   braucht: ['projekte'],
   objekte: [],
-  ansichten: [{ id: 'dateien', titel: 'Dateien', abschnitt: 'Dateien', zeichen: 'dateien', brauchtProjekt: true }],
+  ansichten: [
+    { id: 'dateien', titel: 'Ordner', abschnitt: 'Dateien', zeichen: 'dateien', brauchtProjekt: true },
+    { id: 'alle', titel: 'Alle Dateien', abschnitt: 'Dateien', zeichen: 'liste', brauchtProjekt: true,
+      hilfe: 'Alle Dateien des Projektordners mit allen Unterordnern – links filtern nach Art, Zeitraum und Ordner, oben suchen (Name oder Ordner). Neueste zuerst. Ein Klick zeigt rechts die Datei, ein Doppelklick öffnet sie.' },
+  ],
 };
