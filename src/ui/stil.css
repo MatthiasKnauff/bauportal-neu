@@ -1643,3 +1643,13 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .kq-menge, .kq-ep { flex: none; color: var(--text-still); font-variant-numeric: tabular-nums; text-align: right; }
 .kq-ep { min-width: 64px; }
 .kq-fuss { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--rand); }
+/* Wahltabelle (z. B. Bieter:innen aus den Adressen wählen): Filter links, Tabelle mit Haken, unten Abbrechen/Übernehmen */
+.wahltabelle { border: 1px solid var(--akzent); border-radius: calc(8px * var(--rund)); background: var(--flaeche); margin: 8px 0 12px; display: flex; flex-direction: column; height: min(560px, 70vh); }
+.wt-kopf { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-bottom: 1px solid var(--rand); }
+.wt-kopf > .filterfeld, .wt-kopf > .filtersuche { flex: 1; }
+.wt-koerper { flex: 1; min-height: 0; display: flex; }
+.wt-links { width: 230px; flex: none; overflow: auto; border-right: 1px solid var(--rand); padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.wt-mitte { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.wt-fuss { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--rand); }
+.wt-knoepfe { display: flex; gap: 8px; margin-left: auto; }
+@media (max-width: 700px) { .wt-links { display: none; } }

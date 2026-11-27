@@ -14,13 +14,13 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { lvVon } from './avakopf';
 import { springeZu } from './sprung';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
-import { darf, modell } from './unterbau/api';
+import { darf, modell, neueKennung, zustand } from './unterbau/api';
 import { FeldEingabe } from './baukasten/feld';
+import { Wahltabelle } from './baukasten/wahltabelle';
 import { Zeichen } from './baukasten/zeichen';
 import { druckOeffnen, verzeichnisDrucken } from './druck';
 import { LvListe } from './lvliste';
 import { hinweis } from './unterbau/meldungen';
-import { BieterDazu } from './preisspiegel';
 import { allePositionenVon, angeboteVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon } from './avadaten';
 import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
 import { LAEUFE, laufText, vorab, type Lauf } from '../module/ava/bieterversand';
@@ -329,13 +329,30 @@ export function Versand(p: Mitte): JSX.Element {
           <p class="still-text klein-text">„An Bieter:innen senden“ legt je Firma eine Mail in den Postausgang; PDF und X83 entstehen beim Verschicken aus dem dann aktuellen Stand.</p>
         </section>
         <h3 class="vr-titel">Bieter:innen</h3>
-        <Show when={bieter().length} fallback={<p class="hinweis-kasten">Noch keine Bieter:innen – oben „Bieter:in“ (Firmen mit passendem Gewerk stehen zuerst). Wer im Preisspiegel ein Angebot hat, steht hier von selbst.</p>}>
+        <Show when={bieter().length} fallback={<Show when={!dazu()}><p class="hinweis-kasten">Noch keine Bieter:innen – oben „Bieter:in“: Firmen aus den Adressen wählen (mit passendem Gewerk zuerst). Wer im Preisspiegel ein Angebot hat, steht hier von selbst.</p></Show>}>
           <BieterTabelle bieter={bieter()} />
         </Show>
-        <Show when={dazu()}><BieterDazu lv={lv()!} vorgabe={{ angeschrieben: heute() }} onZu={() => setDazu(false)} /></Show>
+        {/* wie bisher die Adressen mit ihren Filtern, darunter wählen – nach dem Übernehmen wieder weg */}
+        <Show when={dazu()}><BieterWahl lv={lv()!} onZu={() => setDazu(false)} /></Show>
       </Show>
     </LvListe>
   );
+}
+
+/** Bieter:innen wählen: die Adressen mit den bekannten Filtern (Art, Gewerk, Beteiligte …), Firmen mit passendem Gewerk zuerst. */
+function BieterWahl(p: { lv: Zeile; onZu: () => void }): JSX.Element {
+  const ansicht = () => zustand()!.module.flatMap((x) => x.ansichten).find((a) => a.id === 'kontakte' && a.objekt === 'kontakt');
+  const da = new Set(angeboteVon(p.lv.id).map((a) => String(a.werte.bieter)));
+  const gewerk = String(p.lv.werte.gewerk ?? ''), gewerkName = gewerk ? String(sicht.gewerk?.[gewerk]?.werte.name ?? '').toLowerCase() : '';
+  const passt = (z: Zeile) => !!gewerkName && String(z.werte.gewerk ?? '').toLowerCase().split(/\s*[,;]\s*/).some((g) => g && (gewerkName.includes(g.toLowerCase()) || g.toLowerCase().includes(gewerkName)));
+  const uebernehmen = (ids: string[]) => {
+    ausfuehrenMehrere(ids.map((id) => ({ objekt: 'angebot', art: 'anlegen' as const, objektId: neueKennung(), werte: { projekt: p.lv.werte.projekt ?? null, lv: p.lv.id, bieter: id } })),
+      ids.length === 1 ? 'Bieter:in hinzufügen' : `${ids.length} Bieter:innen hinzufügen`);
+    p.onZu();
+  };
+  return <Wahltabelle schluessel="ava.bieterwahl" modell={modell('kontakt')} linksFilter={ansicht()?.linksFilter} suchArten={ansicht()?.suchArten} titel="Bieter:innen aus den Adressen wählen"
+    nur={(z) => !da.has(z.id) && z.werte.art !== 'person'} zuerst={passt} knopf={(n) => (n ? `${n} ${n === 1 ? 'Bieter:in' : 'Bieter:innen'} übernehmen` : 'Übernehmen')}
+    hinweis={gewerkName ? 'Firmen mit passendem Gewerk stehen oben.' : undefined} onUebernehmen={uebernehmen} onAbbrechen={p.onZu} />;
 }
 
 /** Nachverfolgen (wie im bisherigen Bauportal): dieselben Daten wie im Versand, über alle LVs des Projekts, die noch nicht vergeben sind. */
