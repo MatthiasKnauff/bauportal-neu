@@ -48,7 +48,7 @@ Zeichen:
 | L13 | Eigenschaften der Position (Allgemein · Weiteres · Menge · Grafik), Blättern „1 von 35“ | ◐ (Detailkarte) | Blättern in der Karte |
 | L14 | KG-Spalte mit Vorschlägen (KG des LV, benutzte, passend zum Gewerk). Ändert sich die KG des LV, ziehen Positionen ohne eigene KG mit. | ◐ (KG an der Position) | KG an der Position |
 | L15 | GAEB-Prüfhinweis: Positionen außerhalb der häufigsten Titeltiefe, übersprungene Ebene, mehr als 4 Ebenen | ✓ (27.11.) | Hinweis in der Leiste |
-| L16 | Sperre nach Vergabe 🔒/🔓, Warnung vor der ersten Änderung, beauftragte Nachträge einzeln gesperrt | ◐ | |
+| L16 | Sperre nach Vergabe 🔒/🔓, Warnung vor der ersten Änderung, beauftragte Nachträge einzeln gesperrt | ✓ (🔒 nach Vergabe, beauftragte Nachträge einzeln gesperrt – 27.11.) | |
 | L17 | Kontextmenü: Position/Gliederungspunkt darin bzw. darunter, Hinweistext darunter, Eigenschaften, Langtext, Kopieren/Ausschneiden/Einfügen, Art setzen, Bietertextergänzung, Nachtrag aus dieser Position, In der Aufmaßprüfung zeigen, Umbenennen, Löschen | ◐ | Ergänzen (höchstens 6 Punkte, Rest unter „Weitere“) |
 | L18 | Doppelklick auf das LV öffnet die LV- & Auftragsdaten. Diese haben drei Ebenen (Projekt → LV → Auftrag) mit Schildern für geerbte und eigene Werte. | ◐ | Doppelklick; Vererbung später |
 | L19 | Export GAEB X83/X86, Excel, PDF (Druck mit Layout). Import GAEB, Excel/Tabelle. | ✓ (Excel aus und ein, 27.11.) | Excel aus und ein |

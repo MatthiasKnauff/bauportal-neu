@@ -42,15 +42,18 @@ export function Auftraege(m: Mitte): JSX.Element {
   // abgerechnet: Stand des Aufmaßes (alle Rechnungen und das laufende) – wie die Kennzahl „Leistungsstand“
   const stand = createMemo(() => standAus(zeilenBis(lebende('aufmass').filter((a) => a.werte.lv === lv()?.id), lebende('rechnung').filter((r) => r.werte.lv === lv()?.id), null)));
   const geprueft = (q: Zeile) => stand().get(q.id) ?? null;
-  const nt = (q: Zeile) => !!q.werte.nachtrag && darf('lv_position', 'schreiben');
+  // Ein beauftragter Nachtrag ist Vertragsinhalt wie der Hauptauftrag (wie bisher einzeln gesperrt) – erst den Stand zurücksetzen
+  const ntBeauftragt = (q: Zeile) => sicht.nachtrag?.[String(q.werte.nachtrag ?? '')]?.werte.stand === 'beauftragt';
+  const GESPERRT = 'Der Nachtrag ist beauftragt – Vertragsinhalt. Ändern erst, wenn sein Stand (rechts in der Karte) zurückgesetzt ist.';
+  const nt = (q: Zeile) => !!q.werte.nachtrag && !ntBeauftragt(q) && darf('lv_position', 'schreiben');
   const aendern = (q: Zeile, werte: Record<string, unknown>, titel: string) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: q.id, werte: werte as never }, titel);
-  const nurNachtrag = (s: BaumSpalte): BaumSpalte => ({ ...s, setzen: (q, t) => (q.werte.nachtrag ? s.setzen!(q, t) : 'Positionen des Auftrags sind Vertragsinhalt – Änderungen als Nachtrag.') });
+  const nurNachtrag = (s: BaumSpalte): BaumSpalte => ({ ...s, setzen: (q, t) => (!q.werte.nachtrag ? 'Positionen des Auftrags sind Vertragsinhalt – Änderungen als Nachtrag.' : ntBeauftragt(q) ? GESPERRT : s.setzen!(q, t)) });
   const spalten = (): BaumSpalte[] => [
     nurNachtrag(LV_SPALTEN.find((s) => s.id === 'menge')!), nurNachtrag(LV_SPALTEN.find((s) => s.id === 'einheit')!), { ...LV_SPALTEN.find((s) => s.id === 'art')!, setzen: undefined },
     nurNachtrag(LV_SPALTEN.find((s) => s.id === 'kg')!),
     { id: 'ep_auftrag', titel: 'EP Auftrag', breite: 94, rechts: true, hilfe: 'Einheitspreis des Auftrags – bei Nachtragspositionen der Nachtragspreis (hier änderbar)',
       wert: (q) => { const e = epAuftrag(q); return e == null ? '' : eur(e); }, roh: (q) => zahlText(epAuftrag(q)),
-      setzen: (q, t) => { if (!nt(q)) return 'Der EP des Auftrags kommt aus dem beauftragten Angebot – Änderungen als Nachtrag.'; const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q, { ep: n }, 'Nachtragspreis'); } },
+      setzen: (q, t) => { if (q.werte.nachtrag && ntBeauftragt(q)) return GESPERRT; if (!nt(q)) return 'Der EP des Auftrags kommt aus dem beauftragten Angebot – Änderungen als Nachtrag.'; const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q, { ep: n }, 'Nachtragspreis'); } },
     { id: 'ep_schaetz', titel: 'EP Schätz.', breite: 84, rechts: true, wert: (q) => (q.werte.nachtrag || q.werte.ep == null || q.werte.ep === '' ? '' : eur(zahl(q.werte.ep))) },
     { id: 'gp_auftrag', titel: 'GP', breite: 98, rechts: true, wert: (q) => { const e = epAuftrag(q); return e == null || !zaehlt(q) ? '' : eur(gp(q.werte.menge, e)); },
       summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gp(q.werte.menge, epAuftrag(q) ?? 0), 0) },
@@ -77,6 +80,7 @@ export function Auftraege(m: Mitte): JSX.Element {
   const ntVonZeile = () => { const q = sicht.lv_position?.[lvZeiger() ?? '']; const id = q?.werte.nachtrag; return (id && sicht.nachtrag?.[String(id)]) || nachtraege().sort((a, b) => String(a.werte.nummer).localeCompare(String(b.werte.nummer), 'de', { numeric: true })).at(-1); };
   const ntPosition = () => {
     const n = ntVonZeile(); if (!lv() || !n) { hinweis('Erst einen Nachtrag anlegen („Gliederungspunkt“).', { art: 'fehler' }); return; }
+    if (n.werte.stand === 'beauftragt') { hinweis(`${String(n.werte.nummer ?? 'Der Nachtrag')} ist beauftragt – für weitere Leistungen einen neuen Nachtrag anlegen.`, { art: 'fehler' }); return; }
     const eigene = lebende('lv_position').filter((q) => q.werte.nachtrag === n.id && q.werte.art !== 'titel'), id = neueKennung();
     ausfuehren({ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, nachtrag: n.id, oz: eigene.length ? naechsteOz(eigene) : `${String(n.werte.nummer)}.0010`, art: 'normal', kurztext: 'Neue Nachtragsposition', menge: null, einheit: 'Stk', ep: null } }, `Position in ${String(n.werte.nummer)}`);
     setLvZeiger(id);
@@ -88,7 +92,7 @@ export function Auftraege(m: Mitte): JSX.Element {
     ...(auftrag() ? [{ titel: 'Bauvertrag', zeichen: 'vertrag', gruppe: 'Vertrag', tun: bauvertrag }] : []),
   ];
   // Bezeichnung eines Nachtrags (Gliederungspunkt) ist sein Name – beides ändert sich zusammen
-  const bezeichnung = { darf: (q: Zeile) => !!q.werte.nachtrag && darf('lv_position', 'schreiben'), setzen: (q: Zeile, t: string) => ausfuehrenMehrere([
+  const bezeichnung = { darf: (q: Zeile) => nt(q), setzen: (q: Zeile, t: string) => ausfuehrenMehrere([
     { objekt: 'lv_position', art: 'aendern', objektId: q.id, werte: { kurztext: t } },
     ...(q.werte.art === 'titel' ? [{ objekt: 'nachtrag', art: 'aendern' as const, objektId: String(q.werte.nachtrag), werte: { name: t } }] : [])], 'Bezeichnung') };
   return <LvBaum m={m} spalten={spalten} speicher="bp_spalten_auftraege" mitNachtraegen knoepfe={knoepfe} fuss={fuss()} bezeichnung={bezeichnung}
