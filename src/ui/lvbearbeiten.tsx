@@ -5,6 +5,8 @@
 // aus der Summe der Spalte. Bearbeiten in der Zelle (Enter eine Zeile tiefer, Tab zur nächsten Spalte), Auswahl wie in Windows,
 // Spalten wählen/ordnen/passend machen. Mit „struktur“ (LV bearbeiten) dazu: neue Zeilen, Gliederung, Nummerieren, Ziehen an der OZ,
 // Kopieren/Einfügen, Langtext, Löschen. Nach der Vergabe ist das LV gesperrt – 🔒 schaltet es bis zum Neuladen frei.
+import { passt, suchworte } from '../module/ava/suche';
+import { avaSuchtext } from './avasuche';
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
@@ -127,13 +129,12 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   const [lvZu, setLvZu] = createSignal(false);
   const [lang, setLang] = createSignal<Set<string>>(new Set());
   // Suche im LV (wie bisher die Volltextsuche): OZ, Kurz- und Langtext; Treffer mit ihren Titeln, der Rest ist ausgeblendet
-  const [suche, setSuche] = createSignal('');
+  const suche = avaSuchtext;   // die Suche der Ausschreibung links oben (avasuche.tsx) blendet im LV aus, was nicht passt
   const treffer = createMemo((): Set<string> | null => {
-    const w = suche().trim().toLowerCase().split(/\s+/).filter(Boolean); if (!w.length) return null;
+    const w = suchworte(suche()); if (!w.length) return null;
     const eltern = new Map(zeilen().map((z) => [z.id, z.eltern])), drin = new Set<string>();
     for (const z of zeilen()) {
-      const q = nachId(z.id); const t = `${z.oz} ${String(q?.werte.kurztext ?? '')} ${String(q?.werte.langtext ?? '')}`.toLowerCase();
-      if (!w.every((x) => t.includes(x))) continue;
+      if (!passt({ ...nachId(z.id)?.werte, oz: z.oz }, w)) continue;
       for (let id: string | null | undefined = z.id; id; id = eltern.get(id)) drin.add(id);
     }
     return drin;
@@ -291,7 +292,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
       ...(darf('lv_position', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: (e: MouseEvent) => zeigeMenue(e, [
         { titel: 'GAEB (X83, X84 Angebot, X86) …', tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) }, { titel: 'Excel / CSV …', tun: () => lvExcelEinlesen(lv()!) }]) }] : []),
       { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, gesperrt: !zeilen().length, tun: (e: MouseEvent) => zeigeMenue(e, [
-        { titel: 'GAEB X83', tun: () => gaebAusgeben(lv()!, '83') }, { titel: 'Excel', tun: () => lvExcelAusgeben(lv()!) }]) },
+        { titel: 'GAEB X83', tun: () => gaebAusgeben(lv()!) }, { titel: 'Excel', tun: () => lvExcelAusgeben(lv()!) }]) },
       { titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => druckOeffnen('ava.lv', lv()!.id) }] : []),
     ...(p.struktur && vergeben() ? [{ titel: gesperrt() ? 'Gesperrt' : 'Freigeschaltet', zeichen: 'schluessel', gruppe: 'Vertrag', an: !gesperrt(), tun: freischalten }] : []),
   ]));
@@ -397,8 +398,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
             <textarea id="lvt-vorbem" rows={6} value={String(lv()!.werte.vorbemerkungen ?? '')} readOnly={!darf('lv', 'schreiben') || gesperrt()} placeholder="Vorbemerkungen zum LV – gelten für alle Positionen (Baustelle, Ausführung, Abrechnung …)"
               onChange={(e) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { vorbemerkungen: e.currentTarget.value } }, 'Vorbemerkungen')} /></div>
         </Show>
-        <div class="lvt-suche"><input type="search" placeholder="Im LV suchen – OZ, Kurz- und Langtext" aria-label="Im LV suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') setSuche(''); }} />
-          <Show when={treffer()}><small class="still-text">{[...treffer()!].filter((id) => !zeilen().find((z) => z.id === id)?.titel).length} Treffer</small></Show></div>
+        <Show when={treffer()}><p class="still-text klein-text lvt-treffer">{[...treffer()!].filter((id) => !zeilen().find((z) => z.id === id)?.titel).length} Treffer für „{suche().trim()}“ in diesem LV</p></Show>
         <Show when={p.struktur}><LvQuellenLeiste lv={lv()!} /></Show>
         <Show when={p.struktur && gaeb().length}><div class="hinweis-kasten lvt-hinweis-oben lvt-gaeb" role="note"><b>GAEB-Prüfung:</b> <For each={gaeb()}>{(t) => <span>{t} </span>}</For></div></Show>
         {p.oben?.(lv()!)}

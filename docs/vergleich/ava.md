@@ -1,6 +1,6 @@
 # Ausschreibung & Abrechnung (AVA): Abgleich mit dem bisherigen Bauportal
 
-Stand: 27.11.2026, nachts.
+Stand: 27.11.2026, vormittags. Dichte wie bisher: als Design-Wahl („Dicht wie bisher“ = 80 %, Entscheidung 27.11.). Versand & Rücklauf und Nachverfolgen: der neue Aufbau bleibt (Matthias 27.11.: gefällt besser als bisher), aber jede Funktion des bisherigen Bauportals kommt hinein (V2–V5).
 
 Grundlage ist eine Analyse des Quelltexts, nicht nur ein Blick auf die Oberfläche:
 - Bisheriger Quelltext: `plattform/static/ava-*.js` (ca. 1,2 MB, 19 Dateien, rund 500 Funktionen) und `plattform/ava*.py` (123 Endpunkte).
@@ -18,9 +18,9 @@ Zeichen:
 |---|---|---|---|
 | R1 | Navigation links in vier Gruppen. **Ausschreibung**: Leistungsverzeichnis (mit Anzahl), Fenster- & Türliste. **Vergabe**: Versand & Rücklauf, Nachverfolgen, Angebote & Preisspiegel, Angebotsbesprechung. **Prüfung und Abrechnung**: Aufträge, Aufmaßprüfung, Rechnungen. **Kostenübersicht**. | ✓ | Gliederung wie bisher. Die Listen bleiben über Verweise erreichbar, stehen aber nicht mehr im Menü. |
 | R2 | Kopf: „‹Bereich›: LV ‹Nr› ‹Name›“, Stand als Auswahl, Feld „vergeben an …“ bzw. „noch nicht vergeben“, Gewerk · Vertrag · Strafe, Knöpfe Projektdaten und Ausschreibungsdaten | ✓ (LV-Auswahl statt Titel – gilt für alle Ansichten; 27.11.: Vertrag und Strafe im Kopf) | Kopf wie bisher. Das LV wird im Baum gewählt. |
-| R3 | Ablaufleiste mit 7 Stufen über die ganze Breite, Unterstrich als Fortschritt, Stufe ergibt sich aus dem Inhalt | ✓ | Optik angleichen |
+| R3 | Ablaufleiste mit 7 Stufen über die ganze Breite, Unterstrich als Fortschritt, Stufe ergibt sich aus dem Inhalt | ✓ (27.11.: Reiter über die ganze Breite mit Balken unten wie bisher – Entscheidung Matthias) | Optik angleichen |
 | R4 | Kennzahlen in der Menüleiste: Schätzung, bestes Angebot, Auftrag, Nachträge beauftragt, Leistungsstand, abgerechnet. Je Bereich passend, Reihenfolge ziehbar. | ✓ | Baustein „Kennzahl“ in der Menüleiste |
-| R5 | Volltextsuche links oben mit Bereich „dieses LV · Projekt · alle Projekte“. Sie durchsucht Kurz- und Langtext, OZ, Titel, Nachträge, Bieter:innen, Aufmaß, Rechnungen und Türliste. | ◐ (Suche im LV über OZ, Kurz- und Langtext in allen Baum-Ansichten – 27.11.; Projekt/alle Projekte: Suche oben) | Suchfeld links mit den drei Bereichen |
+| R5 | Volltextsuche links oben mit Bereich „dieses LV · Projekt · alle Projekte“. Sie durchsucht Kurz- und Langtext, OZ, Titel, Nachträge, Bieter:innen, Aufmaß, Rechnungen und Türliste. | ✓ (27.11.: links oben in allen Ansichten der Ausschreibung, Bereich „dieses LV · Projekt · alle Projekte“; Treffer bei Positionen, Firmen und Türliste, der LV-Baum blendet aus – Entscheidung Matthias; Aufmaß/Rechnungen fehlen noch) | Suchfeld links mit den drei Bereichen |
 | R6 | Rechte Seite mit Reitern je Bereich: LV (Details, Baudaten, Bauteile, Planung, Baukasten, Fragen & Antworten), Aufträge (Position, Auftrag), Aufmaß/Rechnungen (PDF, Dokument, Abzüge) | ◐ Nur Details | Reiter über den Baustein Detailkarte (kartenReiter) |
 | R7 | Datei: Import · Export · Drucken und Löschen je Bereich (immer an derselben Stelle) | ◐ | Gruppe „Datei“ je Bereich |
 | R8 | Ablagefeld „Datei ablegen“ mit Zolli | ⊘ | Gestrichen (Entscheidung 26.11.) |
@@ -72,10 +72,10 @@ Zeichen:
 | # | Bisher | Neu | Plan |
 |---|---|---|---|
 | V1 | Versand & Rücklauf: links die LVs (Anzahl Positionen, Summe), Termine Abgabe/Rückmeldung, Zähler (angeschrieben, abgegeben, wollen abgeben, geben nicht ab, offen) | ✓ | Layout wie bisher |
-| V2 | Unterlagen für Bieter:innen: LV-PDF ohne Preise (immer dabei), GAEB X83, Pläne & Dateien, Dateien vom Rechner. Status „noch nicht verschickt“. | ◐ (LV-PDF, X83) | Unterlagen-Karte (Versand selbst später über die zentrale Versandstelle) |
+| V2 | Unterlagen für Bieter:innen: LV-PDF ohne Preise (immer dabei), GAEB X83, Pläne & Dateien, Dateien vom Rechner. Status „noch nicht verschickt“. | ◐ (LV-PDF, X83 – entstehen beim Versand aus dem aktuellen Stand; Pläne & Dateien und Dateien vom Rechner fehlen noch) | Unterlagen-Karte (Versand selbst später über die zentrale Versandstelle) |
 | V3 | Bieter:innen suchen und mehrere anhaken, passendes Gewerk zuerst, neue Firma direkt anlegen | ◐ | |
 | V4 | Je Bieter:in ein Verlauf: angeschrieben · nachgesandt · nachgefragt (Telefonnotiz, höchstens 10) · nächster Anruf (To-do) · Rückmeldung · Angebot eingegangen. Entfernen (🗑, Entf). | ◐ | |
-| V5 | Senden (Mail mit Vorlagen je LV/Firma, Erinnerung, Nachsenden), mehrere LVs in einem Versand | ⊘ | Später über die zentrale Versandstelle (Entscheidung 26.11.) |
+| V5 | Senden (Mail mit Vorlagen je LV/Firma, Erinnerung, Nachsenden), mehrere LVs in einem Versand | ✓ (27.11.: An Bieter:innen senden · Erinnern · Nachversand über die zentrale Versandstelle, Texte wie bisher, Empfänger:innen anhakbar, „angeschrieben am“ im selben Schritt; mehrere LVs in einer Mail fehlt noch) | Später über die zentrale Versandstelle (Entscheidung 26.11.) |
 | V6 | Bieterliste drucken/Excel mit eigener Spaltenwahl | ✓ (27.11.: Knopf „Bieterliste“ im Versand, Spalten frei – auch Telefon, E-Mail, Ort der Firma; Excel über den Druck noch nicht) | Druck |
 | V7 | Nachverfolgen über alle LVs | ✓ | |
 | V8 | Preisspiegel im LV-Baum (Projekt → LVs → Titel mit Summe je Bieter:in → Positionen), Spalte Mittel, Bieter-Spalten ein/aus und ordnen | ✓ | Baum, Mittel, Spaltenwahl |

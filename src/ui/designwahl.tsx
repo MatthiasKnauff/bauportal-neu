@@ -4,7 +4,7 @@
 // shadcn-Format (tweakcn, shadcn.io …), übersetzt es (kern/design) und holt seine Schriften einmal auf den eigenen Server.
 import { Farbwahl } from './baukasten/farbwahl';
 import { For, Show, createSignal } from 'solid-js';
-import { AKZENTE, SCHRIFTMASS, SCHRIFTWAHL, schriftmass, STANDARD, STIL, STIL_PAKETE, satzFuer, schriften, themeLesen } from '../kern/design';
+import { AKZENTE, DICHT_WIE_BISHER, SCHRIFTMASS, SCHRIFTWAHL, schriftmass, STANDARD, STIL, STIL_PAKETE, satzFuer, schriften, themeLesen } from '../kern/design';
 import type { Werte } from '../kern/modell';
 import { ausfuehren, rueckgaengig, sicht } from './unterbau/abgleich';
 import { Dialog } from './baukasten/dialog';
@@ -172,7 +172,7 @@ export function Darstellungsseite() {
       <Wahl titel="Schriftart" werte={SCHRIFTWAHL.map(([k, t]) => [k, t])} wert={wert('schrift')} onWert={(v) => setzen({ schrift: v }, 'Schrift ändern')}
         stil={(k) => { const s = SCHRIFTWAHL.find(([x]) => x === k)?.[2]; return s ? { 'font-family': s } : ({} as Record<string, string>); }} />
       <div class="darstellung-reihe">
-        <span class="design-etikett">Schriftgröße</span>
+        <span class="design-etikett">Schriftgröße · Dichte</span>
         <label class="design-rund">
           {/* Erst beim Loslassen vergrößern: sonst wächst der Regler unter der Maus mit und springt (beim Ziehen steht nur die Zahl) */}
           <input type="range" min={SCHRIFTMASS.min} max={SCHRIFTMASS.max} step={SCHRIFTMASS.schritt} value={schriftmass(w()?.werte.schriftmass)} aria-label="Schriftgröße in Prozent"
@@ -181,6 +181,8 @@ export function Darstellungsseite() {
           <span class="darstellung-wert">{massZiehen() ?? schriftmass(w()?.werte.schriftmass)} %</span>
           <Show when={schriftmass(w()?.werte.schriftmass) !== 100}><button type="button" class="knopf klein still" title="Zurück auf 100 %" onClick={() => setzen({ schriftmass: null }, 'Schriftgröße 100 %')}>↺</button></Show>
         </label>
+        {/* 80 % entspricht dem bisherigen Bauportal: Schrift 12 statt 15 px, Zeilen und Leisten im selben Maß kleiner (27.11.2026: als Design-Wahl) */}
+        <Show when={schriftmass(w()?.werte.schriftmass) !== DICHT_WIE_BISHER}><button type="button" class="knopf klein" onClick={() => setzen({ schriftmass: DICHT_WIE_BISHER }, 'Dicht wie bisher')}>Dicht wie bisher</button></Show>
       </div>
 
       <h3>Stil</h3>

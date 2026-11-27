@@ -7,10 +7,11 @@ import nodemailer from 'nodemailer';
 import { Eingabefehler } from '../kern/modell';
 import type { Modulregister } from '../kern/modul';
 import { MAILSERVER_ID } from '../module/verwaltung/beipackzettel';
-import { ortszeit, pakete } from '../module/verwaltung/versand';
+import { ortszeit, pakete, type Anhang } from '../module/verwaltung/versand';
+import { lvAlsX83 } from '../module/ava/gaeb';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
-import { SYSTEM, type Db } from './db';
-import { werteAus } from './druck';
+import { SYSTEM, alsBenutzer, tabelle, type Absender, type Db } from './db';
+import { pdfAus, seiteBauen, werteAus } from './druck';
 import { Ablehnung, ALLES_GESEHEN, vorgangAusfuehren } from './protokoll';
 
 const KENNWORT = 'mail.kennwort';
@@ -22,6 +23,35 @@ async function verbindung(db: Db, register: Modulregister) {
   const transport = nodemailer.createTransport({ host: String(s.host), port, secure: ssl, requireTLS: !ssl,
     auth: s.benutzer ? { user: String(s.benutzer), pass: (await geheimnisLesen(db, KENNWORT)) ?? '' } : undefined, connectionTimeout: 20000 });
   return { s, transport, von: s.absender_name ? { name: String(s.absender_name), address: String(s.absender) } : String(s.absender) };
+}
+
+/** Wer die Nachricht angelegt hat – mit dessen Rechten entstehen die Anhänge (wer ein LV nicht sehen darf, kann es auch nicht verschicken). */
+export async function anlegerVon(db: Db, id: string): Promise<Absender | null> {
+  const z = (await db.query("select benutzer_id, benutzer_name from kern_befehl where objekt = 'nachricht' and objekt_id = $1 and art = 'anlegen' order by seq limit 1", [id])).rows[0];
+  return z ? { id: String(z.benutzer_id), name: String(z.benutzer_name ?? '') } : null;
+}
+
+/** Die Anhänge eines Pakets aus dem aktuellen Stand: PDF über das Druckwerk, X83 aus LV und Positionen. */
+export async function anhaengeBauen(db: Db, register: Modulregister, wer: Absender, liste: Anhang[]): Promise<{ filename: string; content: Buffer | string; contentType: string }[]> {
+  const aus = [];
+  for (const a of liste) {
+    if (a.art === 'druck') {
+      const s = await seiteBauen(db, register, wer, a.ausdruck, a.id);
+      aus.push({ filename: s.name, content: await pdfAus(s.html), contentType: 'application/pdf' });
+      continue;
+    }
+    const lvM = register.modell('lv')!, posM = register.modell('lv_position')!, prM = register.modell('projekt')!;
+    const x = await alsBenutzer(db, wer, async (c) => {
+      const lv = (await c.query(`select * from ${tabelle('lv')} where id = $1 and not geloescht`, [a.id])).rows[0];
+      if (!lv) throw new Ablehnung('Das LV für den Anhang gibt es nicht (mehr)');
+      const w = werteAus(lvM, lv);
+      const pos = (await c.query(`select * from ${tabelle('lv_position')} where lv = $1 and not geloescht`, [a.id])).rows.map((z) => ({ id: z.id as string, werte: werteAus(posM, z) }));
+      const pr = w.projekt ? werteAus(prM, (await c.query(`select * from ${tabelle('projekt')} where id = $1`, [w.projekt])).rows[0]) : null;
+      return lvAlsX83(w, pos, [pr?.nummer, pr?.name].filter(Boolean).join(' '));
+    });
+    aus.push({ filename: x.name, content: x.xml, contentType: 'application/xml' });
+  }
+  return aus;
 }
 
 /** Ein Durchgang: fällige Nachrichten verschicken (bzw. auf dem Testserver zurückhalten). Gibt zurück, wie viele Pakete es waren. */
@@ -45,7 +75,13 @@ export async function versandLauf(db: Db, register: Modulregister, umgebung: str
     for (const p of P) {
       if (!v) { befehle.push(...stand(p.ids, { stand: 'fehler', fehler: grund })); continue; }
       try {
-        await v.transport.sendMail({ from: v.von, to: p.an, subject: p.betreff, text: p.text });
+        let attachments: Awaited<ReturnType<typeof anhaengeBauen>> = [];
+        if (p.anhaenge?.length) {
+          const wer = await anlegerVon(db, p.ids[0]!);
+          if (!wer) throw new Ablehnung('Wer die Nachricht angelegt hat, steht nicht im Protokoll – Anhänge entstehen nur mit deren Rechten');
+          attachments = await anhaengeBauen(db, register, wer, p.anhaenge);
+        }
+        await v.transport.sendMail({ from: v.von, to: p.an, subject: p.betreff, text: p.text, attachments });
         befehle.push(...stand(p.ids, { stand: 'verschickt', verschickt_am: zeit, fehler: '' }));
       } catch (e) { befehle.push(...stand(p.ids, { stand: 'fehler', fehler: (e as Error).message.slice(0, 300) })); }
     }

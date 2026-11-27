@@ -8,7 +8,7 @@ import type { Modulregister } from '../kern/modul';
 import { dateiname, druckSeite, druckSeiten, listenfolge, verzeichnisSpalten, type Druckdaten, type Einstellungen } from '../kern/druck';
 import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
-import { alsBenutzer, spalte, tabelle, type Db } from './db';
+import { alsBenutzer, spalte, tabelle, type Absender, type Db } from './db';
 import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { logoDaten } from './logo';
 import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
@@ -18,7 +18,7 @@ import type { Benutzer } from './anmeldung';
 export const werteAus = (m: ObjektModell, z: Record<string, unknown> | undefined): Werte =>
   Object.fromEntries(m.felder.map((f) => [f.name, f.art === 'zahl' && z?.[f.name] != null ? Number(z[f.name]) : ((z?.[f.name] ?? null) as Werte[string])]));
 
-export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer, ausdruckId: string, objektId: string): Promise<{ html: string; name: string; projekt: string | null; projektordner: string | null; ordner: string; d: Druckdaten; e: Einstellungen }> {
+export async function seiteBauen(db: Db, register: Modulregister, wer: Absender, ausdruckId: string, objektId: string): Promise<{ html: string; name: string; projekt: string | null; projektordner: string | null; ordner: string; d: Druckdaten; e: Einstellungen }> {
   const a = register.ausdrucke.find((x) => x.id === ausdruckId);
   if (!a) throw new Ablehnung('Diesen Ausdruck gibt es nicht');
   const m = register.modell(a.objekt)!;

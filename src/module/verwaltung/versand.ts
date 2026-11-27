@@ -4,7 +4,15 @@
 import type { Werte } from '../../kern/modell';
 
 type E = { id: string; werte: Werte };
-export interface Paket { an: string; ids: string[]; betreff: string; text: string }
+export interface Paket { an: string; ids: string[]; betreff: string; text: string; anhaenge?: Anhang[] }
+/** Anhang einer Nachricht – entsteht erst beim Versand aus dem dann aktuellen Stand, mit den Rechten der Person, die sie angelegt hat.
+ *  Gespeichert je Zeile: „druck|<Ausdruck>|<Kennung>“ (PDF des Druckwerks) oder „x83|<LV>“ (LV als GAEB ohne Preise). */
+export type Anhang = { art: 'druck'; ausdruck: string; id: string } | { art: 'x83'; id: string };
+export const anhangText = (a: Anhang) => (a.art === 'druck' ? `druck|${a.ausdruck}|${a.id}` : `x83|${a.id}`);
+export function anhaengeVon(w: Werte): Anhang[] {
+  return String(w.anhaenge ?? '').split('\n').map((z) => z.trim().split('|')).flatMap((t): Anhang[] =>
+    t[0] === 'druck' && t[1] && t[2] ? [{ art: 'druck', ausdruck: t[1], id: t[2] }] : t[0] === 'x83' && t[1] ? [{ art: 'x83', id: t[1] }] : []);
+}
 export interface Einstellung { buendeln?: string; uhrzeit?: string; letzter?: string }
 
 /** Ortszeit (Europe/Berlin) als „JJJJ-MM-TT“ und „HH:MM“. */
@@ -28,7 +36,7 @@ export function pakete(nachrichten: E[], jetzt: Date, e: Einstellung): { pakete:
   const { tag } = ortszeit(jetzt);
   const faellig = nachrichten.filter((n) => n.werte.stand === 'wartet' && String(n.werte.an ?? '').includes('@') && (!n.werte.faellig || String(n.werte.faellig) <= tag));
   const aus: Paket[] = faellig.filter((n) => n.werte.art !== 'erinnerung')
-    .map((n) => ({ an: String(n.werte.an), ids: [n.id], betreff: String(n.werte.betreff ?? ''), text: String(n.werte.text ?? '') }));
+    .map((n) => ({ an: String(n.werte.an), ids: [n.id], betreff: String(n.werte.betreff ?? ''), text: String(n.werte.text ?? ''), anhaenge: anhaengeVon(n.werte) }));
   const erinnerungen = faellig.filter((n) => n.werte.art === 'erinnerung');
   const lauf = erinnerungen.length ? buendelLauf(jetzt, e) : null;
   if (lauf) {

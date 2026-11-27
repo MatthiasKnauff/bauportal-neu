@@ -2,10 +2,10 @@
 // GAEB-Ausgabe. Ohne eigene Oberfläche, damit Kopf, Preisspiegel, LV, Besprechung, Aufträge und Rechnungen sie nutzen,
 // ohne einander einzubinden (vorher lag das in ava.tsx – Kreise ava ↔ avakopf/preisspiegel/lvbearbeiten/besprechung).
 import type { Zeile } from '../kern/befehl';
-import { auftragsstand, ausgeschrieben, type Auftragsstand, gp, gpVon, istZuschlag, zuschlagAuf, lvEp, lvMenge, nachKennung, nachOz, summeGeschaetzt, wertung, zaehlt, zahl } from '../module/ava/rechnung';
+import { auftragsstand, ausgeschrieben, type Auftragsstand, gp, gpVon, istZuschlag, lvEp, lvMenge, nachKennung, nachOz, summeGeschaetzt, wertung, zaehlt, zahl } from '../module/ava/rechnung';
 import { abgerechnetAus, standAus, zeilenBis } from '../module/ava/aufmass';
 import { epAus } from '../module/ava/freigabe';
-import { gaebSchreiben, type GaebPosten } from '../module/ava/gaeb';
+import { lvAlsX83 } from '../module/ava/gaeb';
 import { herunterladen } from './baukasten/herunterladen';
 import { lebende, sicht } from './unterbau/abgleich';
 
@@ -44,13 +44,10 @@ export function lvZahlen(lvId: string): LvZahlen {
 }
 
 /** Das LV als GAEB-Datei herunterladen: X83 Angebotsaufforderung (ohne Preise). */
-export function gaebAusgeben(lv: Zeile, dp: '83'): void {
-  const pos = positionenVon(lv.id).map((x): Omit<GaebPosten, 'kennung'> => ({ oz: String(x.werte.oz ?? ''), art: (x.werte.art || 'normal') as GaebPosten['art'], kurztext: String(x.werte.kurztext ?? ''), langtext: String(x.werte.langtext ?? ''),
-    menge: x.werte.menge == null ? null : zahl(x.werte.menge), einheit: String(x.werte.einheit ?? ''), ep: null,
-    ...(istZuschlag(x.werte.art) ? { zuschlagAuf: zuschlagAuf(x.werte).map((id) => String(sicht.lv_position?.[id]?.werte.oz ?? '')).filter(Boolean) } : {}) }));
+export function gaebAusgeben(lv: Zeile): void {
   const projekt = sicht.projekt?.[String(lv.werte.projekt)]?.werte;
-  const xml = gaebSchreiben({ projekt: [projekt?.nummer, projekt?.name].filter(Boolean).join(' '), name: String(lv.werte.name ?? ''), nummer: String(lv.werte.nummer ?? '') }, pos, dp);
-  herunterladen(xml, `${[lv.werte.nummer, lv.werte.name].filter(Boolean).join(' ') || 'LV'}.X${dp}`, 'application/xml');
+  const x = lvAlsX83(lv.werte, allePositionenVon(lv.id), [projekt?.nummer, projekt?.name].filter(Boolean).join(' '));
+  herunterladen(x.xml, x.name, 'application/xml');
 }
 
 

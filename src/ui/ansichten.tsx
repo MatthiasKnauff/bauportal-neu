@@ -44,7 +44,7 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
-import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvSummen, PositionSumme, ZuschlagAuf } from './ava';
+import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvUeberblick, PositionSumme, ZuschlagAuf } from './ava';
 import { RechnungLeiter, Rechnungen } from './rechnungen';
 import { AvaHandy } from './avahandy';
 import { planDerVersion } from './plandaten';
@@ -64,7 +64,8 @@ import { rechnungEinlesen } from './rechnungeinlesen';
 import { EingangAnsicht } from './dokumentablage';
 import { kontaktAuswahl } from './kontaktauswahl';
 import { PruefSchluessel } from './pruefki';
-import { MailVersand } from './versand';
+import { MailVersand, NachrichtAnhaenge } from './versand';
+import { AvaSuche } from './avasuche';
 
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
 
@@ -474,8 +475,9 @@ const ANPASSUNG: Record<string, Anpassung> = {
     details: (z, heftzwecke) => (berichtDetailsDa() || !handy() ? BerichtDetails(z, heftzwecke) : undefined),
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
+  nachricht: { kartenZusatz: (z) => <NachrichtAnhaenge nachricht={z} /> },
   // Ausschreibung: Summen in den Karten
-  lv: { kartenZusatz: (z) => <LvSummen lv={z} />, kartenEinschub: { vergabenummer: (z) => <VergabenummerVorschlag lv={z} /> } },
+  lv: { kartenOben: (z) => <LvUeberblick lv={z} />, kartenEinschub: { vergabenummer: (z) => <VergabenummerVorschlag lv={z} /> } },
   lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), kartenEinschub: { ep: (z) => <ZuschlagAuf pos={z} /> }, neuVorgabe: (vorh, schon) => {
     // im Nachtrag: dessen Nummer vorne (N1.0010, N1.0020 …), sonst hinter der letzten Position der Ausschreibung
     const nt = schon.nachtrag ? sicht.nachtrag?.[String(schon.nachtrag)] : undefined;
@@ -559,6 +561,9 @@ export function sichtbar(a: Ansicht): boolean {
 }
 
 // Ansicht, die zum oben gewählten Projekt gehört – bei Modulen mit Versionen zusätzlich zur gewählten Version.
+/** Links oben über den Ansichten einer App, in allen ihren Ansichten gleich (Ausschreibung: die Suche wie bisher). */
+const LINKS_OBEN: Record<string, () => JSX.Element> = { ava: AvaSuche };
+
 function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   const m = modell(p.ansicht.objekt!);
   const schluessel = `${p.modul.id}.${p.ansicht.id}`;
@@ -580,6 +585,8 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
     waehleVersion(pr, bereich!.bereich, id);
   };
   // Versionen links oben in der Gliederung (wie im bisherigen Bauportal); die Dialoge hängen einmal an der Seite
+  const appOben = LINKS_OBEN[p.modul.id];
+  const linksOben = () => <>{appOben?.()}{versionen_?.Wahl()}</>;
   const versionen_ = bereich ? versionenBauen({
     get titel() { return bereich!.titel; }, get versionen() { return versionen(); }, get aktiv() { return aktiv()?.id ?? null; },
     wege: bereich.wege, get darfAendern() { return darf('version', 'schreiben'); }, vorlagen,
@@ -621,9 +628,9 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
       <ObjektAnsicht schluessel={`${schluessel}.alle`} modell={m} baum={[m.projektFeld!, ...(p.ansicht.baum ?? [])]} anpassung={anpassung(m.name, schluessel)} unterMenue={umfangLeiste()}
         fest={() => ({ ...p.ansicht.filter })} />}>
     <Show when={projekt()} fallback={<Rahmen schluessel={schluessel} unterMenue={umfangMoeglich ? umfangLeiste() : undefined} inhalt={leer('Bitte oben ein Projekt wählen.')} />}>
-      <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={versionen_!.Dialoge()} linksOben={versionen_!.Wahl}
+      <Show when={!bereich || aktiv()} fallback={<Rahmen schluessel={schluessel} unterMenue={versionen_!.Dialoge()} linksOben={linksOben}
         inhalt={leerAnlegen()} />}>
-        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(m.name, schluessel)} unterMenue={bereich ? versionen_!.Dialoge() : umfangMoeglich ? umfangLeiste() : undefined} linksOben={versionen_?.Wahl}
+        <ObjektAnsicht schluessel={schluessel} modell={m} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(m.name, schluessel)} unterMenue={bereich ? versionen_!.Dialoge() : umfangMoeglich ? umfangLeiste() : undefined} linksOben={appOben || versionen_ ? linksOben : undefined}
           fest={() => ({ [m.projektFeld!]: projekt()!.id, ...(bereich ? { version: aktiv()!.id } : {}), ...p.ansicht.filter })} />
       </Show>
     </Show>

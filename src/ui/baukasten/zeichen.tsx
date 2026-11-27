@@ -2,7 +2,7 @@
 // Wer ein Symbol braucht, nimmt es hier; neue kommen in die Liste unten. Gezeichnet in der Textfarbe (currentColor).
 import type { JSX } from 'solid-js';
 import {
-  GripVertical, ArrowRightLeft, Database, IndentIncrease, IndentDecrease, ArrowUp, ArrowDown, Blocks, BookOpen, BookUser, Building2, Calendar, CalendarClock, CalendarPlus, Camera, ChartGantt, Check, ChevronDown, ChevronLeft,
+  Bell, GripVertical, ArrowRightLeft, Database, IndentIncrease, IndentDecrease, ArrowUp, ArrowDown, Blocks, BookOpen, BookUser, Building2, Calendar, CalendarClock, CalendarPlus, Camera, ChartGantt, Check, ChevronDown, ChevronLeft,
   ChevronRight, CircleCheck, CircleHelp, ClipboardCheck, ClipboardList, Cloud, Columns3, Contact, Copy, Diamond, Download, ExternalLink, Eye,
   FileDown, FileText, FileUp, Flag, Folder, FolderKanban, GitBranch, Grid3x3, History, House, ImagePlus, Info, KeyRound, LayoutGrid, Library,
   List, ListPlus, ListTree, Mail, MapPin, Merge, Mic, NotebookPen, NotebookText, PanelLeft, PanelRightClose, Paintbrush, Pencil, Plus, Printer,
@@ -25,7 +25,7 @@ const ZEICHEN = {
   bericht_neu: CalendarPlus, bericht: NotebookText, notiz: StickyNote, notiz_neu: NotebookPen, mangel: TriangleAlert, aufgabe: ClipboardCheck,
   weisung: Flag, person: User, haus: House, personen: Users, person_neu: UserPlus, kontakt: Contact, adressen: BookUser, projekte: FolderKanban, dateien: Folder,
   gebaeude: Building2, katalog: BookOpen, kataloge: Library, baudaten: Database, einruecken: IndentIncrease, ausruecken: IndentDecrease, nach_oben: ArrowUp, nach_unten: ArrowDown, version: GitBranch, meilenstein: Diamond, gruppe_neu: ListPlus, plan: ChartGantt,
-  anheften: Pin, loesen: PinOff, ablauf: Workflow, kritisch: Route, pfeile: Spline, groesser: ZoomIn, kleiner: ZoomOut, einpassen: Maximize2, zielen: Crosshair, bausteine: Blocks, modell3d: Box, ausschreibung: ScrollText, rechnung: Receipt, preisspiegel: Scale, aufmass: Ruler, vertrag: Handshake, nachtrag: FilePlus2, kosten: ChartColumn, telefon: PhoneCall, fensterliste: AppWindow, tuer: DoorOpen, farben: Palette, pruefung: ShieldCheck, liste_aufgaben: ClipboardList, start: House,
+  glocke: Bell, anheften: Pin, loesen: PinOff, ablauf: Workflow, kritisch: Route, pfeile: Spline, groesser: ZoomIn, kleiner: ZoomOut, einpassen: Maximize2, zielen: Crosshair, bausteine: Blocks, modell3d: Box, ausschreibung: ScrollText, rechnung: Receipt, preisspiegel: Scale, aufmass: Ruler, vertrag: Handshake, nachtrag: FilePlus2, kosten: ChartColumn, telefon: PhoneCall, fensterliste: AppWindow, tuer: DoorOpen, farben: Palette, pruefung: ShieldCheck, liste_aufgaben: ClipboardList, start: House,
 } satisfies Record<string, IconNode>;
 export type Zeichenname = keyof typeof ZEICHEN;
 export const istZeichen = (n: string): n is Zeichenname => n in ZEICHEN;

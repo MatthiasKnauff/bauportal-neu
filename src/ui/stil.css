@@ -353,16 +353,20 @@ main { flex: 1; min-height: 0; display: flex; }
 .ordner { flex: none; display: inline-flex; color: var(--warn); margin-right: 4px; } .ordner .zeichen { fill: var(--warn-hell); }
 .baum-titel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .baum-anzahl { font-size: 12px; color: var(--text-still); font-weight: 400; }
-.abfolge { flex: none; list-style: none; margin: 0; padding: 8px 12px; display: flex; gap: 4px; background: var(--flaeche); border-bottom: 1px solid var(--rand); overflow-x: auto; }
-.abfolge li { display: flex; align-items: center; }
-.abfolge li + li::before { content: ''; width: 18px; height: 2px; background: var(--rand-stark); margin: 0 4px; }
-.abfolge li.erledigt + li::before, .abfolge li.erledigt::before { background: var(--akzent); }
-.abfolge button { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px 0 6px; border: 1px solid var(--rand-stark); border-radius: 99px; background: var(--flaeche); cursor: pointer; white-space: nowrap; color: var(--text-still); }
+.abfolge { flex: none; list-style: none; margin: 0; padding: 6px 12px 0; display: flex; gap: 2px; background: var(--flaeche); border-bottom: 1px solid var(--rand); }
+/* Reiter über die ganze Breite wie im bisherigen Bauportal: Balken unten zeigt den Stand, der offene Schritt ist hinterlegt (27.11.2026) */
+.abfolge li { flex: 1 1 0; min-width: 0; display: flex; }
+.abfolge button { flex: 1; min-width: 0; min-height: 31px; padding: 3px 4px 4px; border: 0; border-bottom: 7px solid var(--rand); border-radius: calc(3px * var(--rund)) calc(3px * var(--rund)) 0 0; background: transparent; color: var(--text-still);
+  font: inherit; font-size: 12px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.abfolge button:hover:not(:disabled) { color: var(--text); }
 .abfolge button:disabled { cursor: default; opacity: 1; }
-.abfolge b { width: 22px; height: 22px; border-radius: 50%; background: var(--rand-stark); color: var(--auf-akzent); font-size: 12px; display: flex; align-items: center; justify-content: center; }
-.abfolge li.erledigt button { border-color: var(--akzent); color: var(--text); } .abfolge li.erledigt b { background: var(--akzent); }
-.abfolge li.aktiv button { border-color: var(--akzent); background: var(--akzent-hell); color: var(--akzent); font-weight: 600; } .abfolge li.aktiv b { background: var(--akzent); }
-.abfolge li.hier button { border-style: dashed; border-color: var(--akzent); color: var(--text); }
+.abfolge b { display: none; }
+.abfolge li.erledigt button { border-bottom-color: var(--akzent); color: var(--text); }
+.abfolge li.aktiv button { border-bottom-color: var(--akzent); color: var(--akzent); font-weight: 700; }
+.abfolge li[aria-current] button { background: color-mix(in srgb, var(--akzent) 24%, transparent); color: var(--text); font-weight: 800; }
+.abfolge li[aria-current] span::before { content: '▸ '; font-size: 10px; }
+.abfolge li.aktiv[aria-current] span::before { content: none; }
+.abfolge li.hier button { color: var(--text); }
 .abfolge li.weg button { opacity: .45; text-decoration: line-through; }
 /* Kopf einer Ansicht über Abfolge und Menüleiste (z. B. AVA: das gewählte LV, Stand, Vergabe, Eckdaten) */
 .ansicht-kopf { flex: none; display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 8px 14px; background: var(--flaeche); border-bottom: 1px solid var(--rand); }
@@ -1563,7 +1567,6 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .bt-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .unterliste li.ziel { outline: 2px dashed var(--akzent); outline-offset: 2px; background: var(--akzent-hell); }
 .lv-kette { margin: 6px 0 10px 18px; } .lv-sicher { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-weight: 600; }
-.lvt-suche { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; } .lvt-suche input { flex: 0 1 340px; min-height: 32px; padding: 0 10px; border: 1px solid var(--rand-stark); border-radius: calc(8px * var(--rund)); background: var(--flaeche); font: inherit; font-size: 13.5px; }
 /* Auftragskarte rechts: Text bricht um, Beträge bleiben in einer Zeile – kein waagerechtes Rollen in der schmalen Karte */
 .preisspiegel.auftraege { width: 100%; } .preisspiegel.auftraege td, .preisspiegel.auftraege th { white-space: normal; } .preisspiegel.auftraege .zahl { white-space: nowrap; }
 .preisspiegel.auftraege { table-layout: fixed; } .preisspiegel.auftraege th:nth-child(1) { width: 46px; } .preisspiegel.auftraege th:nth-child(3) { width: 118px; } .preisspiegel.auftraege th:nth-child(4) { width: 92px; }
@@ -1578,3 +1581,28 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .bsp-rueckweg { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; } .bsp-rueckweg label { display: flex; gap: 8px; align-items: flex-start; }
 .lvt-zelle.mit-hinweis { position: relative; } .lvt-zelle.mit-hinweis::after { content: ""; position: absolute; top: 2px; right: 2px; border: 4px solid transparent; border-top-color: var(--akzent); border-right-color: var(--akzent); }
 .zuschlag-auf { grid-column: 1 / -1; display: grid; gap: 6px; } .zuschlag-auf ul { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); } .zuschlag-auf li { padding: 3px 8px; border-bottom: 1px solid var(--rand); } .zuschlag-auf .reihe { display: flex; gap: 8px; align-items: center; }
+.mail-an { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 12px; max-height: 180px; overflow-y: auto; font-size: 13px; }
+.mail-an legend { font-weight: 600; }
+.mail-an label { display: flex; align-items: baseline; gap: 6px; min-width: 0; } .mail-an small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* LV-Überblick oben in der Karte – Werte wie bisher (Details rechts) */
+.lv-ueberblick { display: grid; gap: 10px; margin: 0 0 12px; }
+.lvu-stufen { display: flex; gap: 3px; } .lvu-stufen > div { flex: 1; display: grid; gap: 3px; min-width: 0; }
+.lvu-stufen i { height: 6px; border-radius: 9px; background: var(--rand); } .lvu-stufen .fertig i { background: var(--gut); } .lvu-stufen .jetzt i { background: var(--warn); }
+.lvu-stufen span { font-size: 11px; color: var(--text-still); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lvu-kacheln { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.lvu-kacheln > div { min-width: 0; padding: 5px 8px; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); }
+.lvu-kacheln small, .lvu-kacheln span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-still); font-size: 11.5px; } .lvu-kacheln b { font-size: 15px; white-space: nowrap; }
+.lvu-balken { display: grid; gap: 3px; } .lvu-balken > div:first-child { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-still); }
+.lvu-spur { height: 6px; border-radius: 9px; background: var(--rand); overflow: hidden; } .lvu-spur i { display: block; height: 100%; border-radius: 9px; background: var(--akzent); } .lvu-spur i.ueber { background: var(--gefahr); }
+.lvu-warn { margin: 0; padding: 6px 9px; border-radius: calc(8px * var(--rund)); background: #fdf3e1; color: #8a5a12; font-size: 13px; }
+
+/* Suche der Ausschreibung links oben (wie bisher): Feld, „dieses LV · Projekt · alle Projekte“, Treffer darunter */
+.ava-suche { display: grid; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--rand); }
+.ava-suche input { min-height: 32px; padding: 0 10px; border: 1px solid var(--rand-stark); border-radius: calc(8px * var(--rund)); background: var(--flaeche); color: var(--text); font: inherit; font-size: 13px; }
+.ava-suche .auswahl { --wahl-abstand: 2px; flex-wrap: nowrap; } .ava-suche .auswahl button { flex: 1 1 auto; min-height: 26px; padding: 0 6px; font-size: 12px; }
+.ava-treffer { display: grid; gap: 3px; max-height: 40vh; overflow-y: auto; }
+.ava-treffer button { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 6px; align-items: baseline; padding: 4px 8px; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); background: var(--flaeche); color: var(--text); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.ava-treffer button:hover { border-color: var(--akzent); }
+.ava-treffer b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ava-treffer small { grid-column: 1 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-still); }
+.lvt-treffer { margin: 0 0 6px; }
+.vr-stand { color: var(--gut); font-size: 12px; white-space: nowrap; }

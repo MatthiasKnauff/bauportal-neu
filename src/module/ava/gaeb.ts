@@ -4,7 +4,9 @@
 // Bedarfs-, Wahl- und Pauschalpositionen, Hinweistexte. Ältere Formate (GAEB 90/2000) bitte im anderen Programm als DA XML ausgeben.
 import { alleText, kind, xmlLesen, xmlText, type XmlKnoten } from '../../kern/xml';
 import { gaebFeld, gaebText, gaebZusammen } from '../../kern/textergaenzung';
-import { istHinweis } from '../../kern/lvarten';
+import { istHinweis, istZuschlag, zuschlagAuf } from '../../kern/lvarten';
+import type { Werte } from '../../kern/modell';
+import { nachOz } from '../../kern/oz';
 
 export interface GaebPosten {
   kennung: string;                 // ID aus der Datei oder die OZ – bleibt beim nächsten Einlesen derselbe Eintrag
@@ -113,9 +115,10 @@ const p = (t: string) => t.split('\n').map((z) => `<p><span>${xmlText(z)}</span>
 
 /** Ein LV als GAEB DA XML: dp „83“ (Angebotsaufforderung, ohne Preise) oder „84“/„86“ mit Einheitspreisen (preis je Position). */
 export function gaebSchreiben(lv: { projekt: string; name: string; nummer: string }, posten: Omit<GaebPosten, 'kennung'>[], dp: '83' | '84' | '86', preis?: (oz: string) => number | null): string {
-  // Gliederung aus den OZ: Titel enthalten, was mit ihrer OZ + „.“ beginnt
+  // Gliederung aus den OZ: jede Zeile gehört zum längsten Titel, mit dessen OZ + „.“ sie beginnt – ohne passenden Titel zur obersten Ebene
   const titel = posten.filter((x) => x.art === 'titel');
-  const unter = (oz: string) => posten.filter((x) => (oz ? x.oz.startsWith(`${oz}.`) : true) && x.oz.slice(oz ? oz.length + 1 : 0).split('.').length === 1 && x.oz !== oz);
+  const oben = (x: Omit<GaebPosten, 'kennung'>) => titel.filter((t) => t !== x && t.oz && x.oz.startsWith(`${t.oz}.`)).reduce((a, t) => (t.oz.length > a.length ? t.oz : a), '');
+  const unter = (oz: string) => posten.filter((x) => oben(x) === oz);
   const teil = (oz: string, vorne: string) => (vorne ? oz.slice(vorne.length + 1) : oz);
   let n = 0;
   const id = () => `ID_${++n}`;
@@ -135,11 +138,22 @@ export function gaebSchreiben(lv: { projekt: string; name: string; nummer: strin
       + `<Description><CompleteText><DetailTxt><Text>${x.langtext ? gaebText(x.langtext) : p(x.kurztext)}</Text></DetailTxt><OutlineText><OutlTxt><TextOutlTxt>${p(x.kurztext)}</TextOutlTxt></OutlTxt></OutlineText></CompleteText></Description></Item>`;
   };
   const body = (vorne: string): string => {
-    const hier = vorne ? unter(vorne) : posten.filter((x) => (x.oz && !x.oz.includes('.')) || (!x.oz && !titel.length));
+    const hier = unter(vorne);
     const ctg = hier.filter((x) => x.art === 'titel').map((t) => `<BoQCtgy ID="${id()}" RNoPart="${xmlText(teil(t.oz, vorne))}"><LblTx>${p(t.kurztext)}</LblTx><BoQBody>${body(t.oz)}</BoQBody></BoQCtgy>`).join('');
     const items = hier.filter((x) => x.art !== 'titel');
     return ctg + (items.length ? `<Itemlist>${items.map((x) => item(x, vorne)).join('')}</Itemlist>` : '');
   };
   return `<?xml version="1.0" encoding="UTF-8"?>\n<GAEB xmlns="http://www.gaeb.de/GAEB_DA_XML/DA${dp}/3.2"><GAEBInfo><Version>3.2</Version><ProgSystem>Bauportal</ProgSystem><Date>${new Date().toISOString().slice(0, 10)}</Date></GAEBInfo>`
     + `<PrjInfo><NamePrj>${xmlText(lv.projekt)}</NamePrj></PrjInfo><Award><DP>${dp}</DP><BoQ ID="${id()}"><BoQInfo><Name>${xmlText(lv.nummer)}</Name><LblBoQ>${xmlText(lv.name)}</LblBoQ></BoQInfo><BoQBody>${body('')}</BoQBody></BoQ></Award></GAEB>\n`;
+}
+
+/** Das LV als GAEB X83 für die Bieter:innen (ohne Preise, ohne Nachträge) – derselbe Weg für „Herunterladen“ und den Anhang beim Versand. */
+export function lvAlsX83(lv: Werte, positionen: { id: string; werte: Werte }[], projekt: string): { xml: string; name: string } {
+  const pos = nachOz(positionen.filter((x) => !x.werte.nachtrag));
+  const oz = new Map(pos.map((x) => [x.id, String(x.werte.oz ?? '')]));
+  const posten = pos.map((x): Omit<GaebPosten, 'kennung'> => ({ oz: String(x.werte.oz ?? ''), art: (x.werte.art || 'normal') as GaebPosten['art'], kurztext: String(x.werte.kurztext ?? ''),
+    langtext: String(x.werte.langtext ?? ''), menge: x.werte.menge == null ? null : Number(x.werte.menge), einheit: String(x.werte.einheit ?? ''), ep: null,
+    ...(istZuschlag(x.werte.art) ? { zuschlagAuf: zuschlagAuf(x.werte).map((id) => oz.get(id) ?? '').filter(Boolean) } : {}) }));
+  return { xml: gaebSchreiben({ projekt, name: String(lv.name ?? ''), nummer: String(lv.nummer ?? '') }, posten, '83'),
+    name: `${[lv.nummer, lv.name].filter(Boolean).join(' ') || 'LV'}.X83` };
 }

@@ -127,6 +127,7 @@ export const nachricht: ObjektModell = {
     { name: 'kontakt', titel: 'Kontakt', art: 'verweis', ziel: 'kontakt', spalte: true, breite: 200, gruppe: 'Nachricht' },
     { name: 'betreff', titel: 'Betreff', art: 'text', pflicht: true, inListe: true, breite: 320, gruppe: 'Nachricht' },
     { name: 'text', titel: 'Text', art: 'langtext', gruppe: 'Nachricht' },
+    { name: 'anhaenge', titel: 'Anhänge (entstehen beim Versand)', art: 'langtext', verborgen: true },   // je Zeile „druck|Ausdruck|Kennung“ oder „x83|LV“ (versand.ts)
     { name: 'art', titel: 'Art', art: 'auswahl', inListe: true, breite: 110, kartenBreite: 2, gruppe: 'Versand',
       optionen: [{ wert: 'mitteilung', titel: 'Mitteilung (gleich)' }, { wert: 'erinnerung', titel: 'Erinnerung (gebündelt)' }] },
     { name: 'faellig', titel: 'Fällig ab (leer: gleich)', art: 'datum', inListe: true, breite: 110, kartenBreite: 2, gruppe: 'Versand' },

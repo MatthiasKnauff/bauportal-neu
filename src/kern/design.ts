@@ -119,6 +119,8 @@ export const SCHRIFTWAHL: [string, string, string][] = [
 ];
 /** Schriftgröße: Maßstab der ganzen Oberfläche in Prozent (Schieberegler). */
 export const SCHRIFTMASS = { min: 80, max: 130, schritt: 5 };
+/** So dicht wie das bisherige Bauportal (Schrift 12 px statt 15 px). */
+export const DICHT_WIE_BISHER = 80;
 export const schriftmass = (w: unknown): number => { const n = Number(w); return Number.isFinite(n) && n > 0 ? Math.min(SCHRIFTMASS.max, Math.max(SCHRIFTMASS.min, n)) : 100; };
 /** Feinheiten des Stils (Feld der Design-Wahl → Werte); '' = Vorgabe. */
 export const STIL: { feld: string; titel: string; werte: [string, string][] }[] = [

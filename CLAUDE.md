@@ -27,6 +27,7 @@ TypeScript (Server und Oberfläche, SolidJS), PostgreSQL; Python nur für Hilfsd
 - **Nicht anhalten** (26.11.2026): ohne Pause weiterarbeiten, Rückfragen sammeln – Matthias fragt regelmäßig selbst, ob Fragen offen sind.
 - **Reihenfolge halten** (26.11.2026): Was Matthias zwischendurch in den Chat wirft, kommt auf die Liste – nicht sofort einschieben. Bei der eigenen Reihenfolge bleiben, außer er sagt ausdrücklich etwas anderes.
 - **Zwischenstände etwa halbstündlich** auf den Testserver pushen (wenn grün).
+- **App fertig melden** (27.11.2026): Wenn eine App aus Sicht von Claude durch ist, ausdrücklich melden („App X durch – bitte ansehen“) mit kurzer Liste: was da ist, was bewusst anders/weggelassen ist, wo Matthias draufschauen soll.
 - **Alle Apps nachbauen** (26.11.2026): Alle Apps des alten Bauportals dürfen nachgebaut werden, außer es widerspricht diesen Regeln oder dem neuen Konzept (dann als Frage sammeln).
 - Zeitangaben nicht in Entwickler-Tagen/Wochen.
 - Handbuch und Dokumentation nicht nach jedem Build neu erstellen – nur auf Zuruf.

@@ -20,28 +20,54 @@ import { hinweis } from './unterbau/meldungen';
 import { BieterDazu } from './preisspiegel';
 import { allePositionenVon, angeboteVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon, type LvZahlen } from './avadaten';
 import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
+import { LAEUFE, laufText, vorab, type Lauf } from '../module/ava/bieterversand';
+import { STUFEN, lvLage } from '../module/ava/lvlage';
+import { BUERO_ID } from '../module/verwaltung/beipackzettel';
+import { mailSchreiben } from './versand';
 
 const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** Karte eines LV: die Summen – geschätzt, Angebote (günstigstes), Auftrag, abgerechnet. */
-export function LvSummen(p: { lv: Zeile }): JSX.Element {
-  const pos = () => positionenVon(p.lv.id);
+const heute = () => new Date().toLocaleDateString('sv');
+
+/** Überblick des LV oben in der Karte (wie bisher „Details“): Stand in vier Stufen, Schätzung · Auftrag · Nachträge,
+ *  Leistungsfortschritt aus dem Aufmaß, was das LV enthält, gelbe Hinweise nur bei Fehlendem oder naher Frist. */
+export function LvUeberblick(p: { lv: Zeile }): JSX.Element {
+  const pos = () => allePositionenVon(p.lv.id);
   const z = createMemo(() => lvZahlen(p.lv.id));
+  const ang = () => angeboteVon(p.lv.id);
+  const lage = createMemo(() => { const pr = preiseVon(ang()); const mitPreis = new Set([...pr.values()].map((x) => String(x.werte.angebot)));
+    return lvLage(p.lv.werte, pos(), ang(), { vergeben: !!z().auftrag, abgerechnet: z().abgerechnet, heute: heute(), hatAngebot: (a) => !!a.werte.eingang || mitPreis.has(a.id) }); });
+  const gesamt = () => z().haupt + z().stand.beauftragt;
+  const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
+  const e0 = (n: number) => `${Math.round(n).toLocaleString('de-DE')} €`;
   return (
-    <div class="ava-summen">
-      <h3>Summen netto</h3>
+    <div class="lv-ueberblick">
+      <div class="lvu-stufen" role="img" aria-label={`Stand: ${STUFEN[lage().stufe]}`}>
+        <For each={STUFEN}>{(s, i) => <div classList={{ fertig: i() < lage().stufe || (i() === 3 && lage().stufe === 3), jetzt: i() === lage().stufe && lage().stufe < 3 }}><i /><span>{s}</span></div>}</For>
+      </div>
+      <div class="lvu-kacheln">
+        <div><small>Schätzung</small><b>{z().schaetzung ? e0(z().schaetzung) : '–'}</b></div>
+        <div><small>Auftrag</small><b>{z().auftrag ? e0(z().haupt) : '–'}</b><Show when={z().auftrag}><span>{name(z().auftrag!.werte.bieter)}</span></Show></div>
+        <div><small>Nachträge</small><b>{z().stand.beauftragt ? `+ ${e0(z().stand.beauftragt)}` : '–'}</b><Show when={z().stand.offen}><span>offen {e0(z().stand.offen)}</span></Show></div>
+      </div>
+      <Show when={z().auftrag && gesamt() > 0}>
+        <div class="lvu-balken"><div><span>Leistungsfortschritt (Aufmaß)</span><span>{e0(z().leistung)} · {pct(z().leistung, gesamt())} %</span></div>
+          <div class="lvu-spur"><i classList={{ ueber: z().leistung > gesamt() }} style={{ width: `${Math.min(100, pct(z().leistung, gesamt()))}%` }} /></div></div>
+      </Show>
       <dl class="angaben">
-        <dt>Positionen</dt><dd>{pos().filter((x) => x.werte.art !== 'titel').length}</dd>
-        <dt>geschätzt</dt><dd>{eur(z().schaetzung)} €</dd>
-        <Show when={zahl(p.lv.werte.budget)}><dt>Kostenansatz</dt><dd>{eur(zahl(p.lv.werte.budget))} €</dd></Show>
-        <Show when={angeboteVon(p.lv.id).length}><dt>Angebote</dt><dd>{angeboteVon(p.lv.id).length}{z().bestes != null ? ` · günstigstes ${eur(z().bestes!)} € (${z().besterBieter})` : ''}</dd></Show>
-        <Show when={z().auftrag}>{(a) => <><dt>Auftrag</dt><dd>{name(a().werte.bieter)} · {eur(z().haupt)} €</dd></>}</Show>
-        <Show when={z().stand.beauftragt || z().stand.offen}><dt>Nachträge</dt><dd>{eur(z().stand.beauftragt)} € beauftragt{z().stand.offen ? ` · ${eur(z().stand.offen)} € offen` : ''}</dd></Show>
-        <Show when={z().rechnungen}><dt>abgerechnet</dt><dd>{eur(z().abgerechnet)} € in {z().rechnungen} {z().rechnungen === 1 ? 'Rechnung' : 'Rechnungen'}</dd></Show>
+        <dt>Positionen</dt><dd>{lage().positionen}{lage().bedarf || lage().wahl ? ` · davon ${[lage().bedarf ? `${lage().bedarf} Bedarf` : '', lage().wahl ? `${lage().wahl} Wahl` : ''].filter(Boolean).join(', ')}` : ''}</dd>
+        <dt>Gliederungspunkte</dt><dd>{lage().titel}</dd>
+        <dt>Vorbemerkungen</dt><dd>{lage().vorbemerkungen ? `✓ ${lage().vorbemerkungen} ${lage().vorbemerkungen === 1 ? 'Text' : 'Texte'}` : '–'}</dd>
+        <Show when={lage().angeschrieben || lage().angebote}><dt>{lage().angeschrieben ? 'Versendet' : 'Angebote'}</dt>
+          <dd>{lage().angeschrieben ? `an ${lage().angeschrieben} · ` : ''}{lage().angebote} {lage().angebote === 1 ? 'Angebot' : 'Angebote'}{z().bestes != null ? ` · günstigstes ${e0(z().bestes!)} (${z().besterBieter})` : ''}</dd></Show>
+        <Show when={zahl(p.lv.werte.budget)}><dt>Kostenansatz</dt><dd>{e0(zahl(p.lv.werte.budget))}</dd></Show>
+        <Show when={z().rechnungen}><dt>abgerechnet</dt><dd>{e0(z().abgerechnet)}{gesamt() ? ` (${pct(z().abgerechnet, gesamt())} %)` : ''} · {z().rechnungen} {z().rechnungen === 1 ? 'Rechnung' : 'Rechnungen'}</dd></Show>
       </dl>
-      <h3>GAEB</h3>
+      <Show when={lage().warnungen.length}><p class="lvu-warn" role="note">{lage().warnungen.join(' · ')}</p></Show>
       <div class="reihe">
-        <button type="button" class="knopf" disabled={!pos().length} title="Angebotsaufforderung: das LV ohne Preise für die Bieter:innen" onClick={() => gaebAusgeben(p.lv, '83')}>X83 ausgeben</button>
-        <Show when={darf('lv_position', 'schreiben')}><button type="button" class="knopf" title="X83/X86: Positionen mit diesem LV abgleichen · X84: ein Angebot mit Preisen einlesen" onClick={() => gaebEinlesen(String(p.lv.werte.projekt), p.lv.id)}>Einlesen …</button></Show>
+        <button type="button" class="knopf klein" onClick={() => druckOeffnen('ava.lv', p.lv.id)}>Drucken</button>
+        <button type="button" class="knopf klein" disabled={!positionenVon(p.lv.id).length} title="Angebotsaufforderung: das LV ohne Preise für die Bieter:innen" onClick={() => gaebAusgeben(p.lv)}>X83 ausgeben</button>
+        <Show when={darf('lv_position', 'schreiben')}><button type="button" class="knopf klein" title="X83/X86: Positionen mit diesem LV abgleichen · X84: ein Angebot mit Preisen einlesen" onClick={() => gaebEinlesen(String(p.lv.werte.projekt), p.lv.id)}>GAEB einlesen …</button></Show>
       </div>
     </div>
   );
@@ -188,7 +214,6 @@ export function Kostenkontrolle(p: Mitte): JSX.Element {
   );
 }
 
-const heute = () => new Date().toLocaleDateString('sv');
 /** Bieter:in aus dem LV nehmen: Angebot mit seinen Preisen in den Papierkorb – ein Rückgängig für alles. */
 function bieterEntfernen(a: Zeile): void {
   if (a.werte.beauftragt === true) { hinweis('Die beauftragte Bieter:in lässt sich erst nach „Vergabe aufheben“ entfernen.', { art: 'fehler' }); return; }
@@ -234,15 +259,36 @@ function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string
 }
 
 /** Versand & Rücklauf (wie im bisherigen Bauportal): je LV die angeschriebenen Bieter:innen – Rückmeldung, Nachfassen, Eingang –
- *  mit Fristen und Zählern; Unterlagen als GAEB X83. Das Verschicken per E-Mail kommt über die zentrale Versandstelle. */
+ *  mit Fristen und Zählern; Unterlagen als PDF und GAEB X83 – verschickt über die zentrale Versandstelle (Postausgang). */
 export function Versand(p: Mitte): JSX.Element {
   const lv = () => lvVon(p);
   const bieter = createMemo(() => (lv() ? angeboteVon(lv()!.id) : []));
   const z = createMemo(() => ruecklaufZaehlen(bieter()));
   const [dazu, setDazu] = createSignal(false);
   const feld = (n: string) => modell('lv').felder.find((f) => f.name === n)!;
+  /** Wie bisher je Datei: noch nicht verschickt · wartet im Postausgang · verschickt am … (aus den Nachrichten mit diesen Unterlagen) */
+  const unterlagenStand = createMemo(() => {
+    const l = lv(); if (!l) return '';
+    const n = lebende('nachricht').filter((x) => String(x.werte.anhaenge ?? '').includes(`x83|${l.id}`));
+    const am = n.map((x) => String(x.werte.verschickt_am ?? '')).filter(Boolean).sort().at(-1);
+    if (am) return `verschickt am ${am.slice(8, 10)}.${am.slice(5, 7)}.${am.slice(0, 4)}`;
+    return n.some((x) => x.werte.stand === 'wartet') ? 'wartet im Postausgang' : n.some((x) => x.werte.stand === 'zurueckgehalten') ? 'zurückgehalten (Testserver)' : 'noch nicht verschickt';
+  });
+  /** Ein Lauf über den einen Mail-Dialog: Unterlagen entstehen beim Versand, „angeschrieben am“ hält derselbe Schritt fest. */
+  const anBieter = (lauf: Lauf) => {
+    const l = lv()!, b = bieter(), t = laufText(lauf, l.werte, sicht.projekt?.[String(l.werte.projekt)]?.werte, sicht.buero?.[BUERO_ID]?.werte);
+    const dateiname = [l.werte.nummer, l.werte.name].filter(Boolean).join(' ');
+    mailSchreiben({ titel: LAEUFE[lauf].titel, projekt: String(l.werte.projekt ?? '') || undefined, betreff: t.betreff, text: t.text,
+      ids: b.map((a) => String(a.werte.bieter)), vorab: vorab(lauf, b).map((a) => String(a.werte.bieter)),
+      anhaenge: LAEUFE[lauf].unterlagen ? [{ titel: `LV ${dateiname}.pdf`, anhang: { art: 'druck', ausdruck: 'ava.lv', id: l.id } }, { titel: `LV ${dateiname}.X83`, anhang: { art: 'x83', id: l.id } }] : undefined,
+      quelle: (k) => `angebot|${b.find((a) => a.werte.bieter === k)?.id ?? ''}`,
+      dazu: lauf === 'versand' ? (ks) => b.filter((a) => ks.includes(String(a.werte.bieter)) && !a.werte.angeschrieben)
+        .map((a) => ({ objekt: 'angebot', art: 'aendern' as const, objektId: a.id, werte: { angeschrieben: heute() } })) : undefined });
+  };
   createEffect(() => p.setKnoepfe([
     ...(lv() && darf('angebot', 'schreiben') ? [{ titel: 'Bieter:in', zeichen: 'person_neu', gruppe: 'Neu', tun: () => setDazu(true) }] : []),
+    ...(lv() && bieter().length ? (['versand', 'erinnerung', 'nachversand'] as Lauf[]).map((l) => ({ titel: LAEUFE[l].knopf, zeichen: l === 'erinnerung' ? 'glocke' : 'senden', gruppe: 'Versand',
+      gesperrt: !darf('nachricht', 'schreiben') || (l !== 'versand' && !bieter().some((a) => a.werte.angeschrieben)), tun: () => anBieter(l) })) : []),
     { titel: 'Nachverfolgen', zeichen: 'telefon', gruppe: 'Nachverfolgen', tun: () => springeZu('lv', lv()?.id ?? '', { modul: 'ava', ansicht: 'nachverfolgen' }) },
     ...(lv() && bieter().length ? [{ titel: 'Bieterliste', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => {
       const l = lv()!; verzeichnisDrucken('ava.bieterliste', [{ titel: 'Die Bieter:innen dieses LV', ids: bieter().map((a) => a.id), filter: `LV ${String(l.werte.nummer ?? '')} ${String(l.werte.name ?? '')}`.trim() }]);
@@ -264,10 +310,10 @@ export function Versand(p: Mitte): JSX.Element {
         <section class="vr-unterlagen" aria-label="Unterlagen für die Bieter:innen">
           <h3>Unterlagen für die Bieter:innen · 2 Dateien</h3>
           <div class="vr-datei"><Zeichen name="pdf" groesse={16} /><span><b>LV {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' ')}.pdf</b><small>LV ohne Preise – entsteht beim Senden aus dem aktuellen Stand</small></span>
-            <span class="pille">immer dabei</span><button type="button" class="knopf klein" onClick={() => druckOeffnen('ava.lv', lv()!.id)}>Ansehen</button></div>
+            <span class="pille">immer dabei</span><span class="vr-stand">{unterlagenStand()}</span><button type="button" class="knopf klein" onClick={() => druckOeffnen('ava.lv', lv()!.id)}>Ansehen</button></div>
           <div class="vr-datei"><Zeichen name="datei_runter" groesse={16} /><span><b>LV {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' ')}.x83</b><small>LV als GAEB-Datei – für die Kalkulation der Bieter:innen</small></span>
-            <span class="pille">GAEB</span><button type="button" class="knopf klein" disabled={!positionenVon(lv()!.id).length} onClick={() => gaebAusgeben(lv()!, '83')}>Herunterladen</button></div>
-          <p class="still-text klein-text">Verschicken per E-Mail kommt über die zentrale Versandstelle des Bauportals – bis dahin die Dateien herunterladen und selbst senden.</p>
+            <span class="pille">GAEB</span><span class="vr-stand">{unterlagenStand()}</span><button type="button" class="knopf klein" disabled={!positionenVon(lv()!.id).length} onClick={() => gaebAusgeben(lv()!)}>Herunterladen</button></div>
+          <p class="still-text klein-text">„An Bieter:innen senden“ legt je Firma eine Mail in den Postausgang; PDF und X83 entstehen beim Verschicken aus dem dann aktuellen Stand.</p>
         </section>
         <h3 class="vr-titel">Bieter:innen</h3>
         <Show when={bieter().length} fallback={<p class="hinweis-kasten">Noch keine Bieter:innen – oben „Bieter:in“ (Firmen mit passendem Gewerk stehen zuerst). Wer im Preisspiegel ein Angebot hat, steht hier von selbst.</p>}>

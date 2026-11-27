@@ -2091,3 +2091,68 @@ test('Versandstelle: Mitteilungen gleich, Erinnerungen einmal am Tag je Adresse 
   assert.equal(v.anredeVon({ anrede: 'Frau', ansprechpartner: 'Erika Muster' }), 'Sehr geehrte Frau Muster,');
   assert.equal(v.anredeVon({ name: 'Muster GmbH' }), 'Sehr geehrte Damen und Herren,');
 });
+
+test('Versand an Bieter:innen: Texte, wer vorab angehakt ist, Anhänge und X83 ohne Preise und Nachträge', async () => {
+  const b = await import('../src/module/ava/bieterversand');
+  const v = await import('../src/module/verwaltung/versand');
+  const { lvAlsX83 } = await import('../src/module/ava/gaeb');
+  const t = b.laufText('versand', { nummer: '03', name: 'Rohbau', abgabe: '2026-12-10', rueckmeldung_bis: '2026-12-01' }, { nummer: '24-07', name: 'Tierheim' }, { name: 'GK3' });
+  assert.equal(t.betreff, 'Angebotsanfrage LV 03 Rohbau – 24-07 Tierheim');
+  assert.ok(t.text.startsWith('{anrede}') && t.text.includes('bis 01.12.2026') && t.text.includes('bis 10.12.2026') && t.text.endsWith('GK3'));
+  const A: { id: string; werte: Record<string, string> }[] = [{ id: 'a', werte: {} }, { id: 'b', werte: { angeschrieben: '2026-11-20' } }, { id: 'c', werte: { angeschrieben: '2026-11-20', rueckmeldung: 'gibt_nicht_ab' } },
+    { id: 'd', werte: { angeschrieben: '2026-11-20', eingang: '2026-11-25' } }, { id: 'e', werte: { angeschrieben: '2026-11-20', rueckmeldung: 'will_abgeben' } }];
+  assert.deepEqual(b.vorab('versand', A).map((x) => x.id), ['a']);
+  assert.deepEqual(b.vorab('erinnerung', A).map((x) => x.id), ['b']);
+  assert.deepEqual(b.vorab('nachversand', A).map((x) => x.id), ['b', 'd', 'e']);
+  const anh = v.anhaengeVon({ anhaenge: 'druck|ava.lv|L1\nx83|L1\nunsinn|x' });
+  assert.deepEqual(anh, [{ art: 'druck', ausdruck: 'ava.lv', id: 'L1' }, { art: 'x83', id: 'L1' }]);
+  assert.equal(anh.map(v.anhangText).join('\n'), 'druck|ava.lv|L1\nx83|L1');
+  assert.deepEqual(v.pakete([{ id: '1', werte: { an: 'a@b.de', stand: 'wartet', art: 'mitteilung', anhaenge: 'x83|L1' } }], new Date(), {}).pakete[0]!.anhaenge, [{ art: 'x83', id: 'L1' }]);
+  const x = lvAlsX83({ nummer: '03', name: 'Rohbau' }, [{ id: 'p2', werte: { oz: '01.0020', kurztext: 'Mauerwerk', menge: 10, einheit: 'm²', ep: 50 } },
+    { id: 'p1', werte: { oz: '01.0010', kurztext: 'Aushub', menge: 5, einheit: 'm³', ep: 20 } }, { id: 'n', werte: { oz: '01.0030', kurztext: 'Nachtrag', nachtrag: true } }], 'Tierheim');
+  assert.equal(x.name, '03 Rohbau.X83');
+  assert.ok(x.xml.indexOf('Aushub') < x.xml.indexOf('Mauerwerk') && !x.xml.includes('Nachtrag') && !x.xml.includes('<UP>'));
+});
+
+test('Versandstelle: Anhänge entstehen mit den Rechten der Person, die die Nachricht angelegt hat', async () => {
+  const { anhaengeBauen, anlegerVon } = await import('../src/server/versand');
+  const { db, weg } = await frischeDb();
+  try {
+    const { leitung, mit } = await leute(db);
+    const [p, lv, n] = [randomUUID(), randomUUID(), randomUUID()];
+    await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A', nummer: '24-07' } });
+    await tun(db, leitung, { objekt: 'lv', art: 'anlegen', objektId: lv, werte: { projekt: p, nummer: '03', name: 'Rohbau' } });
+    await tun(db, leitung, { objekt: 'lv_position', art: 'anlegen', werte: { lv, projekt: p, oz: '01.0010', kurztext: 'Aushub', menge: 5, einheit: 'm³' } });
+    await tun(db, leitung, { objekt: 'nachricht', art: 'anlegen', objektId: n, werte: { an: 'a@b.de', betreff: 'Anfrage', text: 'x', art: 'mitteilung', stand: 'wartet', anhaenge: `x83|${lv}` } });
+    const wer = await anlegerVon(db, n);
+    assert.equal(wer?.id, leitung.id);
+    const [x] = await anhaengeBauen(db, register, wer!, [{ art: 'x83', id: lv }]);
+    assert.equal(x!.filename, '03 Rohbau.X83');
+    assert.ok(String(x!.content).includes('Aushub') && String(x!.content).includes('24-07 Haus A'));
+    await assert.rejects(anhaengeBauen(db, register, mit, [{ art: 'x83', id: lv }]), /gibt es nicht/, 'wer das LV nicht sieht, kann es nicht anhängen');
+  } finally { await weg(); }
+});
+
+test('Ausschreibung: Volltextsuche – alle Worte in OZ, Kurz- oder Langtext; Treffer je LV', async () => {
+  const s = await import('../src/module/ava/suche');
+  const w = s.suchworte('  Putz  innen ');
+  assert.ok(s.passt({ oz: '02.0010', kurztext: 'Innenputz', langtext: 'Kalkputz Q2' }, w));
+  assert.ok(!s.passt({ kurztext: 'Außenputz' }, w));
+  assert.ok(!s.passt({ kurztext: 'x' }, []), 'leere Suche trifft nichts');
+  const P = [{ id: '1', werte: { lv: 'B', kurztext: 'Innenputz' } }, { id: '2', werte: { lv: 'A', kurztext: 'Putz innen' } }, { id: '3', werte: { lv: 'A', kurztext: 'Innenputz' } }, { id: '4', werte: { lv: 'C', kurztext: 'Estrich' } }];
+  assert.deepEqual(s.trefferJeLv(P, w, [{ id: 'A' }, { id: 'B' }, { id: 'C' }]).map((t) => [t.lv, t.anzahl]), [['A', 2], ['B', 1]]);
+});
+
+test('LV-Überblick: Stufe, Inhalt und Hinweise nur bei Fehlendem oder naher Frist', async () => {
+  const { lvLage } = await import('../src/module/ava/lvlage');
+  const P: { id: string; werte: Record<string, string | number | boolean> }[] = [{ id: 't', werte: { art: 'titel', oz: '01' } }, { id: '1', werte: { art: 'normal', ep: 10 } }, { id: '2', werte: { art: 'bedarf' } }, { id: '3', werte: { art: 'normal' } },
+    { id: 'v', werte: { art: 'vorbemerkung' } }, { id: 'n', werte: { art: 'normal', nachtrag: true } }];
+  const A: { id: string; werte: Record<string, string> }[] = [{ id: 'a', werte: { angeschrieben: '2026-11-20' } }, { id: 'b', werte: { angeschrieben: '2026-11-20', eingang: '2026-11-26' } }];
+  const l = lvLage({ abgabe: '2026-12-05' }, P, A, { vergeben: false, abgerechnet: 0, heute: '2026-11-27' });
+  assert.equal(l.stufe, 1, 'Angebot da: Vergabe');
+  assert.deepEqual([l.positionen, l.bedarf, l.titel, l.vorbemerkungen, l.angeschrieben, l.angebote], [3, 1, 1, 1, 2, 1]);
+  assert.deepEqual(l.warnungen, ['Abgabe am 05.12.2026 · 1 ohne Rückmeldung', '1 Position ohne Preis']);
+  const v = lvLage({ abgabe: '2027-02-01' }, P, A, { vergeben: true, abgerechnet: 0, heute: '2026-11-27' });
+  assert.equal(v.stufe, 2); assert.deepEqual(v.warnungen, [], 'beauftragt und Frist weit: nichts Gelbes');
+  assert.equal(lvLage({}, [], [], { vergeben: true, abgerechnet: 5, heute: '2026-11-27' }).stufe, 3);
+});
