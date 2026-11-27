@@ -39,7 +39,7 @@ Zeichen:
 | L4 | Zuschlagsposition (Art Z aus GAEB, % auf Positionen) und Vorbemerkung als Positionsart V | ◐ (Vorbemerkung V – 27.11.; Zuschlag Z offen: rechnet in LV, Preisspiegel, Aufmaß, Rechnung und GAEB mit – vorher melden) | Art Z und V |
 | L5 | Neu: LV (Womit anfangen?), Gliederung, Position, Hinweistext darunter | ✓ | |
 | L6 | Nummerieren mit OZ-Maske und Vorschau | ✓ | |
-| L7 | Langtext aufklappen; der offene Langtext wandert mit der Auswahl | ◐ | Langtext folgt |
+| L7 | Langtext aufklappen; der offene Langtext wandert mit der Auswahl | ✓ (27.11.: ist genau ein Langtext offen, wandert er mit der Auswahl) | Langtext folgt |
 | L8 | Fotos zu Positionen (im Langtext, im Druck) | ✗ | Später (Dateiablage) |
 | L9 | Kopierquelle „Baudaten“ rechts: Kataloge (Gliederung, ★ häufig) oder ein LV aus einem anderen Projekt. Mehrere Zeilen wählen, ins LV ziehen oder einfügen. Bei Titel oder Bauteil die Teile einzeln ankreuzen. Korb. | ✗ | Reiter „Baudaten“ mit LVs anderer Projekte; Kataloge, sobald der Positionskatalog kommt |
 | L10 | Bauteile aus dem Gebäudemodell übernehmen, verknüpft halten, abgleichen | ✓ (Dialog) | |
