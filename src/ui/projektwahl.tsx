@@ -8,7 +8,7 @@ import { ausfuehren, sicht, lebende } from './unterbau/abgleich';
 import { darf, ich, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { Detailkarte, NeuFenster } from './baukasten/detailkarte';
 import { Schwebefenster } from './baukasten/schwebefenster';
-import { projektId, setProjektId } from './projekt';
+import { bauherrVon, projektId, setProjektId } from './projekt';
 
 type Filter = 'meine' | 'alle' | 'archiv';
 const adresse = (p: Zeile) => [p.werte.strasse, [p.werte.plz, p.werte.ort].filter(Boolean).join(' ')].filter(Boolean).join(', ');
@@ -68,7 +68,7 @@ function WahlFenster(p: { unter?: HTMLElement; kartenZusatz: (z: Zeile) => JSX.E
   const anlegen = darf('projekt', 'schreiben') && !!zustand()!.rollen.find((r) => r.name === ich().rolle)?.alleProjekte;
   onMount(() => { if (anlegen) ruf<{ ordner: string[] }>('/api/ablage/ordner').then((r) => setOrdner(r.ordner)).catch(() => { /* Ablage nicht eingerichtet */ }); });
 
-  const passt = (x: Zeile) => { const t = [x.werte.nummer, x.werte.name, x.werte.strasse, x.werte.plz, x.werte.ort, x.werte.bauherr].join(' ').toLowerCase(); return q().trim().toLowerCase().split(/\s+/).every((w) => t.includes(w)); };
+  const passt = (x: Zeile) => { const t = [x.werte.nummer, x.werte.name, x.werte.strasse, x.werte.plz, x.werte.ort, bauherrVon(x.werte, sicht.kontakt)].join(' ').toLowerCase(); return q().trim().toLowerCase().split(/\s+/).every((w) => t.includes(w)); };
   const fav = (id: string) => merker(id)?.werte.favorit === true;
   const zuletzt = (id: string) => String(merker(id)?.werte.zuletzt ?? '');
   // Gruppen wie im bisherigen Bauportal; REIHE ist die Reihenfolge für die Tastatur
@@ -159,7 +159,7 @@ function WahlFenster(p: { unter?: HTMLElement; kartenZusatz: (z: Zeile) => JSX.E
             <b>{titel(x())}</b>
             <Show when={adresse(x())}><small class="still-text">{adresse(x())}</small></Show>
             <dl>
-              <dt>Bauherr:in</dt><dd>{String(x().werte.bauherr || '–')}</dd>
+              <dt>Bauherr:in</dt><dd>{bauherrVon(x().werte, sicht.kontakt) || '–'}</dd>
               <dt>Bauleitung</dt><dd>{bauleitung(x().id) || '–'}</dd>
               <dt>Stand</dt><dd>{modell('projekt').felder.find((f) => f.name === 'status')!.optionen!.find((o) => o.wert === x().werte.status)?.titel ?? '–'}</dd>
             </dl>

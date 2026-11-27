@@ -809,7 +809,7 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
     const s0 = (await ruf('/api/schnappschuss', { cookie })).daten;
     assert.equal(s0.objekte.buero[0].werte.name, 'GK3');
     assert.equal(s0.objekte.projekt[0].werte.name, 'Musterprojekt Wohnhaus');
-    assert.equal(s0.objekte.kontakt.length, 3);
+    assert.equal(s0.objekte.kontakt.length, 4);   // mit der Bauherr:in des Musterprojekts
 
     // Kollegin anlegen (Befehl) und Kennwort setzen
     const kid = randomUUID();
@@ -990,7 +990,7 @@ test('Name eines Eintrags: Anzeigefeld, sonst Ersatzname (Tagesbericht ohne Kurz
 
 test('Angebotsbesprechung: Protokoll aus den Daten, Abgleich folgt der Quelle, von Hand Geändertes bleibt', async () => {
   const { ausDenDaten, abgleich, GRUNDLAGEN } = await import('../src/module/ava/besprechung');
-  const q = { projekt: { nummer: 'A481', name: 'Tierheim', strasse: 'Grillostr. 24', plz: '45141', ort: 'Essen', bauherr: 'Stadt Essen' }, buero: { name: 'GK3', ort: 'Essen' },
+  const q = { projekt: { nummer: 'A481', name: 'Tierheim', strasse: 'Grillostr. 24', plz: '45141', ort: 'Essen' }, bauherr: { name: 'Stadt Essen' }, buero: { name: 'GK3', ort: 'Essen' },
     bieter: { name: 'Muster Rohbau GmbH', strasse: 'Weg 1', plz: '45127', ort: 'Essen', ansprechpartner: 'Frau Muster' }, angebot: { eingang: '2026-11-20', nachlass: 3, skonto: 2, skonto_tage: 10 },
     lv: { name: 'Rohbau', bindefrist: '2026-12-31', ausfuehrung_beginn: '2027-02-01' }, gewerkName: 'Mauerarbeiten', kostengruppe: '330',
     termine: { beginn: '2027-03-01', fertig: '2027-04-30', unterbrechung: '01.03.–15.03., 01.04.–30.04.', plan: 'Version „Start“' } };
@@ -2236,4 +2236,34 @@ test('Neuer Titel hinter einer Position: hinter deren Titel auf seiner Ebene, di
   const { einfuegeStelle, lvZeilen } = await import('../src/module/ava/lvbaum');
   const Z = lvZeilen([['t', '01', 'titel'], ['a', '01.0010', 'normal'], ['u', '02', 'titel'], ['b', '02.0010', 'normal']].map(([id, oz, art]) => ({ id: id!, werte: { oz: oz!, art: art! } })));
   assert.deepEqual(Object.fromEntries(einfuegeStelle(Z, 'a', true, { titel: [2], position: 4, schritt: 10 }, 'neu')), { neu: '02', u: '03', b: '03.0010' });
+});
+
+test('Projektdaten: Bauherr:in als Kontakt – Text aus der Übernahme wird einmal zugeordnet (vorhandener Kontakt oder neu)', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { bauherrZuordnen } = await import('../src/server/grundausstattung');
+    const { admin } = await leute(db);
+    const k = randomUUID(), p1 = randomUUID(), p2 = randomUUID();
+    await tun(db, admin, { objekt: 'kontakt', art: 'anlegen', objektId: k, werte: { name: 'Stadt Essen', art: 'behoerde' } });
+    await tun(db, admin, { objekt: 'projekt', art: 'anlegen', objektId: p1, werte: { name: 'Tierheim', bauherr: 'stadt essen' } });
+    await tun(db, admin, { objekt: 'projekt', art: 'anlegen', objektId: p2, werte: { name: 'Haus A', bauherr: 'Familie  Muster' } });
+    assert.equal(await bauherrZuordnen(db, register), 2);
+    const p = (id: string) => db.query('select bauherrschaft, bauherr from o_projekt where id = $1', [id]).then((r) => r.rows[0]);
+    assert.deepEqual(await p(p1), { bauherrschaft: k, bauherr: '' }, 'vorhandener Kontakt (Groß/klein egal)');
+    const neu = (await p(p2)).bauherrschaft as string;
+    assert.equal((await db.query('select name, art from o_kontakt where id = $1', [neu])).rows[0].name, 'Familie Muster', 'neuer Kontakt als Bauherr:in');
+    assert.equal(await bauherrZuordnen(db, register), 0, 'nur einmal');
+  } finally { await weg(); }
+});
+
+test('Neustart mit vorhandenen Daten: das Schema anlegen schreibt nie in die Tabellen (Rechte und Protokoll gelten)', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { admin } = await leute(db);
+    const p = randomUUID();
+    await tun(db, admin, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus' } });
+    await tun(db, admin, { objekt: 'lv', art: 'anlegen', objektId: randomUUID(), werte: { projekt: p, name: 'Rohbau', vertragsart: '' } });
+    await schemaAnlegen(db, register);
+    await grundausstattung(db, register);
+  } finally { await weg(); }
 });

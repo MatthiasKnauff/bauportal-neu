@@ -20,6 +20,7 @@ import { festeKennung } from './grundausstattung';
 import { MIT_ERLEDIGT } from '../module/bautagebuch/beipackzettel';
 import { planUebernehmen } from './bauzeitenplan';
 import { abgleicher, merken, type Vorschau, type Zahl } from './uebernahme';
+import { bauherrZuordnen } from './grundausstattung';
 
 type Alt = Record<string, unknown>;
 interface Export { format?: number; tables?: Record<string, Alt[]> }
@@ -176,6 +177,8 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     return merken(wer.id, await altdatenPlanen(db, e.register, wer, u), async () => {
       for (const b of u.bilder) await db.query('insert into kern_altbild (datei, bericht, beschriftung, reihe) values ($1,$2,$3,$4) on conflict (datei) do update set bericht = excluded.bericht, beschriftung = excluded.beschriftung, reihe = excluded.reihe', [b.datei, b.bericht, b.beschriftung, b.reihe]);
       if (quelle) fotosStarten(wer, quelle);
+      // Bauherr:in aus dem Text des alten Projekts: einmal dem Kontakt zuordnen (Projektdaten wie bisher)
+      if (await bauherrZuordnen(db, e.register)) e.nachBefehlen();
     });
   };
   app.post('/api/altdaten/vorschau', { preHandler: e.nurAngemeldet, bodyLimit: 300 * 1024 * 1024 }, async (req): Promise<Vorschau> => {

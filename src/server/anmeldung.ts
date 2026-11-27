@@ -96,9 +96,11 @@ export async function ersteinrichtung(db: Db, register: Modulregister, e: Einric
       await befehlAusfuehren(db, register, ich, { id: randomUUID(), objekt: 'buero', art: 'aendern', objektId: BUERO_ID, werte: buero, gesehen: ALLES_GESEHEN });
     }
     if (e.musterprojekt === true) {
-      const anlegen = (objekt: string, werte: Record<string, unknown>) =>
-        befehlAusfuehren(db, register, ich, { id: randomUUID(), objekt, art: 'anlegen', objektId: randomUUID(), werte, gesehen: ALLES_GESEHEN });
-      await anlegen('projekt', { name: 'Musterprojekt Wohnhaus', nummer: 'M-001', bauherr: 'Familie Muster', strasse: 'Musterweg 1', plz: '45127', ort: 'Essen',
+      const anlegen = (objekt: string, werte: Record<string, unknown>, objektId = randomUUID()) =>
+        befehlAusfuehren(db, register, ich, { id: randomUUID(), objekt, art: 'anlegen', objektId, werte, gesehen: ALLES_GESEHEN });
+      const bauherr = randomUUID();
+      await anlegen('kontakt', { name: 'Familie Muster', art: 'bauherr', strasse: 'Musterweg 1', plz: '45127', ort: 'Essen' }, bauherr);
+      await anlegen('projekt', { name: 'Musterprojekt Wohnhaus', nummer: 'M-001', bauherrschaft: bauherr, strasse: 'Musterweg 1', plz: '45127', ort: 'Essen',
         notiz: 'Ein Projekt zum Ausprobieren. Es lässt sich jederzeit löschen.' });
       await anlegen('kontakt', { name: 'Muster Rohbau GmbH', art: 'firma', gewerk: 'Rohbau', ort: 'Essen', telefon: '0201 000001', email: 'info@muster-rohbau.example' });
       await anlegen('kontakt', { name: 'Dachdeckerei Beispiel', art: 'firma', gewerk: 'Dachdecker', ort: 'Bochum', telefon: '0234 000002' });

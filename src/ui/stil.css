@@ -253,7 +253,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .auswahlliste-fenster { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--flaeche); color: var(--text); border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); box-shadow: 0 8px 24px rgba(0,0,0,.14); padding: 6px; }
 .auswahlliste-fenster input { width: 100%; min-height: 34px; padding: 0 10px; border: 1px solid var(--rand-stark); border-radius: calc(6px * var(--rund)); margin-bottom: 6px; }
 .auswahlliste-fenster [role=listbox] { max-height: 240px; overflow: auto; outline: none; }
-.auswahlliste-fenster.schwebt { position: fixed; right: auto; top: auto; z-index: 60; }   /* über Fenstern (50) – am Seitenende eingehängt */
+.auswahlliste-fenster.schwebt { position: fixed; right: auto; top: auto; z-index: 85; }   /* über Fenstern (50) und schwebenden Karten (70) – am Seitenende eingehängt */
 .auswahlliste-fenster.schwebt [role=listbox] { max-height: max(120px, var(--liste-hoehe, 240px)); }
 .auswahlliste-fenster [role=option] { padding: 7px 10px; border-radius: calc(6px * var(--rund)); cursor: pointer; display: flex; align-items: baseline; }
 .auswahlliste-fenster [role=option].zeiger { background: var(--still); }
@@ -704,7 +704,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .verlauf-liste li .knopf { align-self: flex-start; margin-top: 2px; }
 @media (max-width: 820px) { .bt-seite { padding: 8px; } .bt-schalter { margin-left: 0; } }
 /* Baustein Tabelle: kleines Feld „Spalten“ am Kopf */
-.spaltenfeld { position: fixed; z-index: 60; width: 230px; max-height: 70vh; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand-stark); border-radius: calc(10px * var(--rund)); box-shadow: 0 8px 24px rgba(0, 0, 0, .14); font-size: 13.5px; }
+.spaltenfeld { position: fixed; z-index: 85; width: 230px; max-height: 70vh; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand-stark); border-radius: calc(10px * var(--rund)); box-shadow: 0 8px 24px rgba(0, 0, 0, .14); font-size: 13.5px; }
 .spaltenfeld-kopf { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px 4px 12px; }
 .spaltenfeld ul { list-style: none; margin: 0; padding: 0 6px; overflow: auto; }
 .spaltenfeld li { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: calc(6px * var(--rund)); }

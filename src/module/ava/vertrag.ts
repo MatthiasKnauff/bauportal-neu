@@ -14,6 +14,7 @@ const zeilen = (...t: (string | false | undefined)[]) => t.filter((x): x is stri
 export interface Vertragsquellen {
   agArt: 'unternehmen' | 'privat';
   projekt?: Werte; bieter?: Werte; lv?: Werte; angebot?: Werte;
+  bauherr?: Werte;          // Kontakt der Bauherr:in (Projektdaten)
   gewerkName?: string;
   summe: number;            // vorläufige Auftragssumme netto (nach Nachlass)
   protokoll?: Werte;        // die Angebotsbesprechung mit dieser Bieter:in, wenn es eine gibt
@@ -36,7 +37,7 @@ export function vertragAusDaten(q: Vertragsquellen): Werte {
   const nachlass = Number(a.nachlass ?? 0), skonto = Number(a.skonto ?? 0);
   return {
     ag_art: q.agArt,
-    ag: String(P.bauherr ?? p.bauherr ?? ''),
+    ag: String(P.bauherr ?? anschrift(q.bauherr)),
     an: anschrift(q.bieter),
     gegenstand: `${q.gewerkName || String(l.name ?? '')} für das Bauvorhaben ${[p.nummer, p.name].filter(Boolean).join(' · ')}`.trim(),
     bestandteile: `${best.map((x, i) => `${i + 1}. ${x}`).join('\n')}\nBei Widersprüchen gelten die Bestandteile in dieser Reihenfolge.`,

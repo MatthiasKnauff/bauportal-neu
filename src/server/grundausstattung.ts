@@ -50,4 +50,21 @@ export async function grundausstattung(db: Db, register: Modulregister): Promise
     if ((await db.query('select 1 from o_design where id = $1', [id])).rowCount) continue;
     await system('design', id, { name: v.name, hell: JSON.stringify(v.design.hell), dunkel: JSON.stringify(v.design.dunkel), quelle: 'vorinstalliert', gruppe: v.gruppe, beschreibung: v.beschreibung });
   }
+  // Bauherr:in aus dem Text einer Übernahme: einmal dem Kontakt zuordnen
+  await bauherrZuordnen(db, register);
+}
+
+/** Bauherr:in als Kontakt (Projektdaten wie bisher): ein Projekt mit dem Text aus einer Übernahme bekommt einmal den Kontakt mit
+ *  diesem Namen – gibt es keinen, entsteht er (Art Bauherr:in). Der Text wird danach geleert, damit es bei einem späteren Leeren
+ *  des Kontakts nicht wieder passiert. Alles als Befehle im Protokoll. */
+export async function bauherrZuordnen(db: Db, register: Modulregister): Promise<number> {
+  const offen = (await db.query("select id, bauherr from o_projekt where not geloescht and coalesce(bauherr, '') <> '' and bauherrschaft is null")).rows as { id: string; bauherr: string }[];
+  for (const p of offen) {
+    const name = p.bauherr.replace(/\s+/g, ' ').trim();
+    const da = (await db.query('select id from o_kontakt where not geloescht and lower(name) = lower($1) order by (art = \'bauherr\') desc limit 1', [name])).rows[0] as { id: string } | undefined;
+    const kontakt = da?.id ?? festeKennung(`bauherr:${name.toLowerCase()}`);
+    if (!da) await befehlAusfuehren(db, register, SYSTEM, { id: randomUUID(), objekt: 'kontakt', art: 'anlegen', objektId: kontakt, werte: { name, art: 'bauherr' }, gesehen: ALLES_GESEHEN });
+    await befehlAusfuehren(db, register, SYSTEM, { id: randomUUID(), objekt: 'projekt', art: 'aendern', objektId: p.id, werte: { bauherrschaft: kontakt, bauherr: '' }, gesehen: ALLES_GESEHEN });
+  }
+  return offen.length;
 }

@@ -14,7 +14,7 @@ import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
 import { ausfuehren, ausfuehrenMehrere, gemerkt, sicht, lebende, rueckgaengig, verlauf } from './unterbau/abgleich';
 import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
-import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
+import { bauherrVon, gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { versionenBauen } from './baukasten/versionen';
 import type { Versionsweg } from '../kern/modul';
 import { Auswahlliste } from './baukasten/auswahlliste';
@@ -231,7 +231,7 @@ function ProjektKachel(p: { projekt: Zeile }) {
     <div class="kontakt-kachel projekt-kachel">
       <span class="leise">{[w().nummer, status()].filter(Boolean).join(' · ')}</span>
       <strong>{String(w().name ?? '')}</strong>
-      <Show when={w().bauherr}><span>{String(w().bauherr)}</span></Show>
+      <Show when={bauherrVon(w(), sicht.kontakt)}>{(n) => <span>{n()}</span>}</Show>
       <Show when={w().ort || w().strasse}><span class="leise">{[w().strasse, [w().plz, w().ort].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</span></Show>
       <Show when={inhalt()}><span class="leise klein-text">{inhalt()}</span></Show>
     </div>

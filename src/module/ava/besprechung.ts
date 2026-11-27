@@ -27,6 +27,7 @@ const anschrift = (w: Werte | undefined) => (w ? [w.strasse, [w.plz, w.ort].filt
 
 export interface Quellen {
   projekt?: Werte; buero?: Werte; bieter?: Werte; angebot?: Werte; lv?: Werte;
+  bauherr?: Werte;   // Kontakt der Bauherr:in (Projektdaten)
   gewerkName?: string; kostengruppe?: string;   // Namen der Verweise des LV
   termine?: { beginn?: string; fertig?: string; unterbrechung?: string; plan?: string };   // aus dem Bauzeitenplan (ISO bzw. Text)
   klaerung?: string;   // Klärungspunkte aus dem Preisspiegel (klaerungspunkte)
@@ -57,7 +58,7 @@ export function ausDenDaten(q: Quellen): Werte {
   const p = q.projekt ?? {}, b = q.buero ?? {}, k = q.bieter, a = q.angebot ?? {}, l = q.lv ?? {};
   const w: Werte = {
     bauvorhaben: zeilen([p.nummer, p.name].filter(Boolean).join(' · '), anschrift(p)),
-    bauherr: String(p.bauherr ?? ''),
+    bauherr: q.bauherr ? zeilen(q.bauherr.name, anschrift(q.bauherr)) : '',
     architekt: zeilen(b.name, anschrift(b)),
     bieter: k ? zeilen(k.name, anschrift(k), k.ansprechpartner ? `Ansprechpartner:in: ${String(k.ansprechpartner)}` : '') : '',
     gueltig: l.bindefrist ? `ja, gebunden bis ${de(l.bindefrist)}` : '',

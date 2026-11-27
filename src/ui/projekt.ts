@@ -13,3 +13,7 @@ export function setProjektId(id: string | null): void { setProjektIdRoh(id); mer
 const [versionen, setVersionen] = createStore<Record<string, string>>(lies('bp_versionen', {}));
 export const gewaehlteVersion = (projekt: string, bereich: string): string | undefined => versionen[`${projekt}:${bereich}`];
 export function waehleVersion(projekt: string, bereich: string, id: string): void { setVersionen(`${projekt}:${bereich}`, id); merke('bp_versionen', { ...versionen }); }
+
+/** Name der Bauherr:in eines Projekts (Kontakt aus den Projektdaten). */
+export const bauherrVon = (w: Record<string, unknown> | undefined, kontakte: Record<string, { werte: Record<string, unknown> }> | undefined): string =>
+  (w?.bauherrschaft ? String(kontakte?.[String(w.bauherrschaft)]?.werte.name ?? '') : '');

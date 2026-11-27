@@ -28,7 +28,7 @@ import { druckOeffnen } from './druck';
 import { Zeichen, type Zeichenname } from './baukasten/zeichen';
 import { Dialog } from './baukasten/dialog';
 import { handy } from './unterbau/geraet';
-import { projektId, setProjektId } from './projekt';
+import { bauherrVon, projektId, setProjektId } from './projekt';
 
 const heute = () => new Date().toLocaleDateString('sv');
 const datumText = (d: unknown) => (d ? new Date(`${String(d)}T12:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
@@ -365,7 +365,7 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
             <span classList={{ 'bt-nicht-heute': nichtHeute() }} title={nichtHeute() ? 'Älterer Bericht – Neues kommt in den Bericht von heute' : undefined}>
               <Zeichen name="kalender" groesse={15} />{datumText(w().datum)}{nichtHeute() ? ' · nicht von heute' : ''}{w().uhrzeit ? ` · ${String(w().uhrzeit)} Uhr` : ''}</span>
             <Show when={bauleitung()}><span title="Bauleitung vor Ort"><Zeichen name="person" groesse={15} />{bauleitung()}</span></Show>
-            <Show when={projekt()?.bauherr}><span title="Bauherrschaft"><Zeichen name="haus" groesse={15} />{String(projekt()!.bauherr)}</span></Show>
+            <Show when={bauherrVon(projekt(), sicht.kontakt)}>{(n) => <span title="Bauherrschaft"><Zeichen name="haus" groesse={15} />{n()}</span>}</Show>
             <Show when={baustelle()}><span class="bt-adresse" title="Baustelle"><Zeichen name="standort" groesse={15} />{baustelle()}</span></Show>
           </p>
         </div>

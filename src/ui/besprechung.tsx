@@ -25,7 +25,7 @@ function quellen(angebot: Werte): Quellen {
   const lv = sicht.lv?.[String(angebot.lv)] && wirksameWerte(modell('lv'), sicht.lv[String(angebot.lv)]!.werte), projekt = String(angebot.projekt ?? '');
   const kg = lv?.kostengruppe ? sicht.kostengruppe?.[String(lv.kostengruppe)]?.werte : undefined;
   const q: Quellen = {
-    projekt: sicht.projekt?.[projekt]?.werte, buero: sicht.buero?.[BUERO_ID]?.werte, bieter: sicht.kontakt?.[String(angebot.bieter)]?.werte, angebot, lv,
+    projekt: sicht.projekt?.[projekt]?.werte, bauherr: sicht.kontakt?.[String(sicht.projekt?.[projekt]?.werte.bauherrschaft ?? '')]?.werte, buero: sicht.buero?.[BUERO_ID]?.werte, bieter: sicht.kontakt?.[String(angebot.bieter)]?.werte, angebot, lv,
     gewerkName: lv?.gewerk ? String(sicht.gewerk?.[String(lv.gewerk)]?.werte.name ?? '') : '', kostengruppe: kg ? String(kg.nummer ?? '') : '',
   };
   // Klärungspunkte aus dem Preisspiegel: Abweichung vom Mittel, Bedarfs-/Wahlpositionen, fehlende Preise
@@ -71,7 +71,7 @@ export function bauvertragOeffnen(angebot: Zeile): void {
   if (da) { oeffnen(da.id); return; }
   if (!darf('bauvertrag', 'schreiben')) return;
   const id = neueKennung(), a = angebot.werte, q = quellen(a), protokoll = lebende('besprechung').find((b) => b.werte.angebot === angebot.id);
-  const werte = vertragAusDaten({ agArt: 'unternehmen', projekt: q.projekt, bieter: q.bieter, lv: q.lv, angebot: a, gewerkName: q.gewerkName, summe: lvZahlen(String(a.lv)).haupt, protokoll: protokoll?.werte });
+  const werte = vertragAusDaten({ agArt: 'unternehmen', projekt: q.projekt, bauherr: q.bauherr, bieter: q.bieter, lv: q.lv, angebot: a, gewerkName: q.gewerkName, summe: lvZahlen(String(a.lv)).haupt, protokoll: protokoll?.werte });
   ausfuehrenMehrere([
     { objekt: 'bauvertrag', art: 'anlegen', objektId: id, werte: { projekt: a.projekt ?? null, lv: a.lv ?? null, angebot: angebot.id, datum: new Date().toLocaleDateString('sv') } },
     { objekt: 'bauvertrag', art: 'aendern', objektId: id, werte, herkunft: 'daten' },
