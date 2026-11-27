@@ -585,6 +585,7 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
     onWahl: (id) => waehleVersion(projekt()!.id, bereich!.bereich, id), onNeu: neu,
     onGueltig: (id) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { gueltig: true } }, 'Version gültig machen'),
     onUmbenennen: (id, name) => ausfuehren({ objekt: 'version', art: 'aendern', objektId: id, werte: { name } }, 'Version umbenennen'),
+    verlauf: zustand()!.module.flatMap((z) => z.objekte).filter((o) => o.versionsBereich === bereich.bereich).map((o) => ({ objekt: o.name, feld: 'version' })),
     // mit der Version gehen ihre Einträge (Leistungen, Bauteile …) – sonst blieben sie verwaist liegen
     onLoeschen: (id) => ausfuehrenMehrere([
       ...zustand()!.module.flatMap((z) => z.objekte).filter((o) => o.versionsBereich === bereich!.bereich)

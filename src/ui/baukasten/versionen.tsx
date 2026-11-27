@@ -9,6 +9,7 @@ import type { Versionsweg } from '../../kern/modul';
 import { Auswahlliste, type Option } from './auswahlliste';
 import { Dialog } from './dialog';
 import { zeigeMenue } from './kontextmenue';
+import { Verlauf } from './verlauf';
 
 const WEGE: Record<Versionsweg, string> = { kopie: 'Aus der aktuellen Version', leer: 'Leer', projekt: 'Aus einem anderen Projekt' };
 
@@ -19,6 +20,7 @@ export interface VersionenEinstellung {
   vorlagen: () => Option[];                                    // Versionen anderer Projekte
   onNeu: (weg: Versionsweg, name: string, vorlage?: string) => void;
   onGueltig: (id: string) => void; onUmbenennen: (id: string, name: string) => void; onLoeschen: (id: string) => void;
+  verlauf?: { objekt: string; feld: string }[];               // was zur Version gehört: „Ältere Stände …“ holt sie auf einen früheren Stand
 }
 
 /** Liefert die Auswahl (für links oben) und die Dialoge (einmal einhängen) – beide teilen denselben Zustand. */
@@ -30,6 +32,7 @@ export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Eleme
   const [vorlage, setVorlage] = createSignal<string | null>(null);
   const [fehler, setFehler] = createSignal('');
   const [weg_, setWeg_] = createSignal<Zeile | null>(null);   // Rückfrage vor dem Löschen
+  const [staende, setStaende] = createSignal<Zeile | null>(null);   // ältere Stände einer Version
   // Die gültige lässt sich nur löschen, wenn sie die letzte ist (dann hat das Projekt den Bereich nicht mehr)
   const loeschbar = (v: Zeile) => v.werte.gueltig !== true || p.versionen.length === 1;
   // „Aus der aktuellen“ geht nur, wenn es eine gibt; „aus anderem Projekt“ nur, wenn es Vorlagen gibt.
@@ -46,6 +49,7 @@ export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Eleme
     zeigeMenue(e, [
       { titel: 'Als gültig markieren', gesperrt: v.werte.gueltig === true, tun: () => p.onGueltig(v.id) },
       { titel: 'Umbenennen …', tun: () => { setName(String(v.werte.name)); setFehler(''); setUmbenennen(v); } },
+      ...(p.verlauf ? [{ titel: 'Ältere Stände …', tun: () => setStaende(v) }] : []),
       { titel: 'Löschen …', gefahr: true, gesperrt: !loeschbar(v), tun: () => setWeg_(v) },
     ]);
   };
@@ -92,6 +96,9 @@ export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Eleme
   };
   const Dialoge = () => (
     <>
+      <Show when={staende() && p.verlauf} keyed>{(v) => (
+        <Verlauf objekt="version" id={staende()!.id} unter={p.verlauf!} titel={`Ältere Stände – ${p.titel}, Version „${String(staende()!.werte.name ?? '')}“`}
+          zurueck={{ hinweis: 'die ganze Version' }} steuerung={{ offen: () => !!v, zu: () => setStaende(null) }} />)}</Show>
       <Show when={weg_()} keyed>{(v) => (
         <Dialog titel={`Version löschen – ${p.titel}`} onAbbrechen={() => setWeg_(null)}
           knoepfe={<><button class="knopf" data-abbrechen onClick={() => setWeg_(null)}>Abbrechen</button><button class="knopf gefahr" onClick={() => { setWeg_(null); p.onLoeschen(v.id); }}>Löschen</button></>}>

@@ -13,8 +13,12 @@ export interface Eintrag { seq: number; zeit: string; wer: string; objekt: strin
 const ART: Record<string, string> = { anlegen: 'angelegt', aendern: 'geändert', loeschen: 'gelöscht', wiederherstellen: 'wiederhergestellt' };
 
 export function Verlauf(p: { objekt: string; id: string; unter?: { objekt: string; feld: string }[]; zurueck?: { ohne?: string[]; hinweis?: string };
-  vorne?: (liste: Eintrag[] | undefined) => JSX.Element }) {   // vorne: steht vor dem Knopf und sieht die Liste (neueste zuerst), z. B. „Seit dem Export geändert“
-  const [offen, setOffen] = createSignal(false);
+  vorne?: (liste: Eintrag[] | undefined) => JSX.Element;   // vorne: steht vor dem Knopf und sieht die Liste (neueste zuerst), z. B. „Seit dem Export geändert“
+  titel?: string;                                          // Überschrift des Fensters (ab Werk „Verlauf“)
+  steuerung?: { offen: () => boolean; zu: () => void } }) {   // ohne eigenen Knopf: geöffnet von außen (z. B. aus einem Menü)
+  const [eigenOffen, setEigenOffen] = createSignal(false);
+  const offen = () => (p.steuerung ? p.steuerung.offen() : eigenOffen());
+  const setOffen = (w: boolean) => { if (p.steuerung) { if (!w) p.steuerung.zu(); } else setEigenOffen(w); };
   // neu laden, wenn sich an diesen Objektarten etwas ändert
   const [liste] = createResource(() => ({ id: p.id, n: [p.objekt, ...(p.unter ?? []).map((u) => u.objekt)].map((o) => geaendert(o)).join() }),
     ({ id }) => ruf<Eintrag[]>('/api/verlauf', { objekt: p.objekt, id, unter: p.unter ?? [] }));
@@ -39,9 +43,9 @@ export function Verlauf(p: { objekt: string; id: string; unter?: { objekt: strin
   return (
     <>
       {p.vorne?.(liste())}
-      <button class="knopf still klein verlauf-knopf" onClick={() => setOffen(true)}>🕘 Verlauf{liste() ? ` (${liste()!.length})` : ''}</button>
+      <Show when={!p.steuerung}><button class="knopf still klein verlauf-knopf" onClick={() => setOffen(true)}>🕘 Verlauf{liste() ? ` (${liste()!.length})` : ''}</button></Show>
       <Show when={offen()}>
-        <Dialog titel="Verlauf" breit onAbbrechen={() => setOffen(false)} knoepfe={<button class="knopf haupt" onClick={() => setOffen(false)}>Schließen</button>}>
+        <Dialog titel={p.titel ?? 'Verlauf'} breit onAbbrechen={() => setOffen(false)} knoepfe={<button class="knopf haupt" onClick={() => setOffen(false)}>Schließen</button>}>
           <Show when={liste()?.length} fallback={<p class="still-text">{liste.loading ? 'Wird geladen …' : 'Noch nichts geändert.'}</p>}>
             <Show when={p.zurueck}><p class="still-text klein-text">„Auf diesen Stand“ bringt alles dahin zurück, wie es nach dieser Änderung war{p.zurueck!.hinweis ? ` – ${p.zurueck!.hinweis}` : ''}. Rückgängig wie jede Änderung.</p></Show>
             <ul class="verlauf-liste"><For each={liste()}>{(e, i) => <li><span class="still-text">{zeit(e.zeit)} · {e.wer}</span><span>{was(e)}</span>
