@@ -113,7 +113,19 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   const [zu, setZu] = createSignal<Set<string>>(new Set());
   const [lvZu, setLvZu] = createSignal(false);
   const [lang, setLang] = createSignal<Set<string>>(new Set());
-  const sichtbar = createMemo(() => { if (lvZu()) return []; const aus: LvZeile[] = [], weg = new Set<string>(); for (const z of zeilen()) { if (z.eltern && (weg.has(z.eltern) || zu().has(z.eltern))) { weg.add(z.id); continue; } aus.push(z); } return aus; });
+  // Suche im LV (wie bisher die Volltextsuche): OZ, Kurz- und Langtext; Treffer mit ihren Titeln, der Rest ist ausgeblendet
+  const [suche, setSuche] = createSignal('');
+  const treffer = createMemo((): Set<string> | null => {
+    const w = suche().trim().toLowerCase().split(/\s+/).filter(Boolean); if (!w.length) return null;
+    const eltern = new Map(zeilen().map((z) => [z.id, z.eltern])), drin = new Set<string>();
+    for (const z of zeilen()) {
+      const q = nachId(z.id); const t = `${z.oz} ${String(q?.werte.kurztext ?? '')} ${String(q?.werte.langtext ?? '')}`.toLowerCase();
+      if (!w.every((x) => t.includes(x))) continue;
+      for (let id: string | null | undefined = z.id; id; id = eltern.get(id)) drin.add(id);
+    }
+    return drin;
+  });
+  const sichtbar = createMemo(() => { if (lvZu()) return []; const t = treffer(); const aus: LvZeile[] = [], weg = new Set<string>(); for (const z of zeilen()) { if (t) { if (t.has(z.id)) aus.push(z); continue; } if (z.eltern && (weg.has(z.eltern) || zu().has(z.eltern))) { weg.add(z.id); continue; } aus.push(z); } return aus; });
   const [frei, setFrei] = createSignal(0);
   const maske = () => maskeLesen(lv()?.werte.oz_maske);
   const vergeben = () => lv()?.werte.status === 'vergeben' || lv()?.werte.status === 'abgerechnet';
@@ -365,6 +377,8 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
             <textarea id="lvt-vorbem" rows={6} value={String(lv()!.werte.vorbemerkungen ?? '')} readOnly={!darf('lv', 'schreiben') || gesperrt()} placeholder="Vorbemerkungen zum LV – gelten für alle Positionen (Baustelle, Ausführung, Abrechnung …)"
               onChange={(e) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { vorbemerkungen: e.currentTarget.value } }, 'Vorbemerkungen')} /></div>
         </Show>
+        <div class="lvt-suche"><input type="search" placeholder="Im LV suchen – OZ, Kurz- und Langtext" aria-label="Im LV suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') setSuche(''); }} />
+          <Show when={treffer()}><small class="still-text">{[...treffer()!].filter((id) => !zeilen().find((z) => z.id === id)?.titel).length} Treffer</small></Show></div>
         <Show when={p.struktur}><LvQuellenLeiste lv={lv()!} /></Show>
         <Show when={p.struktur && gaeb().length}><div class="hinweis-kasten lvt-hinweis-oben lvt-gaeb" role="note"><b>GAEB-Prüfung:</b> <For each={gaeb()}>{(t) => <span>{t} </span>}</For></div></Show>
         {p.oben?.(lv()!)}

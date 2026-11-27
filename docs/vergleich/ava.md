@@ -20,7 +20,7 @@ Zeichen:
 | R2 | Kopf: „‹Bereich›: LV ‹Nr› ‹Name›“, Stand als Auswahl, Feld „vergeben an …“ bzw. „noch nicht vergeben“, Gewerk · Vertrag · Strafe, Knöpfe Projektdaten und Ausschreibungsdaten | ◐ LV-Auswahl statt Titel | Kopf wie bisher. Das LV wird im Baum gewählt. |
 | R3 | Ablaufleiste mit 7 Stufen über die ganze Breite, Unterstrich als Fortschritt, Stufe ergibt sich aus dem Inhalt | ✓ | Optik angleichen |
 | R4 | Kennzahlen in der Menüleiste: Schätzung, bestes Angebot, Auftrag, Nachträge beauftragt, Leistungsstand, abgerechnet. Je Bereich passend, Reihenfolge ziehbar. | ✓ | Baustein „Kennzahl“ in der Menüleiste |
-| R5 | Volltextsuche links oben mit Bereich „dieses LV · Projekt · alle Projekte“. Sie durchsucht Kurz- und Langtext, OZ, Titel, Nachträge, Bieter:innen, Aufmaß, Rechnungen und Türliste. | ✗ | Suchfeld links mit den drei Bereichen |
+| R5 | Volltextsuche links oben mit Bereich „dieses LV · Projekt · alle Projekte“. Sie durchsucht Kurz- und Langtext, OZ, Titel, Nachträge, Bieter:innen, Aufmaß, Rechnungen und Türliste. | ◐ (Suche im LV über OZ, Kurz- und Langtext in allen Baum-Ansichten – 27.11.; Projekt/alle Projekte: Suche oben) | Suchfeld links mit den drei Bereichen |
 | R6 | Rechte Seite mit Reitern je Bereich: LV (Details, Baudaten, Bauteile, Planung, Baukasten, Fragen & Antworten), Aufträge (Position, Auftrag), Aufmaß/Rechnungen (PDF, Dokument, Abzüge) | ◐ Nur Details | Reiter über den Baustein Detailkarte (kartenReiter) |
 | R7 | Datei: Import · Export · Drucken und Löschen je Bereich (immer an derselben Stelle) | ◐ | Gruppe „Datei“ je Bereich |
 | R8 | Ablagefeld „Datei ablegen“ mit Zolli | ⊘ | Gestrichen (Entscheidung 26.11.) |
