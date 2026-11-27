@@ -1967,3 +1967,21 @@ test('Vergabenummer nach Schema', async () => {
   assert.equal(vergabenummer('{projekt}/{gewerk}-{lv}', { projektname: 'A534 Erweiterung Tierheim', lv: '01', gewerk: 'Rohbau' }), 'A534/Rohbau-01');
   assert.equal(vergabenummer('{projekt}-{gewerk}-{lv}', { projektnummer: 'M-001', lv: '034' }), 'M-001-034', 'leerer Platzhalter: kein doppelter Strich');
 });
+
+test('Skontofrist nach Zählart', async () => {
+  const { fristEnde } = await import('../src/module/ava/rechnung');
+  // Freitag 4.12.2026 + 10
+  assert.equal(fristEnde('2026-12-04', 10, 'kt'), '2026-12-14');
+  assert.equal(fristEnde('2026-12-04', 10, 'at'), '2026-12-18');
+  assert.equal(fristEnde('2026-12-04', 10, 'wt'), '2026-12-16');
+  assert.equal(fristEnde('2026-12-04', 2, 'wo'), '2026-12-18');
+});
+
+test('Vorbemerkung: Textzeile ohne Menge, auch in Excel', async () => {
+  const { istText, istHinweis } = await import('../src/kern/lvarten');
+  assert.ok(istText('vorbemerkung') && istHinweis('vorbemerkung') && istText('titel') && !istHinweis('titel') && !istText('normal'));
+  const x = await import('../src/module/ava/lvexcel');
+  const e = x.lvAusTabelle([['OZ', 'Art', 'Kurztext', 'Menge', 'EH', 'EP'], ['01', 'Titel', 'Rohbau', '', '', ''], ['', 'Vorbemerkung', 'Allgemeines', '5', 'St', '3'], ['01.0010', 'Normal', 'Mauerwerk', '10', 'm²', '50']]);
+  const vb = e.zeilen.find((z) => z.art === 'vorbemerkung');
+  assert.ok(vb); assert.equal(vb!.menge, null); assert.equal(e.positionen, 1);
+});

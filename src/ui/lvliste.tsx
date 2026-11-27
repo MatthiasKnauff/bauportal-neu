@@ -8,6 +8,7 @@ import type { Mitte } from './baukasten/anpassung';
 import { Ordner } from './baukasten/baum';
 import { projektId } from './projekt';
 import { lebende, sicht } from './unterbau/abgleich';
+import { istText } from '../kern/lvarten';
 
 const geld = (n: number) => (n ? n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
 const positionen = (lv: string) => lebende('lv_position').filter((q) => q.werte.lv === lv && !q.werte.nachtrag);
@@ -23,7 +24,7 @@ export function LvListe(p: { m: Mitte; zusatz?: (lv: Zeile) => string; children:
         <For each={lvs()}>{(l) => (
           <button type="button" class="lv-liste-lv" classList={{ an: lvVon(p.m)?.id === l.id }} aria-current={lvVon(p.m)?.id === l.id ? 'true' : undefined} onClick={() => lvWaehlen(p.m, l.id)}>
             <Ordner /><span class="lv-liste-text"><b>{[l.werte.nummer, l.werte.name].filter(Boolean).join(' ')}</b>
-              <small>{positionen(l.id).filter((q) => q.werte.art !== 'titel' && q.werte.art !== 'hinweis').length} Pos.{p.zusatz ? ` · ${p.zusatz(l)}` : ''}</small></span>
+              <small>{positionen(l.id).filter((q) => !istText(q.werte.art)).length} Pos.{p.zusatz ? ` · ${p.zusatz(l)}` : ''}</small></span>
             <span class="lv-liste-summe">{geld(summe(l))}</span>
           </button>)}</For>
       </nav>

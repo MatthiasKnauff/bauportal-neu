@@ -18,6 +18,8 @@ export const LV_STATUS = [
 export const VERTRAGSARTEN = [{ wert: 'vob', titel: 'VOB/B' }, { wert: 'bgb', titel: 'BGB' }];
 export const SICHERHEITSFORMEN = [{ wert: 'einbehalt', titel: 'Einbehalt' }, { wert: 'buergschaft', titel: 'Bürgschaft' }];
 export const TAGARTEN = [{ wert: 'wt', titel: 'Werktag' }, { wert: 'at', titel: 'Arbeitstag' }, { wert: 'kt', titel: 'Kalendertag' }];
+/** Wie eine Skontofrist gezählt wird (wie im bisherigen Bauportal). */
+export const FRISTARTEN = [{ wert: 'kt', titel: 'Kalendertagen (Mo–So)' }, { wert: 'wt', titel: 'Werktagen (Mo–Sa)' }, { wert: 'at', titel: 'Arbeitstagen (Mo–Fr)' }, { wert: 'wo', titel: 'Wochen' }];
 
 export const lv: ObjektModell = {
   name: 'lv', titel: 'Leistungsverzeichnis', titelMehrzahl: 'Leistungsverzeichnisse', anzeigeFeld: 'name', ersatzName: ['nummer'], sortierFeld: 'nummer',
@@ -69,7 +71,7 @@ export const lv: ObjektModell = {
 export const POSITIONSARTEN = [
   { wert: 'titel', titel: 'Titel' }, { wert: 'normal', titel: 'Position' }, { wert: 'bedarf', titel: 'Bedarfsposition (ohne GP)' },
   { wert: 'alternativ', titel: 'Alternativposition (ohne GP)' }, { wert: 'pauschal', titel: 'Pauschal' }, { wert: 'stundenlohn', titel: 'Stundenlohn' },
-  { wert: 'hinweis', titel: 'Hinweistext' },
+  { wert: 'hinweis', titel: 'Hinweistext' }, { wert: 'vorbemerkung', titel: 'Vorbemerkung' },
 ];
 
 export const lvPosition: ObjektModell = {
@@ -150,7 +152,8 @@ export const angebot: ObjektModell = {
     { name: 'nachlass', titel: 'Nachlass in %', art: 'zahl', inListe: true, breite: 100, kartenBreite: 2, gruppe: 'Konditionen' },
     { name: 'nachlass_eur', titel: 'und/oder Nachlass in €', art: 'zahl', spalte: true, kartenBreite: 2, gruppe: 'Konditionen' },
     { name: 'skonto', spalte: true, titel: 'Skonto in %', art: 'zahl', kartenBreite: 2, gruppe: 'Konditionen' },
-    { name: 'skonto_tage', titel: 'Skonto binnen Tagen', art: 'zahl', kartenBreite: 2, gruppe: 'Konditionen' },
+    { name: 'skonto_tage', titel: 'Skonto binnen', art: 'zahl', kartenBreite: 2, gruppe: 'Konditionen' },
+    { name: 'skonto_art', titel: 'gezählt in', art: 'auswahl', optionen: FRISTARTEN, kartenBreite: 2, gruppe: 'Konditionen' },
     { name: 'ausgeschlossen', titel: 'Ausgeschlossen (nicht gewertet)', art: 'ja_nein', gruppe: 'Wertung' },
     { name: 'beauftragt', titel: 'Beauftragt', art: 'ja_nein', inListe: true, breite: 100, gruppe: 'Wertung' },
     { name: 'auftragsdatum', spalte: true, titel: 'Auftrag vom', art: 'datum', gruppe: 'Wertung' },

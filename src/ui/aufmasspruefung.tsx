@@ -16,6 +16,7 @@ import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abglei
 import { nachtragAnlegen } from './auftraege';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
+import { istText } from '../kern/lvarten';
 
 const RART: Record<string, string> = { abschlag: 'AR', schluss: 'SR', nachtrag: 'NT-Rg.', stundenlohn: 'Stundenlohn' };
 const heute = () => new Date().toLocaleDateString('de-DE');
@@ -71,7 +72,7 @@ export function Aufmasspruefung(m: Mitte): JSX.Element {
   ];
   // ---------- Befehle ----------
   const uebernehmen = () => {
-    const pos = lebende('lv_position').filter((q) => q.werte.lv === lvId() && q.werte.art !== 'titel' && q.werte.art !== 'hinweis');
+    const pos = lebende('lv_position').filter((q) => q.werte.lv === lvId() && !istText(q.werte.art));
     const b: Vorlage[] = [];
     for (const q of pos) {
       const f = a.firma().get(q.id)?.werte.menge; if (f == null || f === '') continue;

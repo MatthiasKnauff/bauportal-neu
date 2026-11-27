@@ -13,6 +13,7 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { projektId } from './projekt';
 import { leistungJetzt, rechnungenVon } from './rechnungpruefen';
 import { lebende, sicht } from './unterbau/abgleich';
+import { istHinweis, istText } from '../kern/lvarten';
 
 const eur0 = (n: number) => `${Math.round(n).toLocaleString('de-DE')} €`;
 const eur = (n: number) => `${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
@@ -82,7 +83,7 @@ const Balken = (p: { leistung: number; abgerechnet: number; von: number }) => (
 function Lvs(p: { lvs: Zeile[]; oeffne: (id: string) => void }): JSX.Element {
   return (
     <div class="mv-liste"><For each={p.lvs} fallback={<p class="still-text">In diesem Projekt gibt es noch kein Leistungsverzeichnis.</p>}>{(l) => {
-      const z = lvZahlen(l.id), n = lebende('lv_position').filter((q) => q.werte.lv === l.id && q.werte.art !== 'titel' && q.werte.art !== 'hinweis' && !q.werte.nachtrag).length, ang = angeboteVon(l.id).length;
+      const z = lvZahlen(l.id), n = lebende('lv_position').filter((q) => q.werte.lv === l.id && !istText(q.werte.art) && !q.werte.nachtrag).length, ang = angeboteVon(l.id).length;
       return (
         <button type="button" class="mv-karte" classList={{ gut: !!z.auftrag, warn: !z.auftrag && ang > 0 }} onClick={() => p.oeffne(l.id)}>
           <span class="mv-kopf"><b>{lvName(l)}</b><span class="pille" classList={{ gut: !!z.auftrag }}>{z.auftrag ? 'vergeben' : ang ? `${ang} Angebot${ang === 1 ? '' : 'e'}` : 'in Ausschreibung'}</span></span>
@@ -130,10 +131,10 @@ function LvPositionen(p: { lv: Zeile; lang: string | null; setLang: (id: string 
       <For each={alle()}>{(q) => (
         <Show when={!versteckt(q)}>
           <Show when={q.werte.art === 'titel'} fallback={
-            <div class="mv-pos" classList={{ still: !zaehlt(q) && q.werte.art !== 'hinweis', hinweis: q.werte.art === 'hinweis' }} data-mp={q.id} onClick={() => p.setLang(p.lang === q.id ? null : q.id)}>
+            <div class="mv-pos" classList={{ still: !zaehlt(q) && !istHinweis(q.werte.art), hinweis: istHinweis(q.werte.art) }} data-mp={q.id} onClick={() => p.setLang(p.lang === q.id ? null : q.id)}>
               <small>{String(q.werte.oz ?? '')}<Show when={nt(q)}> · <b class="mv-nt">{String(nt(q)!.werte.nummer ?? '')} {NT[String(nt(q)!.werte.stand ?? '')] ?? ''}</b></Show>{!zaehlt(q) && q.werte.art !== 'hinweis' ? ' · ohne GB' : ''}</small>
               <span class="mv-text">{String(q.werte.kurztext ?? '')}</span>
-              <Show when={q.werte.art !== 'hinweis'}><span class="mv-zeile"><span>{zt(q.werte.menge)} {String(q.werte.einheit ?? '')}{ep()(q) != null ? ` × ${eur(ep()(q)!)}` : ''}</span><b>{ep()(q) != null && zaehlt(q) ? eur(gp(q.werte.menge, ep()(q))) : ''}</b></span></Show>
+              <Show when={!istHinweis(q.werte.art)}><span class="mv-zeile"><span>{zt(q.werte.menge)} {String(q.werte.einheit ?? '')}{ep()(q) != null ? ` × ${eur(ep()(q)!)}` : ''}</span><b>{ep()(q) != null && zaehlt(q) ? eur(gp(q.werte.menge, ep()(q))) : ''}</b></span></Show>
               <Show when={p.lang === q.id && q.werte.langtext}><p class="mv-lang">{String(q.werte.langtext)}</p></Show>
             </div>}>
             <h3 class="mv-gliederung" style={{ 'padding-left': `${(String(q.werte.oz ?? '').split('.').length - 1) * 12}px` }} onClick={() => klappe(q.id)}>
@@ -149,7 +150,7 @@ function Aufmass(p: { lv: Zeile | undefined; lang: string | null; setLang: (id: 
   const d = createMemo(() => {
     if (!p.lv) return null;
     const R = rechnungenVon(p.lv.id), stand = standAus(zeilenBis(lebende('aufmass').filter((a) => a.werte.lv === p.lv!.id), R, null));
-    const P = nachOz(lebende('lv_position').filter((q) => q.werte.lv === p.lv!.id && q.werte.art !== 'titel' && q.werte.art !== 'hinweis'));
+    const P = nachOz(lebende('lv_position').filter((q) => q.werte.lv === p.lv!.id && !istText(q.werte.art)));
     return { P, stand, mit: P.filter((q) => stand.get(q.id)).length, z: lvZahlen(p.lv.id) };
   });
   return (

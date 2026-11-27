@@ -2,8 +2,9 @@
 // Projekt, Büro, Adressen (Bieter:in), Angebot, LV und Bauzeitenplan; die Vertragsgrundlagen sind die Vorgaben ab Werk.
 // Reine Rechnung auf Werten – im Browser (Anlegen, Abgleich) und in den Tests gleich. Solange das Protokoll ein Entwurf ist,
 // folgen Felder mit der Herkunft „daten“ ihrer Quelle; von Hand geänderte bleiben und bekommen einen Hinweis.
-import { vertragsbedingungenText } from './rechnung';
+import { FRIST_WORT, vertragsbedingungenText } from './rechnung';
 import type { Werte } from '../../kern/modell';
+import { istText } from '../../kern/lvarten';
 
 /** Vertragsgrundlagen ab Werk: (Feld, Beschriftung, Vorgabe) – wie im Vordruck des bisherigen Bauportals. */
 export const GRUNDLAGEN: [string, string, string][] = [
@@ -39,7 +40,7 @@ export function klaerungspunkte(positionen: E[], angebote: E[], angebot: string,
   const aus: string[] = [], ohne: string[] = [];
   const andere = angebote.filter((a) => a.werte.ausgeschlossen !== true);
   for (const q of positionen) {
-    const art = String(q.werte.art ?? 'normal'); if (art === 'titel' || art === 'hinweis') continue;
+    const art = String(q.werte.art ?? 'normal'); if (istText(art)) continue;
     const name = `Pos. ${String(q.werte.oz ?? '')} ${String(q.werte.kurztext ?? '')}`.trim(), e = ep(angebot, q.id);
     if (e == null) { ohne.push(String(q.werte.oz ?? '')); continue; }
     const alle = andere.map((a) => ep(a.id, q.id)).filter((x): x is number => x != null);
@@ -63,7 +64,7 @@ export function ausDenDaten(q: Quellen): Werte {
     angebot_vom: de(a.eingang),
     gewerke: [q.gewerkName || l.name, q.kostengruppe ? `KG ${q.kostengruppe}` : ''].filter(Boolean).join(' · '),
     nachlass: a.nachlass ? `${String(a.nachlass).replace('.', ',')} %` : '',
-    skonto: a.skonto ? `${String(a.skonto).replace('.', ',')} %${a.skonto_tage ? ` binnen ${String(a.skonto_tage)} Tagen` : ''}` : '',
+    skonto: a.skonto ? `${String(a.skonto).replace('.', ',')} %${a.skonto_tage ? ` binnen ${String(a.skonto_tage)} ${FRIST_WORT[String(a.skonto_art ?? 'kt')] ?? 'Tagen'}` : ''}` : '',
     preis: PREIS_VORGABE,
     klaerung: q.klaerung ?? '',
     beginn: de(q.termine?.beginn) || de(l.ausfuehrung_beginn),

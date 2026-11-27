@@ -22,6 +22,7 @@ import { druckOeffnen } from './druck';
 import { LvListe } from './lvliste';
 import { hinweis } from './unterbau/meldungen';
 import { BieterDazu } from './preisspiegel';
+import { istText } from '../kern/lvarten';
 
 const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const name = (kontakt: unknown) => String(sicht.kontakt?.[String(kontakt ?? '')]?.werte.name ?? 'Bieter:in');
@@ -114,7 +115,7 @@ export function gaebAusgeben(lv: Zeile, dp: '83'): void {
 
 /** Karte einer Position: der Gesamtpreis (und warum er nicht zählt). */
 export function PositionSumme(p: { pos: Zeile }): JSX.Element | undefined {
-  if (p.pos.werte.art === 'titel' || p.pos.werte.art === 'hinweis') return undefined;
+  if (istText(p.pos.werte.art)) return undefined;
   return <p class="ava-gp">Gesamtpreis geschätzt: <b>{eur(gp(p.pos.werte.menge, p.pos.werte.ep))} €</b>{!zaehlt(p.pos) ? ' – zählt nicht zur Summe des LV' : ''}</p>;
 }
 

@@ -2,6 +2,7 @@
 // „Quelle | Gruppe [| …]“, das LV trägt ihn im Feld `quelle`. So bleiben LV und Quelle abgleichbar, ohne dass etwas gelöscht wird.
 // Reine Rechnung: im Browser, auf dem Server und in den Tests gleich.
 import type { Werte } from '../../kern/modell';
+import { istText } from '../../kern/lvarten';
 
 type E = { id: string; werte: Werte };
 
@@ -33,7 +34,7 @@ export function abgleichen(plan: LvZeilePlan[], vorhanden: E[], quelle: string):
     if (z.menge != null && Number(p.werte.menge ?? 0) !== z.menge) w.menge = z.menge;
     if (Object.keys(w).length) erg.aendern.push({ id: p.id, werte: w }); else erg.gleich++;
   }
-  for (const [k, p] of da) if (!geplant.has(k) && p.werte.art !== 'titel' && p.werte.art !== 'hinweis' && Number(p.werte.menge ?? 0) !== 0) erg.null.push(p.id);
+  for (const [k, p] of da) if (!geplant.has(k) && !istText(p.werte.art) && Number(p.werte.menge ?? 0) !== 0) erg.null.push(p.id);
   return erg;
 }
 

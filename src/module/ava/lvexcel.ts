@@ -4,9 +4,10 @@
 import type { Werte } from '../../kern/modell';
 import { mengeLesen, ozSchluessel } from './aufmasslesen';
 import { gp, nachOz, zaehlt, zahl } from './rechnung';
+import { istHinweis, istText } from '../../kern/lvarten';
 
 type E = { id: string; werte: Werte };
-const ART: Record<string, string> = { titel: 'Titel', normal: 'Normal', bedarf: 'Bedarf', alternativ: 'Wahl', pauschal: 'Pauschal', stundenlohn: 'Stundenlohn', hinweis: 'Hinweis' };
+const ART: Record<string, string> = { titel: 'Titel', normal: 'Normal', bedarf: 'Bedarf', alternativ: 'Wahl', pauschal: 'Pauschal', stundenlohn: 'Stundenlohn', hinweis: 'Hinweis', vorbemerkung: 'Vorbemerkung' };
 const ART_AUS = Object.fromEntries(Object.entries(ART).map(([k, t]) => [t.toLowerCase(), k])) as Record<string, string>;
 export const EXCEL_KOPF = ['OZ', 'Art', 'Kurztext', 'Langtext', 'Menge', 'EH', 'EP', 'GP'];
 
@@ -14,7 +15,7 @@ export const EXCEL_KOPF = ['OZ', 'Art', 'Kurztext', 'Langtext', 'Menge', 'EH', '
 export function lvAlsTabelle(positionen: E[]): (string | number | null)[][] {
   return [EXCEL_KOPF, ...nachOz(positionen).map((q) => {
     const art = String(q.werte.art ?? 'normal'), ep = q.werte.ep == null || q.werte.ep === '' ? null : zahl(q.werte.ep);
-    return art === 'titel' || art === 'hinweis'
+    return istText(art)
       ? [String(q.werte.oz ?? ''), ART[art]!, String(q.werte.kurztext ?? ''), String(q.werte.langtext ?? ''), null, null, null, null]
       : [String(q.werte.oz ?? ''), ART[art] ?? 'Normal', String(q.werte.kurztext ?? ''), String(q.werte.langtext ?? ''), q.werte.menge == null || q.werte.menge === '' ? null : zahl(q.werte.menge),
         String(q.werte.einheit ?? ''), ep, ep != null && zaehlt(q) ? gp(q.werte.menge, ep) : null];
@@ -44,8 +45,8 @@ export function lvAusTabelle(zeilen: string[][], vorhanden: E[] = []): LvEinlesu
     const menge = mengeLesen(zelle(z, 'menge')), eh = zelle(z, 'eh'), artText = zelle(z, 'art').toLowerCase();
     const art = ART_AUS[artText] ?? (menge == null && !eh ? 'titel' : 'normal');
     if (oz && da.has(ozSchluessel(oz))) { erg.doppelt.push(oz); continue; }
-    erg.zeilen.push({ oz, art, kurztext: kurz, langtext: zelle(z, 'lang'), menge: art === 'titel' || art === 'hinweis' ? null : menge, einheit: art === 'titel' ? '' : eh, ep: art === 'titel' ? null : mengeLesen(zelle(z, 'ep')) });
-    if (art === 'titel') erg.titel++; else if (art !== 'hinweis') erg.positionen++;
+    erg.zeilen.push({ oz, art, kurztext: kurz, langtext: zelle(z, 'lang'), menge: istText(art) ? null : menge, einheit: art === 'titel' ? '' : eh, ep: art === 'titel' ? null : mengeLesen(zelle(z, 'ep')) });
+    if (art === 'titel') erg.titel++; else if (!istHinweis(art)) erg.positionen++;
   }
   return erg;
 }

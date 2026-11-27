@@ -36,7 +36,7 @@ Zeichen:
 | L1 | Baum: Projekt → LVs als Ordner → Gliederung → Positionen. Das gewählte LV ist offen, die anderen sind zugeklappt (Klick öffnet), das Archiv steht am Ende. | ✓ | Baum wie bisher |
 | L2 | Spalten: Bezeichnung (OZ + Text), Menge, EH, Art, KG, EP (Schätzung), GP. Nach der Vergabe: EP Auftrag + EP Schätz. Darunter „Summe netto (ohne Bedarfs-/Wahlpositionen)“. | ✓ | Spalten wie bisher, KG neu an der Position |
 | L3 | Symbol je Art: Normal, Bedarf (gestrichelt E), Wahl (A), Pauschal (P), Hinweistext (i), Vorbemerkung, Nachtrag (orange +) | ✓ | Symbole |
-| L4 | Zuschlagsposition (Art Z aus GAEB, % auf Positionen) und Vorbemerkung als Positionsart V | ✗ | Art Z und V |
+| L4 | Zuschlagsposition (Art Z aus GAEB, % auf Positionen) und Vorbemerkung als Positionsart V | ◐ (Vorbemerkung V – 27.11.; Zuschlag Z offen: rechnet in LV, Preisspiegel, Aufmaß, Rechnung und GAEB mit – vorher melden) | Art Z und V |
 | L5 | Neu: LV (Womit anfangen?), Gliederung, Position, Hinweistext darunter | ✓ | |
 | L6 | Nummerieren mit OZ-Maske und Vorschau | ✓ | |
 | L7 | Langtext aufklappen; der offene Langtext wandert mit der Auswahl | ◐ | Langtext folgt |
@@ -95,7 +95,7 @@ Zeichen:
 | A3 | Stände des Nachtrags (angemeldet · angeboten · geprüft · beauftragt · abgelehnt), Nachtragsakte mit Prüfablauf (je Projekt oder ab Auftragssumme) | ◐ (Stände) | Stände; Prüfablauf später |
 | A4 | Auftrag ohne LV („Zettelwirtschaft“: Firma, Summe, KG) | ✓ (27.11.) | |
 | A5 | Vertrag: Bauvertrag, Auftragsschreiben, Vergabe aufheben | ◐ (Bauvertrag) | Auftragsschreiben |
-| A6 | Auftragskarte rechts: Konditionen (Nachlass, Skonto) mit Hinweis bei Abweichung vom Angebot, Bedingungen, Sicherheiten | ◐ | |
+| A6 | Auftragskarte rechts: Konditionen (Nachlass, Skonto) mit Hinweis bei Abweichung vom Angebot, Bedingungen, Sicherheiten | ✓ (27.11.: Konditionen stehen nur einmal – am beauftragten Angebot –, daher kann keine Abweichung entstehen; Skontofrist zählbar in Kalender-, Werk-, Arbeitstagen oder Wochen wie bisher) | |
 | A7 | Aufmaß je Rechnung: kumulierende Kette (Abschlag → Schluss, Nachtrag), Rechenweg als Stand oder „+“ Zuwachs, Leiste der Rechnungen mit Farben, Mengenüberschreitung als Balken (100/110 %), Datum/Ort/Raum je Zeile | ✓ (27.11.) | Ausbauen |
 | A8 | Mengen der Firma als Zeile „lt. Firma“ übernehmen (eine oder alle), Nachtrag direkt aus dem Aufmaß | ✓ | |
 | A9 | PDF der Firma daneben mit Haken ✔/✘ direkt im Dokument, automatische Marken | ⊘ vorerst | Erst Abgleich ohne Scan (Merkzettel 25.11.) |

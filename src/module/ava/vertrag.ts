@@ -3,6 +3,7 @@
 // „daten“), danach ist er ein eigenes Schriftstück, das man ändern kann.
 import type { Werte } from '../../kern/modell';
 import { GRUNDLAGEN } from './besprechung';
+import { FRIST_WORT } from './rechnung';
 
 export const AG_ARTEN = [{ wert: 'unternehmen', titel: 'Unternehmen / öffentliche Hand (VOB/B)' }, { wert: 'privat', titel: 'Verbraucher:in (BGB-Bauvertrag)' }];
 
@@ -45,7 +46,7 @@ export function vertragAusDaten(q: Vertragsquellen): Werte {
     termine: zeilen(P.beginn ? `Beginn der Ausführung: ${String(P.beginn)}` : '', P.fertig ? `Fertigstellung: ${String(P.fertig)}` : '',
       P.bauzeitenplan ? 'Der Bauzeitenplan ist Vertragsbestandteil.' : '', g('vertragsstrafe') ? `Vertragsstrafe: ${g('vertragsstrafe')}` : ''),
     zahlung: zeilen(`Abschlagszahlungen auf Grundlage prüfbarer Aufmaße und Rechnungen${verbraucher ? '' : ' nach § 16 VOB/B'}.`
-      + (skonto ? ` Bei Zahlung innerhalb von ${String(a.skonto_tage ?? '…')} Tagen nach Eingang der prüfbaren Rechnung darf die Auftraggeber:in ${String(skonto).replace('.', ',')} % Skonto abziehen.` : ''),
+      + (skonto ? ` Bei Zahlung innerhalb von ${String(a.skonto_tage ?? '…')} ${FRIST_WORT[String(a.skonto_art ?? 'kt')] ?? 'Tagen'} nach Eingang der prüfbaren Rechnung darf die Auftraggeber:in ${String(skonto).replace('.', ',')} % Skonto abziehen.` : ''),
       g('rechnungsstellung'), g('zahlungsfrist') ? `Zahlungsfrist Abschlagsrechnungen: ${g('zahlungsfrist')}` : ''),
     sicherheiten: zeilen(g('erfuellung') ? `Vertragserfüllung: ${g('erfuellung')}` : '', g('einbehalt') ? `Mängelansprüche: ${g('einbehalt')}` : ''),
     abnahme: `Die Abnahme erfolgt förmlich${verbraucher ? '' : ' (§ 12 Abs. 4 VOB/B)'}. Verjährungsfrist für Mängelansprüche: ${g('gewaehrleistung') || (verbraucher ? '5 Jahre (§ 634a BGB)' : '4 Jahre (§ 13 Abs. 4 VOB/B)')}.`,

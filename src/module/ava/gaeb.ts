@@ -4,10 +4,11 @@
 // Bedarfs-, Wahl- und Pauschalpositionen, Hinweistexte. Ältere Formate (GAEB 90/2000) bitte im anderen Programm als DA XML ausgeben.
 import { alleText, kind, kinder, xmlLesen, xmlText, type XmlKnoten } from '../../kern/xml';
 import { gaebFeld, gaebText, gaebZusammen } from '../../kern/textergaenzung';
+import { istHinweis } from '../../kern/lvarten';
 
 export interface GaebPosten {
   kennung: string;                 // ID aus der Datei oder die OZ – bleibt beim nächsten Einlesen derselbe Eintrag
-  oz: string; art: 'titel' | 'normal' | 'bedarf' | 'alternativ' | 'pauschal' | 'hinweis';
+  oz: string; art: 'titel' | 'normal' | 'bedarf' | 'alternativ' | 'pauschal' | 'hinweis' | 'vorbemerkung';
   kurztext: string; langtext: string; menge: number | null; einheit: string; ep: number | null;
 }
 export interface GaebLv { dp: string; projekt: string; name: string; bieter: string; posten: GaebPosten[] }
@@ -91,7 +92,7 @@ export function gaebSchreiben(lv: { projekt: string; name: string; nummer: strin
   let n = 0;
   const id = () => `ID_${++n}`;
   const item = (x: Omit<GaebPosten, 'kennung'>, vorne: string) => {
-    if (x.art === 'hinweis') return `<Remark ID="${id()}"><Description><CompleteText><DetailTxt><Text>${p(x.langtext || x.kurztext)}</Text></DetailTxt><OutlineText><OutlTxt><TextOutlTxt>${p(x.kurztext)}</TextOutlTxt></OutlTxt></OutlineText></CompleteText></Description></Remark>`;
+    if (istHinweis(x.art)) return `<Remark ID="${id()}"><Description><CompleteText><DetailTxt><Text>${p(x.langtext || x.kurztext)}</Text></DetailTxt><OutlineText><OutlTxt><TextOutlTxt>${p(x.kurztext)}</TextOutlTxt></OutlTxt></OutlineText></CompleteText></Description></Remark>`;
     const ep = dp === '83' ? null : preis?.(x.oz) ?? null;
     return `<Item ID="${id()}" RNoPart="${xmlText(teil(x.oz, vorne))}">${x.art === 'bedarf' ? '<Provis>WithoutTotal</Provis>' : ''}${x.art === 'pauschal' ? '<LumpSumItem>Yes</LumpSumItem>' : ''}${x.art === 'alternativ' ? '<ALNGroupNo>1</ALNGroupNo><ALNSerNo>1</ALNSerNo>' : ''}`
       + `<Qty>${x.menge ?? 0}</Qty><QU>${xmlText(gaebEinheit(x.einheit))}</QU>${ep != null ? `<UP>${ep.toFixed(2)}</UP>` : ''}`

@@ -56,7 +56,7 @@ export const BAUABZUG = 0.15;
 export interface Leiterzeile { titel: string; betrag: number; summe?: boolean; hinweis?: boolean }
 /** Was im LV (Vertragsbedingungen) und im Auftrag (Nachlass, Skonto) für die Rechnungen gilt. */
 export interface Bedingungen {
-  nachlass: number; skonto?: number; skontoTage?: number;
+  nachlass: number; skonto?: number; skontoTage?: number; skontoArt?: string;
   ve?: number; veForm?: string; ma?: number; maForm?: string;   // Sicherheiten in % (ohne Angabe: 5 % bzw. wie Vertragserfüllung)
   veAbgeloest?: boolean; maAbgeloest?: boolean;                  // Bürgschaft eingegangen: kein Einbehalt (vorher schon)
   abnahme?: string; gewaehrleistungJahre?: number;
@@ -65,7 +65,7 @@ export interface Bedingungen {
 }
 /** Die Bedingungen aus den Werten von LV und beauftragtem Angebot. */
 export const bedingungenAus = (lv: Werte = {}, auftrag: Werte = {}): Bedingungen => ({
-  nachlass: zahl(auftrag.nachlass), skonto: zahl(auftrag.skonto), skontoTage: zahl(auftrag.skonto_tage),
+  nachlass: zahl(auftrag.nachlass), skonto: zahl(auftrag.skonto), skontoTage: zahl(auftrag.skonto_tage), skontoArt: String(auftrag.skonto_art ?? 'kt'),
   ve: lv.ve_prozent == null || lv.ve_prozent === '' ? undefined : zahl(lv.ve_prozent), veForm: String(lv.ve_form ?? 'einbehalt'),
   ma: lv.ma_prozent == null || lv.ma_prozent === '' ? undefined : zahl(lv.ma_prozent), maForm: String(lv.ma_form ?? 'einbehalt'),
   veAbgeloest: lv.ve_form === 'buergschaft' && !!lv.ve_eingang, maAbgeloest: lv.ma_form === 'buergschaft' && !!lv.ma_eingang,
@@ -84,6 +84,17 @@ function sicherheit(r: E, b: Bedingungen): { satz: number; titel: string } {
   return { satz: schluss ? (b.maAbgeloest ? 0 : ma) : (b.veAbgeloest ? 0 : ve), titel };
 }
 const tageNach = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const TAGE_JE_WOCHE: Record<string, number> = { kt: 7, wt: 6, at: 5 };
+/** Zählt ein Tag dieser Art (kt alle, wt Mo–Sa, at Mo–Fr)? */
+const tagZaehlt = (iso: string, art: string) => (new Date(`${iso}T12:00:00Z`).getUTCDay() + 6) % 7 < (TAGE_JE_WOCHE[art] ?? 7);
+/** Ende einer Frist von n Tagen der Art (kt · wt · at) bzw. n Wochen (wo) ab dem Tag start. */
+export function fristEnde(start: string, n: number, art = 'kt'): string {
+  if (art === 'wo') return tageNach(start, n * 7);
+  let d = start;
+  for (let i = 0; i < n;) { d = tageNach(d, 1); if (tagZaehlt(d, art)) i++; }
+  return d;
+}
+export const FRIST_WORT: Record<string, string> = { kt: 'Tagen', wt: 'Werktagen', at: 'Arbeitstagen', wo: 'Wochen' };
 
 /**
  * Netto: Leistungsstand (kumuliert, geprüft sonst angefordert) − Nachlass − Sicherheitseinbehalt − bisherige Zahlungen = Zahlbetrag netto;
@@ -137,7 +148,7 @@ export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | n
     ];
     if (skontoBetrag) {
       const sk = skontoBetrag, eingang = String(r.werte.eingang ?? '');
-      z.push({ titel: `bei Zahlung ${b.skontoTage ? (eingang ? `bis ${tageNach(eingang, b.skontoTage).split('-').reverse().join('.')}` : `binnen ${b.skontoTage} Tagen`) : 'mit Skonto'}: − ${prozent(b.skonto ?? 0)} % Skonto`, betrag: -sk, hinweis: true },
+      z.push({ titel: `bei Zahlung ${b.skontoTage ? (eingang ? `bis ${fristEnde(eingang, b.skontoTage, b.skontoArt).split('-').reverse().join('.')}` : `binnen ${b.skontoTage} ${FRIST_WORT[b.skontoArt ?? 'kt'] ?? 'Tagen'}`) : 'mit Skonto'}: − ${prozent(b.skonto ?? 0)} % Skonto`, betrag: -sk, hinweis: true },
         { titel: 'Auszahlung mit Skonto', betrag: r2(auszahlung - sk), summe: true, hinweis: true });
     }
     if (r.werte.gezahlt != null && r.werte.gezahlt !== '') z.push({ titel: `gezahlt${r.werte.bezahlt_am ? ` am ${String(r.werte.bezahlt_am).split('-').reverse().join('.')}` : ''}`, betrag: zahl(r.werte.gezahlt), hinweis: true });
@@ -156,9 +167,9 @@ export function gewaehrleistungBis(b: Bedingungen): string {
 /** Vertragsstrafe vorschlagen (Schlussrechnung): Tage zwischen vertraglicher Fertigstellung und Abnahme × Satz der Abrechnungssumme netto, höchstens die Obergrenze. */
 export function strafeVorschlag(b: Bedingungen, abrechnungNetto: number, abnahme: string): { tage: number; betrag: number } | null {
   if (!b.strafe || !b.fertigstellung || !abnahme || abnahme <= b.fertigstellung) return null;
-  const proWoche = b.strafeTagart === 'kt' ? 7 : b.strafeTagart === 'at' ? 5 : 6;
+  const art = b.strafeTagart ?? 'wt';
   let tage = 0;
-  for (let d = tageNach(b.fertigstellung, 1); d <= abnahme; d = tageNach(d, 1)) { const wt = (new Date(`${d}T12:00:00Z`).getUTCDay() + 6) % 7; if (wt < proWoche) tage++; }
+  for (let d = tageNach(b.fertigstellung, 1); d <= abnahme; d = tageNach(d, 1)) if (tagZaehlt(d, art)) tage++;
   let betrag = abrechnungNetto * b.strafe / 100 * tage;
   if (b.strafeMax) betrag = Math.min(betrag, abrechnungNetto * b.strafeMax / 100);
   return { tage, betrag: Math.round(betrag * 100) / 100 };

@@ -8,6 +8,7 @@ import { gaebLesen } from '../module/ava/gaeb';
 import { alsBenutzer, type Db } from './db';
 import { Ablehnung, ALLES_GESEHEN } from './protokoll';
 import { abgleicher, merken, type Vorschau } from './uebernahme';
+import { istText } from '../kern/lvarten';
 
 /** Text einer Datei – in der Kodierung, die ihre XML-Kopfzeile nennt (ältere Programme schreiben oft ISO-8859-1). */
 function dekodieren(b: Buffer): string {
@@ -27,7 +28,7 @@ export function avaRouten(app: FastifyInstance, e: { db: Db; register: Modulregi
     return merken(req.benutzer!.id, await alsBenutzer(e.db, req.benutzer!, async (c) => {
       const lvDa = q.lv ? (await c.query('select id, name from o_lv where id = $1 and projekt = $2 and not geloescht', [q.lv, q.projekt])).rows[0] : undefined;
       if (q.lv && !lvDa) throw new Ablehnung('Das gewählte LV gibt es in diesem Projekt nicht');
-      const hinweise: string[] = [`GAEB DA XML, Datenart X${d.dp || '?'}: ${d.posten.filter((x) => x.art === 'titel').length} Titel, ${d.posten.filter((x) => x.art !== 'titel' && x.art !== 'hinweis').length} Positionen.`];
+      const hinweise: string[] = [`GAEB DA XML, Datenart X${d.dp || '?'}: ${d.posten.filter((x) => x.art === 'titel').length} Titel, ${d.posten.filter((x) => !istText(x.art)).length} Positionen.`];
       if (d.dp === '84') {
         // Angebot: Preise der Bieter:in zu den Positionen des gewählten LV (nach OZ)
         if (!lvDa) throw new Ablehnung('Ein Angebot (X84) gehört zu einem LV – bitte zuerst links das LV wählen');
