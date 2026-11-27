@@ -16,7 +16,7 @@ Stand 26.11.2026. Grundlage: der Bauzeitenplan im bisherigen Bauportal (live ang
 2. Befehle dort: Gewerk ergänzen (ohne Leistung, z. B. Statiker:in), Firma als Unternehmer:in bei allen Leistungen des Gewerks eintragen, Farben der Gewerke, Leistungen ohne Gewerk: Gewerk vorschlagen (zum Abhaken), Firmenliste drucken, E-Mail an alle Firmen
 3. Ältere Stände (Versionshistorie) zum Zurückholen
 4. Link zum Ansehen ohne Anmeldung (Firmen, Fachplaner:innen, Bauherr:innen), Termine für das Bauherrenportal freigeben
-5. Vorschlagsliste für Bezeichnungen und für Unternehmer:in (Firmen des Gewerks zuerst)
+5. ~~Vorschlagsliste für Bezeichnungen und für Unternehmer:in~~ – erledigt 27.11. (Leistung schlägt beim Tippen vor; Firma: die des Gewerks oben)
 6. „Basic“-Ansicht: große Karten, eine Hauptaufgabe je Seite (neben „Profi“)
 
 ## Regelfragen

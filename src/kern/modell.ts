@@ -21,6 +21,7 @@ export interface Feld {
   breite?: number;         // Spaltenbreite in px
   kartenBreite?: number;   // Breite in der Karte in Sechsteln (ab Werk 3 = halbe Breite; 6 = ganze), z. B. Anrede 1, Name 3
   ziel?: string;           // nur bei art = verweis: Name des Objekts, auf das verwiesen wird
+  zuerst?: { feld: string; ziel: string };   // bei Verweis: oben die Ziele, deren Feld „ziel“ den Wert des eigenen Felds „feld“ enthält (z. B. Firmen des Gewerks)
   eindeutig?: boolean;     // Wert darf nur einmal vorkommen
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)
   verborgen?: boolean;     // führt das Programm selbst (z. B. die Reihenfolge) – steht in keiner Karte

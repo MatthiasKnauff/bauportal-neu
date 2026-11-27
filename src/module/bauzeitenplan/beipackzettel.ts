@@ -44,7 +44,7 @@ export const vorgang: ObjektModell = {
   ...basis, name: 'vorgang', titel: 'Leistung', titelMehrzahl: 'Leistungen', anzeigeFeld: 'name',
   felder: [
     ...zusammenhang,
-    { name: 'name', titel: 'Leistung', art: 'text', pflicht: true, inListe: true, breite: 280, gruppe: 'Leistung' },
+    { name: 'name', titel: 'Leistung', art: 'text', pflicht: true, vorschlagen: true, inListe: true, breite: 280, gruppe: 'Leistung' },
     { name: 'dauer', titel: 'Dauer in Arbeitstagen', art: 'zahl', inListe: true, breite: 90, gruppe: 'Termine' },
     { name: 'anfang_nicht_vor', titel: 'Anfang nicht früher als', art: 'datum', gruppe: 'Termine' },
     { name: 'unterbrechung', titel: 'Abschnitte (z. B. 3+(2)+4: 3 Tage, 2 Tage Pause, 4 Tage)', art: 'text', gruppe: 'Termine' },
@@ -52,7 +52,7 @@ export const vorgang: ObjektModell = {
     { name: 'gewerk', titel: 'Gewerk', art: 'text', inListe: true, breite: 150, gruppe: 'Ausführung', vorschlagen: true },
     { name: 'vob', spalte: true, titel: 'Gewerk nach VOB/C', art: 'verweis', ziel: 'gewerk', gruppe: 'Ausführung' },
     { name: 'unternehmer', titel: 'Unternehmer', art: 'text', gruppe: 'Ausführung', vorschlagen: true },
-    { name: 'firma', spalte: true, titel: 'Firma', art: 'verweis', ziel: 'kontakt', gruppe: 'Ausführung' },
+    { name: 'firma', spalte: true, titel: 'Firma', art: 'verweis', ziel: 'kontakt', zuerst: { feld: 'gewerk', ziel: 'gewerk' }, gruppe: 'Ausführung' },
     { name: 'farbe', titel: 'Eigene Balkenfarbe', art: 'text', gruppe: 'Ausführung' },
     { name: 'abschnitt', spalte: true, titel: 'Bauphase', art: 'text', gruppe: 'Einordnung', vorschlagen: true },
     { name: 'teil', spalte: true, titel: 'Gebäudeteil', art: 'text', gruppe: 'Einordnung', vorschlagen: true },

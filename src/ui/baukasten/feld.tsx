@@ -4,7 +4,7 @@ import { For, Match, Show, Switch, createMemo, createSignal, createUniqueId } fr
 import type { Feld, Wert, Werte } from '../../kern/modell';
 import { HERKUNFT } from '../../kern/befehl';
 import { feldtext } from '../../kern/druck';
-import { feldWerte, gemerkt, lebende, objektname, verweisname } from '../unterbau/abgleich';
+import { feldWerte, gemerkt, lebende, objektname, sicht, verweisname } from '../unterbau/abgleich';
 import { modell } from '../unterbau/api';
 import { Auswahlliste } from './auswahlliste';
 import { hinweis } from '../unterbau/meldungen';
@@ -177,8 +177,13 @@ export function FeldEingabe(p: {
 function verweisziele(f: Feld, zusammenhang?: Werte): { wert: string; titel: string }[] {
   const m = modell(f.ziel!);
   const gleich = ['projekt', 'version'].filter((k) => zusammenhang?.[k] && m.felder.some((x) => x.name === k));
-  return gemerkt(f.ziel!, `ziele:${gleich.map((k) => String(zusammenhang![k])).join(':')}`, () => lebende(f.ziel!).filter((z) => gleich.every((k) => z.werte[k] === zusammenhang![k]))
+  const alle = gemerkt(f.ziel!, `ziele:${gleich.map((k) => String(zusammenhang![k])).join(':')}`, () => lebende(f.ziel!).filter((z) => gleich.every((k) => z.werte[k] === zusammenhang![k]))
     .map((z) => ({ wert: z.id, titel: objektname(m, z.werte) })).sort((a, b) => a.titel.localeCompare(b.titel, 'de', { numeric: true })));
+  // Stellschraube „zuerst“: die passenden oben (z. B. Firmen, deren Gewerk zum Gewerk der Leistung passt), sonst wie gehabt
+  const such = f.zuerst ? String(zusammenhang?.[f.zuerst.feld] ?? '').trim().toLowerCase() : '';
+  if (!such) return alle;
+  const passt = (id: string) => String(sicht[f.ziel!]?.[id]?.werte[f.zuerst!.ziel] ?? '').toLowerCase().includes(such);
+  return [...alle.filter((o) => passt(o.wert)), ...alle.filter((o) => !passt(o.wert))];
 }
 
 /** Wert so, wie er in einer Tabelle steht – derselbe Text wie im Ausdruck. */
