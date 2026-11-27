@@ -1564,3 +1564,8 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .unterliste li.ziel { outline: 2px dashed var(--akzent); outline-offset: 2px; background: var(--akzent-hell); }
 .lv-kette { margin: 6px 0 10px 18px; } .lv-sicher { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-weight: 600; }
 .lvt-suche { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; } .lvt-suche input { flex: 0 1 340px; min-height: 32px; padding: 0 10px; border: 1px solid var(--rand-stark); border-radius: calc(8px * var(--rund)); background: var(--flaeche); font: inherit; font-size: 13.5px; }
+/* Auftragskarte rechts: Text bricht um, Beträge bleiben in einer Zeile – kein waagerechtes Rollen in der schmalen Karte */
+.preisspiegel.auftraege { width: 100%; } .preisspiegel.auftraege td, .preisspiegel.auftraege th { white-space: normal; } .preisspiegel.auftraege .zahl { white-space: nowrap; }
+.preisspiegel.auftraege { table-layout: fixed; } .preisspiegel.auftraege th:nth-child(1) { width: 46px; } .preisspiegel.auftraege th:nth-child(3) { width: 118px; } .preisspiegel.auftraege th:nth-child(4) { width: 92px; }
+.preisspiegel.auftraege .auswahlliste, .preisspiegel.auftraege .auswahlliste-knopf { min-width: 0; width: 100%; }
+.karte .preisspiegel-flaeche .ps-rollen { flex: none; overflow: visible; } .preisspiegel.auftraege th:nth-child(1) { width: 58px; }
