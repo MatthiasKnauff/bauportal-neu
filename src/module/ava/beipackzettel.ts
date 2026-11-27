@@ -432,6 +432,20 @@ export const ava: Beipackzettel = {
       { id: 'unterschriften', art: 'unterschriften', parteien: ['Auftraggeber:in', 'Auftragnehmer:in'] },
     ],
   }, {
+    // Auftragsschreiben (wie bisher): derselbe Vertrag als kurzer Brief an die Firma – Anrede, die Regelungen ohne §, Bitte um Bestätigung
+    id: 'ava.auftragsschreiben', titel: 'Auftragsschreiben', objekt: 'bauvertrag',
+    dateiname: 'Auftragsschreiben {lv} {datum}', fuss: '{buero} · Auftragsschreiben {lv}', ordner: 'AVA/Vergabe',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'an', art: 'felder', felder: ['an'] },
+      { id: 'titel', art: 'titel', text: 'Auftragsschreiben', unter: '{gegenstand}' },
+      { id: 'anrede', art: 'absatz', text: 'Sehr geehrte Damen und Herren,\n\nauf Grundlage Ihres Angebots erteilen wir Ihnen im Namen und im Auftrag der Auftraggeber:in den Auftrag über: {gegenstand}.' },
+      ...([['bestandteile', 'Vertragsbestandteile'], ['verguetung', 'Vergütung'], ['termine', 'Ausführungsfristen'], ['zahlung', 'Abrechnung und Zahlung'], ['sicherheiten', 'Sicherheiten'],
+        ['abnahme', 'Abnahme und Mängelansprüche'], ['weiteres', 'Weitere Vereinbarungen']] as const).map(([feld, titel]) => ({ id: feld, art: 'text' as const, feld, titel })),
+      { id: 'gruss', art: 'absatz', text: 'Bitte bestätigen Sie den Auftrag durch Ihre Unterschrift und senden Sie uns ein Exemplar zurück.\n\nMit freundlichen Grüßen' },
+      { id: 'unterschriften', art: 'unterschriften', parteien: ['Auftraggeber:in / Architekt:in', 'Auftragnehmer:in'] },
+    ],
+  }, {
     id: 'ava.besprechung', titel: 'Protokoll Angebotsbesprechung', objekt: 'besprechung',
     dateiname: 'Angebotsbesprechung {lv} {datum}', fuss: '{buero} · Angebotsbesprechung {lv} vom {datum}', ordner: 'AVA/Vergabe',
     bloecke: [

@@ -45,8 +45,9 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
     { name: 'unter', titel: 'Zeile darunter', art: 'text', stelle: `${b.id}.unter`, vorgabe: b.unter ?? '' }, zeigen(b.id)] };
   if (b.art === 'felder' && rest) { const f = m.felder.find((x) => x.name === rest)!; return { titel: f.titel, felder: [
     { name: 'titel', titel: 'Beschriftung', art: 'text', stelle: `${stelle}.titel`, vorgabe: f.titel }, zeigen(stelle)] }; }
-  if (b.art === 'text') { const f = m.felder.find((x) => x.name === b.feld)!; return { titel: f.titel, felder: [
-    { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: f.titel }, zeigen(b.id),
+  if (b.art === 'absatz') return { titel: 'Text', felder: [{ name: 'text', titel: 'Text (Felder in geschweiften Klammern, z. B. {gegenstand})', art: 'langtext', stelle: `${b.id}.text`, vorgabe: b.text }, zeigen(b.id)] };
+  if (b.art === 'text') { const f = m.felder.find((x) => x.name === b.feld)!; return { titel: b.titel ?? f.titel, felder: [
+    { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel ?? f.titel }, zeigen(b.id),
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] }; }
   if ((b.art === 'liste' || b.art === 'verzeichnis') && rest) { const f = spaltenFeld(b.art === 'liste' ? modell(b.objekt) : m, rest, modell)!; return { titel: `${b.titel} – Spalte ${f.titel}`, felder: [
     { name: 'titel', titel: 'Beschriftung der Spalte', art: 'text', stelle: `${stelle}.titel`, vorgabe: f.titel }, zeigen(stelle)] }; }

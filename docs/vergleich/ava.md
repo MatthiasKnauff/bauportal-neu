@@ -94,7 +94,7 @@ Zeichen:
 | A2 | Nachtrag: Gliederungspunkt/Position, Eingabezeile wie Excel (auch aus der Zwischenablage), Nachtragsangebot einlesen, aus Position ableiten (Mehrmenge / geänderte Leistung), ans Ende/an OZ, verschieben | ◐ (Gliederung, Position, Mehrmenge aus dem Aufmaß) | |
 | A3 | Stände des Nachtrags (angemeldet · angeboten · geprüft · beauftragt · abgelehnt), Nachtragsakte mit Prüfablauf (je Projekt oder ab Auftragssumme) | ◐ (Stände) | Stände; Prüfablauf später |
 | A4 | Auftrag ohne LV („Zettelwirtschaft“: Firma, Summe, KG) | ✓ (27.11.) | |
-| A5 | Vertrag: Bauvertrag, Auftragsschreiben, Vergabe aufheben | ◐ (Bauvertrag) | Auftragsschreiben |
+| A5 | Vertrag: Bauvertrag, Auftragsschreiben, Vergabe aufheben | ✓ (27.11.: Auftragsschreiben als zweiter Ausdruck desselben Vertrags – Brief mit Anrede, Abschnitten ohne §, Bitte um Bestätigung) | Auftragsschreiben |
 | A6 | Auftragskarte rechts: Konditionen (Nachlass, Skonto) mit Hinweis bei Abweichung vom Angebot, Bedingungen, Sicherheiten | ✓ (27.11.: Konditionen stehen nur einmal – am beauftragten Angebot –, daher kann keine Abweichung entstehen; Skontofrist zählbar in Kalender-, Werk-, Arbeitstagen oder Wochen wie bisher) | |
 | A7 | Aufmaß je Rechnung: kumulierende Kette (Abschlag → Schluss, Nachtrag), Rechenweg als Stand oder „+“ Zuwachs, Leiste der Rechnungen mit Farben, Mengenüberschreitung als Balken (100/110 %), Datum/Ort/Raum je Zeile | ✓ (27.11.) | Ausbauen |
 | A8 | Mengen der Firma als Zeile „lt. Firma“ übernehmen (eine oder alle), Nachtrag direkt aus dem Aufmaß | ✓ | |

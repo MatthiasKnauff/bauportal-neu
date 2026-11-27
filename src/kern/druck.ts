@@ -12,7 +12,8 @@ export type Druckblock =
   | { id: string; art: 'briefkopf' }                                   // Büro links, Projekt rechts
   | { id: string; art: 'titel'; text: string; unter?: string }         // Überschrift; {feld} wird ersetzt
   | { id: string; art: 'felder'; felder: string[] }                    // Beschriftung + Wert, nebeneinander
-  | { id: string; art: 'text'; feld: string }                          // langer Text mit Überschrift, über mehrere Seiten
+  | { id: string; art: 'text'; feld: string; titel?: string }         // langer Text mit Überschrift (ab Werk die des Felds), über mehrere Seiten
+  | { id: string; art: 'absatz'; text: string }                        // fester Text (z. B. Anrede und Gruß eines Briefs); {feld} wird ersetzt, einstellbar
   // Tabelle der Einträge, die am Objekt hängen (z. B. die Mängel eines Berichts): objekt.ueber verweist auf das gedruckte Objekt
   | { id: string; art: 'liste'; objekt: string; ueber: string; filter?: Werte; titel: string; spalten: string[] }
   // Bilder, die am Objekt hängen – zwei nebeneinander, nie beschnitten, mit Beschriftung
@@ -150,6 +151,7 @@ export const CSS = (schrift: number) => `
   .felder dt { flex: 0 0 38%; color: #444; }
   .felder dd { margin: 0; flex: 1; font-weight: 600; }
   .textblock { margin-bottom: 5mm; }
+  .absatz { margin-bottom: 5mm; } .absatz p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .unterschriften { display: flex; gap: 14mm; margin-top: 16mm; break-inside: avoid; }
   .unterschriften > div { flex: 1; }
   .unterschriften .linie { display: block; border-bottom: .3mm solid #111; height: 14mm; }
@@ -252,9 +254,10 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       return huelle(b.id, `bilder${bilder.length ? '' : ' leer'}${eins ? ' eins' : ''}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2><div class="bildraster">${
         bilder.map((z) => `<figure><img src="${sicher(d.bild(z.id))}" alt=""><figcaption>${sicher(String(z.werte[b.beschriftung] ?? ''))}</figcaption></figure>`).join('') || '–'}</div>`);
     }
+    if (b.art === 'absatz') return huelle(b.id, 'absatz', `<p>${sicher(einsetzen(e[`${b.id}.text`] || b.text, m, d))}</p>`);
     const text = String(d.werte[b.feld] ?? '');
     if (!text && !bearbeiten && e[`${b.id}.leer`] !== 'ja') return '';   // leere Abschnitte fallen weg, wenn nicht anders eingestellt
-    return huelle(b.id, `textblock${text ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || feld(b.feld).titel)}</h2><p>${sicher(text) || '–'}</p>`);
+    return huelle(b.id, `textblock${text ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel || feld(b.feld).titel)}</h2><p>${sicher(text) || '–'}</p>`);
   });
   return teile.join('');
 }
