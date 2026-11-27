@@ -90,3 +90,57 @@ export function abgleich(jetzt: Werte, herkunft: Record<string, string> | undefi
   }
   return { folgen, hinweise };
 }
+
+// ---------- Abschließen: was im Gespräch geklärt wurde, zurück in Adressen und LV (wie bisher, je Zeile ein Haken) ----------
+const RECHTSFORMEN = ['GmbH & Co. KG', 'gGmbH', 'GmbH', 'UG (haftungsbeschränkt)', 'UG', 'AG', 'KG', 'OHG', 'GbR', 'e. K.', 'e.K.', 'eG', 'Einzelunternehmen'];
+/** „GmbH, Sitz Essen, HRB 12345 AG Essen“ → Rechtsform, Sitz, Handelsregister (was erkennbar ist). */
+export function firmaLesen(text: unknown): { rechtsform?: string; sitz?: string; hrb?: string } {
+  let t = String(text ?? '').trim(); if (!t) return {};
+  const aus: { rechtsform?: string; sitz?: string; hrb?: string } = {};
+  const h = /\bHR[AB]\s*\d+[^,;\n]*/i.exec(t); if (h) { aus.hrb = h[0].trim(); t = t.replace(h[0], ''); }
+  const r = RECHTSFORMEN.find((x) => new RegExp(`(^|[\\s,;])${x.replace(/[.()&]/g, (c) => `\\${c}`)}(?=$|[\\s,;])`).test(t));
+  if (r) { aus.rechtsform = r; t = t.replace(r, ''); }
+  const s = t.replace(/\bSitz\b:?/i, '').split(/[,;\n]/).map((x) => x.trim()).filter(Boolean).join(', ');
+  if (s) aus.sitz = s;
+  return aus;
+}
+/** „12.03.2027“, „2027-03-12“ oder „KW 10/2027“ → ISO-Datum (KW: Montag, beim Ende Freitag); sonst ''. */
+export function datumAus(text: unknown, ende = false): string {
+  const t = String(text ?? '');
+  const iso = /(\d{4})-(\d{2})-(\d{2})/.exec(t); if (iso) return iso[0];
+  const de = /(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(t); if (de) return `${de[3]}-${de[2]!.padStart(2, '0')}-${de[1]!.padStart(2, '0')}`;
+  const kw = /KW\s*(\d{1,2})\s*\/\s*(\d{4})/i.exec(t);
+  if (kw) {   // ISO-Woche: der Donnerstag liegt im Jahr; Montag der Woche 1 ist der Montag vor (oder am) 4. Januar
+    const j = Number(kw[2]), w = Number(kw[1]); if (w < 1 || w > 53) return '';
+    const vier = new Date(Date.UTC(j, 0, 4)), mo = new Date(vier.getTime() - ((vier.getUTCDay() + 6) % 7) * 864e5);
+    const d = new Date(mo.getTime() + ((w - 1) * 7 + (ende ? 4 : 0)) * 864e5);
+    return d.toISOString().slice(0, 10);
+  }
+  return '';
+}
+export interface Rueckweg { id: string; objekt: 'kontakt' | 'lv'; objektId: string; feld: string; ziel: string; titel: string; alt: string; neu: string; wert: string | number }
+/** Die Zeilen beim Abschließen: Firmenangaben in die Adressen, nach der Vergabe die Ausführungszeit ins LV – nur was sich ändert. */
+export function rueckweg(protokoll: Werte, bieter: { id: string; werte: Werte } | undefined, lv: { id: string; werte: Werte } | undefined, beauftragt: boolean): Rueckweg[] {
+  const aus: Rueckweg[] = [];
+  const dazu = (objekt: Rueckweg['objekt'], z: { id: string; werte: Werte }, ziel: string, feld: string, titel: string, wert: string | number, anzeige = String(wert)) => {
+    const alt = z.werte[feld];
+    if (wert === '' || String(alt ?? '') === String(wert)) return;
+    aus.push({ id: `${objekt}.${feld}`, objekt, objektId: z.id, feld, ziel, titel, alt: alt == null || alt === '' ? '–' : String(objekt === 'lv' ? deIso(alt) : alt), neu: anzeige, wert });
+  };
+  if (bieter) {
+    const k = `Adressen · ${String(bieter.werte.name ?? '')}`, f = firmaLesen(protokoll.rechtsform);
+    if (f.rechtsform) dazu('kontakt', bieter, k, 'rechtsform', 'Rechtsform', f.rechtsform);
+    if (f.sitz) dazu('kontakt', bieter, k, 'sitz', 'Sitz / Registergericht', f.sitz);
+    if (f.hrb) dazu('kontakt', bieter, k, 'hrb', 'Handelsregister', f.hrb);
+    const ma = /\d[\d.]*/.exec(String(protokoll.mitarbeiter ?? ''))?.[0]?.replace(/\./g, '');
+    if (ma) dazu('kontakt', bieter, k, 'mitarbeiter', 'Mitarbeiter:innen', Number(ma));
+  }
+  if (lv && beauftragt) {
+    const z = `LV ${[lv.werte.nummer, lv.werte.name].filter(Boolean).join(' ')}`;
+    const b = datumAus(protokoll.beginn), e = datumAus(protokoll.fertig, true);
+    if (b) dazu('lv', lv, z, 'ausfuehrung_beginn', 'Ausführung ab', b, deIso(b));
+    if (e) dazu('lv', lv, z, 'ausfuehrung_ende', 'Ausführung bis', e, deIso(e));
+  }
+  return aus;
+}
+const deIso = (iso: unknown) => de(iso) || String(iso ?? '');

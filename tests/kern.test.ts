@@ -1993,3 +1993,14 @@ test('Angebot aus Excel: EP je OZ, fremde OZ und Zeilen ohne Preis gezählt', as
   assert.deepEqual(e.preise, [{ position: 'p1', ep: 12.5 }]);
   assert.equal(e.ohnePreis, 1); assert.deepEqual(e.fremd, ['02.0010']);
 });
+
+test('Angebotsbesprechung abschließen: Firmenangaben und Ausführungszeit zurück', async () => {
+  const b = await import('../src/module/ava/besprechung');
+  assert.deepEqual(b.firmaLesen('GmbH, Sitz Essen, HRB 12345 AG Essen'), { hrb: 'HRB 12345 AG Essen', rechtsform: 'GmbH', sitz: 'Essen' });
+  assert.equal(b.datumAus('KW 10/2027'), '2027-03-08'); assert.equal(b.datumAus('KW 10/2027', true), '2027-03-12');
+  assert.equal(b.datumAus('ab 5.4.2027'), '2027-04-05');
+  const z = b.rueckweg({ rechtsform: 'GmbH, Essen', mitarbeiter: 'ca. 12', beginn: 'KW 10/2027', fertig: '30.04.2027' },
+    { id: 'k', werte: { name: 'Kunz', rechtsform: 'GmbH' } }, { id: 'l', werte: { nummer: '034', name: 'Maler', ausfuehrung_ende: '2027-04-30' } }, true);
+  assert.deepEqual(z.map((x) => `${x.id}=${x.wert}`), ['kontakt.sitz=Essen', 'kontakt.mitarbeiter=12', 'lv.ausfuehrung_beginn=2027-03-08']);
+  assert.equal(b.rueckweg({ beginn: 'KW 10/2027' }, undefined, { id: 'l', werte: {} }, false).length, 0);   // vor der Vergabe nichts ins LV
+});

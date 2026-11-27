@@ -1575,3 +1575,4 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .vr-name { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; } .vr-weg { flex: none; min-height: 22px; padding: 0 4px; } .preisspiegel.versand th, .preisspiegel.versand td { padding: 5px 6px; }
 .preisspiegel.kostenkontrolle td:not(.zahl) { white-space: normal; } .preisspiegel.kostenkontrolle th, .preisspiegel.kostenkontrolle td { padding: 5px 4px; }
 .kk-nr{color:var(--text-still);margin-right:4px}
+.bsp-rueckweg { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; } .bsp-rueckweg label { display: flex; gap: 8px; align-items: flex-start; }

@@ -1,10 +1,11 @@
 // Angebotsbesprechung in der Oberfläche: anlegen bzw. öffnen an der Karte des Angebots; an der Karte des Protokolls der
 // Abgleich mit den Daten (solange Entwurf) und Abschließen. Die Rechnung „Protokoll aus den Daten“ steht in
 // module/ava/besprechung.ts; hier werden nur die Quellen zusammengesucht und die Befehle geschickt.
-import { For, Show, createMemo } from 'solid-js';
+import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
-import { abgleich, ausDenDaten, klaerungspunkte, type Quellen } from '../module/ava/besprechung';
+import { abgleich, ausDenDaten, klaerungspunkte, rueckweg, type Quellen } from '../module/ava/besprechung';
+import { Dialog } from './baukasten/dialog';
 import { nachOz, zahl } from '../module/ava/rechnung';
 import { angeboteVon, preiseVon } from './ava';
 import { vertragAusDaten } from '../module/ava/vertrag';
@@ -105,6 +106,7 @@ export function BesprechungAbgleich(p: { z: Zeile }) {
   const aendern = (werte: Werte, titelText: string, herkunft?: string) =>
     ausfuehren({ objekt: 'besprechung', art: 'aendern', objektId: p.z.id, werte, ...(herkunft ? { herkunft } : {}) } as Vorlage, titelText);
   const neuerStand = (mehr: Werte) => JSON.stringify({ ...stand(), ...mehr });
+  const [abschluss, setAbschluss] = createSignal(false);
   return (
     <Show when={schreiben()}>
       <div class="bsp-abgleich">
@@ -121,9 +123,41 @@ export function BesprechungAbgleich(p: { z: Zeile }) {
               </span></div>
           )}</For>
           <div class="bsp-zeile"><span class="still-text klein-text">Felder mit „aus den Daten“ folgen ihrer Quelle, solange das Protokoll ein Entwurf ist.</span>
-            <button type="button" class="knopf klein" onClick={() => aendern({ stand: 'abgeschlossen' }, 'Angebotsbesprechung abschließen')}>Abschließen</button></div>
+            <button type="button" class="knopf klein" onClick={() => setAbschluss(true)}>Abschließen …</button></div>
         </Show>
+        <Show when={abschluss()}><Abschliessen z={p.z} onZu={() => setAbschluss(false)} /></Show>
       </div>
     </Show>
+  );
+}
+
+/** Abschließen (wie bisher): was im Gespräch geklärt wurde, geht – je Zeile mit Haken – in Adressen und LV; alles mit einem Rückgängig. */
+function Abschliessen(p: { z: Zeile; onZu: () => void }) {
+  const angebot = () => sicht.angebot?.[String(p.z.werte.angebot)];
+  const zeilen = createMemo(() => { const a = angebot(), k = a ? sicht.kontakt?.[String(a.werte.bieter)] : undefined, l = sicht.lv?.[String(p.z.werte.lv)];
+    return rueckweg(p.z.werte, k && !k.geloescht ? k : undefined, l && !l.geloescht ? l : undefined, a?.werte.beauftragt === true)
+      .filter((x) => darf(x.objekt, 'schreiben')); });
+  const [aus, setAus] = createSignal(new Set<string>());
+  const ok = () => {
+    const gewaehlt = zeilen().filter((x) => !aus().has(x.id)), je = new Map<string, Vorlage>();
+    for (const x of gewaehlt) { const k = `${x.objekt}:${x.objektId}`; const v = je.get(k) ?? { objekt: x.objekt, art: 'aendern', objektId: x.objektId, werte: {} }; v.werte![x.feld] = x.wert; je.set(k, v); }
+    ausfuehrenMehrere([{ objekt: 'besprechung', art: 'aendern', objektId: p.z.id, werte: { stand: 'abgeschlossen' } }, ...je.values()], 'Angebotsbesprechung abschließen');
+    p.onZu();
+  };
+  return (
+    <Dialog titel="Angebotsbesprechung abschließen" onAbbrechen={p.onZu}
+      knoepfe={<><button type="button" class="knopf" onClick={p.onZu}>Abbrechen</button><button type="button" class="knopf haupt" onClick={ok}>Abschließen</button></>}>
+      <Show when={zeilen().length} fallback={<p>Danach folgt das Protokoll den Daten nicht mehr. Aus dem Gespräch geht nichts Neues in Adressen oder LV.</p>}>
+        <p>Diese Angaben aus dem Gespräch gehen beim Abschließen mit:</p>
+        <ul class="bsp-rueckweg">
+          <For each={zeilen()}>{(x) => (
+            <li><label><input type="checkbox" checked={!aus().has(x.id)} onChange={(e) => { const n = new Set(aus()); if (e.currentTarget.checked) n.delete(x.id); else n.add(x.id); setAus(n); }} />
+              <span><b>{x.titel}</b> <small class="still-text">{x.ziel}</small><br />{x.alt} → <b>{x.neu}</b></span></label></li>
+          )}</For>
+        </ul>
+        <Show when={angebot()?.werte.beauftragt !== true}><p class="still-text klein-text">Noch nicht vergeben – die Ausführungszeit geht erst nach der Vergabe ins LV (dann wieder öffnen und erneut abschließen).</p></Show>
+        <p class="still-text klein-text">Rückgängig mit Strg+Z nimmt alles zusammen zurück.</p>
+      </Show>
+    </Dialog>
   );
 }

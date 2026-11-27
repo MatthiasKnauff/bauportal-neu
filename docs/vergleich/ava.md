@@ -84,7 +84,7 @@ Zeichen:
 | V11 | Angebot einlesen: X84 ✓, Excel ✗, PDF/Scan ⊘ | ✓ X84 und Excel/CSV (27.11.: „Import → Excel-Angebot“ im Preisspiegel, EP je OZ, ein Rückgängig); PDF/Scan ⊘ | Excel |
 | V12 | Vergeben …, Vergabe aufheben (mit Rechnungen erst nach Rückfrage), Nicht vergeben (zählt nicht mehr für Budget und To-dos) | ✓ | Aufheben, Nicht vergeben |
 | V13 | Klärungspunkte je Angebot: EP mehr als 30 % vom Mittel, Bedarfs-/Wahlpositionen. Sie gehen ins Protokoll. | ✓ (Klärungspunkte ins Protokoll, 27.11.) | |
-| V14 | Angebotsbesprechung: Auswahlfelder mit üblichen Antworten, Abschließen (Angaben in Adressen/Auftragsdaten übernehmen, mit Haken), unterschriebene Fassung hinterlegen | ◐ | Abschließen, Hinterlegen |
+| V14 | Angebotsbesprechung: Auswahlfelder mit üblichen Antworten, Abschließen (Angaben in Adressen/Auftragsdaten übernehmen, mit Haken), unterschriebene Fassung hinterlegen | ◐ (27.11.: Abschließen mit Haken – Rechtsform, Sitz, Handelsregister, Mitarbeiter:innen in die Adressen, nach der Vergabe die Ausführungszeit ins LV, ein Rückgängig; unterschriebene Fassung hinterlegen fehlt) | Abschließen, Hinterlegen |
 
 ## Prüfung und Abrechnung
 
