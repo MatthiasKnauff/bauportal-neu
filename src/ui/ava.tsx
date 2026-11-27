@@ -1,7 +1,7 @@
 // Ausschreibung in der Oberfläche: Summen in den Karten (LV, Position) und der Preisspiegel – Positionen mit den Preisen
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
 import { AufmassEinlesen } from './aufmasseinlesen';
-import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis, strafeVorschlag, type Pruefstand } from '../module/ava/rechnung';
 import type { Werte } from '../kern/modell';
@@ -15,20 +15,26 @@ import { Seitenliste } from './baukasten/seitenliste';
 import { lvVon, lvWaehlen } from './avakopf';
 import { springeZu } from './sprung';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
-import { darf, neueKennung } from './unterbau/api';
+import { darf, modell, neueKennung } from './unterbau/api';
+import { FeldEingabe } from './baukasten/feld';
+import { Zeichen } from './baukasten/zeichen';
+import { druckOeffnen } from './druck';
+import { LvListe } from './lvliste';
+import { hinweis } from './unterbau/meldungen';
+import { BieterDazu } from './preisspiegel';
 
 const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const name = (kontakt: unknown) => String(sicht.kontakt?.[String(kontakt ?? '')]?.werte.name ?? 'Bieter:in');
+export const name = (kontakt: unknown) => String(sicht.kontakt?.[String(kontakt ?? '')]?.werte.name ?? 'Bieter:in');
 /** Positionen der Ausschreibung (ohne Nachträge) – Preisspiegel, Summen, GAEB. */
 const positionenVon = (lv: string) => nachOz(lebende('lv_position').filter((p) => p.werte.lv === lv && ausgeschrieben(p)));
 /** Alle Positionen eines Auftrags, mit Nachträgen – Aufmaß und Abrechnung. */
 const allePositionenVon = (lv: string) => nachOz(lebende('lv_position').filter((p) => p.werte.lv === lv));
-const angeboteVon = (lv: string) => lebende('angebot').filter((a) => a.werte.lv === lv).sort((a, b) => name(a.werte.bieter).localeCompare(name(b.werte.bieter), 'de'));
+export const angeboteVon = (lv: string) => lebende('angebot').filter((a) => a.werte.lv === lv).sort((a, b) => name(a.werte.bieter).localeCompare(name(b.werte.bieter), 'de'));
 /** Preise eines LV: „angebot:position“ → Eintrag. */
-const preiseVon = (angebote: Zeile[]) => { const ids = new Set(angebote.map((a) => a.id)); return new Map(lebende('angebot_preis').filter((x) => ids.has(String(x.werte.angebot))).map((x) => [`${x.werte.angebot}:${x.werte.position}`, x])); };
+export const preiseVon = (angebote: Zeile[]) => { const ids = new Set(angebote.map((a) => a.id)); return new Map(lebende('angebot_preis').filter((x) => ids.has(String(x.werte.angebot))).map((x) => [`${x.werte.angebot}:${x.werte.position}`, x])); };
 
 /** Die Zahlen eines LV an einer Stelle (Karte, Aufträge, Kostenkontrolle): Schätzung, bestes Angebot, Auftrag, Nachträge, abgerechnet. */
-export interface LvZahlen { schaetzung: number; bestes: number | null; besterBieter: string; auftrag: Zeile | undefined; haupt: number; nachlass: number; stand: Auftragsstand; abgerechnet: number; rechnungen: number }
+export interface LvZahlen { schaetzung: number; bestes: number | null; besterBieter: string; auftrag: Zeile | undefined; haupt: number; nachlass: number; stand: Auftragsstand; leistung: number; abgerechnet: number; rechnungen: number }
 export function lvZahlen(lvId: string): LvZahlen {
   const pos = positionenVon(lvId), ang = angeboteVon(lvId), pr = preiseVon(ang);
   const w = wertung(pos, ang, (a, q) => (pr.has(`${a}:${q}`) ? zahl(pr.get(`${a}:${q}`)!.werte.ep) : null));
@@ -37,11 +43,34 @@ export function lvZahlen(lvId: string): LvZahlen {
   const nachtraege = lebende('nachtrag').filter((n) => n.werte.lv === lvId);
   const rechnungen = lebende('rechnung').filter((r) => r.werte.lv === lvId).sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')));
   const letzte = rechnungen.at(-1);
+  // Leistungsstand: geprüfte Mengen (Aufmaß) × EP des Auftrags (Nachtragspositionen: ihr eigener EP), nach Nachlass
+  const preisAuftrag = (q: Zeile) => (q.werte.nachtrag ? zahl(q.werte.ep) : auftrag && pr.has(`${auftrag.id}:${q.id}`) ? zahl(pr.get(`${auftrag.id}:${q.id}`)!.werte.ep) : 0);
+  const aufmass = new Map(lebende('aufmass').filter((a) => a.werte.lv === lvId).map((a) => [String(a.werte.position), a]));
+  const leistung = auftrag ? allePositionenVon(lvId).filter(zaehlt).reduce((s, q) => { const g = rechenweg(aufmass.get(q.id)?.werte.rechenweg).summe; return s + (g == null ? 0 : gp(g, preisAuftrag(q))); }, 0) * (1 - nachlass / 100) : 0;
   return {
+    leistung: Math.round(leistung * 100) / 100,
     schaetzung: summeGeschaetzt(pos), bestes: erster?.nachLass ?? null, besterBieter: name(ang.find((a) => a.id === erster?.angebot)?.werte.bieter),
     auftrag, haupt, nachlass, stand: auftragsstand(haupt, auftrag ? nachtraege : [], allePositionenVon(lvId), nachlass),
     abgerechnet: letzte ? Math.round(zahl(letzte.werte.geprueft ?? letzte.werte.betrag) * (1 - nachlass / 100) * 100) / 100 : 0, rechnungen: rechnungen.length,
   };
+}
+
+/** Kennzahlen in der Menüleiste (wie im bisherigen Bauportal): je Bereich die passenden Summen des gewählten LV. */
+const KENNZAHLEN: Record<string, ('schaetzung' | 'bestes' | 'auftrag' | 'nachtraege' | 'leistung' | 'abgerechnet')[]> = {
+  lv: ['schaetzung'], tueren: [], versand: ['schaetzung', 'bestes'], nachverfolgen: [], preisspiegel: ['schaetzung', 'bestes', 'auftrag', 'leistung'],
+  besprechungen: ['schaetzung', 'bestes', 'auftrag', 'nachtraege', 'leistung', 'abgerechnet'], auftraege: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'],
+  aufmass: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'], rechnungen: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'],
+};
+const KZ_TITEL = { schaetzung: 'Schätzung', bestes: 'Bestes Angebot', auftrag: 'Auftrag', nachtraege: 'Nachträge beauftragt', leistung: 'Leistungsstand', abgerechnet: 'abgerechnet' };
+export function AvaKennzahlen(p: { lv: Zeile | undefined; ansicht: string }): JSX.Element {
+  const z = createMemo(() => (p.lv ? lvZahlen(p.lv.id) : undefined));
+  const welche = () => (KENNZAHLEN[p.ansicht] ?? []).map((k) => (k === 'schaetzung' && z()?.auftrag && p.ansicht === 'lv' ? 'auftrag' : k));
+  const wert = (k: keyof typeof KZ_TITEL): string => {
+    const x = z(); if (!x) return '–';
+    const n = { schaetzung: x.schaetzung, bestes: x.bestes, auftrag: x.auftrag ? x.haupt : null, nachtraege: x.auftrag ? x.stand.beauftragt : null, leistung: x.auftrag ? x.leistung : null, abgerechnet: x.rechnungen ? x.abgerechnet : null }[k];
+    return n == null ? '–' : `${Math.round(n).toLocaleString('de-DE')} €`;
+  };
+  return <div class="kennzahlen" role="group" aria-label="Kennzahlen"><For each={welche()}>{(k) => <span class="kennzahl" title={k === 'bestes' && z()?.bestes != null ? z()!.besterBieter : undefined}><small>{KZ_TITEL[k]}</small><b>{wert(k)}</b></span>}</For></div>;
 }
 
 /** Karte eines LV: die Summen – geschätzt, Angebote (günstigstes), Auftrag, abgerechnet. */
@@ -70,7 +99,7 @@ export function LvSummen(p: { lv: Zeile }): JSX.Element {
 }
 
 /** Das LV als GAEB-Datei herunterladen: X83 Angebotsaufforderung (ohne Preise). */
-function gaebAusgeben(lv: Zeile, dp: '83'): void {
+export function gaebAusgeben(lv: Zeile, dp: '83'): void {
   const pos = positionenVon(lv.id).map((x): Omit<GaebPosten, 'kennung'> => ({ oz: String(x.werte.oz ?? ''), art: (x.werte.art || 'normal') as GaebPosten['art'], kurztext: String(x.werte.kurztext ?? ''), langtext: String(x.werte.langtext ?? ''),
     menge: x.werte.menge == null ? null : zahl(x.werte.menge), einheit: String(x.werte.einheit ?? ''), ep: null }));
   const projekt = sicht.projekt?.[String(lv.werte.projekt)]?.werte;
@@ -94,96 +123,6 @@ export function LvWahl(p: Mitte): JSX.Element {
     .map((l) => ({ id: l.id, titel: [l.werte.nummer, l.werte.name].filter(Boolean).join(' · '), zeichen: 'ausschreibung' as const, anzahl: angeboteVon(l.id).length }));
   return <Seitenliste name="Leistungsverzeichnisse" aktiv={lvVon(p)?.id ?? ''} onWahl={(id) => lvWaehlen(p, id)}
     abschnitte={[{ titel: 'Leistungsverzeichnisse', eintraege: eintraege(false) }, ...(eintraege(true).length ? [{ titel: 'Archiv', eintraege: eintraege(true) }] : [])]} />;
-}
-
-export function Preisspiegel(p: Mitte): JSX.Element {
-  const lv = () => lvVon(p);
-  const pos = createMemo(() => (lv() ? positionenVon(lv()!.id) : []));
-  const ang = createMemo(() => (lv() ? angeboteVon(lv()!.id) : []));
-  const preise = createMemo(() => preiseVon(ang()));
-  const preis = (a: string, q: string) => { const x = preise().get(`${a}:${q}`); return x && x.werte.ep != null && x.werte.ep !== '' ? zahl(x.werte.ep) : null; };
-  const w = createMemo(() => wertung(pos(), ang(), preis));
-  const min = createMemo(() => guenstigster(pos(), ang(), preis));
-  const schreiben = () => darf('angebot_preis', 'schreiben');
-  const setzen = (a: Zeile, q: Zeile, text: string) => {
-    const ep = text.trim() === '' ? null : zahl(text), alt = preise().get(`${a.id}:${q.id}`);
-    if (alt) { if (zahl(alt.werte.ep) !== ep) ausfuehren({ objekt: 'angebot_preis', art: 'aendern', objektId: alt.id, werte: { ep } }, 'Preis ändern'); }
-    else if (ep != null) ausfuehren({ objekt: 'angebot_preis', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv()!.werte.projekt ?? null, angebot: a.id, position: q.id, ep } }, 'Preis eintragen');
-  };
-  // Enter wie in Excel: eine Zeile tiefer in derselben Spalte (übernommen wird beim Verlassen)
-  const naechste = (el: HTMLInputElement) => {
-    const td = el.closest('td')!, i = [...td.parentElement!.children].indexOf(td);
-    let tr = td.parentElement!.nextElementSibling;
-    while (tr && !tr.children[i]?.querySelector('input')) tr = tr.nextElementSibling;
-    (tr?.children[i]?.querySelector('input') as HTMLInputElement | null)?.focus() ?? el.blur();
-  };
-  const bieterDazu = (kontakt: string) => { if (kontakt && lv()) ausfuehren({ objekt: 'angebot', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, bieter: kontakt, eingang: new Date().toLocaleDateString('sv') } }, 'Bieter:in eintragen'); };
-  const vergeben = (a: Zeile) => ausfuehrenMehrere([
-    ...ang().filter((x) => x.werte.beauftragt === true && x.id !== a.id).map((x) => ({ objekt: 'angebot', art: 'aendern' as const, objektId: x.id, werte: { beauftragt: false } })),
-    { objekt: 'angebot', art: 'aendern', objektId: a.id, werte: { beauftragt: true, auftragsdatum: new Date().toLocaleDateString('sv') } },
-    { objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { status: 'vergeben' } },
-  ], `Vergeben an ${name(a.werte.bieter)}`);
-  const firmen = () => lebende('kontakt').filter((k) => !ang().some((a) => a.werte.bieter === k.id)).map((k) => ({ wert: k.id, titel: [k.werte.name, k.werte.gewerk].filter(Boolean).join(' – ') })).sort((a, b) => a.titel.localeCompare(b.titel, 'de'));
-  // Titelsummen je Angebot: alle Positionen, deren OZ mit der des Titels beginnt
-  const unter = (t: Zeile) => pos().filter((x) => x.id !== t.id && zaehlt(x) && String(x.werte.oz ?? '').startsWith(`${String(t.werte.oz ?? '')}.`));
-  return (
-    <div class="preisspiegel-flaeche">
-      <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – unter „Leistungsverzeichnisse“ anlegen.</p>}>
-        <div class="ps-kopf">
-          <h2>{[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
-          <Show when={darf('angebot', 'schreiben')}><div class="ps-dazu"><Auswahlliste titel="Bieter:in hinzufügen" platzhalter="＋ Bieter:in hinzufügen …" wert={null} optionen={firmen()} onWert={bieterDazu} /></div></Show>
-        </div>
-        <Show when={pos().length} fallback={<p class="still-text">Dieses LV hat noch keine Positionen.</p>}>
-          <div class="ps-rollen">
-            <table class="preisspiegel">
-              <thead>
-                <tr><th rowSpan={2}>OZ</th><th rowSpan={2}>Kurztext</th><th rowSpan={2} class="zahl">Menge</th><th rowSpan={2}>Einh.</th><th colSpan={2} class="ps-schaetzung">Schätzung</th>
-                  <For each={ang()}>{(a) => <th colSpan={2} classList={{ 'ps-bieter': true, aus: a.werte.ausgeschlossen === true, auftrag: a.werte.beauftragt === true }}>{name(a.werte.bieter)}{a.werte.beauftragt === true ? ' ✓' : ''}</th>}</For></tr>
-                <tr><th class="zahl ps-schaetzung">EP</th><th class="zahl ps-schaetzung">GP</th><For each={ang()}>{() => <><th class="zahl">EP</th><th class="zahl">GP</th></>}</For></tr>
-              </thead>
-              <tbody>
-                <For each={pos()}>{(q) => (
-                  <Show when={q.werte.art !== 'titel'} fallback={
-                    <tr class="ps-titel"><td>{String(q.werte.oz ?? '')}</td><td colSpan={3}>{String(q.werte.kurztext ?? '')}</td>
-                      <td /><td class="zahl">{eur(summeGeschaetzt(unter(q)))}</td>
-                      <For each={ang()}>{(a) => <><td /><td class="zahl">{eur(unter(q).reduce((s, x) => s + gp(x.werte.menge, preis(a.id, x.id) ?? 0), 0))}</td></>}</For></tr>}>
-                    <tr classList={{ 'ps-ohne': !zaehlt(q) }}>
-                      <td>{String(q.werte.oz ?? '')}</td><td class="ps-text" title={String(q.werte.langtext ?? '')}>{String(q.werte.kurztext ?? '')}{!zaehlt(q) && q.werte.art !== 'hinweis' ? <small> ({q.werte.art === 'bedarf' ? 'Bedarf' : 'Alternativ'})</small> : ''}</td>
-                      <td class="zahl">{q.werte.menge != null ? String(q.werte.menge).replace('.', ',') : ''}</td><td>{String(q.werte.einheit ?? '')}</td>
-                      <td class="zahl ps-schaetzung">{q.werte.ep != null ? eur(zahl(q.werte.ep)) : ''}</td><td class="zahl ps-schaetzung">{q.werte.ep != null ? eur(gp(q.werte.menge, q.werte.ep)) : ''}</td>
-                      {/* je Zelle ein eigenes Memo: das Eingabefeld hängt nur an seinem Preis. Sonst setzt jede Änderung anderswo
-                          „value“ neu (Solid schreibt es bei jedem Lauf) und löscht, was hier gerade getippt wird. */}
-                      <For each={ang()}>{(a) => { const ep = createMemo(() => preis(a.id, q.id)); return <>
-                        <td class="zahl ps-ep" classList={{ guenstig: ep() != null && ep() === min().get(q.id) }}>
-                          <Show when={schreiben()} fallback={ep() != null ? eur(ep()!) : ''}>
-                            <input inputmode="decimal" aria-label={`EP ${name(a.werte.bieter)} ${String(q.werte.oz ?? '')}`} value={ep() != null ? eur(ep()!) : ''} onFocus={(e) => e.currentTarget.select()}
-                              onChange={(e) => setzen(a, q, e.currentTarget.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); naechste(e.currentTarget); } }} />
-                          </Show>
-                        </td>
-                        <td class="zahl">{ep() != null ? eur(gp(q.werte.menge, ep())) : ''}</td></>; }}</For>
-                    </tr>
-                  </Show>
-                )}</For>
-              </tbody>
-              <tfoot>
-                <tr><td colSpan={5}>Summe netto</td><td class="zahl">{eur(summeGeschaetzt(pos()))}</td><For each={ang()}>{(a) => { const x = () => w().find((y) => y.angebot === a.id)!; return <><td /><td class="zahl">{eur(x().netto)}</td></>; }}</For></tr>
-                <tr><td colSpan={6}>Nachlass</td><For each={ang()}>{(a) => <><td /><td class="zahl">{zahl(a.werte.nachlass) ? `${String(a.werte.nachlass).replace('.', ',')} %` : '–'}</td></>}</For></tr>
-                <tr class="ps-summe"><td colSpan={6}>Summe nach Nachlass</td><For each={ang()}>{(a) => { const x = () => w().find((y) => y.angebot === a.id)!; return <><td /><td class="zahl">{eur(x().nachLass)}</td></>; }}</For></tr>
-                <tr><td colSpan={6}>Rang · Abstand zum günstigsten</td><For each={ang()}>{(a) => { const x = () => w().find((y) => y.angebot === a.id)!; const erst = () => w().find((y) => y.rang === 1); return <><td /><td class="zahl">{a.werte.ausgeschlossen === true ? 'ausgeschlossen' : x().rang ? `${x().rang}.${x().rang! > 1 && erst() ? ` · +${((x().nachLass / erst()!.nachLass - 1) * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %` : ''}` : '–'}{x().fehlend ? <small class="ps-fehlt"> · {x().fehlend} ohne Preis</small> : ''}</td></>; }}</For></tr>
-                <Show when={darf('angebot', 'schreiben')}>
-                  <tr><td colSpan={6} /><For each={ang()}>{(a) => <><td /><td class="zahl">
-                    <Show when={a.werte.beauftragt !== true} fallback={<b class="gut-text">beauftragt</b>}>
-                      <button type="button" class="knopf klein" disabled={a.werte.ausgeschlossen === true || !w().find((y) => y.angebot === a.id)?.netto} onClick={() => vergeben(a)}>Vergeben an …</button>
-                    </Show></td></>}</For></tr>
-                </Show>
-              </tfoot>
-            </table>
-          </div>
-        </Show>
-      </Show>
-    </div>
-  );
 }
 
 /** Für die Karte eines Angebots: seine Summe und sein Rang im Preisspiegel. */
@@ -318,24 +257,21 @@ export function Aufmasspruefung(p: Mitte): JSX.Element {
 }
 
 /** Aufträge (wie im bisherigen Bauportal): Hauptauftrag und Nachträge mit Stand und Betrag, Prognose und abgerechnet. */
-export function Auftraege(p: Mitte): JSX.Element {
-  const lv = () => lvVon(p);
+/** Karte des Auftrags (rechts in „Aufträge“): Hauptauftrag, Nachträge mit Stand, Summen, Sicherheiten. */
+export function AuftragKarte(p: { lv: Zeile }): JSX.Element {
+  const lv = () => p.lv;
   const z = createMemo(() => (lv() ? lvZahlen(lv()!.id) : undefined));
   const auftrag = () => z()?.auftrag, nachlass = () => z()?.nachlass ?? 0, haupt = () => z()?.haupt ?? 0;
   const stand = () => z()!.stand, abgerechnet = () => z()?.abgerechnet ?? 0;
   const nachtraege = createMemo(() => (lv() ? lebende('nachtrag').filter((n) => n.werte.lv === lv()!.id).sort((a, b) => ozVergleich(a.werte.nummer, b.werte.nummer)) : []));
   const alle = createMemo(() => (lv() ? allePositionenVon(lv()!.id) : []));
   const STAND: Record<string, string> = Object.fromEntries(NACHTRAGSSTAENDE.map((x) => [x.wert, x.titel]));
-  const neu = () => ausfuehren({ objekt: 'nachtrag', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, nummer: naechsterNachtrag(nachtraege()), name: 'Neuer Nachtrag', stand: 'angemeldet', angemeldet: new Date().toLocaleDateString('sv') } }, 'Neuer Nachtrag');
   const setzeStand = (n: Zeile, st: string) => ausfuehren({ objekt: 'nachtrag', art: 'aendern', objektId: n.id, werte: { stand: st, ...(st === 'beauftragt' && !n.werte.beauftragt_am ? { beauftragt_am: new Date().toLocaleDateString('sv') } : {}) } }, `Nachtrag ${String(n.werte.nummer ?? '')}: ${STAND[st] ?? st}`);
   const posVon = (n: Zeile) => alle().filter((q) => q.werte.nachtrag === n.id && q.werte.art !== 'titel');
   return (
     <div class="preisspiegel-flaeche">
       <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – unter „Leistungsverzeichnisse“ anlegen.</p>}>
-        <div class="ps-kopf">
-          <h2>Auftrag · {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
-          <Show when={auftrag() && darf('nachtrag', 'schreiben')}><button type="button" class="knopf" onClick={neu}>＋ Nachtrag</button></Show>
-        </div>
+        <h3>Auftrag {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' ')}</h3>
         <Show when={auftrag()} fallback={<p class="still-text">Dieses LV ist noch nicht vergeben – unter „Preisspiegel“ mit „Vergeben an …“ beauftragen. Nachträge gibt es erst mit Auftrag.</p>}>
           <div class="ps-rollen">
             <table class="preisspiegel auftraege">
@@ -364,7 +300,6 @@ export function Auftraege(p: Mitte): JSX.Element {
             </table>
           </div>
           <Sicherheiten lv={lv()!} />
-          <p class="still-text klein-text">Nachtragspositionen unter „Positionen“ anlegen: links den Nachtrag wählen, dann „＋ Position“ – ihr EP ist der Nachtragspreis.</p>
         </Show>
       </Show>
     </div>
@@ -431,6 +366,13 @@ export function Kostenkontrolle(p: Mitte): JSX.Element {
 }
 
 const heute = () => new Date().toLocaleDateString('sv');
+/** Bieter:in aus dem LV nehmen: Angebot mit seinen Preisen in den Papierkorb – ein Rückgängig für alles. */
+function bieterEntfernen(a: Zeile): void {
+  if (a.werte.beauftragt === true) { hinweis('Die beauftragte Bieter:in lässt sich erst nach „Vergabe aufheben“ entfernen.', { art: 'fehler' }); return; }
+  ausfuehrenMehrere([...lebende('angebot_preis').filter((x) => x.werte.angebot === a.id).map((x) => ({ objekt: 'angebot_preis', art: 'loeschen' as const, objektId: x.id })),
+    { objekt: 'angebot', art: 'loeschen', objektId: a.id }], `${name(a.werte.bieter)} entfernt`);
+  hinweis(`${name(a.werte.bieter)} entfernt – rückgängig mit Strg+Z.`);
+}
 const datum = (w: unknown) => (w ? new Date(String(w)).toLocaleDateString('de-DE') : '–');
 const STAND_RUECKLAUF: Record<Ruecklauf, string> = { abgegeben: 'abgegeben', will_abgeben: 'will abgeben', gibt_nicht_ab: 'gibt nicht ab', offen: 'offen' };
 
@@ -443,7 +385,7 @@ function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string
   return (
     <div class="ps-rollen">
       <table class="preisspiegel versand">
-        <thead><tr><Show when={p.mitLv}><th>LV</th><th>Abgabe</th></Show><th>Bieter:in</th><th>Telefon</th><th>angeschrieben</th><th>Stand</th><th>Nachfassen</th><th>Angebot</th></tr></thead>
+        <thead><tr><Show when={p.mitLv}><th>LV</th><th>Abgabe</th></Show><th>Bieter:in</th><th>Telefon</th><th>angeschrieben</th><th>Stand</th><th>Nachfassen</th><th>Angebot</th><Show when={!p.mitLv}><th /></Show></tr></thead>
         <tbody>
           <For each={p.bieter}>{(a) => {
             const st = () => ruecklaufVon(a);
@@ -456,10 +398,11 @@ function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string
                 <td><Show when={schreiben() && st() !== 'abgegeben'} fallback={<b class={`vr-${st()}`}>{STAND_RUECKLAUF[st()]}</b>}>
                   <Auswahlliste titel={`Rückmeldung ${name(a.werte.bieter)}`} wert={String(a.werte.rueckmeldung || 'offen')} optionen={RUECKMELDUNGEN} onWert={(w) => aendern(a, { rueckmeldung: w }, 'Rückmeldung')} /></Show></td>
                 <td><Show when={schreiben() && st() !== 'abgegeben' && st() !== 'gibt_nicht_ab'} fallback={a.werte.nachfassen ? datum(a.werte.nachfassen) : ''}>
-                  <input type="date" aria-label={`Nachfassen ${name(a.werte.bieter)}`} value={String(a.werte.nachfassen ?? '')} onChange={(e) => aendern(a, { nachfassen: e.currentTarget.value || null }, 'Nachfassen')} />
+                  <FeldEingabe feld={{ name: 'nachfassen', titel: `Nachfassen ${name(a.werte.bieter)}`, art: 'datum' }} wert={a.werte.nachfassen ?? null} onWert={(w) => aendern(a, { nachfassen: w || null }, 'Nachfassen')} />
                   <Show when={nachfassenFaellig(a, heute())}><small class="gefahr-text"> fällig</small></Show></Show></td>
                 <td><Show when={a.werte.eingang} fallback={<Show when={schreiben() && st() !== 'gibt_nicht_ab'}><button type="button" class="knopf klein" onClick={() => aendern(a, { eingang: heute() }, 'Angebot eingegangen')}>eingegangen</button></Show>}>
                   {datum(a.werte.eingang)}</Show></td>
+                <Show when={!p.mitLv && darf('angebot', 'loeschen')}><td><button type="button" class="knopf klein still" title="Bieter:in entfernen – mit Angebot und Preisen in den Papierkorb (Rückgängig holt alles zurück)" aria-label={`${name(a.werte.bieter)} entfernen`} onClick={() => bieterEntfernen(a)}><Zeichen name="loeschen" groesse={14} /></button></td></Show>
               </tr>
             );
           }}</For>
@@ -475,34 +418,40 @@ export function Versand(p: Mitte): JSX.Element {
   const lv = () => lvVon(p);
   const bieter = createMemo(() => (lv() ? angeboteVon(lv()!.id) : []));
   const z = createMemo(() => ruecklaufZaehlen(bieter()));
-  // Firmen zum Anschreiben: die mit passendem Gewerk zuerst (★)
-  const gewerk = () => String(sicht.gewerk?.[String(lv()?.werte.gewerk ?? '')]?.werte.name ?? '').toLowerCase().split(/[\s,]/)[0] ?? '';
-  const firmen = () => lebende('kontakt').filter((k) => !bieter().some((a) => a.werte.bieter === k.id))
-    .map((k) => ({ wert: k.id, titel: [k.werte.name, k.werte.gewerk].filter(Boolean).join(' – '), passt: !!gewerk() && String(k.werte.gewerk ?? '').toLowerCase().includes(gewerk()) }))
-    .sort((a, b) => Number(b.passt) - Number(a.passt) || a.titel.localeCompare(b.titel, 'de')).map(({ wert, titel, passt }) => ({ wert, titel: passt ? `★ ${titel}` : titel }));
-  const dazu = (kontakt: string) => { if (kontakt && lv()) ausfuehren({ objekt: 'angebot', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, bieter: kontakt, angeschrieben: heute() } }, `${name(kontakt)} angeschrieben`); };
+  const [dazu, setDazu] = createSignal(false);
+  const feld = (n: string) => modell('lv').felder.find((f) => f.name === n)!;
+  createEffect(() => p.setKnoepfe([
+    ...(lv() && darf('angebot', 'schreiben') ? [{ titel: 'Bieter:in', zeichen: 'person_neu', gruppe: 'Neu', tun: () => setDazu(true) }] : []),
+    { titel: 'Nachverfolgen', zeichen: 'telefon', gruppe: 'Nachverfolgen', tun: () => springeZu('lv', lv()?.id ?? '', { modul: 'ava', ansicht: 'nachverfolgen' }) },
+  ]));
   return (
-    <div class="preisspiegel-flaeche">
-      <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – unter „Leistungsverzeichnisse“ anlegen.</p>}>
-        <div class="ps-kopf">
-          <h2>Versand & Rücklauf · {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
-          <Show when={darf('angebot', 'schreiben')}><div class="ps-dazu"><Auswahlliste titel="Bieter:in anschreiben" platzhalter="＋ Bieter:in anschreiben …" wert={null} optionen={firmen()} onWert={dazu} /></div></Show>
+    <LvListe m={p} zusatz={(l) => { const n = angeboteVon(l.id).length; return n ? `${n} ${n === 1 ? 'Bieter:in' : 'Bieter:innen'}` : ''; }}>
+      <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – unter „Leistungsverzeichnis“ mit „LV“ anlegen.</p>}>
+        <div class="vr-kopf">
+          <div class="vr-termine">
+            <FeldEingabe feld={feld('abgabe')} wert={lv()!.werte.abgabe ?? null} gesperrt={!darf('lv', 'schreiben')} onWert={(w) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { abgabe: w } }, 'Abgabe der Angebote')} />
+            <FeldEingabe feld={feld('rueckmeldung_bis')} wert={lv()!.werte.rueckmeldung_bis ?? null} gesperrt={!darf('lv', 'schreiben')} onWert={(w) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { rueckmeldung_bis: w } }, 'Rückmeldung bis')} />
+          </div>
+          <div class="vr-zahlen">
+            <span>angeschrieben <b>{z().angeschrieben}</b> von {bieter().length}</span><span class="vr-abgegeben">abgegeben <b>{z().abgegeben}</b></span>
+            <span>wollen abgeben <b>{z().will_abgeben}</b></span><span class="vr-nicht">geben nicht ab <b>{z().gibt_nicht_ab}</b></span><span>offen <b>{z().offen}</b></span>
+          </div>
         </div>
-        <div class="vr-zahlen">
-          <span>Abgabe bis <b>{datum(lv()!.werte.abgabe)}</b></span><span>Rückmeldung bis <b>{datum(lv()!.werte.rueckmeldung_bis)}</b></span>
-          <span>angeschrieben <b>{z().angeschrieben}</b> von {bieter().length}</span><span class="vr-abgegeben">abgegeben <b>{z().abgegeben}</b></span>
-          <span>wollen abgeben <b>{z().will_abgeben}</b></span><span>geben nicht ab <b>{z().gibt_nicht_ab}</b></span><span>offen <b>{z().offen}</b></span>
-        </div>
-        <div class="reihe vr-unterlagen">
-          <span class="still-text">Unterlagen für die Bieter:innen:</span>
-          <button type="button" class="knopf klein" disabled={!positionenVon(lv()!.id).length} onClick={() => gaebAusgeben(lv()!, '83')}>LV als GAEB X83</button>
-        </div>
-        <Show when={bieter().length} fallback={<p class="still-text">Noch keine Bieter:innen – oben „＋ Bieter:in anschreiben“ (Firmen mit passendem Gewerk stehen mit ★ zuerst). Wer im Preisspiegel ein Angebot hat, steht hier von selbst.</p>}>
+        <section class="vr-unterlagen" aria-label="Unterlagen für die Bieter:innen">
+          <h3>Unterlagen für die Bieter:innen · 2 Dateien</h3>
+          <div class="vr-datei"><Zeichen name="pdf" groesse={16} /><span><b>LV {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' ')}.pdf</b><small>LV ohne Preise – entsteht beim Senden aus dem aktuellen Stand</small></span>
+            <span class="pille">immer dabei</span><button type="button" class="knopf klein" onClick={() => druckOeffnen('ava.lv', lv()!.id)}>Ansehen</button></div>
+          <div class="vr-datei"><Zeichen name="datei_runter" groesse={16} /><span><b>LV {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' ')}.x83</b><small>LV als GAEB-Datei – für die Kalkulation der Bieter:innen</small></span>
+            <span class="pille">GAEB</span><button type="button" class="knopf klein" disabled={!positionenVon(lv()!.id).length} onClick={() => gaebAusgeben(lv()!, '83')}>Herunterladen</button></div>
+          <p class="still-text klein-text">Verschicken per E-Mail kommt über die zentrale Versandstelle des Bauportals – bis dahin die Dateien herunterladen und selbst senden.</p>
+        </section>
+        <h3 class="vr-titel">Bieter:innen</h3>
+        <Show when={bieter().length} fallback={<p class="hinweis-kasten">Noch keine Bieter:innen – oben „Bieter:in“ (Firmen mit passendem Gewerk stehen zuerst). Wer im Preisspiegel ein Angebot hat, steht hier von selbst.</p>}>
           <BieterTabelle bieter={bieter()} />
         </Show>
-        <p class="still-text klein-text">Verschicken per E-Mail kommt über die zentrale Versandstelle des Bauportals.</p>
+        <Show when={dazu()}><BieterDazu lv={lv()!} vorgabe={{ angeschrieben: heute() }} onZu={() => setDazu(false)} /></Show>
       </Show>
-    </div>
+    </LvListe>
   );
 }
 

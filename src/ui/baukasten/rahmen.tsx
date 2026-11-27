@@ -15,7 +15,7 @@ export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => 
 
 export interface RahmenSteuer { detailsZeigen: () => void; detailsZuklappen: () => void; heftzweckeRechts: () => JSX.Element }   // die eine Heftzwecke der rechten Seite – auch im Kopf der Karte
 
-const LINKS = 230, RECHTS = 520;   // Breiten ab Werk – rechts breit genug für zwei Spalten in der Karte
+const LINKS = 240, RECHTS = 400;   // Breiten ab Werk wie bisher – rechts breit genug für zwei Spalten in der Karte
 
 /** Griff ⋮ zwischen zwei Plätzen: ziehen ändert die Breite, Pfeiltasten in Schritten, Doppelklick setzt zurück. */
 function Griff(p: { titel: string; wert: number; min: number; max: number; werk: number; richtung: 1 | -1; onWert: (w: number) => void; onFertig: (w: number) => void }) {
@@ -83,7 +83,7 @@ export function Rahmen(p: {
   schluessel: string;                       // merkt sich je Ansicht, was zugeklappt ist
   kopf?: JSX.Element;                       // über Abfolge und Menüleiste: was die ganze Ansicht betrifft (z. B. das gewählte LV)
   abfolge?: { schritte: Schritt[]; aktiv: string; hier?: string; onWahl?: (id: string) => void };
-  knoepfe?: Knopf[]; menueMitte?: JSX.Element;
+  knoepfe?: Knopf[]; menueMitte?: JSX.Element; menueMitteTitel?: string;
   unterMenue?: JSX.Element;                 // unter der Menüleiste (Dialoge, Umfang „Dieses Projekt / Alle“)
   linksOben?: () => JSX.Element;            // oben in der Gliederung, steht still beim Rollen – z. B. die Auswahl der Version
   baum?: JSX.Element; baumTitel?: string;
@@ -158,7 +158,7 @@ export function Rahmen(p: {
       <Menueleiste rueckgaengig={nurAnsehen() ? undefined : app?.rueckgaengig} reiter={app?.reiter()} aktiv={app?.aktiv()} onReiter={app?.onReiter} knoepfe={knoepfe()}
         ende={<button type="button" class="heftzwecke oben-heftzwecke nur-breit-flex" classList={{ geloest: oben() !== 0 }} aria-label={OBEN_TEXT[oben()]} title={OBEN_TEXT[oben()]} onClick={obenWeiter}>
           <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={HEFT_GROESSE} />
-        </button>}>{p.menueMitte}</Menueleiste>
+        </button>} mitteTitel={p.menueMitteTitel}>{p.menueMitte}</Menueleiste>
       <Show when={nurAnsehen()}><p class="handy-hinweis" role="note">Am Handy nur zum Ansehen – bearbeiten am Rechner.</p></Show>
       {p.unterMenue}
       <div class="plaetze" classList={{ 'mit-details': !!p.details && !rechtsWeg(), 'baum-offen': baumAmHandy() }}

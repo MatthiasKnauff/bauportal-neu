@@ -75,6 +75,7 @@ export interface Ansicht {
   hilfe?: string;             // Hilfe zur Ansicht (Knopf „?“ oben): was man hier tut und wie – Absätze mit Leerzeile getrennt
   einstellungen?: string;     // eigene Seite, die dieses Objekt einstellt (z. B. „buero“) – die Suche findet dann jedes seiner Felder
   abschnitt?: string;         // Überschrift, unter der die Ansicht links steht (z. B. „Terminplan“, „Vorlagen“)
+  imMenue?: false;            // nicht im Menü links – erreichbar über Verweise, die Suche und „Zur Liste“ (z. B. die Liste aller Nachträge)
   zeichen?: string;           // Name des Symbols (Baustein „Zeichen“ der Oberfläche)
   /** Links statt des Baums: Filter in Abschnitten (wie im bisherigen Bauportal, z. B. Kontakte nach Art, Gewerke, Ämter). */
   linksFilter?: LinksFilter[];

@@ -345,8 +345,10 @@ main { flex: 1; min-height: 0; display: flex; }
 .baum { flex: 1; overflow: auto; padding: 6px; outline-offset: -2px; }
 .baum-zeile { display: flex; align-items: center; gap: 4px; min-height: 32px; padding-right: 8px; border-radius: calc(6px * var(--rund)); cursor: pointer; }
 .baum-zeile:hover { background: var(--still-hell); } .baum-zeile.gewaehlt { background: var(--akzent-hell); color: var(--akzent); font-weight: 600; }
-.klappe { flex: none; width: 15px; height: 15px; margin: 0 4px 0 2px; border: 1px solid var(--rand-stark); border-radius: calc(3px * var(--rund)); background: var(--flaeche); color: var(--text-still); font: 600 12px/12px system-ui, sans-serif; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-.klappe:hover { border-color: var(--akzent); color: var(--akzent); }
+.klappe { flex: none; width: 18px; height: 18px; margin: 0 2px 0 0; border: 0; background: none; color: var(--akzent); font: 400 17px/1 system-ui, sans-serif; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.klappe::before { content: '▾'; }   /* wie bisher: ▸ zu, ▾ auf – ein Zeichen für alle Bäume */
+.klappe.zu::before { content: '▸'; }
+.klappe:hover { filter: brightness(.85); }
 .klappe-platz { flex: none; width: 21px; }
 .ordner { flex: none; display: inline-flex; color: var(--warn); margin-right: 4px; } .ordner .zeichen { fill: var(--warn-hell); }
 .baum-titel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1423,7 +1425,6 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 
 /* LV bearbeiten: Baum aus Titeln und Positionen, Zellen wie im Balkenplan */
 .lvt { flex: 1; min-height: 0; overflow: auto; outline: none; padding: 10px 14px 20px; }
-.lvt-kopf-lv { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; } .lvt-kopf-lv h2 { margin: 0; font-size: 17px; } .lvt-summe { margin-left: auto; color: var(--text-still); } .lvt-summe b { color: var(--text); }
 .lvt-tabelle { width: max-content; min-width: 100%; }
 .lvt-zeile { display: flex; height: 30px; border-bottom: 1px solid var(--rand); user-select: none; }
 .lvt-kopf { position: sticky; top: -10px; z-index: 2; background: var(--still-hell); font-size: 12px; font-weight: 600; color: var(--text-still); }
@@ -1434,7 +1435,46 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lvt-zeile.titel { font-weight: 600; background: color-mix(in srgb, var(--still) 55%, transparent); }
 .lvt-zeile.lvt-hinweis { color: var(--text-still); font-style: italic; }
 .lvt-zeile.gewaehlt, .lvt-zeile.gewaehlt .lvt-zelle { background: var(--akzent-hell); }
-.lvt-baum { display: inline-flex; align-items: center; gap: 4px; }
+.lvt-baum { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0; }
+.lvt-baum > b, .lvt-text { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.lvt-oz { flex: none; color: var(--text-still); font-variant-numeric: tabular-nums; margin-right: 4px; cursor: grab; }
+.lvt-zeile.titel .lvt-oz { color: var(--text); }
+.lvt-still { margin-left: 8px; color: var(--text-still); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+.lvt-zahl { margin-left: 6px; padding: 0 6px; border-radius: 9px; font-size: 11px; line-height: 16px; background: var(--warn-hell); color: var(--warn); font-weight: 600; }
+.kennzahlen { display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; overflow: hidden; }
+.kennzahl { display: flex; flex-direction: column; min-width: 92px; padding: 3px 9px; border: 1px solid var(--rand); border-radius: calc(7px * var(--rund)); background: var(--flaeche); line-height: 1.2; }
+.kennzahl small { font-size: 11px; color: var(--text-still); white-space: nowrap; } .kennzahl b { font-size: 13px; white-space: nowrap; }
+.lvt-zelle.guenstig { background: var(--gut-hell); color: var(--gut); font-weight: 700; } .lvt-zelle.abweichend { background: var(--warn-hell); color: var(--warn); }
+.ps-kopf-bieter { font-weight: 600; cursor: pointer; } .ps-kopf-bieter.gewaehlt { color: var(--akzent); text-decoration: underline; } .ps-kopf-bieter.aus { text-decoration: line-through; color: var(--text-still); }
+.ps-felder { display: inline-flex; gap: 4px; } .ps-feld { width: 46px; height: 24px; padding: 0 4px; text-align: right; font: inherit; border: 1px solid var(--rand-stark); border-radius: calc(4px * var(--rund)); }
+.pille { display: inline-block; padding: 0 7px; border-radius: 9px; font-size: 11px; line-height: 17px; background: var(--still); color: var(--text-still); font-weight: 600; } .pille.gut { background: var(--gut-hell); color: var(--gut); }
+.lvt-hinweis-oben { margin: 0 0 8px; }
+.lv-geteilt { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 12px; padding: 10px 14px 20px; height: 100%; min-height: 0; box-sizing: border-box; overflow: auto; }
+.lv-liste { display: flex; flex-direction: column; align-self: start; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: var(--flaeche); overflow: hidden; }
+.lv-liste-projekt { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--still-hell); border-bottom: 1px solid var(--rand); font-size: 13px; }
+.lv-liste-projekt b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lv-liste-projekt span { font-size: 12px; font-weight: 600; }
+.lv-liste-lv { display: flex; align-items: center; gap: 6px; padding: 7px 10px 7px 22px; border: 0; border-bottom: 1px solid var(--rand); background: none; text-align: left; font: inherit; font-size: 13px; cursor: pointer; color: inherit; }
+.lv-liste-lv:hover { background: var(--still-hell); } .lv-liste-lv.an { background: var(--akzent-hell); box-shadow: inset 2px 0 0 var(--akzent); }
+.lv-liste-text { flex: 1; min-width: 0; display: flex; flex-direction: column; } .lv-liste-text b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lv-liste-text small { color: var(--text-still); font-size: 11.5px; }
+.lv-liste-summe { font-size: 12px; color: var(--text-still); font-variant-numeric: tabular-nums; }
+.lv-geteilt-inhalt { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.vr-kopf { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: flex-end; } .vr-termine { display: flex; gap: 12px; } .vr-termine .feld { width: 170px; }
+.vr-unterlagen { border: 1.5px solid var(--akzent); border-radius: calc(8px * var(--rund)); padding: 8px 12px; background: var(--flaeche); } .vr-unterlagen h3 { margin: 0 0 6px; font-size: 14px; }
+.vr-datei { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--rand); } .vr-datei > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; } .vr-datei small { color: var(--text-still); }
+.vr-titel { margin: 4px 0 0; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-still); }
+.lvt-projekt, .lvt-lv { cursor: pointer; } .lvt-projekt { font-weight: 600; } .lvt-lv.offen { background: color-mix(in srgb, var(--still) 70%, transparent); }
+.lvt-lv:not(.offen):hover { background: var(--still-hell); }
+.lvt-sperre { border: 0; background: none; cursor: pointer; padding: 0 4px; font-size: 13px; }
+.lvt-fuss { position: sticky; bottom: -20px; background: var(--flaeche); border-top: 1px solid var(--rand-stark); } .lvt-fuss .lvt-zeile:first-child { font-weight: 600; } .lvt-fuss .lvt-zeile.stark { font-weight: 700; }
+.lvt-fuss .lvt-zeile { height: auto; } .lvt-fuss .lvt-zelle { height: auto; min-height: 30px; line-height: 1.3; padding-top: 6px; padding-bottom: 6px; white-space: normal; }
+.lvt-zelle.geerbt { color: var(--text-still); font-style: italic; }
+.lvt-zelle:not(.ed):not(:first-child) { color: color-mix(in srgb, var(--text) 82%, var(--flaeche)); }
+/* Art der Position am Symbol (wie bisher): Normal, Bedarf gestrichelt, Wahl, Pauschal, Stundenlohn, Hinweistext (i), Nachtrag orange */
+.lvt-art { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 16px; border: 1.4px solid #7a8a99; border-radius: 2px 5px 2px 2px; font: 700 8px/1 system-ui, sans-serif; font-style: normal; color: #7a8a99; background: var(--flaeche); }
+.lvt-art.a-E { border-style: dashed; border-color: #8a6d00; color: #8a6d00; } .lvt-art.a-A { border-color: #6d4fa8; color: #6d4fa8; background: #f4f0fb; }
+.lvt-art.a-P { border-color: #2f8f4e; color: #2f8f4e; background: #eef7f0; } .lvt-art.a-S { border-color: #2a6fb0; color: #2a6fb0; }
+.lvt-art.a-H { border-radius: 50%; width: 15px; height: 15px; border-color: #8a8f96; } .lvt-art.a-H::after { content: 'i'; color: #8a8f96; font: 700 10px/1 serif; }
+.lvt-art.nt { border-color: #d9822b; color: #d9822b; background: #fdf3e7; }
 .lvt-lang-knopf { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--text-still); cursor: pointer; font-size: 13px; line-height: 20px; }
 .lvt-lang-knopf.an { color: var(--akzent); font-weight: 700; } .lvt-lang-knopf:hover { background: var(--still); }
 .lvt-edit { width: 100%; height: 26px; border: 1px solid var(--akzent); border-radius: 4px; padding: 0 4px; font: inherit; }

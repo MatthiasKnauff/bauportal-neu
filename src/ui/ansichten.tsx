@@ -29,10 +29,12 @@ import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
 import { AlleDateien, DateienAnsicht, OrdnerFenster } from './dateien';
-import { assistentStarten, gaebEinlesen, ifcEinlesen } from './uebernahme';
+import { assistentStarten, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
 import { handy } from './unterbau/geraet';
 import { ansehen } from './baukasten/ansehen';
+import { Preisspiegel, psAngebot, setPsAngebot } from './preisspiegel';
+import { Auftraege } from './auftraege';
 import { LvBearbeiten, lvZeiger, setLvZeiger } from './lvbearbeiten';
 import { Updates } from './updates';
 import { AufbauAnsicht } from './aufbau';
@@ -41,7 +43,7 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
-import { AngebotSumme, Auftraege, Kostenkontrolle, Nachverfolgen, Versand, Aufmasspruefung, LvSummen, LvWahl, PositionSumme, Preisspiegel, RechnungLeiter } from './ava';
+import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, Aufmasspruefung, LvSummen, LvWahl, PositionSumme, RechnungLeiter } from './ava';
 import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
 import { GewerkeFirmen } from './gewerke';
@@ -412,8 +414,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   // Ausschreibung: Summen in den Karten
-  lv: { kartenZusatz: (z) => <LvSummen lv={z} />,
-    knoepfe: (z) => (darf('lv_position', 'schreiben') ? [{ titel: 'GAEB einlesen', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => gaebEinlesen(String(z.projekt)) }] : []) },
+  lv: { kartenZusatz: (z) => <LvSummen lv={z} /> },
   lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), neuVorgabe: (vorh, schon) => {
     // im Nachtrag: dessen Nummer vorne (N1.0010, N1.0020 …), sonst hinter der letzten Position der Ausschreibung
     const nt = schon.nachtrag ? sicht.nachtrag?.[String(schon.nachtrag)] : undefined;
@@ -458,15 +459,19 @@ const MODUL_ANPASSUNG: Record<string, Anpassung> = { ava: AVA_OBEN };
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
-  'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse', neuTitel: 'LV',
+  'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, neuTitel: 'LV',
     detailsHinweis: 'Eine Zeile anklicken – hier stehen dann alle Angaben der Position (Kurz- und Langtext, Menge, Einheit, Preis), direkt änderbar.',
-    details: (_, heftzwecke) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={z} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : undefined; } },
-  'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
+    details: (_, heftzwecke, standard) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={z} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : standard(); } },
+  'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, ohneNeu: true,
+    details: (_, heftzwecke, standard) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; const a = psAngebot() ? sicht.angebot?.[psAngebot()!] : undefined;
+      return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} />
+        : a && !a.geloescht ? <Detailkarte modell={modell('angebot')} zeile={a} heftzwecke={heftzwecke()} onZu={() => setPsAngebot(null)} verborgen={['projekt', 'lv']} zusatz={(z) => <><AngebotSumme angebot={z} /><BesprechungKnopf angebot={z} /></>} /> : standard(); },
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },
-  'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
-    detailsHinweis: 'Links ein vergebenes Leistungsverzeichnis wählen. „＋ Nachtrag“ legt einen Nachtrag an; den Stand direkt in der Tabelle setzen.' },
-  'ava.versand': { mitte: (m) => <Versand {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
-    detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Bieter:innen oben anschreiben; Rückmeldung, Nachfassen und Eingang direkt in der Tabelle.' },
+  'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, ohneNeu: true,
+    detailsHinweis: 'Eine Position anklicken – hier steht dann ihre Karte. Ohne Auswahl: der Auftrag mit Nachträgen, Summen und Sicherheiten.',
+    details: (z, heftzwecke) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : <div class="karte"><div class="karte-kopf">{heftzwecke()}</div><AuftragKarte lv={z} /></div>; } },
+  'ava.versand': { mitte: (m) => <Versand {...m} />, ohneNeu: true,
+    detailsHinweis: 'Ein Leistungsverzeichnis in der Liste wählen. Bieter:innen oben mit „Bieter:in“ dazunehmen; Rückmeldung, Nachfassen und Eingang direkt in der Tabelle.' },
   'ava.nachverfolgen': { mitte: (m) => <Nachverfolgen {...m} />, detailsHinweis: 'Ein LV in der Tabelle anklicken – hier steht dann seine Karte.' },
   'ava.kostenkontrolle': { mitte: (m) => <Kostenkontrolle {...m} />, detailsHinweis: 'Eine Zeile anklicken – hier steht dann das Leistungsverzeichnis mit seinen Summen.' },
   'ava.aufmass': { mitte: (m) => <Aufmasspruefung {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',

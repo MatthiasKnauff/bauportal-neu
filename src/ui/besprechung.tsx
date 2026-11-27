@@ -41,40 +41,43 @@ function quellen(angebot: Werte): Quellen {
   return q;
 }
 
-/** An der Karte des Angebots: Angebotsbesprechung anlegen (aus den Daten) oder die vorhandene öffnen. */
+/** Angebotsbesprechung zu einem Angebot öffnen – fehlt sie, aus den Daten anlegen (Karte des Angebots, Preisspiegel). */
+export function besprechungOeffnen(angebot: Zeile): void {
+  const da = lebende('besprechung').find((b) => b.werte.angebot === angebot.id);
+  const oeffnen = (id: string) => springeZu('besprechung', id, { projekt: String(angebot.werte.projekt), modul: 'ava', ansicht: 'besprechungen' });
+  if (da) { oeffnen(da.id); return; }
+  if (!darf('besprechung', 'schreiben')) return;
+  const id = neueKennung(), a = angebot.werte, daten = ausDenDaten(quellen(a));
+  ausfuehrenMehrere([
+    { objekt: 'besprechung', art: 'anlegen', objektId: id, werte: { projekt: a.projekt ?? null, lv: a.lv ?? null, angebot: angebot.id, stand: 'entwurf', datum: new Date().toLocaleDateString('sv'), teilnehmer: ich().name ?? '' } },
+    { objekt: 'besprechung', art: 'aendern', objektId: id, werte: { ...daten, quellen: JSON.stringify(daten) }, herkunft: 'daten' },
+  ], 'Angebotsbesprechung anlegen');
+  oeffnen(id);
+}
+/** Bauvertrag zum beauftragten Angebot öffnen – fehlt er, einmal aus Auftrag und Protokoll anlegen (danach ein eigenes Schriftstück). */
+export function bauvertragOeffnen(angebot: Zeile): void {
+  const da = lebende('bauvertrag').find((b) => b.werte.angebot === angebot.id);
+  const oeffnen = (id: string) => springeZu('bauvertrag', id, { projekt: String(angebot.werte.projekt), modul: 'ava', ansicht: 'bauvertraege' });
+  if (da) { oeffnen(da.id); return; }
+  if (!darf('bauvertrag', 'schreiben')) return;
+  const id = neueKennung(), a = angebot.werte, q = quellen(a), protokoll = lebende('besprechung').find((b) => b.werte.angebot === angebot.id);
+  const werte = vertragAusDaten({ agArt: 'unternehmen', projekt: q.projekt, bieter: q.bieter, lv: q.lv, angebot: a, gewerkName: q.gewerkName, summe: lvZahlen(String(a.lv)).haupt, protokoll: protokoll?.werte });
+  ausfuehrenMehrere([
+    { objekt: 'bauvertrag', art: 'anlegen', objektId: id, werte: { projekt: a.projekt ?? null, lv: a.lv ?? null, angebot: angebot.id, datum: new Date().toLocaleDateString('sv') } },
+    { objekt: 'bauvertrag', art: 'aendern', objektId: id, werte, herkunft: 'daten' },
+  ], 'Bauvertrag anlegen');
+  oeffnen(id);
+}
+
+/** An der Karte des Angebots: Angebotsbesprechung und (nach der Vergabe) Bauvertrag – anlegen oder öffnen. */
 export function BesprechungKnopf(p: { angebot: Zeile }) {
   const da = createMemo(() => lebende('besprechung').find((b) => b.werte.angebot === p.angebot.id));
-  const oeffnen = (id: string) => springeZu('besprechung', id, { projekt: String(p.angebot.werte.projekt), modul: 'ava', ansicht: 'besprechungen' });
-  const anlegen = () => {
-    const id = neueKennung(), a = p.angebot.werte, daten = ausDenDaten(quellen(a));
-    const name = ich().name ?? '';
-    ausfuehrenMehrere([
-      { objekt: 'besprechung', art: 'anlegen', objektId: id, werte: { projekt: a.projekt ?? null, lv: a.lv ?? null, angebot: p.angebot.id, stand: 'entwurf', datum: new Date().toLocaleDateString('sv'), teilnehmer: name } },
-      { objekt: 'besprechung', art: 'aendern', objektId: id, werte: { ...daten, quellen: JSON.stringify(daten) }, herkunft: 'daten' },
-    ], 'Angebotsbesprechung anlegen');
-    oeffnen(id);
-  };
-  // Bauvertrag: nach der Vergabe, einmal aus Auftrag und Protokoll (danach ein eigenes Schriftstück)
   const vertrag = createMemo(() => lebende('bauvertrag').find((b) => b.werte.angebot === p.angebot.id));
-  const vertragOeffnen = (id: string) => springeZu('bauvertrag', id, { projekt: String(p.angebot.werte.projekt), modul: 'ava', ansicht: 'bauvertraege' });
-  const vertragAnlegen = () => {
-    const id = neueKennung(), a = p.angebot.werte, q = quellen(a);
-    const werte = vertragAusDaten({ agArt: 'unternehmen', projekt: q.projekt, bieter: q.bieter, lv: q.lv, angebot: a, gewerkName: q.gewerkName, summe: lvZahlen(String(a.lv)).haupt, protokoll: da()?.werte });
-    ausfuehrenMehrere([
-      { objekt: 'bauvertrag', art: 'anlegen', objektId: id, werte: { projekt: a.projekt ?? null, lv: a.lv ?? null, angebot: p.angebot.id, datum: new Date().toLocaleDateString('sv') } },
-      { objekt: 'bauvertrag', art: 'aendern', objektId: id, werte, herkunft: 'daten' },
-    ], 'Bauvertrag anlegen');
-    vertragOeffnen(id);
-  };
   return (
     <div class="karte-fuss">
-      <Show when={da()} fallback={<Show when={darf('besprechung', 'schreiben')}><button type="button" class="knopf" onClick={anlegen}>Angebotsbesprechung anlegen</button></Show>}>
-        {(b) => <button type="button" class="knopf" onClick={() => oeffnen(b().id)}>Angebotsbesprechung öffnen</button>}
-      </Show>
-      <Show when={p.angebot.werte.beauftragt === true}>
-        <Show when={vertrag()} fallback={<Show when={darf('bauvertrag', 'schreiben')}><button type="button" class="knopf" onClick={vertragAnlegen}>Bauvertrag anlegen</button></Show>}>
-          {(v) => <button type="button" class="knopf" onClick={() => vertragOeffnen(v().id)}>Bauvertrag öffnen</button>}
-        </Show>
+      <Show when={da() || darf('besprechung', 'schreiben')}><button type="button" class="knopf" onClick={() => besprechungOeffnen(p.angebot)}>{da() ? 'Angebotsbesprechung öffnen' : 'Angebotsbesprechung anlegen'}</button></Show>
+      <Show when={p.angebot.werte.beauftragt === true && (vertrag() || darf('bauvertrag', 'schreiben'))}>
+        <button type="button" class="knopf" onClick={() => bauvertragOeffnen(p.angebot)}>{vertrag() ? 'Bauvertrag öffnen' : 'Bauvertrag anlegen'}</button>
       </Show>
     </div>
   );

@@ -7,7 +7,7 @@ import { Zeichen } from './zeichen';
 /** Kästchen zum Auf- und Zuklappen einer Ebene. */
 export function Klappe(p: { zu: boolean; onKlick: () => void; titel?: string; fokus?: boolean; still?: boolean /* im Baum: der Knoten selbst sagt „aufgeklappt“ */ }) {
   return <button type="button" class="klappe" tabindex={p.fokus ? 0 : -1} aria-hidden={p.still ? 'true' : undefined} aria-label={p.still ? undefined : p.titel ?? (p.zu ? 'Aufklappen' : 'Zuklappen')} aria-expanded={p.still ? undefined : !p.zu}
-    onClick={(e) => { e.stopPropagation(); p.onKlick(); }}>{p.zu ? '+' : '−'}</button>;
+    onClick={(e) => { e.stopPropagation(); p.onKlick(); }} classList={{ zu: p.zu }} />;   // Zeichen ▸/▾ aus dem Stil (wie bisher: ein Zeichen für alle Bäume)
 }
 /** Ordner-Symbol für eine Ebene mit Unterpunkten. */
 export const Ordner = (p: { offen?: boolean }) => <span class="ordner" classList={{ offen: p.offen }}><Zeichen name="dateien" groesse={15} /></span>;

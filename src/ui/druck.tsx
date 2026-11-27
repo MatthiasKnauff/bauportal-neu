@@ -6,7 +6,7 @@ import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, q
 import type { Feld, ObjektModell, Wert } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { ausfuehren, sicht, verweisname } from './unterbau/abgleich';
-import { darf, ladeDatei, modell, neueKennung, ruf, zustand } from './unterbau/api';
+import { darf, ladeDatei, druckeDatei, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './unterbau/meldungen';
@@ -126,9 +126,16 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   const wertSetzen = (f: Feld & { stelle: string; vorgabe?: string }, w: Wert) =>
     setzen(f.stelle, f.art === 'ja_nein' ? ((f.stelle.endsWith('.aus') ? !w : !!w) ? 'ja' : '') : (String(w ?? '') === (f.vorgabe ?? '') ? '' : String(w ?? '')));
 
+  const anfrage = () => (a.verzeichnis ? { ausdruck: a.id, ids: umfang()?.ids ?? [], filter: umfang()?.filter ?? '' } : p.mehrere ? { ausdruck: a.id, ids: p.mehrere } : { ausdruck: a.id, objekt: p.objekt });
+  const drucken = async () => {
+    setLaeuft(true);
+    try { await druckeDatei('/api/druck/pdf', anfrage()); }
+    catch (err) { hinweis((err as Error).message); }
+    finally { setLaeuft(false); }
+  };
   const pdf = async () => {
     setLaeuft(true);
-    try { await ladeDatei('/api/druck/pdf', a.verzeichnis ? { ausdruck: a.id, ids: umfang()?.ids ?? [], filter: umfang()?.filter ?? '' } : p.mehrere ? { ausdruck: a.id, ids: p.mehrere } : { ausdruck: a.id, objekt: p.objekt }); }
+    try { await ladeDatei('/api/druck/pdf', anfrage()); }
     catch (err) { hinweis((err as Error).message); }
     finally { setLaeuft(false); }
   };
@@ -143,7 +150,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   const verzeichnisBlock = () => { const b = a.bloecke.find((x) => x.id === stelle().split('.')[0]); return b?.art === 'verzeichnis' ? b : undefined; };
   return (
     <Dialog titel={`${a.titel}${p.mehrere ? ` – ${p.mehrere.length} in einem PDF, Vorschau des ersten` : ' – Druckvorschau'}`} gross onAbbrechen={() => setOffen(null)}
-      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner && !p.mehrere}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={pdf}>{laeuft() ? 'PDF wird erzeugt …' : 'PDF herunterladen'}</button></>}>
+      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner && !p.mehrere}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf" disabled={laeuft() || !daten()} onClick={pdf}>PDF herunterladen</button><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={drucken}>{laeuft() ? 'PDF wird erzeugt …' : 'Drucken'}</button></>}>
       <div class="druck">
         <div class="druck-blatt" onClick={klick}><div ref={blatt} /></div>
         <Show when={einstellen() || (p.umfaenge?.length ?? 0) > 1}>

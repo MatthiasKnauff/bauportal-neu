@@ -1,6 +1,8 @@
 // AVA: ein gewähltes LV für alle Ansichten der App (LV bearbeiten, Versand, Preisspiegel, Aufträge, Aufmaß …) und oben sein Kopf –
 // Bezeichnung, Stand, an wen vergeben, Eckdaten; darunter der Ablauf (Abfolge-Leiste), wie weit das LV ist. Wie im bisherigen Bauportal.
-import { Show, createEffect, createSignal, type JSX } from 'solid-js';
+import { Show, createEffect, createSignal, useContext, type JSX } from 'solid-js';
+import { AvaKennzahlen } from './ava';
+import { AppUmgebung } from './baukasten/rahmen';
 import type { Zeile } from '../kern/befehl';
 import { avaAbfolge, avaSchrittVon } from '../module/ava/abfolge';
 import { LV_STATUS } from '../module/ava/beipackzettel';
@@ -16,7 +18,7 @@ import { darf, modell } from './unterbau/api';
 const [aktivesLv, setAktivesLv] = createSignal<string | null>(null);
 
 /** Reihenfolge der LVs: nach Nummer, archivierte am Ende. */
-const lvFolge = (a: Zeile, b: Zeile) => Number(!!a.werte.archiviert) - Number(!!b.werte.archiviert) || String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true });
+export const lvFolge = (a: Zeile, b: Zeile) => Number(!!a.werte.archiviert) - Number(!!b.werte.archiviert) || String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true });
 /** Das gewählte LV des Projekts – sonst sein erstes (nach Nummer). */
 function gewaehltesLv(): Zeile | undefined {
   const pr = projektId(), imProjekt = (z: Zeile | undefined) => (z && !z.geloescht && z.werte.projekt === pr ? z : undefined);
@@ -91,4 +93,5 @@ function abfolge(p: Mitte, ansicht: string) {
 }
 
 /** Für jede Ansicht der AVA: oben der Kopf des LV und der Ablauf. */
-export const AVA_OBEN: Anpassung = { kopf: (p) => <AvaKopf {...p} />, abfolge };
+export const AVA_OBEN: Anpassung = { kopf: (p) => <AvaKopf {...p} />, abfolge, menueMitte: (p) => <Kennzahlen {...p} />, linksTitel: 'Bereiche' };
+function Kennzahlen(p: Mitte) { const app = useContext(AppUmgebung); return <AvaKennzahlen lv={lvVon(p)} ansicht={(app?.aktiv() ?? '').replace(/^ava\./, '')} />; }

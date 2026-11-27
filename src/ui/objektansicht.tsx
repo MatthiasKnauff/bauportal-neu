@@ -281,13 +281,15 @@ export function ObjektAnsicht(p: {
   if (auswahl) createEffect(() => { const da = new Set(lebend().map((z) => z.id)); untrack(() => { for (const id of auswahl.ids()) if (!da.has(id)) auswahl.umschalten(id); }); });
   const leer = () => lebend().length ? 'Kein Treffer für diese Auswahl.' : `Noch keine ${m.titelMehrzahl}.${darf(m.name, 'schreiben') ? ` Mit „+ ${m.titel}“ legst du den ersten Eintrag an.` : ''}`;
 
+  // die Karte, die rechts steht (eine Ansicht mit eigenen Details kann sie mitbenutzen)
+  const standardKarte = () => <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} heftzwecke={rahmen.heftzweckeRechts()} zusatz={a.kartenZusatz} oben={a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show>;
   return (
     <div class="ansicht" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented && (e.target as HTMLElement).closest('.karte')) { e.preventDefault(); tabelle?.fokus(); } }}>
       <Rahmen schluessel={p.schluessel} steuer={(s) => (rahmen = s)}
         kopf={a.kopf?.(mitteP)}
         abfolge={(() => { const f = a.abfolge?.(mitteP, app?.aktiv() ?? ''); return f ? { schritte: f.schritte, aktiv: f.stand, hier: f.hier, onWahl: app?.onReiter } : undefined; })()}
         knoepfe={[
-          ...(darf(m.name, 'schreiben') ? [{ titel: a.neuTitel ?? m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => (a.mitte && mitteNeu ? mitteNeu() : neuStart()) }] : []),
+          ...(darf(m.name, 'schreiben') && !a.ohneNeu ? [{ titel: a.neuTitel ?? m.titel, zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: () => (a.mitte && mitteNeu ? mitteNeu() : neuStart()) }] : []),
           ...(a.knoepfe?.(fest()) ?? []),
           ...(a.mitte ? mitteKnoepfe() : []),
           ...(a.kachel ? [{ titel: 'Karten', zeichen: 'kacheln', gruppe: 'Ansicht', an: kacheln(), tun: () => { if (!kacheln()) formWechseln(); } },
@@ -296,7 +298,8 @@ export function ObjektAnsicht(p: {
             { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: () => excelSpeichern(tabelle.alsZeilen()) }]),
           ...(verzeichnis() ? [{ titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => drucken() }] : []),
         ]}
-        menueMitte={<>
+        menueMitteTitel={a.menueMitte ? '' : undefined}
+        menueMitte={a.menueMitte ? a.menueMitte(mitteP) : <>
           <Show when={arten().length} fallback={
             <input ref={suchfeld} class="suche" type="search" placeholder={`${m.titelMehrzahl} durchsuchen`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)}
               onKeyDown={(e) => { if ((e.key === 'ArrowDown' || e.key === 'Enter') && tabelle && !kacheln()) { e.preventDefault(); tabelle.fokus(); tabelle.ersteWaehlen(); } }} />}>
@@ -340,7 +343,7 @@ export function ObjektAnsicht(p: {
         }
         detailsTitel={(karte() && objektname(m, karte()!.werte)) || m.titel}
         detailsHinweis={a.detailsHinweis ?? `${a.mitte ? 'Einen Eintrag' : 'Eine Zeile'} anklicken – hier stehen dann alle Angaben, direkt änderbar.`}
-        details={karte() ? (a.details ? a.details(karte()!, () => rahmen.heftzweckeRechts()) : <Show when={karte()}>{(z) => <Detailkarte modell={m} zeile={z()} blaettern={blaettern()} onZu={() => setGewaehlt(null)} heftzwecke={rahmen.heftzweckeRechts()} zusatz={a.kartenZusatz} oben={a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />}</Show> ) : undefined} />
+        details={karte() ? (a.details ? a.details(karte()!, () => rahmen.heftzweckeRechts(), standardKarte) : standardKarte()) : undefined} />
       <Show when={schwebZeile()}>{(z) => <Schwebefenster titel={objektname(m, z().werte) || m.titel} onZu={() => { setSchwebend(null); tabelle?.fokus(); }}>
         <Detailkarte modell={m} zeile={z()} onZu={() => setSchwebend(null)} zusatz={a.kartenZusatz} oben={a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} symbole={a.kartenSymbole} verborgen={Object.keys(fest())} />
       </Schwebefenster>}</Show>

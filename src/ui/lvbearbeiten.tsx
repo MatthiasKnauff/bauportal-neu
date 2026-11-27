@@ -1,107 +1,177 @@
-// LV bearbeiten (wie im bisherigen Bauportal): das Leistungsverzeichnis als Baum – Titel mit ihren Positionen, Zellen direkt
-// bearbeiten (Enter eine Zeile tiefer, Tab zur nächsten Spalte), Langtext unter der Zeile aufklappen, Titel- und LV-Summen.
-// Neu: Titel und Position unter der markierten Zeile; Nummerieren nach der OZ-Maske; Kontextmenü; Auswahl wie in Windows
-// (Baustein Zeilenwahl); Spalten wählen, ordnen und passend machen (Baustein Spaltenwahl). Nach der Vergabe ist das LV gesperrt –
-// 🔒 schaltet es bis zum Neuladen frei (Positionen sind dann Vertragsinhalt).
-import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
+// Baustein „LV-Baum“ (wie im bisherigen Bauportal, dort viermal getrennt gebaut – hier einmal): Projekt → LVs als Ordner → Gliederung →
+// Positionen. Das gewählte LV ist offen, die anderen stehen zugeklappt darüber und darunter (Klick öffnet). Die erste Spalte
+// „Bezeichnung“ (OZ und Kurztext) gehört dem Baustein; die übrigen Spalten bringt jede Ansicht mit (LV: Menge, EH, Art, KG, EP, GP –
+// Preisspiegel: Preise je Bieter:in – Aufträge: Auftrag, Prognose, abgerechnet). Summen je Titel, LV und Projekt rechnet der Baustein
+// aus der Summe der Spalte. Bearbeiten in der Zelle (Enter eine Zeile tiefer, Tab zur nächsten Spalte), Auswahl wie in Windows,
+// Spalten wählen/ordnen/passend machen. Mit „struktur“ (LV bearbeiten) dazu: neue Zeilen, Gliederung, Nummerieren, Ziehen an der OZ,
+// Kopieren/Einfügen, Langtext, Löschen. Nach der Vergabe ist das LV gesperrt – 🔒 schaltet es bis zum Neuladen frei.
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
-import { gliederungEinfuegen, lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, titelSumme, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
+import { gliederungEinfuegen, lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
+import { gp, summeGeschaetzt, zaehlt, zahl } from '../module/ava/rechnung';
 import { Dialog } from './baukasten/dialog';
 import { langtextMenue, ErgaenzungFenster } from './textergaenzung';
 import { LvQuellenLeiste } from './lvquelle';
 import { ModellInsLv } from './modellinslv';
 import { NeuesLv } from './neueslv';
 import { projektId } from './projekt';
-import { gp, zaehlt, zahl } from '../module/ava/rechnung';
-import { lvVon, lvWaehlen } from './avakopf';
+import { lvFolge, lvVon, lvWaehlen } from './avakopf';
 import { druckOeffnen } from './druck';
+import { gaebAusgeben } from './ava';
+import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
-import { zeigeMenue } from './baukasten/kontextmenue';
+import { zeigeMenue, type Menuepunkt } from './baukasten/kontextmenue';
+import type { Knopf } from './baukasten/menueleiste';
 import { spaltenwahl, zusatzMessen } from './baukasten/spalten';
+import { Zeichen } from './baukasten/zeichen';
 import { zeilenwahl } from './baukasten/zeilenwahl';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 
-type Sp = 'oz' | 'kurztext' | 'menge' | 'einheit' | 'art' | 'ep' | 'gp';
-const SPALTEN: { id: Sp; titel: string; breite: number; rechts?: boolean }[] = [
-  { id: 'oz', titel: 'OZ', breite: 130 }, { id: 'kurztext', titel: 'Kurztext', breite: 360 }, { id: 'menge', titel: 'Menge', breite: 90, rechts: true },
-  { id: 'einheit', titel: 'Einheit', breite: 70 }, { id: 'art', titel: 'Art', breite: 60 }, { id: 'ep', titel: 'EP geschätzt', breite: 110, rechts: true },
-  { id: 'gp', titel: 'GP', breite: 120, rechts: true },
-];
-const BEARBEITBAR = new Set<Sp>(['oz', 'kurztext', 'menge', 'einheit', 'art', 'ep']);
+/** Eine Spalte des LV-Baums (die erste, „Bezeichnung“, bringt der Baustein selbst mit). */
+export interface BaumSpalte {
+  id: string; titel: string; breite: number; rechts?: boolean; hilfe?: string;
+  /** Anzeige in der Zeile einer Position (Titel: die Summe, wenn es eine gibt) */
+  wert: (pos: Zeile) => string;
+  /** Summe über Positionen – für Titel, LV, Projekt und den Fuß. Ohne: die Zelle bleibt dort leer. */
+  summe?: (positionen: Zeile[]) => number | null;
+  /** Bearbeiten in der Zelle: Text im Feld (ohne: wie angezeigt) und Übernehmen – Fehlertext zurück, wenn es nicht geht */
+  setzen?: (pos: Zeile, text: string) => string | void;
+  roh?: (pos: Zeile) => string;
+  klasse?: (pos: Zeile) => string | undefined;
+  /** frei: nicht in der Spaltenwahl, immer hinten (z. B. je Bieter:in eine Spalte) */
+  frei?: boolean;
+  kopf?: () => JSX.Element;
+}
+/** Eine Zeile unter der Tabelle: links der Titel, je Spalte ein Wert (aus den Positionen des LV). */
+export interface FussZeile { titel: string; wert: (s: BaumSpalte, positionen: Zeile[]) => JSX.Element | string; klasse?: string }
+
 /** Kurzzeichen der Art wie im bisherigen Bauportal: N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext. */
-const ART_KURZ: Record<string, string> = { normal: 'N', bedarf: 'E', alternativ: 'A', pauschal: 'P', stundenlohn: 'S', hinweis: 'H', titel: '' };
+export const ART_KURZ: Record<string, string> = { normal: 'N', bedarf: 'E', alternativ: 'A', pauschal: 'P', stundenlohn: 'S', hinweis: 'H', titel: '' };
 const ART_AUS = Object.fromEntries(Object.entries(ART_KURZ).filter(([, k]) => k).map(([w, k]) => [k, w]));
-const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const zahlText = (w: unknown) => (w === null || w === undefined || w === '' ? '' : zahl(w).toLocaleString('de-DE', { maximumFractionDigits: 3 }));
+export const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const zahlText = (w: unknown) => (w === null || w === undefined || w === '' ? '' : zahl(w).toLocaleString('de-DE', { maximumFractionDigits: 3 }));
+/** Zahl aus einer Eingabe – null bei leer, Fehlertext, wenn es keine Zahl ist. */
+export const zahlAus = (t: string): number | null | string => (!t.trim() ? null : /^-?[\d.\s]*,?\d*$/.test(t.trim()) ? zahl(t.replace(/\s/g, '')) : 'Bitte eine Zahl eintragen, z. B. 12,5');
 const FREI = new Set<string>();   // freigeschaltete vergebene LVs – bis zum Neuladen
 /** Die markierte Zeile – rechts steht dann ihre Karte (Eigenschaften der Position, wie im bisherigen Bauportal). */
 export const [lvZeiger, setLvZeiger] = createSignal<string | null>(null);
+const aendern = (id: string, werte: Record<string, Wert>, titel: string) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: id, werte }, titel);
+const positionenDes = (lv: string, mitNachtraegen: boolean) => lebende('lv_position').filter((x) => x.werte.lv === lv && (mitNachtraegen || !x.werte.nachtrag));
 
-export function LvBearbeiten(p: Mitte): JSX.Element {
-  const lv = () => lvVon(p);
-  const positionen = createMemo(() => (lv() ? lebende('lv_position').filter((x) => x.werte.lv === lv()!.id && !x.werte.nachtrag) : []));
+// ---------- die Spalten des LV (LV bearbeiten) ----------
+const kgNummer = (id: unknown) => String(sicht.kostengruppe?.[String(id ?? '')]?.werte.nummer ?? '');
+export const LV_SPALTEN: BaumSpalte[] = [
+  { id: 'menge', titel: 'Menge', breite: 70, rechts: true, wert: (q) => zahlText(q.werte.menge),
+    setzen: (q, t) => { const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q.id, { menge: n }, 'Menge'); } },
+  { id: 'einheit', titel: 'EH', breite: 46, wert: (q) => String(q.werte.einheit ?? ''), setzen: (q, t) => aendern(q.id, { einheit: t }, 'Einheit') },
+  { id: 'art', titel: 'Art', breite: 38, hilfe: 'N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext', wert: (q) => ART_KURZ[String(q.werte.art ?? 'normal')] ?? '',
+    setzen: (q, t) => { const w = ART_AUS[t.toUpperCase()]; if (!w) return 'Art: N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext'; aendern(q.id, { art: w }, 'Art'); } },
+  { id: 'kg', titel: 'KG', breite: 48, hilfe: 'Kostengruppe nach DIN 276 – leer: wie das LV', wert: (q) => kgNummer(q.werte.kostengruppe) || kgNummer(sicht.lv?.[String(q.werte.lv)]?.werte.kostengruppe),
+    klasse: (q) => (q.werte.kostengruppe ? undefined : 'geerbt'), roh: (q) => kgNummer(q.werte.kostengruppe),
+    setzen: (q, t) => {
+      if (!t) { aendern(q.id, { kostengruppe: null }, 'Kostengruppe'); return; }
+      const kg = lebende('kostengruppe').find((k) => String(k.werte.nummer) === t);
+      if (!kg) return `Kostengruppe ${t} gibt es nicht (DIN 276, z. B. 330).`;
+      aendern(q.id, { kostengruppe: kg.id }, 'Kostengruppe');
+    } },
+  { id: 'ep', titel: 'EP (Schätzung)', breite: 110, rechts: true, wert: (q) => (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : eur(zahl(q.werte.ep))), roh: (q) => zahlText(q.werte.ep),
+    setzen: (q, t) => { const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q.id, { ep: n }, 'Einheitspreis'); } },
+  { id: 'gp', titel: 'GP', breite: 108, rechts: true, wert: (q) => (zaehlt(q) ? (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : eur(gp(q.werte.menge, q.werte.ep))) : q.werte.art === 'hinweis' ? '' : 'ohne GP'),
+    summe: summeGeschaetzt },
+];
+
+export interface LvBaumProps {
+  m: Mitte; spalten: () => BaumSpalte[]; speicher: string;
+  struktur?: boolean;                 // LV bearbeiten: neue Zeilen, Gliederung, Ziehen, Kopieren, Langtext, Löschen
+  mitNachtraegen?: boolean;           // Nachtragspositionen an ihrer Stelle zeigen (Aufträge, Aufmaß)
+  knoepfe?: () => Knopf[];            // weitere Knöpfe der Ansicht
+  menue?: (pos: Zeile) => Menuepunkt[];   // weitere Punkte im Kontextmenü (vorne)
+  fuss?: FussZeile[];                 // Zeilen unter der Tabelle (Summen, Nachlass, Wertung …)
+  ohneHinweise?: boolean;             // Hinweistexte nicht zeigen (Preisspiegel)
+  bezeichnung?: { darf: (pos: Zeile) => boolean; setzen: (pos: Zeile, text: string) => void };   // Bezeichnung ohne „struktur“ ändern (z. B. Nachtrag in den Aufträgen)
+  oben?: (lv: Zeile) => JSX.Element;  // über der Tabelle (z. B. Hinweise)
+}
+
+/** LV bearbeiten: der LV-Baum mit den Spalten des LV und allem zum Gliedern. */
+const SUMME: FussZeile = { titel: 'Summe netto (ohne Bedarfs-/Wahlpositionen)', wert: (s, pos) => { const n = s.summe?.(pos); return n === null || n === undefined ? '' : eur(n); } };
+export const LvBearbeiten = (m: Mitte) => <LvBaum m={m} spalten={() => LV_SPALTEN} speicher="bp_spalten_lv2" struktur fuss={[SUMME]} />;
+
+export function LvBaum(p: LvBaumProps): JSX.Element {
+  const lv = () => lvVon(p.m);
+  const positionen = createMemo(() => (lv() ? positionenDes(lv()!.id, !!p.mitNachtraegen).filter((x) => !p.ohneHinweise || x.werte.art !== 'hinweis') : []));
   const zeilen = createMemo(() => lvZeilen(positionen()));
   const nachZeile = createMemo(() => new Map(zeilen().map((z) => [z.id, z])));   // Zeilen über ihre Kennung – die Darstellung hängt an der Kennung, nicht am Objekt (sonst ginge ein offenes Feld bei jedem Abgleich verloren)
   const nachId = (id: string) => sicht.lv_position?.[id];
   const [zu, setZu] = createSignal<Set<string>>(new Set());
+  const [lvZu, setLvZu] = createSignal(false);
   const [lang, setLang] = createSignal<Set<string>>(new Set());
-  const sichtbar = createMemo(() => { const aus: LvZeile[] = [], weg = new Set<string>(); for (const z of zeilen()) { if (z.eltern && (weg.has(z.eltern) || zu().has(z.eltern))) { weg.add(z.id); continue; } aus.push(z); } return aus; });
+  const sichtbar = createMemo(() => { if (lvZu()) return []; const aus: LvZeile[] = [], weg = new Set<string>(); for (const z of zeilen()) { if (z.eltern && (weg.has(z.eltern) || zu().has(z.eltern))) { weg.add(z.id); continue; } aus.push(z); } return aus; });
   const [frei, setFrei] = createSignal(0);
   const maske = () => maskeLesen(lv()?.werte.oz_maske);
   const vergeben = () => lv()?.werte.status === 'vergeben' || lv()?.werte.status === 'abgerechnet';
   const gesperrt = () => { frei(); return vergeben() && !FREI.has(lv()?.id ?? ''); };
   const schreiben = () => darf('lv_position', 'schreiben') && !gesperrt();
-  const wahl = zeilenwahl({ reihe: () => zeilen().map((z) => z.id), sichtbar: () => sichtbar().map((z) => z.id), onZeiger: (id) => { setLvZeiger(id); if (id && !p.gewaehlt() && lv()) p.onWahl(lv()!.id); } });
-  const spw = spaltenwahl('bp_spalten_lv', SPALTEN.map((x) => ({ ...x, name: x.id, inListe: true, fest: x.id === 'oz' || x.id === 'kurztext' })));
-  const spalten = () => spw.sichtbare().map((x) => ({ ...x, breite: spw.breite(x) }));
-  const gpVon = (id: string) => { const z = nachId(id); return z && zaehlt(z) ? gp(z.werte.menge, z.werte.ep) : null; };
-  const summe = () => Math.round(zeilen().filter((z) => !z.titel).reduce((s, z) => s + (gpVon(z.id) ?? 0), 0) * 100) / 100;
-  const wert = (z: LvZeile, s: Sp): string => {
-    const w = nachId(z.id)?.werte ?? {};
-    switch (s) {
-      case 'oz': return z.oz;
-      case 'kurztext': return String(w.kurztext ?? '');
-      case 'menge': return z.titel ? '' : zahlText(w.menge);
-      case 'einheit': return z.titel ? '' : String(w.einheit ?? '');
-      case 'art': return ART_KURZ[String(w.art ?? 'normal')] ?? '';
-      case 'ep': return z.titel || w.ep === null || w.ep === undefined || w.ep === '' ? '' : eur(zahl(w.ep));
-      case 'gp': return z.titel ? eur(titelSumme(zeilen(), z.id, gpVon)) : gpVon(z.id) === null ? (w.art === 'hinweis' ? '' : 'ohne GP') : eur(gpVon(z.id)!);
-    }
+  const wahl = zeilenwahl({ reihe: () => zeilen().map((z) => z.id), sichtbar: () => sichtbar().map((z) => z.id), onZeiger: (id) => { setLvZeiger(id); if (id && !p.m.gewaehlt() && lv()) p.m.onWahl(lv()!.id); } });
+  // erste Spalte „Bezeichnung“ gehört dem Baustein; die übrigen bringt die Ansicht mit
+  const BEZ: BaumSpalte = { id: 'kurztext', titel: 'Bezeichnung', breite: 380, wert: (q) => String(q.werte.kurztext ?? '') };
+  const alleSpalten = () => [BEZ, ...p.spalten()];
+  const spw = spaltenwahl(p.speicher, alleSpalten().filter((x) => !x.frei).map((x) => ({ ...x, name: x.id, inListe: true, fest: x.id === 'kurztext' })));
+  // „Bezeichnung“ füllt den Platz, den die übrigen Spalten lassen – kein waagerechtes Rollen in der Standardbreite
+  const [platz, setPlatz] = createSignal(0);
+  const spalten = () => {
+    const l = [...spw.sichtbare().map((x) => ({ ...alleSpalten().find((s) => s.id === x.id)!, breite: spw.breite(x) })), ...p.spalten().filter((x) => x.frei)];
+    const rest = l.reduce((n, s) => n + (s.id === 'kurztext' ? 0 : s.breite), 0);
+    return platz() ? l.map((s) => (s.id === 'kurztext' ? { ...s, breite: Math.max(220, platz() - rest) } : s)) : l;
   };
+  const spalteVon = (id: string) => alleSpalten().find((s) => s.id === id);
+  // Summen: Positionen unter einem Titel, eines LV, des ganzen Projekts
+  const unterTitel = (t: LvZeile) => zeilen().filter((z) => !z.titel && z.oz.startsWith(`${t.oz}.`)).map((z) => nachId(z.id)!).filter(Boolean);
+  const summeText = (s: BaumSpalte, pos: Zeile[]) => { const n = s.summe?.(pos); return n === null || n === undefined ? '' : eur(n); };
+  const wert = (z: LvZeile, s: BaumSpalte): string => { const q = nachId(z.id); if (!q) return ''; return z.titel ? (s.id === 'kurztext' ? s.wert(q) : summeText(s, unterTitel(z))) : s.wert(q); };
+  // die LVs des Projekts (das gewählte offen, die anderen als Ordner), das Archiv nur, wenn es gewählt ist
+  const lvs = createMemo(() => lebende('lv').filter((l) => l.werte.projekt === projektId() && (!l.werte.archiviert || l.id === lv()?.id)).sort(lvFolge));
+  const vorher = () => lvs().slice(0, Math.max(0, lvs().findIndex((l) => l.id === lv()?.id)));
+  const nachher = () => lvs().slice(lvs().findIndex((l) => l.id === lv()?.id) + 1);
+  const projekt = () => sicht.projekt?.[projektId() ?? ''];
+  // das LV gilt als gewählt (wie bisher): rechts steht seine Karte, solange keine Zeile markiert ist
+  createEffect(() => { const l = lv(); if (l && p.m.gewaehlt() !== l.id && p.m.alle().some((x) => x.id === l.id)) p.m.onWahl(l.id); });
   // ---------- Zellen bearbeiten ----------
-  const [edit, setEdit] = createSignal<{ id: string; spalte: Sp; text: string; alles?: boolean } | null>(null);   // alles: Text markiert (neue Zeile – Tippen ersetzt den Vorschlag)
-  const [spalte, setSpalte] = createSignal<Sp>('kurztext');
-  const aendern = (id: string, werte: Record<string, Wert>, titel: string) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: id, werte }, titel);
+  type Ed = { id: string; spalte: string; text: string; alles?: boolean };   // alles: Text markiert (neue Zeile – Tippen ersetzt den Vorschlag)
+  const [edit, setEdit] = createSignal<Ed | null>(null);
+  const [spalte, setSpalte] = createSignal('kurztext');
+  const bearbeitbar = (z: LvZeile, s: string) => (s === 'oz' ? !!p.struktur : s === 'kurztext' ? !!p.struktur || (!!nachId(z.id) && !!p.bezeichnung?.darf(nachId(z.id)!)) : !z.titel && !!spalteVon(s)?.setzen);
   const uebernehmen = (): boolean => {
     const e = edit(); if (!e) return true;
-    const z = zeilen().find((x) => x.id === e.id), alt = wert(z!, e.spalte), t = e.text.trim();
-    if (t === alt) { setEdit(null); return true; }
-    if (e.spalte === 'menge' || e.spalte === 'ep') {
-      if (t && !/^-?[\d.]*,?\d*$/.test(t.replace(/\s/g, ''))) { hinweis('Bitte eine Zahl eintragen, z. B. 12,5', { art: 'fehler' }); return false; }
-      aendern(e.id, { [e.spalte]: t ? zahl(t) : null }, e.spalte === 'menge' ? 'Menge' : 'Einheitspreis');
-    } else if (e.spalte === 'art') {
-      const w = ART_AUS[t.toUpperCase()]; if (!w) { hinweis('Art: N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext', { art: 'fehler' }); return false; }
-      aendern(e.id, { art: w }, 'Art');
-    } else if (e.spalte === 'oz') {
+    const q = nachId(e.id), z = nachZeile().get(e.id), t = e.text.trim();
+    if (!q || !z) { setEdit(null); return true; }
+    if (e.spalte === 'oz') {
+      if (t === z.oz) { setEdit(null); return true; }
       if (!t) { hinweis('Die OZ darf nicht leer sein.', { art: 'fehler' }); return false; }
       if (zeilen().some((x) => x.oz === t && x.id !== e.id)) { hinweis(`Die OZ ${t} gibt es schon.`, { art: 'fehler' }); return false; }
       aendern(e.id, { oz: t }, 'OZ');
-    } else aendern(e.id, { [e.spalte]: t }, e.spalte === 'kurztext' ? 'Kurztext' : 'Einheit');
+    } else if (e.spalte === 'kurztext') {
+      if (t !== String(q.werte.kurztext ?? '')) { if (p.struktur || !p.bezeichnung) aendern(e.id, { kurztext: t }, 'Kurztext'); else p.bezeichnung.setzen(q, t); }
+    } else {
+      const s = spalteVon(e.spalte)!;
+      if (t !== (s.roh ?? s.wert)(q).trim()) { const f = s.setzen!(q, t); if (f) { hinweis(f, { art: 'fehler' }); return false; } }
+    }
     setEdit(null); return true;
   };
-  const bearbeiten = (id: string, s: Sp, text?: string, alles = false) => {
-    const z = zeilen().find((x) => x.id === id); if (!z || !schreiben() || !BEARBEITBAR.has(s) || (z.titel && !['oz', 'kurztext'].includes(s))) return;
-    setSpalte(s); wahl.setMarkiert(id); setEdit({ id, spalte: s, text: text ?? (s === 'ep' ? zahlText(nachId(id)?.werte.ep) : wert(z, s)), alles });
+  const bearbeiten = (id: string, s: string, text?: string, alles = false) => {
+    const z = nachZeile().get(id), q = nachId(id); if (!z || !q || !bearbeitbar(z, s) || (p.struktur ? !schreiben() : false)) return;
+    const sp = spalteVon(s);
+    setSpalte(s); wahl.setMarkiert(id); setEdit({ id, spalte: s, text: text ?? (s === 'oz' ? z.oz : sp ? (sp.roh ?? sp.wert)(q) : ''), alles });
   };
-  // ---------- neue Zeilen, löschen, nummerieren ----------
+  // ---------- neue Zeilen, Gliederung, löschen, nummerieren (nur LV bearbeiten) ----------
   const neu = (titel: boolean) => {
     if (!schreiben() || !lv()) return;
     const nach = wahl.markiert(), id = neueKennung(), oz = neueOz(zeilen(), { nach, titel }, maske());
-    ausfuehren({ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Gliederungspunkt' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } }, titel ? 'Titel einfügen' : 'Position einfügen');
-    wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext', undefined, true));
+    ausfuehren({ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Gliederungspunkt' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } }, titel ? 'Gliederungspunkt einfügen' : 'Position einfügen');
+    setLvZu(false); wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext', undefined, true));
   };
   /** Neuer Gliederungspunkt eine Ebene unter der markierten Zeile – gewählte Positionen kommen hinein (wie bisher). */
   const gliederung = () => {
@@ -112,17 +182,15 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     ausfuehrenMehrere([{ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(id) ?? '', art: 'titel', kurztext: 'Neuer Gliederungspunkt' } },
       ...[...oz].filter(([k]) => k !== id).map(([k, v]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: k, werte: { oz: v } }))], mit ? `Gliederungspunkt mit ${mit} ${mit === 1 ? 'Position' : 'Positionen'}` : 'Gliederungspunkt einfügen');
     if (mit) hinweis(`${mit === 1 ? 'Die Position steht' : `Die ${mit} Positionen stehen`} jetzt unter ${oz.get(id)} – rückgängig mit Strg+Z.`);
-    wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext', undefined, true));
+    setLvZu(false); wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext', undefined, true));
   };
   const loeschen = () => {
-    const ids = new Set(wahl.gewaehlt()); if (!ids.size || !darf('lv_position', 'loeschen') || gesperrt()) return;
-    // ein Titel nimmt alles darunter mit
-    for (const z of zeilen()) if (z.eltern && ids.has(z.eltern)) ids.add(z.id);
+    const ids = new Set(wahl.gewaehlt()); if (!p.struktur || !ids.size || !darf('lv_position', 'loeschen') || gesperrt()) return;
+    for (const z of zeilen()) if (z.eltern && ids.has(z.eltern)) ids.add(z.id);   // ein Titel nimmt alles darunter mit
     ausfuehrenMehrere([...ids].map((id) => ({ objekt: 'lv_position', art: 'loeschen' as const, objektId: id })), ids.size === 1 ? 'Zeile löschen' : `${ids.size} Zeilen löschen`);
     hinweis(`${ids.size === 1 ? 'Zeile' : `${ids.size} Zeilen`} gelöscht.`);
     wahl.setMarkiert(null);
   };
-  // Nummerieren mit der OZ-Maske des LV (im Fenster einstellbar, wird am LV gemerkt)
   const [numFenster, setNumFenster] = createSignal(false);
   const neuNummerieren = (m: OzMaske) => {
     const n = nummerieren(zeilen(), m), alt = String(lv()?.werte.oz_maske ?? ''), neuM = maskeSchreiben(m);
@@ -136,7 +204,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
   const ozSetzen = (neu: Map<string, string>, titel: string) => { if (neu.size) ausfuehrenMehrere([...neu].map(([id, oz]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: id, werte: { oz } })), titel); };
   const [zug, setZug] = createSignal<{ ids: string[]; nach: string | null; y: number } | null>(null);
   const zugStart = (e: PointerEvent, id: string) => {
-    if (e.button !== 0 || !schreiben()) return;
+    if (e.button !== 0 || !p.struktur || !schreiben()) return;
     e.preventDefault(); e.stopPropagation();
     if (!wahl.istGewaehlt(id)) wahl.setMarkiert(id);
     const ids = wahl.gewaehlt(), y0 = e.clientY;
@@ -157,7 +225,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     addEventListener('pointermove', bewegt); addEventListener('pointerup', los);
   };
   type Ablage = { titel: boolean; oz: string; werte: Record<string, Wert> }[];
-  const KOPIERT = ['art', 'kurztext', 'langtext', 'menge', 'einheit', 'ep'];
+  const KOPIERT = ['art', 'kurztext', 'langtext', 'menge', 'einheit', 'ep', 'kostengruppe'];
   const kopieren = (weg = false) => {
     const ids = new Set(wahl.gewaehlt()); if (!ids.size) return;
     for (const z of zeilen()) if (z.eltern && ids.has(z.eltern)) ids.add(z.id);
@@ -167,7 +235,7 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
   };
   const einfuegen = () => {
     let a: Ablage = []; try { a = JSON.parse(localStorage.getItem('bp.lv.ablage') ?? '[]') as Ablage; } catch { /* unlesbar */ }
-    if (!a.length || !schreiben() || !lv()) return;
+    if (!a.length || !p.struktur || !schreiben() || !lv()) return;
     // vorläufige OZ „~k…“ (Gliederung bleibt), dann wie beim Ziehen hinter die markierte Zeile
     const wurzeln = a.filter((x) => !a.some((t) => t.titel && t !== x && x.oz.startsWith(`${t.oz}.`)));
     const neueIds = a.map(() => neueKennung()), vorl = a.map((x) => { const w = wurzeln.findIndex((r) => r === x || x.oz.startsWith(`${r.oz}.`)); return `~${w}${x.oz.slice(wurzeln[w]!.oz.length)}`; });
@@ -178,21 +246,27 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
   };
   const [modellFenster, setModellFenster] = createSignal(false);
   const [neuFenster, setNeuFenster] = createSignal(false);
-  p.setNeu(() => setNeuFenster(true));   // „LV“ unter Neu: Womit anfangen? (statt der leeren Karte)
+  p.m.setNeu(() => setNeuFenster(true));   // „LV“ unter Neu: Womit anfangen? (statt der leeren Karte)
   const freischalten = () => { const id = lv()?.id; if (!id) return; if (FREI.has(id)) FREI.delete(id); else FREI.add(id); setFrei(frei() + 1); };
-  createEffect(() => p.setKnoepfe([
-    ...(darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Gliederung', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: gliederung },
+  createEffect(() => p.m.setKnoepfe([
+    ...(p.struktur && darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Gliederung', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: gliederung },
       { titel: 'Position', zeichen: 'neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(false) },
       { titel: 'Aus dem Gebäudemodell …', zeichen: 'modell3d', gruppe: 'Neu', gesperrt: String(lv()!.werte.status ?? 'bearbeitung') !== 'bearbeitung', tun: () => setModellFenster(true) },
       { titel: 'Nummerieren …', zeichen: 'liste', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !zeilen().length, tun: () => setNumFenster(true) },
       { titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bearbeiten', gesperrt: gesperrt() || !wahl.markiert(), tun: loeschen }] : []),
-    ...(lv() ? [{ titel: 'Vorbemerkungen', zeichen: 'bericht', gruppe: 'Ansicht', an: vorbem(), tun: () => setVorbem(!vorbem()) }] : []),
+    ...(p.knoepfe?.() ?? []),
+    ...(p.struktur && lv() ? [{ titel: 'Vorbemerkungen', zeichen: 'bericht', gruppe: 'Ansicht', an: vorbem(), tun: () => setVorbem(!vorbem()) }] : []),
     ...(lv() ? [{ titel: 'Langtexte', zeichen: 'notiz', gruppe: 'Ansicht', an: lang().size > 0, tun: () => setLang(lang().size ? new Set<string>() : new Set(zeilen().filter((z) => !z.titel).map((z) => z.id))) }] : []),
-    ...(lv() ? [{ titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => druckOeffnen('ava.lv', lv()!.id) }] : []),
-    ...(vergeben() ? [{ titel: gesperrt() ? 'Gesperrt' : 'Freigeschaltet', zeichen: 'schluessel', gruppe: 'Vertrag', an: !gesperrt(), tun: freischalten }] : []),
+    ...(p.struktur && lv() ? [
+      ...(darf('lv_position', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) }] : []),
+      { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, gesperrt: !zeilen().length, tun: () => gaebAusgeben(lv()!, '83') },
+      { titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => druckOeffnen('ava.lv', lv()!.id) }] : []),
+    ...(p.struktur && vergeben() ? [{ titel: gesperrt() ? 'Gesperrt' : 'Freigeschaltet', zeichen: 'schluessel', gruppe: 'Vertrag', an: !gesperrt(), tun: freischalten }] : []),
   ]));
   // ---------- Tastatur ----------
   let flaeche!: HTMLDivElement;
+  onMount(() => { const r = new ResizeObserver(() => setPlatz(flaeche.clientWidth - 30)); r.observe(flaeche); onCleanup(() => r.disconnect()); });
+  const bearbeitbareSpalten = (z: LvZeile) => spalten().map((x) => x.id).filter((x) => bearbeitbar(z, x));
   const taste = (e: KeyboardEvent) => {
     if (edit()) return;
     const l = sichtbar(), i = l.findIndex((z) => z.id === wahl.markiert()), m = l[i];
@@ -201,89 +275,134 @@ export function LvBearbeiten(p: Mitte): JSX.Element {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); einfuegen(); return; }
     if (e.key === 'Escape') { wahl.setMarkiert(m?.id ?? null); return; }
     if (!m) return;
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { e.preventDefault(); kopieren(); return; }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x' && schreiben()) { e.preventDefault(); kopieren(true); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && p.struktur) { e.preventDefault(); kopieren(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x' && p.struktur && schreiben()) { e.preventDefault(); kopieren(true); return; }
     if (e.key === 'Delete') { e.preventDefault(); loeschen(); return; }
-    if (e.key === 'Insert') { e.preventDefault(); neu(e.altKey); return; }
-    if (e.key === 'F2' || e.key === 'Enter') { e.preventDefault(); bearbeiten(m.id, spalte()); return; }
+    if (e.key === 'Insert' && p.struktur) { e.preventDefault(); neu(e.altKey); return; }
     if (e.key === 'ArrowLeft' && m.titel && !zu().has(m.id)) { setZu(new Set([...zu(), m.id])); return; }
     if (e.key === 'ArrowRight' && m.titel && zu().has(m.id)) { const n = new Set(zu()); n.delete(m.id); setZu(n); return; }
-    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); bearbeiten(m.id, spalte(), e.key); }
+    const sp = bearbeitbar(m, spalte()) ? spalte() : bearbeitbareSpalten(m)[0];
+    if (!sp) return;
+    if (e.key === 'F2' || e.key === 'Enter') { e.preventDefault(); bearbeiten(m.id, sp); return; }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); bearbeiten(m.id, sp, e.key); }
   };
   const editTaste = (e: KeyboardEvent, z: LvZeile) => {
     e.stopPropagation();   // sonst bearbeitet die Fläche dieselbe Taste gleich noch einmal (Enter öffnet das nächste Feld)
     if (e.key === 'Escape') { e.preventDefault(); setEdit(null); flaeche.focus(); return; }
     if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault(); const s = edit()!.spalte; if (!uebernehmen()) return;
-      if (e.key === 'Enter') { const l = sichtbar(), n = l[l.findIndex((x) => x.id === z.id) + 1]; if (n) wahl.setMarkiert(n.id); flaeche.focus(); return; }
-      const sp = spalten().map((x) => x.id as Sp).filter((x) => BEARBEITBAR.has(x)), k = sp[(sp.indexOf(s) + (e.shiftKey ? -1 : 1) + sp.length) % sp.length]!;
-      bearbeiten(z.id, k);
+      if (e.key === 'Enter') {   // wie Excel: dieselbe Spalte eine Zeile tiefer (in der Ansicht mit Preisen gleich weitertippen)
+        const l = sichtbar(), n = l.slice(l.findIndex((x) => x.id === z.id) + 1).find((x) => bearbeitbar(x, s));
+        if (n) { wahl.setMarkiert(n.id); if (!p.struktur) queueMicrotask(() => bearbeiten(n.id, s)); }
+        flaeche.focus(); return;
+      }
+      const sp = bearbeitbareSpalten(z), k = sp[(sp.indexOf(s) + (e.shiftKey ? -1 : 1) + sp.length) % sp.length];
+      if (k) bearbeiten(z.id, k);
     }
   };
   const menue = (e: MouseEvent, z: LvZeile) => {
     e.preventDefault(); if (!wahl.istGewaehlt(z.id)) wahl.setMarkiert(z.id);
+    const q = nachId(z.id);
     zeigeMenue(e, [
-      ...(schreiben() ? (z.titel ? [{ titel: 'Position darin', tun: () => neu(false) }, { titel: 'Gliederungspunkt darin', tun: gliederung }]
+      ...(q && p.menue ? p.menue(q) : []),
+      ...(p.struktur && schreiben() ? (z.titel ? [{ titel: 'Position darin', tun: () => neu(false) }, { titel: 'Gliederungspunkt darin', tun: gliederung }]
         : [{ titel: 'Position darunter', tun: () => neu(false) }, { titel: 'Gliederungspunkt darunter', tun: () => neu(true) }]) : []),
-      { titel: 'Kopieren', tun: () => kopieren() }, ...(schreiben() ? [{ titel: 'Einfügen darunter', tun: einfuegen }] : []),
+      ...(p.struktur ? [{ titel: 'Kopieren', tun: () => kopieren() }, ...(schreiben() ? [{ titel: 'Einfügen darunter', tun: einfuegen }] : [])] : []),
       ...(!z.titel ? [{ titel: lang().has(z.id) ? 'Langtext zuklappen' : 'Langtext zeigen', tun: () => umschaltenLang(z.id) }] : []),
       ...(z.titel ? [{ titel: zu().has(z.id) ? 'Aufklappen' : 'Zuklappen', tun: () => umschalten(z.id) }] : []),
-      ...(schreiben() && darf('lv_position', 'loeschen') ? [{ titel: wahl.gewaehlt().length > 1 ? `${wahl.gewaehlt().length} Zeilen löschen` : z.titel ? 'Titel mit Inhalt löschen' : 'Position löschen', gefahr: true, tun: loeschen }] : []),
+      ...(p.struktur && schreiben() && darf('lv_position', 'loeschen') ? [{ titel: wahl.gewaehlt().length > 1 ? `${wahl.gewaehlt().length} Zeilen löschen` : z.titel ? 'Gliederungspunkt mit Inhalt löschen' : 'Position löschen', gefahr: true, tun: loeschen }] : []),
     ].slice(0, 6));
   };
   const umschalten = (id: string) => { const n = new Set(zu()); if (n.has(id)) n.delete(id); else n.add(id); setZu(n); };
   const umschaltenLang = (id: string) => { const n = new Set(lang()); if (n.has(id)) n.delete(id); else n.add(id); setLang(n); };
   const spaltenPassend = () => {
     const sp = spalten(), zellen: Parameters<typeof zusatzMessen>[0] = [], sb = sichtbar(), zelle = flaeche.querySelector('.lvt-zeile .lvt-zelle') ?? flaeche;
-    flaeche.querySelectorAll('.lvt-zeilen .lvt-zeile').forEach((r, k) => r.querySelectorAll(':scope > .lvt-zelle').forEach((el, i) => { const s = sp[i], z = sb[k]; if (s && z) zellen.push({ spalte: s.id, el, text: wert(z, s.id as Sp) }); }));
-    spw.allePassend((n) => zeilen().map((z) => wert(z, n as Sp)), getComputedStyle(zelle).font, `600 13px ${getComputedStyle(flaeche).fontFamily}`, zusatzMessen(zellen, getComputedStyle(zelle).font));
+    flaeche.querySelectorAll('.lvt-zeilen .lvt-zeile[data-id]').forEach((r, k) => r.querySelectorAll(':scope > .lvt-zelle').forEach((el, i) => { const s = sp[i], z = sb[k]; if (s && z) zellen.push({ spalte: s.id, el, text: wert(z, s) }); }));
+    spw.allePassend((n) => zeilen().map((z) => wert(z, spalteVon(n)!)), getComputedStyle(zelle).font, `600 13px ${getComputedStyle(flaeche).fontFamily}`, zusatzMessen(zellen, getComputedStyle(zelle).font));
   };
+  // ---------- Zeilen über dem LV-Inhalt: Projekt und LVs ----------
+  const lvTitel = (l: Zeile) => [l.werte.nummer, l.werte.name].filter(Boolean).join(' ');
+  const lvHinweis = (l: Zeile) => {
+    const auftrag = lebende('angebot').find((a) => a.werte.lv === l.id && a.werte.beauftragt === true);
+    return [sicht.gewerk?.[String(l.werte.gewerk ?? '')]?.werte.name, { bearbeitung: 'Entwurf', versendet: 'versandt', vergeben: 'vergeben', abgerechnet: 'abgerechnet', aufgehoben: 'aufgehoben' }[String(l.werte.status ?? 'bearbeitung')],
+      auftrag ? sicht.kontakt?.[String(auftrag.werte.bieter ?? '')]?.werte.name : undefined, l.werte.archiviert ? 'im Archiv' : undefined].filter(Boolean).join(' · ');
+  };
+  const OrdnerZeile = (z: { ebene: number; offen: boolean; text: JSX.Element; summe: (s: BaumSpalte) => string; klick: () => void; klasse: string; dbl?: () => void }) => (
+    <div class={`lvt-zeile ${z.klasse}`} role="row" onClick={z.klick} onDblClick={z.dbl}>
+      <For each={spalten()}>{(s) => (
+        <div class="lvt-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }}>
+          <Show when={s.id === 'kurztext'} fallback={z.summe(s)}>
+            <span class="lvt-baum" style={{ 'padding-left': `${z.ebene * 16}px` }}><Klappe zu={!z.offen} onKlick={z.klick} /><Ordner offen={z.offen} />{z.text}</span>
+          </Show>
+        </div>)}</For>
+    </div>
+  );
+  const LvOrdner = (l: Zeile) => (
+    <OrdnerZeile ebene={1} offen={false} klasse="lvt-lv" klick={() => { wahl.setMarkiert(null); setLvZeiger(null); lvWaehlen(p.m, l.id); setLvZu(false); }}
+      text={<><b>{lvTitel(l)}</b><span class="lvt-still">{lvHinweis(l)}</span></>} summe={(s) => summeText(s, positionenDes(l.id, !!p.mitNachtraegen))} />
+  );
+  const Art = (q: Zeile | undefined) => { const k = ART_KURZ[String(q?.werte.art ?? 'normal')] ?? 'N'; return <i class={`lvt-art a-${k}`} classList={{ nt: !!q?.werte.nachtrag }} aria-hidden="true">{k === 'N' || k === 'H' ? '' : k}</i>; };
   return (
     <div class="lvt" ref={flaeche} tabIndex={0} onKeyDown={taste} role="treegrid" aria-label="Leistungsverzeichnis">
-      <Show when={neuFenster() && projektId()}><NeuesLv projekt={projektId()!} onZu={() => setNeuFenster(false)} onFertig={(id, weg) => { lvWaehlen(p, id); if (weg === 'modell') setModellFenster(true); }} /></Show>
+      <Show when={p.struktur && neuFenster() && projektId()}><NeuesLv projekt={projektId()!} onZu={() => setNeuFenster(false)} onFertig={(id, weg) => { lvWaehlen(p.m, id); setLvZu(false); if (weg === 'modell') setModellFenster(true); }} /></Show>
       <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – oben unter Neu „LV“ anlegen.</p>}>
-        <div class="lvt-kopf-lv"><h2>{[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
-          <Show when={vergeben()}><button type="button" class="knopf klein still" onClick={freischalten} title={gesperrt() ? 'Beauftragt – Positionen sind Vertragsinhalt. Klick schaltet das Bearbeiten frei.' : 'Bearbeiten freigeschaltet – Klick sperrt wieder'}>{gesperrt() ? '🔒 gesperrt' : '🔓 freigeschaltet'}</button></Show>
-          <span class="lvt-summe">Summe netto geschätzt <b>{eur(summe())} €</b></span></div>
-        <Show when={vorbem()}>
+        <Show when={p.struktur && vorbem()}>
           <div class="lvt-vorbem"><label for="lvt-vorbem">Vorbemerkungen</label>
             <textarea id="lvt-vorbem" rows={6} value={String(lv()!.werte.vorbemerkungen ?? '')} readOnly={!darf('lv', 'schreiben') || gesperrt()} placeholder="Vorbemerkungen zum LV – gelten für alle Positionen (Baustelle, Ausführung, Abrechnung …)"
               onChange={(e) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { vorbemerkungen: e.currentTarget.value } }, 'Vorbemerkungen')} /></div>
         </Show>
-        <LvQuellenLeiste lv={lv()!} />
+        <Show when={p.struktur}><LvQuellenLeiste lv={lv()!} /></Show>
+        {p.oben?.(lv()!)}
         <Show when={modellFenster()}><ModellInsLv lv={lv()!} onZu={() => setModellFenster(false)} /></Show>
         <Show when={numFenster()}><NummerierenFenster maske={maske()} beispiel={zeilen()} onZu={() => setNumFenster(false)} onFertig={(m) => { setNumFenster(false); neuNummerieren(m); }} /></Show>
-        <ErgaenzungFenster />
+        <Show when={p.struktur}><ErgaenzungFenster /></Show>
         <div class="lvt-tabelle">
           <div class="lvt-zeile lvt-kopf" role="row">
-            <For each={spalten()}>{(s) => <div class="lvt-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }} role="columnheader" {...spw.ziehbar(s.id)}>{s.titel}
-              <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: alle Spalten passend zum Inhalt" onPointerDown={(e) => spw.breiteZiehen(e, s.id)} onDblClick={(e) => { e.stopPropagation(); spaltenPassend(); }} /></div>}</For>
+            <For each={spalten()}>{(s) =>  <div class="lvt-zelle" classList={{ rechts: !!s.rechts }} style={{ width: `${s.breite}px` }} role="columnheader" data-spalte={s.id} title={s.hilfe} {...(s.frei ? {} : spw.ziehbar(s.id))}>{s.kopf ? s.kopf() : s.titel}
+              <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: alle Spalten passend zum Inhalt" onPointerDown={(e) => { if (!s.frei) spw.breiteZiehen(e, s.id); }} onDblClick={(e) => { e.stopPropagation(); spaltenPassend(); }} /></div>}</For>
           </div>
           <div class="lvt-zeilen">
             <Show when={zug()}>{(g) => <div class="lvt-ziel" style={{ top: `${g().y - 1}px` }} />}</Show>
-            <For each={sichtbar().map((x) => x.id)} fallback={<p class="still-text lvt-leer">Noch keine Positionen. Mit „Titel“ und „Position“ oben anfangen oder eine GAEB-Datei einlesen.</p>}>{(id) => { const z = () => nachZeile().get(id)!; return (<>
-              <div class="lvt-zeile" data-id={id} role="row" aria-level={z().ebene + 1} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, 'lvt-hinweis': nachId(z().id)?.werte.art === 'hinweis' }}
+            <OrdnerZeile ebene={0} offen klasse="lvt-projekt" klick={() => {}} text={<><b>{[projekt()?.werte.nummer, projekt()?.werte.name].filter(Boolean).join(' ')}</b><span class="lvt-zahl">{lvs().length}</span></>}
+              summe={(s) => summeText(s, lvs().flatMap((l) => positionenDes(l.id, !!p.mitNachtraegen)))} />
+            <For each={vorher()}>{LvOrdner}</For>
+            <OrdnerZeile ebene={1} offen={!lvZu()} klasse="lvt-lv offen" klick={() => { if (lvZeiger() || wahl.markiert()) { wahl.setMarkiert(null); setLvZeiger(null); p.m.onWahl(lv()!.id); } else setLvZu(!lvZu()); }}
+              text={<><b>{lvTitel(lv()!)}</b><span class="lvt-still">{lvHinweis(lv()!)}</span>
+                <Show when={p.struktur && vergeben()}><button type="button" class="lvt-sperre" onClick={(e) => { e.stopPropagation(); freischalten(); }} title={gesperrt() ? 'Beauftragt – Positionen sind Vertragsinhalt. Klick schaltet das Bearbeiten frei.' : 'Bearbeiten freigeschaltet – Klick sperrt wieder'}>{gesperrt() ? '🔒' : '🔓'}</button></Show></>}
+              summe={(s) => summeText(s, positionen())} />
+            <For each={sichtbar().map((x) => x.id)} fallback={<Show when={!lvZu()}><p class="still-text lvt-leer">Noch keine Positionen. Mit „Gliederung“ und „Position“ oben anfangen, aus dem Gebäudemodell übernehmen oder eine GAEB-Datei einlesen.</p></Show>}>{(id) => { const z = () => nachZeile().get(id)!; return (<>
+              <div class="lvt-zeile" data-id={id} role="row" aria-level={z().ebene + 3} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, 'lvt-hinweis': nachId(z().id)?.werte.art === 'hinweis', 'lvt-nt': !!nachId(z().id)?.werte.nachtrag }}
                 onClick={(e) => { if (!edit()) wahl.klick(e, z().id); }} onContextMenu={(e) => menue(e, z())}>
                 <For each={spalten()}>{(s) => (
-                  <div class="lvt-zelle" role="gridcell" classList={{ rechts: !!s.rechts, zeiger: wahl.markiert() === z().id && spalte() === s.id }} style={{ width: `${s.breite}px` }}
-                    onClick={() => setSpalte(s.id as Sp)} onDblClick={() => bearbeiten(z().id, s.id as Sp)}>
-                    <Show when={edit()?.id === z().id && edit()?.spalte === s.id} fallback={
-                      s.id === 'oz' ? <span class="lvt-baum" style={{ 'padding-left': `${z().ebene * 16}px` }} title="Zum Verschieben hier greifen und ziehen" onPointerDown={(e) => zugStart(e, id)}>
+                   <div class={`lvt-zelle ${(!z().titel && nachId(id) && s.klasse?.(nachId(id)!)) || ''}`} role="gridcell" data-spalte={s.id} classList={{ rechts: !!s.rechts, zeiger: wahl.markiert() === z().id && spalte() === s.id, ed: bearbeitbar(z(), s.id) }} style={{ width: `${s.breite}px` }}
+                    onClick={() => setSpalte(s.id)} onDblClick={() => bearbeiten(z().id, s.id)}>
+                    <Show when={edit()?.id === z().id && (edit()?.spalte === s.id || (s.id === 'kurztext' && edit()?.spalte === 'oz'))} fallback={
+                      s.id === 'kurztext' ? <span class="lvt-baum" style={{ 'padding-left': `${(z().ebene + 2) * 16}px` }}>
                         <Show when={z().titel} fallback={<button type="button" class="lvt-lang-knopf" classList={{ an: lang().has(z().id) || !!nachId(z().id)?.werte.langtext }} title="Langtext" onClick={(e) => { e.stopPropagation(); umschaltenLang(z().id); }}>¶</button>}>
-                          <Klappe zu={zu().has(z().id)} onKlick={() => umschalten(z().id)} /><Ordner offen={!zu().has(z().id)} /></Show>{z().oz}</span> : wert(z(), s.id as Sp)}>
-                      <input class="lvt-edit" value={edit()!.text} ref={(el) => queueMicrotask(() => { el.focus(); if (edit()?.alles) el.select(); else el.setSelectionRange(el.value.length, el.value.length); })}
-                        onInput={(e) => setEdit({ ...edit()!, text: e.currentTarget.value })} onKeyDown={(e) => editTaste(e, z())} onBlur={() => { const e = edit(); if (e && e.id === id && e.spalte === s.id) uebernehmen(); }} />
+                          <Klappe zu={zu().has(z().id)} onKlick={() => umschalten(z().id)} /></Show>
+                        <Show when={z().titel} fallback={Art(nachId(id))}><Zeichen name="gliederung" groesse={14} /></Show>
+                        <span class="lvt-oz" title={p.struktur ? 'Zum Verschieben hier greifen und ziehen · Doppelklick: OZ ändern' : undefined} onPointerDown={(e) => zugStart(e, id)} onDblClick={(e) => { e.stopPropagation(); bearbeiten(id, 'oz'); }}>{z().oz}</span>
+                        <span class="lvt-text">{wert(z(), s)}</span></span> : wert(z(), s)}>
+                      <input class="lvt-edit" value={edit()!.text} aria-label={edit()!.spalte === 'oz' ? 'OZ' : s.titel} ref={(el) => queueMicrotask(() => { el.focus(); if (edit()?.alles) el.select(); else el.setSelectionRange(el.value.length, el.value.length); })}
+                        onInput={(e) => setEdit({ ...edit()!, text: e.currentTarget.value })} onKeyDown={(e) => editTaste(e, z())} onBlur={() => { const e = edit(); if (e && e.id === id) uebernehmen(); }} />
                     </Show>
                   </div>)}</For>
               </div>
               <Show when={!z().titel && lang().has(z().id)}>
-                <div class="lvt-lang" style={{ 'padding-left': `${z().ebene * 16 + 40}px` }}>
-                  <textarea rows={5} value={String(nachId(z().id)?.werte.langtext ?? '')} readOnly={!schreiben()} placeholder="Langtext – Leistungsbeschreibung, Material, Fabrikat, Ausführung, Abrechnung"
+                <div class="lvt-lang" style={{ 'padding-left': `${(z().ebene + 2) * 16 + 40}px` }}>
+                  <textarea rows={5} value={String(nachId(z().id)?.werte.langtext ?? '')} readOnly={!p.struktur || !schreiben()} placeholder="Langtext – Leistungsbeschreibung, Material, Fabrikat, Ausführung, Abrechnung"
                     aria-label={`Langtext ${z().oz}`} onChange={(e) => aendern(z().id, { langtext: e.currentTarget.value }, 'Langtext')}
-                    onContextMenu={(e) => { if (schreiben()) langtextMenue(e, e.currentTarget, (t) => aendern(z().id, { langtext: t }, 'Bietertextergänzung')); }} />
+                    onContextMenu={(e) => { if (p.struktur && schreiben()) langtextMenue(e, e.currentTarget, (t) => aendern(z().id, { langtext: t }, 'Bietertextergänzung')); }} />
                 </div>
               </Show>
             </>); }}</For>
+            <For each={nachher()}>{LvOrdner}</For>
+          </div>
+          <div class="lvt-fuss">
+            <For each={p.fuss ?? []}>{(f) => (
+              <div class={`lvt-zeile ${f.klasse ?? ''}`} role="row">
+                <For each={spalten()}>{(s, i) => <div class="lvt-zelle" classList={{ rechts: true }} style={{ width: `${s.breite}px` }} data-spalte={s.id}>{i() === 0 ? f.titel : f.wert(s, positionen())}</div>}</For>
+              </div>)}</For>
           </div>
         </div>
       </Show>

@@ -1856,3 +1856,21 @@ test('LV: neuer Gliederungspunkt eine Ebene unter der markierten Zeile (wie bish
   const tief = b.lvZeilen([z('01', 'titel'), z('01.01', 'titel'), z('01.01.01', 'titel'), z('01.01.01.01', 'titel'), z('01.01.01.01.0010')]);
   assert.equal(typeof b.gliederungEinfuegen(tief, 'N', '01.01.01.01', []), 'string', 'höchstens 4 Ebenen');
 });
+
+test('Aufmaß je Rechnung: Stand und Zuwachs, kumulierende Kette, Stundenlohn für sich', async () => {
+  const m = await import('../src/module/ava/aufmass');
+  const r = (id: string, art: string, datum: string, status = 'offen') => ({ id, werte: { art, datum, status } as Werte });
+  const z = (id: string, position: string, rechenweg: string, rechnung: string | null = null, basis: number | null = null) => ({ id, werte: { position, rechenweg, rechnung, basis } as Werte });
+  const R = [r('ar1', 'abschlag', '2026-05-01', 'geprueft'), r('ar2', 'abschlag', '2026-06-01'), r('st', 'stundenlohn', '2026-05-15')];
+  // AR1: 10×12 aufgemessen und festgehalten; laufend: Stand 150 getippt (basis 120 → +30) und ein Zuwachs + 5
+  const Z = [z('a', 'p1', 'Wand: 10*12', 'ar1'), z('b', 'p1', '150', null, 120), z('c', 'p1', '+ 5'), z('d', 'p2', '+ 2*3', 'st')];
+  assert.deepEqual([...m.standAus(m.zeilenBis(Z, R, R[0]!))], [['p1', 120]], 'AR1: nur ihre Zeile');
+  assert.deepEqual([...m.standAus(m.zeilenBis(Z, R, R[1]!))], [['p1', 155]], 'AR2: Stand mit den laufenden Zeilen');
+  assert.equal(m.vorige(R, R[1]!)?.id, 'ar1', 'bis AR1');
+  assert.deepEqual([...m.standAus(m.zeilenBis(Z, R, R[2]!))], [['p2', 6]], 'Stundenlohn: nur eigene Zeilen');
+  assert.equal(m.aktuelleRechnung(R)?.id, 'st', 'offen und am ältesten: die Stundenlohnrechnung vom 15.05.');
+  assert.deepEqual(m.zeileAus('150', 120), { rechenweg: '150', basis: 120, beitrag: 30 });
+  assert.deepEqual(m.zeileAus('+ 2,5*2', 120), { rechenweg: '+ 2,5*2', basis: null, beitrag: 5 });
+  assert.equal(m.zeileAus('10*', 0), null, 'unlesbar');
+  assert.equal(m.pruefung(155, 155), 'stimmt'); assert.equal(m.pruefung(160, 155), 'abweichend'); assert.equal(m.pruefung(160, undefined), 'offen');
+});

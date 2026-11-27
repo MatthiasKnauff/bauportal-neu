@@ -40,6 +40,8 @@ export interface Anpassung {
   // --- Ganz oben (über der Menüleiste) ---
   /** Kopf der Ansicht über Abfolge und Menüleiste (z. B. das gewählte LV mit Stand und Vergabe). */
   kopf?: (p: Mitte) => JSX.Element;
+  /** Mitte der Menüleiste statt Suchfeld und Zähler (z. B. Kennzahlen der AVA, wenn die eigene Mitte selbst sucht). */
+  menueMitte?: (p: Mitte) => JSX.Element;
   /** Abfolge-Leiste: die Schritte (id = Ansicht der App, die der Schritt öffnet), wie weit der Eintrag ist (stand) und welcher Schritt
    *  zur offenen Ansicht gehört (hier). Ein Klick öffnet die Ansicht des Schritts. */
   abfolge?: (p: Mitte, ansicht: string) => { schritte: Schritt[]; stand: string; hier?: string } | undefined;
@@ -53,6 +55,8 @@ export interface Anpassung {
   mitte?: (p: Mitte) => JSX.Element;
   /** Beschriftung des Neu-Knopfs, wenn die eigene Mitte etwas anderes anlegt (z. B. „Gewerk“ statt „Beteiligte:r“) – mit setNeu der Mitte. */
   neuTitel?: string;
+  /** kein allgemeiner „Neu“-Knopf (die eigene Mitte bringt ihre eigenen, z. B. „Bieter:in“) */
+  ohneNeu?: boolean;
   /** Die Einträge auch als Kacheln: was in einer Kachel steht. Die Ansicht bietet dann Tabelle oder Kacheln zum Umschalten (am Handy zuerst Kacheln). */
   kachel?: (z: Zeile) => JSX.Element;
   /** Eigene Darstellung einer Tabellenzelle; ohne Rückgabe gilt die übliche. */
@@ -69,7 +73,7 @@ export interface Anpassung {
   linksZuerst?: boolean;
   // --- Details (rechts), eigene ---
   /** Statt der Detailkarte des gewählten Eintrags etwas anderes rechts; ohne Rückgabe bleibt der Platz rechts leer. */
-  details?: (z: Zeile, heftzwecke: () => JSX.Element) => JSX.Element | undefined;   // heftzwecke: die eine Heftzwecke der rechten Seite (in den eigenen Kopf setzen)
+  details?: (z: Zeile, heftzwecke: () => JSX.Element, standard: () => JSX.Element) => JSX.Element | undefined;   // heftzwecke: die eine Heftzwecke der rechten Seite (in den eigenen Kopf setzen); standard: die Karte, die sonst stünde
   /** Was rechts steht, solange nichts gewählt ist (Vorgabe: „Einen Eintrag anklicken …“). */
   detailsHinweis?: string;
   // --- Baum (links) ---

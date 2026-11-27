@@ -33,7 +33,8 @@ export function wertung(positionen: E[], angebote: E[], preis: (angebot: string,
     let netto = 0, fehlend = 0;
     for (const p of zaehlende) { const ep = preis(a.id, p.id); if (ep == null) fehlend++; else netto += gp(p.werte.menge, ep); }
     netto = Math.round(netto * 100) / 100;
-    return { angebot: a.id, netto, nachLass: Math.round(netto * (1 - zahl(a.werte.nachlass) / 100) * 100) / 100, fehlend, rang: null as number | null, aus: a.werte.ausgeschlossen === true };
+    // Nachlass in % und/oder als fester Betrag € (wie bisher) – erst %, dann €
+    return { angebot: a.id, netto, nachLass: Math.round((netto * (1 - zahl(a.werte.nachlass) / 100) - zahl(a.werte.nachlass_eur)) * 100) / 100, fehlend, rang: null as number | null, aus: a.werte.ausgeschlossen === true };
   });
   [...w].filter((x) => !x.aus && x.netto > 0).sort((a, b) => a.nachLass - b.nachLass).forEach((x, i) => { x.rang = i + 1; });
   return w.map(({ aus: _aus, ...x }) => x);

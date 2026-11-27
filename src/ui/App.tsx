@@ -280,7 +280,7 @@ function Portal() {
         benutzerMenue={[{ titel: 'Hilfe zu dieser Seite', tun: () => setHilfe(true) }, { titel: 'Mein Konto · Kennwort …', tun: () => oeffne('verwaltung', 'konto') }, { titel: 'Darstellung …', tun: () => oeffne('verwaltung', 'darstellung') }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
-        <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.map((a) => ({ id: a.id, titel: a.titel, abschnitt: a.abschnitt, zeichen: a.zeichen, abgesetzt: !!a.abschnitt && !!modul()?.modul.abgesetzt?.includes(a.abschnitt) })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId,
+        <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.filter((a) => a.imMenue !== false || a.id === ansicht()?.id).map((a) => ({ id: a.id, titel: a.titel, abschnitt: a.abschnitt, zeichen: a.zeichen, abgesetzt: !!a.abschnitt && !!modul()?.modul.abgesetzt?.includes(a.abschnitt) })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId,
           rueckgaengig: { zurueck: () => verlauf().zurueck > 0, vor: () => verlauf().vor > 0, onZurueck: rueckgaengig, onVor: wiederholen } }}>
           <Show when={schluessel()} keyed fallback={
             <div class="start"><div class="start-innen">

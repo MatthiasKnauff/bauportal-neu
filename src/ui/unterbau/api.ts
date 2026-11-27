@@ -81,6 +81,17 @@ export async function ladeDatei(pfad: string, body: unknown): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(verweis.href), 60000);
 }
 
+/** Eine Datei (PDF) holen und gleich den Druckdialog des Browsers dafür öffnen – gedruckt wird genau das PDF vom Server. */
+export async function druckeDatei(pfad: string, body: unknown): Promise<void> {
+  const d = await holeDatei(pfad, body);
+  const rahmen = document.createElement('iframe');
+  rahmen.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  rahmen.src = URL.createObjectURL(d.blob);
+  rahmen.onload = () => { rahmen.contentWindow?.focus(); rahmen.contentWindow?.print(); };
+  document.body.appendChild(rahmen);
+  setTimeout(() => { URL.revokeObjectURL(rahmen.src); rahmen.remove(); }, 10 * 60000);   // der Druckdialog braucht das PDF, solange er offen ist
+}
+
 export function neueKennung(): string {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   // ohne https bietet der Browser randomUUID nicht an

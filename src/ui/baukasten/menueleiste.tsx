@@ -39,7 +39,7 @@ function Gruppe(p: { titel: string; children: JSX.Element; class?: string }) {
   return <div class={`band-gruppe ${p.class ?? ''}`} role="group" aria-label={p.titel || undefined}><div class="band-inhalt">{p.children}</div><Show when={p.titel}><div class="band-titel">{p.titel}</div></Show></div>;
 }
 
-export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[]; aktiv?: string; onReiter?: (id: string) => void; knoepfe?: Knopf[]; children?: JSX.Element; ende?: JSX.Element }) {   // ende: ganz rechts (Heftzwecke)
+export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[]; aktiv?: string; onReiter?: (id: string) => void; knoepfe?: Knopf[]; children?: JSX.Element; mitteTitel?: string; ende?: JSX.Element }) {   // ende: ganz rechts (Heftzwecke); mitteTitel: Name der Mitte (ab Werk „Finden“)
   const links = () => (p.knoepfe ?? []).filter((k) => !k.rechts), rechts = () => (p.knoepfe ?? []).filter((k) => k.rechts);
   // Reicht der Platz nicht: erst nur Symbole (Text bleibt als Hinweis), dann eine zweite Zeile – nie waagerecht rollen.
   // Gemerkt wird, wie breit die Leiste in der größeren Form war; erst wenn wieder so viel Platz ist, kehrt sie zurück.
@@ -61,7 +61,7 @@ export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[];
         </Gruppe>
       )}</Show>
       <For each={gruppen(links())}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} neu={NEU.test(g.titel)} />}</For></Gruppe>}</For>
-      <Show when={p.children}><Gruppe titel="Finden" class="band-mitte"><div class="menue-mitte">{p.children}</div></Gruppe></Show>
+      <Show when={p.children}><Gruppe titel={p.mitteTitel ?? 'Finden'} class="band-mitte"><div class="menue-mitte">{p.children}</div></Gruppe></Show>
       <For each={gruppen(rechts())}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} />}</For></Gruppe>}</For>
       <Show when={(p.reiter?.length ?? 0) > 1}>
         <div class="menue-reiter nur-schmal-flex" role="tablist" aria-label="Ansichten">
