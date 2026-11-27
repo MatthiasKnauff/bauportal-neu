@@ -1985,3 +1985,11 @@ test('Vorbemerkung: Textzeile ohne Menge, auch in Excel', async () => {
   const vb = e.zeilen.find((z) => z.art === 'vorbemerkung');
   assert.ok(vb); assert.equal(vb!.menge, null); assert.equal(e.positionen, 1);
 });
+
+test('Angebot aus Excel: EP je OZ, fremde OZ und Zeilen ohne Preis gezählt', async () => {
+  const x = await import('../src/module/ava/lvexcel');
+  const P = [{ id: 'p1', werte: { oz: '01.0010', art: 'normal' } }, { id: 'p2', werte: { oz: '01.0020', art: 'normal' } }, { id: 't', werte: { oz: '01', art: 'titel' } }] as never[];
+  const e = x.preiseAusTabelle([['Angebot Firma X'], ['Pos.', 'Leistung', 'EP', 'GP'], ['01', 'Rohbau', '', ''], ['1.10', 'Mauerwerk', '12,50', '125,00'], ['01.0020', 'Putz', '', ''], ['02.0010', 'fremd', '3', '']], P);
+  assert.deepEqual(e.preise, [{ position: 'p1', ep: 12.5 }]);
+  assert.equal(e.ohnePreis, 1); assert.deepEqual(e.fremd, ['02.0010']);
+});

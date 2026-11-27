@@ -81,7 +81,7 @@ Zeichen:
 | V8 | Preisspiegel im LV-Baum (Projekt → LVs → Titel mit Summe je Bieter:in → Positionen), Spalte Mittel, Bieter-Spalten ein/aus und ordnen | ✓ | Baum, Mittel, Spaltenwahl |
 | V9 | Bieterangaben (Antworten auf Bietertextergänzungen aus X84) im Preisspiegel | ✗ | |
 | V10 | Angaben zum Angebot: Nachlass in % oder €, Skonto % / Tage, Eingang, ausgeschlossen | ✓ | % oder € |
-| V11 | Angebot einlesen: X84 ✓, Excel ✗, PDF/Scan ⊘ | ◐ | Excel |
+| V11 | Angebot einlesen: X84 ✓, Excel ✗, PDF/Scan ⊘ | ✓ X84 und Excel/CSV (27.11.: „Import → Excel-Angebot“ im Preisspiegel, EP je OZ, ein Rückgängig); PDF/Scan ⊘ | Excel |
 | V12 | Vergeben …, Vergabe aufheben (mit Rechnungen erst nach Rückfrage), Nicht vergeben (zählt nicht mehr für Budget und To-dos) | ✓ | Aufheben, Nicht vergeben |
 | V13 | Klärungspunkte je Angebot: EP mehr als 30 % vom Mittel, Bedarfs-/Wahlpositionen. Sie gehen ins Protokoll. | ✓ (Klärungspunkte ins Protokoll, 27.11.) | |
 | V14 | Angebotsbesprechung: Auswahlfelder mit üblichen Antworten, Abschließen (Angaben in Adressen/Auftragsdaten übernehmen, mit Haken), unterschriebene Fassung hinterlegen | ◐ | Abschließen, Hinterlegen |

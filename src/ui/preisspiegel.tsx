@@ -14,6 +14,8 @@ import { FeldEingabe } from './baukasten/feld';
 import { LV_SPALTEN, LvBaum, eur, setLvZeiger, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
 import { besprechungOeffnen } from './besprechung';
 import { gaebEinlesen } from './uebernahme';
+import { AngebotExcelFenster, angebotExcelEinlesen } from './lvexcel';
+import { zeigeMenue } from './baukasten/kontextmenue';
 import { ausfuehren, ausfuehrenMehrere, lebende } from './unterbau/abgleich';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
@@ -86,13 +88,16 @@ export function Preisspiegel(m: Mitte): JSX.Element {
     ...(lv() ? [{ titel: 'Besprechung', zeichen: 'vertrag', gruppe: 'Vergabe', gesperrt: !ang().length, tun: () => { const a = ang().find((x) => x.id === psAngebot()) ?? ang().find((x) => x.werte.beauftragt === true) ?? ang().find((x) => wVon(x)?.rang === 1); if (a) besprechungOeffnen(a); } }] : []),
     ...(lv() && darf('lv', 'schreiben') && vergeben() ? [{ titel: 'Vergabe aufheben', zeichen: 'zurueck', gruppe: 'Vergabe', tun: aufheben }] : []),
     ...(lv() && darf('lv', 'schreiben') && !vergeben() ? [{ titel: 'Nicht vergeben', zeichen: 'schliessen', gruppe: 'Vergabe', gesperrt: lv()!.werte.status === 'aufgehoben', tun: nichtVergeben }] : []),
-    ...(lv() && darf('angebot', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) }] : []),
+    ...(lv() && darf('angebot', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: (e: MouseEvent) => zeigeMenue(e, [
+      { titel: 'GAEB-Angebot (X84) …', tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) },
+      { titel: 'Excel-Angebot …', gesperrt: !ang().length || !darfPreise(), tun: () => angebotExcelEinlesen(lv()!, ang().some((a) => a.id === psAngebot()) ? psAngebot()! : null) }]) }] : []),
   ];
   return (<>
     <LvBaum m={m} spalten={spalten} speicher="bp_spalten_ps" ohneHinweise knoepfe={knoepfe} fuss={fuss()}
       oben={() => <Show when={!ang().length}><p class="hinweis-kasten lvt-hinweis-oben">Noch keine Angebote. Mit „Bieter:in“ eine Firma hinzufügen und Preise eintragen – oder die GAEB-Datei (X84) einer Firma unter „Import“ einlesen.</p></Show>} />
     <Show when={bieterOffen() && lv()}><BieterDazu lv={lv()!} onZu={() => setBieterOffen(false)} /></Show>
     <Show when={vergabe()} keyed>{(a) => <VergabeFenster lv={lv()!} angebot={a} summe={wVon(a)?.nachLass ?? 0} onZu={() => setVergabe(null)} />}</Show>
+    <AngebotExcelFenster />
   </>);
 }
 
