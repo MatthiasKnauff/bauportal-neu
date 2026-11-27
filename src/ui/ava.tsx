@@ -223,11 +223,11 @@ export function Kostenkontrolle(p: Mitte): JSX.Element {
       <p class="still-text klein-text">Alle Vergabeeinheiten des Projekts: Schätzung im LV, bestes Angebot, Auftrag und beauftragte Nachträge (nach Nachlass), anerkannte Abrechnung. Klick öffnet das LV.</p>
       <div class="ps-rollen">
         <table class="preisspiegel kostenkontrolle">
-          <thead><tr><th>Nr.</th><th>LV</th><th>Stand</th><th class="zahl">Schätzung</th><th class="zahl">bestes Angebot</th><th class="zahl">Auftrag</th><th class="zahl">Nachträge</th><th class="zahl">{"abge\u00ADrechnet"}</th><th class="zahl">noch offen</th><th class="zahl">{"Abw. zur Schät\u00ADzung"}</th></tr></thead>
+          <thead><tr><th>LV</th><th>Stand</th><th class="zahl">Schätzung</th><th class="zahl">bestes Angebot</th><th class="zahl">Auftrag</th><th class="zahl">Nachträge</th><th class="zahl">{"abge\u00ADrechnet"}</th><th class="zahl">noch offen</th><th class="zahl">{"Abw. zur Schät\u00ADzung"}</th></tr></thead>
           <tbody>
             <For each={zeilen()}>{(x) => (
               <tr classList={{ gewaehlt: p.gewaehlt() === x.l.id }} onClick={() => { p.onWahl(x.l.id); p.onOeffnen(); }}>
-                <td>{String(x.l.werte.nummer ?? '')}</td><td>{String(x.l.werte.name ?? '')}</td><td>{STAND[String(x.l.werte.status ?? '')] ?? ''}</td>
+                <td><span class="kk-nr">{String(x.l.werte.nummer ?? '')}</span> {String(x.l.werte.name ?? '')}</td><td>{STAND[String(x.l.werte.status ?? '')] ?? ''}</td>
                 <td class="zahl">{x.z.schaetzung ? eur(x.z.schaetzung) : '–'}</td><td class="zahl">{zelle(x.z.bestes)}</td>
                 <td class="zahl">{x.z.auftrag ? eur(x.z.haupt) : '–'}</td><td class="zahl">{x.z.auftrag && x.z.stand.beauftragt ? eur(x.z.stand.beauftragt) : '–'}</td>
                 <td class="zahl">{x.z.rechnungen ? eur(x.z.abgerechnet) : '–'}</td><td class="zahl">{zelle(offen(x.z))}</td>
@@ -235,7 +235,7 @@ export function Kostenkontrolle(p: Mitte): JSX.Element {
               </tr>
             )}</For>
           </tbody>
-          <tfoot><tr class="ps-summe"><td colSpan={3}>Summe netto in €</td><td class="zahl">{eur(summe((z) => z.schaetzung))}</td><td class="zahl">{eur(summe((z) => z.bestes))}</td><td class="zahl">{eur(summe((z) => (z.auftrag ? z.haupt : null)))}</td>
+          <tfoot><tr class="ps-summe"><td colSpan={2}>Summe netto in €</td><td class="zahl">{eur(summe((z) => z.schaetzung))}</td><td class="zahl">{eur(summe((z) => z.bestes))}</td><td class="zahl">{eur(summe((z) => (z.auftrag ? z.haupt : null)))}</td>
             <td class="zahl">{eur(summe((z) => (z.auftrag ? z.stand.beauftragt : null)))}</td><td class="zahl">{eur(summe((z) => z.abgerechnet))}</td><td class="zahl">{eur(summe(offen))}</td><td /></tr></tfoot>
         </table>
       </div>
@@ -263,15 +263,14 @@ function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string
   return (
     <div class="ps-rollen">
       <table class="preisspiegel versand">
-        <thead><tr><Show when={p.mitLv}><th>LV</th><th>Abgabe</th></Show><th>Bieter:in</th><th>Telefon</th><th>angeschrieben</th><th>Stand</th><th>Nachfassen</th><th>Angebot</th><Show when={!p.mitLv}><th /></Show></tr></thead>
+        <thead><tr><Show when={p.mitLv}><th>LV</th><th>Abgabe</th></Show><th>Bieter:in · Telefon</th><th title="angeschrieben am">{'ange\u00ADschrieben'}</th><th>Stand</th><th>{'Nach\u00ADfassen'}</th><th>Angebot</th></tr></thead>
         <tbody>
           <For each={p.bieter}>{(a) => {
             const st = () => ruecklaufVon(a);
             return (
               <tr classList={{ 'vr-faellig': nachfassenFaellig(a, heute()), 'vr-ab': st() === 'gibt_nicht_ab' }}>
                 <Show when={p.mitLv}><td><button type="button" class="link-knopf" onClick={() => p.onLv?.(String(a.werte.lv))}>{lvName(a.werte.lv)}</button></td><td>{datum(sicht.lv?.[String(a.werte.lv)]?.werte.abgabe)}</td></Show>
-                <td>{name(a.werte.bieter)}</td>
-                <td><Show when={telefon(a)}><a href={`tel:${telefon(a).replace(/[^+\d]/g, '')}`}>{telefon(a)}</a></Show></td>
+                <td><span class="vr-name">{name(a.werte.bieter)}<Show when={!p.mitLv && darf('angebot', 'loeschen')}><button type="button" class="knopf klein still vr-weg" title="Bieter:in entfernen – mit Angebot und Preisen in den Papierkorb (Rückgängig holt alles zurück)" aria-label={`${name(a.werte.bieter)} entfernen`} onClick={() => bieterEntfernen(a)}><Zeichen name="loeschen" groesse={14} /></button></Show></span><Show when={telefon(a)}><br /><a class="klein-text" href={`tel:${telefon(a).replace(/[^+\d]/g, '')}`}>{telefon(a)}</a></Show></td>
                 <td>{datum(a.werte.angeschrieben)}</td>
                 <td><Show when={schreiben() && st() !== 'abgegeben'} fallback={<b class={`vr-${st()}`}>{STAND_RUECKLAUF[st()]}</b>}>
                   <Auswahlliste titel={`Rückmeldung ${name(a.werte.bieter)}`} wert={String(a.werte.rueckmeldung || 'offen')} optionen={RUECKMELDUNGEN} onWert={(w) => aendern(a, { rueckmeldung: w }, 'Rückmeldung')} /></Show></td>
@@ -280,7 +279,6 @@ function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string
                   <Show when={nachfassenFaellig(a, heute())}><small class="gefahr-text"> fällig</small></Show></Show></td>
                 <td><Show when={a.werte.eingang} fallback={<Show when={schreiben() && st() !== 'gibt_nicht_ab'}><button type="button" class="knopf klein" onClick={() => aendern(a, { eingang: heute() }, 'Angebot eingegangen')}>eingegangen</button></Show>}>
                   {datum(a.werte.eingang)}</Show></td>
-                <Show when={!p.mitLv && darf('angebot', 'loeschen')}><td><button type="button" class="knopf klein still" title="Bieter:in entfernen – mit Angebot und Preisen in den Papierkorb (Rückgängig holt alles zurück)" aria-label={`${name(a.werte.bieter)} entfernen`} onClick={() => bieterEntfernen(a)}><Zeichen name="loeschen" groesse={14} /></button></td></Show>
               </tr>
             );
           }}</For>

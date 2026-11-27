@@ -1569,3 +1569,9 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .preisspiegel.auftraege { table-layout: fixed; } .preisspiegel.auftraege th:nth-child(1) { width: 46px; } .preisspiegel.auftraege th:nth-child(3) { width: 118px; } .preisspiegel.auftraege th:nth-child(4) { width: 92px; }
 .preisspiegel.auftraege .auswahlliste, .preisspiegel.auftraege .auswahlliste-knopf { min-width: 0; width: 100%; }
 .karte .preisspiegel-flaeche .ps-rollen { flex: none; overflow: visible; } .preisspiegel.auftraege th:nth-child(1) { width: 58px; }
+/* Versand und Kostenkontrolle: Köpfe und Namen brechen um – kein waagerechtes Rollen in Standardbreite */
+.preisspiegel.versand th, .preisspiegel.versand td, .preisspiegel.kostenkontrolle th { white-space: normal; } .preisspiegel.versand td .knopf, .preisspiegel.versand td .auswahlliste-knopf { white-space: nowrap; }
+.lv-geteilt { grid-template-columns: 210px minmax(0, 1fr); } .preisspiegel.versand td:first-child { min-width: 120px; } .preisspiegel.versand td .feld input[type=date] { max-width: 140px; }
+.vr-name { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; } .vr-weg { flex: none; min-height: 22px; padding: 0 4px; } .preisspiegel.versand th, .preisspiegel.versand td { padding: 5px 6px; }
+.preisspiegel.kostenkontrolle td:not(.zahl) { white-space: normal; } .preisspiegel.kostenkontrolle th, .preisspiegel.kostenkontrolle td { padding: 5px 4px; }
+.kk-nr{color:var(--text-still);margin-right:4px}
