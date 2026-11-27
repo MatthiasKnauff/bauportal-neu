@@ -7,7 +7,9 @@ import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { handy } from '../unterbau/geraet';
 
-export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.Element; onAbbrechen?: () => void; geaendert?: () => boolean; breit?: boolean; gross?: boolean }) {
+export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.Element; onAbbrechen?: () => void; geaendert?: () => boolean; breit?: boolean; gross?: boolean;
+  /** Stellschraube: feste Breite in px (höchstens der Bildschirm), z. B. „Arbeitszeit & Feiertage“ wie bisher 860 */
+  breite?: number }) {
   let kasten!: HTMLDivElement;
   const [frage, setFrage] = createSignal<(() => void) | null>(null);
   const [versatz, setVersatz] = createSignal({ x: 0, y: 0 });
@@ -49,7 +51,7 @@ export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.E
     <Portal>
       <div class="fenster-hinter">
         <div class="fenster" classList={{ breit: p.breit, gross: p.gross }} role="dialog" aria-modal="true" aria-label={p.titel} tabindex="-1" ref={kasten}
-          style={{ translate: `${versatz().x}px ${versatz().y}px` }}>
+          style={{ translate: `${versatz().x}px ${versatz().y}px`, ...(p.breite ? { 'max-width': `min(${p.breite}px, 100%)` } : {}) }}>
           <h2 class="fenster-titel" onPointerDown={ziehen} title="Zum Verschieben ziehen">{p.titel}</h2>
           <div class="fenster-inhalt">{p.children}</div>
           {/* Die Knöpfe bleiben im Fenster (nur verdeckt), damit „Verwerfen“ den gedrückten Knopf danach wirklich auslöst */}

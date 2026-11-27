@@ -76,6 +76,9 @@ export interface Ansicht {
   objekt?: string;            // Liste dieses Objekts; ohne Angabe bringt die Oberfläche eine eigene Ansicht mit
   baum?: string[];            // Felder, nach denen der Baum links gliedert
   brauchtProjekt?: boolean;   // zeigt nur die Einträge des oben gewählten Projekts
+  /** öffnet ein Fenster über der gerade gezeigten Ansicht, statt zu ihr zu wechseln (wie bisher z. B. „Arbeitszeit & Feiertage“) –
+   *  das Fenster bringt die Oberfläche mit (ansichten.tsx, FENSTER) */
+  fenster?: boolean;
   filter?: Werte;             // zeigt nur Einträge mit diesen Werten (z. B. nur die Mängel); neue Einträge bekommen sie
   nurAdmin?: boolean;
   hilfe?: string;             // Hilfe zur Ansicht (Knopf „?“ oben): was man hier tut und wie – Absätze mit Leerzeile getrennt

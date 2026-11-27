@@ -59,7 +59,7 @@ import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { Balkenplan } from './balkenplan';
 import { GewerkeFirmen } from './gewerke';
 import { springeZu } from './sprung';
-import { Arbeitszeit } from './arbeitszeit';
+import { ArbeitszeitFenster, ProjektinfoFenster } from './arbeitszeit';
 import { BerichtDetails, BerichtLinks, Berichtsseite, berichtDetailsDa } from './bautagebuch';
 import { aufraeumenOeffnen } from './aufraeumen';
 import { adressenEinlesen } from './adresseneinlesen';
@@ -544,7 +544,6 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
   vorgang: { mitte: (m) => <Balkenplan {...m} />, kartenEinschub: { Termine: (z) => <Abhaengigkeiten vorgang={z} /> } },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
-  freier_tag: { oben: (z) => <Arbeitszeit zusammenhang={z} /> },
   pruefzugang: { kartenZusatz: (z) => <PruefSchluessel zugang={z} /> },
   benutzer: {
     kartenZusatz: (z) => <KennwortSetzen benutzer={z} />,
@@ -707,6 +706,12 @@ export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   if (p.ansicht.nachschlag) return <Nachschlagen schluessel={`${p.modul.id}.${p.ansicht.id}`} nachschlag={p.modul.nachschlagen!.find((n) => n.name === p.ansicht.nachschlag)!} />;
   return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(p.ansicht.objekt!, `${p.modul.id}.${p.ansicht.id}`)} fest={p.ansicht.filter ? () => p.ansicht.filter! : undefined} />;
 }
+
+/** Ansichten mit „fenster“ (Beipackzettel): sie öffnen ein Fenster über der gerade gezeigten Ansicht – wie bisher. */
+export const FENSTER: Record<string, (zu: () => void, oeffne: (id: string) => void) => JSX.Element> = {
+  'bauzeitenplan.frei': (zu) => <ArbeitszeitFenster onZu={zu} />,
+  'bauzeitenplan.projektinfo': (zu, oeffne) => <ProjektinfoFenster onZu={zu} onArbeitszeit={() => oeffne('bauzeitenplan.frei')} />,
+};
 
 /** Apps mit eigener Handyansicht (Beipackzettel handy: 'eigen'): am Handy steht sie statt der Ansichten. */
 export const HANDY_APPS: Record<string, () => JSX.Element> = { ava: () => <AvaHandy />, bauzeitenplan: () => <BauzeitenplanHandy /> };

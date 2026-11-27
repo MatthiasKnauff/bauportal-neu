@@ -3,7 +3,7 @@
 // Tagnummer (Tage seit 1.1.1970, UTC), damit Sommerzeit und Uhrzeit nie eine Rolle spielen.
 
 export const BUNDESLAENDER: { wert: string; titel: string }[] = [
-  { wert: 'DE', titel: 'bundesweit' },
+  { wert: 'KEINE', titel: 'keine Feiertage' }, { wert: 'DE', titel: 'nur bundesweite Feiertage' },
   { wert: 'BW', titel: 'Baden-Württemberg' }, { wert: 'BY', titel: 'Bayern' }, { wert: 'BE', titel: 'Berlin' }, { wert: 'BB', titel: 'Brandenburg' },
   { wert: 'HB', titel: 'Bremen' }, { wert: 'HH', titel: 'Hamburg' }, { wert: 'HE', titel: 'Hessen' }, { wert: 'MV', titel: 'Mecklenburg-Vorpommern' },
   { wert: 'NI', titel: 'Niedersachsen' }, { wert: 'NW', titel: 'Nordrhein-Westfalen' }, { wert: 'RP', titel: 'Rheinland-Pfalz' }, { wert: 'SL', titel: 'Saarland' },
@@ -27,6 +27,7 @@ export function ostern(j: number): number {
 /** Gesetzliche Feiertage eines Jahres: Tagnummer → Name. „DE“ = nur die bundesweiten. */
 export function feiertage(j: number, land: string): Map<number, string> {
   const o = ostern(j), f = new Map<number, string>();
+  if (land === 'KEINE') return f;   // wie bisher wählbar: ohne Feiertage (z. B. Baustelle im Ausland)
   const in_ = (...l: string[]) => l.includes(land);
   f.set(tagVon(j, 1, 1), 'Neujahr');
   if (in_('BW', 'BY', 'ST')) f.set(tagVon(j, 1, 6), 'Heilige Drei Könige');

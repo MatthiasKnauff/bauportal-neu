@@ -14,6 +14,7 @@ import { spaltenFuer, zusatzMessen, type Spaltensatz } from './spalten';
 import { Spaltenfeld } from './spaltenfeld';
 import { Haken, KopfHaken, auswahlKlick, langTippen, type Auswahl } from './auswahl';
 import { objektname } from '../unterbau/abgleich';
+import { handy } from '../unterbau/geraet';
 
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 const ZEILENHOEHE = 37;
@@ -239,11 +240,16 @@ export function Tabelle(p: {
     if (!z) return;
     p.onWahl(z.id);
     const oben = sortiert().indexOf(z) * ZEILENHOEHE, kopf = kopfHoehe();
+    if (handy()) return;   // am Handy rollt die Seite – angetippt wird ohnehin, was zu sehen ist; nichts springt
     if (oben < kasten.scrollTop) kasten.scrollTop = oben;
     else if (oben + ZEILENHOEHE + kopf > kasten.scrollTop + kasten.clientHeight) kasten.scrollTop = oben + ZEILENHOEHE + kopf - kasten.clientHeight;
   };
   onMount(() => {
-    const b = new ResizeObserver(() => { setRollen((r) => ({ ...r, hoehe: kasten.clientHeight })); setPlatz(kasten.clientWidth); });
+    // am Handy rollt die ganze Seite (wie bisher): die sichtbaren Zeilen rechnen mit dem Fenster statt mit dem eigenen Kasten
+    const seite = () => { if (handy()) setRollen({ oben: Math.max(0, -kasten.getBoundingClientRect().top), hoehe: innerHeight }); };
+    addEventListener('scroll', seite, { passive: true }); addEventListener('resize', seite); seite();
+    onCleanup(() => { removeEventListener('scroll', seite); removeEventListener('resize', seite); });
+    const b = new ResizeObserver(() => { if (!handy()) setRollen((r) => ({ ...r, hoehe: kasten.clientHeight })); setPlatz(kasten.clientWidth); });
     b.observe(kasten);
     onCleanup(() => b.disconnect());
     p.steuer?.({
@@ -348,7 +354,7 @@ export function Tabelle(p: {
       <div class="tabelle-rollen" classList={{ excel: !!p.excel }} tabindex="0" ref={kasten} onKeyDown={tasten}
         onCopy={(e) => { if (!p.excel || !bereich() || inArbeit()) return; e.preventDefault(); e.clipboardData?.setData('text/plain', kopieren()); }}
         onCut={(e) => { if (!p.excel || !bereich() || inArbeit()) return; e.preventDefault(); e.clipboardData?.setData('text/plain', kopieren()); leeren(); }}
-        onPaste={(e) => { if (!p.excel || !bereich() || inArbeit()) return; e.preventDefault(); einfuegen(e.clipboardData?.getData('text/plain') ?? ''); }} onScroll={() => setRollen({ oben: kasten.scrollTop, hoehe: kasten.clientHeight })}>
+        onPaste={(e) => { if (!p.excel || !bereich() || inArbeit()) return; e.preventDefault(); einfuegen(e.clipboardData?.getData('text/plain') ?? ''); }} onScroll={() => { if (!handy()) setRollen({ oben: kasten.scrollTop, hoehe: kasten.clientHeight }); }}>
         <table class="tabelle" classList={{ "mit-gruppen": !!p.gruppenKopf }} style={{ width: `${breite()}px` }}>
           <colgroup><Show when={p.auswahl}><col style={{ width: `${HAKEN}px` }} /></Show><Show when={p.zeilenNummern}><col style={{ width: `${NUMMER}px` }} /></Show><For each={gezeigt()}>{(f) => <col style={{ width: `${spaltenbreite(f)}px` }} />}</For></colgroup>
           <thead>

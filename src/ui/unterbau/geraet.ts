@@ -36,3 +36,18 @@ export const desktopGewaehlt = (app: string) => desktop().includes(app);
 export function desktopWaehlen(app: string, an: boolean): void {
   setDesktop(an ? [...new Set([...desktop(), app])] : desktop().filter((x) => x !== app)); merken('bp_desktop_apps', desktop());
 }
+
+/** Tastatur am Handy (wie im bisherigen Bautagebuch, „fitApp“): Die Tastatur legt sich am iPhone über die Seite, statt sie
+ *  kleiner zu machen. Der sichtbare Teil steht deshalb als --sicht-oben / --sicht-h bereit (Fenster legen sich hinein, ihre
+ *  Knöpfe bleiben über der Tastatur), und solange getippt wird, trägt die Seite „tastatur“ (die Leiste unten geht weg). */
+if (typeof window !== 'undefined' && window.visualViewport) {
+  const vv = window.visualViewport, r = document.documentElement;
+  const tippt = () => { const e = document.activeElement; return !!e && (/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName) || (e as HTMLElement).isContentEditable); };
+  const anpassen = () => {
+    r.style.setProperty('--sicht-oben', `${vv.offsetTop}px`); r.style.setProperty('--sicht-h', `${vv.height}px`);
+    r.classList.toggle('tastatur', handy() && tippt() && vv.height < innerHeight - 120);
+  };
+  vv.addEventListener('resize', anpassen); vv.addEventListener('scroll', anpassen);
+  addEventListener('focusin', anpassen); addEventListener('focusout', () => setTimeout(anpassen, 50));
+  anpassen();
+}

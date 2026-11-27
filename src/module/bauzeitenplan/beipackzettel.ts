@@ -157,7 +157,9 @@ Mit der Maus: Balken ziehen verschiebt, rechte Kante ziehen ändert die Dauer, d
     { id: 'leistungen', titel: 'Leistungskatalog', abschnitt: 'Vorlagen', zeichen: 'katalog', objekt: 'leistungsvorlage', baum: ['abschnitt'] },
     { id: 'abhaengigkeiten', titel: 'Abhängigkeiten', abschnitt: 'Vorlagen', zeichen: 'ablauf', objekt: 'leistungsvorlage',
       hilfe: 'Eine Leistung des Katalogs in der Mitte – links ihre Vorgänger, rechts ihre Nachfolger. Eine Leistung aus der Liste links auf eine Seite ziehen oder „＋ Vorgänger …“ / „＋ Nachfolger …“ verknüpft; ✕ löst; ein Klick auf den Pfeil wechselt Ende → Anfang / Anfang → Anfang. Unten die Probe: die Gesamtbauzeit für ein Beispielgebäude.' },
-    { id: 'frei', titel: 'Arbeitszeit & Feiertage', abschnitt: 'Projekt', zeichen: 'arbeitszeit', objekt: 'freier_tag', brauchtProjekt: true },
+    // wie bisher: beide öffnen ein Fenster über dem Plan (ui/arbeitszeit.tsx)
+    { id: 'projektinfo', titel: 'Projektinformationen', abschnitt: 'Projekt', zeichen: 'info', brauchtProjekt: true, fenster: true },
+    { id: 'frei', titel: 'Arbeitszeit & Feiertage', abschnitt: 'Projekt', zeichen: 'arbeitszeit', brauchtProjekt: true, fenster: true },
   ],
   kataloge: [{ id: 'leistungen', titel: 'Leistungen für den Bauzeitenplan', objekt: 'leistungsvorlage' }, { id: 'planregeln', titel: 'Regeln des Planungsassistenten', objekt: 'planregel' }],
   versionen: [{ bereich: 'bauzeitenplan', titel: 'Bauzeitenplan', wege: ['kopie', 'leer', 'projekt'] }],

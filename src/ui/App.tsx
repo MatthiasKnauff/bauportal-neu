@@ -8,7 +8,7 @@ import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCle
 import { createStore } from 'solid-js/store';
 import { MERKER, Netzfehler, Serverfehler, darf, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
 import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
-import { AnsichtZeigen, HANDY_APPS, KarteImFensterZeigen, karteVon, kartenZusatz, sichtbar } from './ansichten';
+import { AnsichtZeigen, FENSTER, HANDY_APPS, KarteImFensterZeigen, karteVon, kartenZusatz, sichtbar } from './ansichten';
 import { Kontextmenue } from './baukasten/kontextmenue';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Abfolgeleiste } from './baukasten/abfolgeleiste';
@@ -200,7 +200,10 @@ function Portal() {
   const setModulId = (id: string) => { setModulIdRoh(id); try { sessionStorage.setItem('bp_modul', id); } catch { /* gesperrt */ } };
   const [ansichtId, setAnsichtId] = createSignal('');
   const modul = () => module().find((m) => m.modul.id === modulId());
-  const ansicht = () => modul()?.ansichten.find((a) => a.id === ansichtId()) ?? modul()?.ansichten[0];
+  const ansicht = () => modul()?.ansichten.find((a) => a.id === ansichtId() && !a.fenster) ?? modul()?.ansichten.find((a) => !a.fenster);
+  // Ansicht mit „fenster“: öffnet ihr Fenster über der gezeigten Ansicht (FENSTER in ansichten.tsx)
+  const [fensterId, setFensterId] = createSignal<string | null>(null);
+  const ansichtWaehlen = (id: string) => { if (modul()?.ansichten.find((a) => a.id === id)?.fenster) setFensterId(`${modul()!.modul.id}.${id}`); else setAnsichtId(id); };
   const projekte = createMemo(() => Object.values(sicht.projekt ?? {}).filter((x) => !x.geloescht && x.werte.status !== 'archiviert')
     .map((x) => ({ wert: x.id, titel: [x.werte.nummer, x.werte.name].filter(Boolean).join(' · ') })).sort((x, y) => x.titel.localeCompare(y.titel, 'de', { numeric: true })));
   const schluessel = createMemo(() => (ansicht() ? `${modul()!.modul.id}.${ansicht()!.id}` : undefined));
@@ -286,7 +289,7 @@ function Portal() {
         benutzerMenue={[{ titel: 'Hilfe zu dieser Seite', tun: () => setHilfe(true) }, { titel: 'Mein Konto · Kennwort …', tun: () => oeffne('verwaltung', 'konto') }, { titel: 'Darstellung …', tun: () => oeffne('verwaltung', 'darstellung') }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
-        <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.filter((a) => a.imMenue !== false || a.id === ansicht()?.id).map((a) => ({ id: a.id, titel: a.titel, abschnitt: a.abschnitt, zeichen: a.zeichen, abgesetzt: !!a.abschnitt && !!modul()?.modul.abgesetzt?.includes(a.abschnitt) })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: setAnsichtId,
+        <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.filter((a) => a.imMenue !== false || a.id === ansicht()?.id).map((a) => ({ id: a.id, titel: a.titel, abschnitt: a.abschnitt, zeichen: a.zeichen, abgesetzt: !!a.abschnitt && !!modul()?.modul.abgesetzt?.includes(a.abschnitt) })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: ansichtWaehlen,
           rueckgaengig: { zurueck: () => verlauf().zurueck > 0, vor: () => verlauf().vor > 0, onZurueck: rueckgaengig, onVor: wiederholen } }}>
           <Show when={schluessel()} keyed fallback={
             <div class="start"><div class="start-innen">
@@ -307,6 +310,7 @@ function Portal() {
               <Show when={handy() && desktopGewaehlt(modul()!.modul.id) && HANDY_APPS[modul()!.modul.id]}><button type="button" class="knopf klein mv-zurueck" onClick={() => desktopWaehlen(modul()!.modul.id, false)}>📱 Handy-Ansicht</button></Show></>}>{(eigen) => eigen()()}</Show>}
           </Show>
         </AppUmgebung.Provider>
+        <Show when={FENSTER[fensterId() ?? '']} keyed>{(f) => f(() => setFensterId(null), (id: string) => setFensterId(id))}</Show>
       </main>
       <nav class="handyleiste" aria-label="Schnellzugriff" style={{ 'grid-template-columns': `repeat(${leiste().length}, minmax(0, 1fr))` }}>
         <For each={leiste()}>{(k) => (k === '+'
