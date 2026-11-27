@@ -1913,3 +1913,10 @@ test('Rechnungen: Sperre der Kette, Namen, Prüffrist, freier Zahlbetrag, Freiga
   assert.deepEqual(t.massen[0]!.zeilen.map((z) => z.zellen[3]), ['+ 50', '20'], 'nur die laufenden Zeilen der offenen Rechnung');
   assert.ok(t.zahlbetrag[0]!.zeilen.some((z) => /gefordert netto 2\.000,00 € – Kürzung/.test(z.zellen[0]!)));
 });
+
+test('Projekt nach Standort: Abstand in Metern', async () => {
+  const { abstand } = await import('../src/server/wetter');
+  const m = abstand(51.4556, 7.0116, 51.4556, 7.0260);   // Essen, rund 1 km nach Osten
+  assert.ok(m > 950 && m < 1050, String(m));
+  assert.equal(abstand(51, 7, 51, 7), 0);
+});

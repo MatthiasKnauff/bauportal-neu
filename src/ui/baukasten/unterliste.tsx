@@ -2,6 +2,7 @@
 // Tagesberichts. Jede Zeile ist ein eigenes Objekt; Anlegen, Ändern und Entfernen sind Befehle wie überall.
 // Neue Einträge entstehen durch Tippen und Enter oder – bei „neuUeber“ – durch Auswahl aus einem Verweis (z. B. Firma).
 import { For, Show, createMemo } from 'solid-js';
+import type { JSX } from 'solid-js';
 import { listenfolge } from '../../kern/druck';
 import { gilt, leerwert, type Feld, type ObjektModell, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
@@ -25,6 +26,7 @@ export function Unterliste(p: {
   ohneTitel?: boolean;            // Überschrift steht schon außen (z. B. auf der Karte eines Abschnitts)
   gewaehlt?: string | null;       // hervorgehobener Eintrag
   onWahl?: (id: string) => void;  // Eintrag angeklickt (z. B. um ihn rechts im Detail zu zeigen)
+  zusatz?: (z: Zeile) => JSX.Element;   // am Ende der Zeile (z. B. Fotos zum Eintrag)
 }) {
   const m = (): ObjektModell => modell(p.objekt);
   const feld = (n: string): Feld => m().felder.find((f) => f.name === n)!;
@@ -56,6 +58,7 @@ export function Unterliste(p: {
               <Show when={schreiben() && feld(p.haupt).art === 'langtext' && kiAnbindungen().length && String(z.werte[p.haupt] ?? '').trim()}>
                 <button type="button" class="ki-knopf" title="Die KI macht einen Vorschlag – übernommen wird erst nach deiner Bestätigung" onClick={() => kiOeffnen({ titel: p.titel, text: String(z.werte[p.haupt] ?? ''), onUebernehmen: (t) => feldAendern(m(), z, feld(p.haupt), t, 'ki') })}>✦ KI</button>
               </Show>
+              {p.zusatz?.(z)}
               <Show when={darf(p.objekt, 'loeschen')}><button class="knopf klein still" aria-label={`Entfernen: ${zeilentitel(z)}`} title="Entfernen" onClick={() => weg(z)}>×</button></Show>
             </div>
             <Show when={neben(z).length}>

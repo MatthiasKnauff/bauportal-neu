@@ -13,7 +13,7 @@ import { planDerVersion, planVersionen } from './plandaten';
 import { ausdrucke, darf, holeDatei, modell, neueKennung, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
-import { Bilder, FotoGross } from './baukasten/bilder';
+import { Bilder, FotoGross, fotosHochladen } from './baukasten/bilder';
 import { PdfAnsicht } from './baukasten/pdfansicht';
 import { Detailkarte, feldAendern, inEigenemFenster, loesche } from './baukasten/detailkarte';
 import { FeldEingabe, anzeige } from './baukasten/feld';
@@ -27,6 +27,7 @@ import { druckOeffnen } from './druck';
 import { Zeichen, type Zeichenname } from './baukasten/zeichen';
 import { Dialog } from './baukasten/dialog';
 import { handy } from './unterbau/geraet';
+import { projektId, setProjektId } from './projekt';
 
 const heute = () => new Date().toLocaleDateString('sv');
 const datumText = (d: unknown) => (d ? new Date(`${String(d)}T12:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
@@ -40,6 +41,22 @@ const [bearbeitenBei, setBearbeitenBei] = createSignal<string>();   // Gruppe, z
 const [foto, setFoto] = createSignal<string | null>(null);   // rechts groß gezeigtes Foto des Berichts
 
 /** Die Abschnitte eines Berichts – Reihenfolge wie im alten Bautagebuch. */
+/** Projekt nach Standort (wie bisher): das nächste aktive Projekt – näher als 600 m wird es gewählt, sonst nur genannt. */
+const NAH_M = 600;
+const entfernung = (m: number) => (m < 1000 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`);
+async function projektNachStandort(): Promise<void> {
+  if (!navigator.geolocation) { hinweis('Dieses Gerät gibt keinen Standort heraus.', { art: 'fehler' }); return; }
+  const pos = await new Promise<GeolocationPosition | null>((ok) => navigator.geolocation.getCurrentPosition(ok, () => ok(null), { enableHighAccuracy: true, timeout: 15000 }));
+  if (!pos) { hinweis('Standort nicht verfügbar – in den Einstellungen des Geräts erlauben.', { art: 'fehler' }); return; }
+  let r: { projekt: { id: string; name: string; meter: number } | null };
+  try { r = await ruf('/api/projekt/naechstes', { lat: pos.coords.latitude, lon: pos.coords.longitude }); } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); return; }
+  const n = r.projekt;
+  if (!n) { hinweis('Kein aktives Projekt mit Anschrift der Baustelle gefunden.'); return; }
+  if (n.meter > NAH_M) { hinweis(`Kein Projekt in der Nähe. Am nächsten: ${n.name} (${entfernung(n.meter)}).`); return; }
+  if (n.id === projektId()) { hinweis(`Du bist bei „${n.name}“ (${entfernung(n.meter)}).`); return; }
+  setProjektId(n.id); hinweis(`Projekt nach Standort gewählt: ${n.name} (${entfernung(n.meter)})`);
+}
+
 const ABSCHNITTE: { id: string; titel: string; zeichen: Zeichenname; art?: string }[] = [
   { id: 'anwesend', titel: 'Anwesende', zeichen: 'personen', art: 'anwesend' },
   { id: 'notiz', titel: 'Notizen', zeichen: 'notiz', art: 'notiz' },
@@ -233,6 +250,7 @@ function Anwesende(p: { bericht: Zeile }) {
             <Show when={z.werte.nicht_da === true} fallback={<Zaehler titel="Personen" wert={z.werte.personen ?? null} gesperrt={!schreiben()} onWert={(w) => feldAendern(m(), z, feld('personen'), w)} />}>
               <small class="aw-nicht-da">nicht da</small>
             </Show>
+            <EintragFotos eintrag={z} />
             <Show when={darf('bericht_eintrag', 'loeschen')}><button type="button" class="knopf klein still" aria-label={`${name(z)} entfernen`} title={z.werte.nicht_da === true ? 'Rückgängig – wieder als Vorschlag' : 'Entfernen'} onClick={() => loesche(m(), z)}>✕</button></Show>
           </div>
           <textarea class="aw-taetigkeit" rows={1} placeholder={z.werte.nicht_da === true ? 'Begründung (auf Wunsch), z. B. kommt nächste Woche' : 'Art der Tätigkeit'} aria-label={`${z.werte.nicht_da === true ? 'Begründung' : 'Art der Tätigkeit'} ${name(z)}`} value={String(z.werte.text ?? '')} readOnly={!schreiben()}
@@ -247,13 +265,29 @@ function Anwesende(p: { bericht: Zeile }) {
     </div>
   );
 }
+/** Fotos zu einem Eintrag (wie bisher): klein in der Zeile, groß unter „Bilder“; die Kamera nimmt eins dazu. */
+function EintragFotos(p: { eintrag: Zeile }): JSX.Element {
+  const fotos = createMemo(() => lebende('foto').filter((f) => f.werte.eintrag === p.eintrag.id));
+  const [lage, setLage] = createSignal('');
+  let wahl!: HTMLInputElement;
+  const dazu = async () => { const d = [...(wahl.files ?? [])]; wahl.value = ''; await fotosHochladen('/api/foto', { projekt: p.eintrag.werte.projekt ?? null, bericht: p.eintrag.werte.bericht ?? null, eintrag: p.eintrag.id }, d, setLage); };
+  return (
+    <span class="bt-eintragfotos" onClick={(e) => e.stopPropagation()}>
+      <For each={fotos()}>{(f) => <button type="button" class="bt-mini" title={String(f.werte.beschriftung || f.werte.name || 'Foto')} onClick={() => { setEintrag(null); setFoto(f.id); }}><img src={`/api/foto/vorschau/${f.id}`} alt={String(f.werte.beschriftung || 'Foto')} loading="lazy" /></button>}</For>
+      <Show when={darf('foto', 'schreiben')}>
+        <button type="button" class="knopf klein still" title={lage() || 'Foto zu diesem Eintrag'} aria-label="Foto zu diesem Eintrag" disabled={!!lage()} onClick={() => wahl.click()}><Zeichen name="foto" groesse={16} /></button>
+        <input ref={wahl} type="file" accept="image/*,.heic,.heif" multiple hidden onChange={() => void dazu()} />
+      </Show>
+    </span>
+  );
+}
 /** Summe der Personen der Anwesenden – steht im Kopf des Abschnitts. */
 const personen = (bericht: string) => lebende('bericht_eintrag').filter((e) => e.werte.bericht === bericht && e.werte.art === 'anwesend').reduce((s, e) => s + (Number(e.werte.personen) || 0), 0);
 
 /** Die Listen eines Berichts – dieselben in der Seite und im Ablauf „Schritt für Schritt“. */
 function listen(bericht: Zeile, seite: boolean): Record<string, () => JSX.Element> {
   const fest = (art: string) => ({ projekt: bericht.werte.projekt ?? null, bericht: bericht.id, art });
-  const wahl = seite ? { ohneTitel: true, onWahl: (id: string) => { setBearbeiten(false); setFoto(null); setEintrag(id); } } : {};
+  const wahl = { ...(seite ? { ohneTitel: true, onWahl: (id: string) => { setBearbeiten(false); setFoto(null); setEintrag(id); } } : {}), zusatz: (z: Zeile) => <EintragFotos eintrag={z} /> };
   return {
     anwesend: () => <Anwesende bericht={bericht} />,
     notiz: () => <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
@@ -393,7 +427,7 @@ export function Berichtsseite(p: Mitte) {
   // Menüleiste wie im bisherigen Bauportal: NEU Eintrag, Foto, Mangel, Diktieren · BERICHT Schritt für Schritt, Löschen · AUSGABE PDF
   createEffect(() => {
     const b = bericht();
-    p.setKnoepfe(b ? [
+    p.setKnoepfe([{ titel: 'Standort', zeichen: 'standort', gruppe: 'Finden', tun: () => void projektNachStandort() }, ...(b ? [
       // am Handy das ＋ unten: Blatt mit den Abschnitten (Foto, Notiz, Mangel …)
       ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Foto, Notiz, Mangel … hinzufügen', zeichen: 'neu', gruppe: 'Neu', nurHandy: true, handyPlus: true, tun: () => setHinzu(true) }] : []),
       ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Eintrag', zeichen: 'notiz', gruppe: 'Neu', tun: () => neuIn.get('notiz')?.() }] : []),
@@ -403,7 +437,7 @@ export function Berichtsseite(p: Mitte) {
         { titel: 'Schritt für Schritt', zeichen: 'schrittweise', gruppe: 'Bericht', tun: () => werkzeuge.schritte?.() }] : []),
       ...(darf('tagesbericht', 'loeschen') ? [{ titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bericht', tun: () => loesche(modell('tagesbericht'), b) }] : []),
       ...ausdrucke('tagesbericht').map((a) => ({ titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => druckOeffnen(a.id, b.id) })),
-    ] : []);
+    ] : [])]);
   });
   return (
     <div class="bt-seite">
@@ -416,7 +450,7 @@ export function Berichtsseite(p: Mitte) {
               <Show when={handy()} fallback={<For each={ABSCHNITTE}>{(a) => <Abschnitt a={a} bericht={b()} inhalt={l[a.id]!} />}</For>}>
                 <div class="bt-kacheln">
                   <For each={ABSCHNITTE}>{(a) => (
-                    <button type="button" class="bt-kachel" onClick={() => setFokus(a.id)}>
+                    <button type="button" class={`bt-kachel bt-${a.id}`} onClick={() => setFokus(a.id)}>
                       <span class="bt-symbol"><Zeichen name={a.zeichen} groesse={18} /></span><b>{a.titel}</b>
                       <Show when={anzahl(b().id, a)} fallback={<small class="still-text">{a.id === 'fotos' ? 'noch keine' : 'leer'}</small>}>
                         <span class="anzahl">{anzahl(b().id, a)}</span><Show when={offen(b().id, a)}><small class="gefahr-text">{offen(b().id, a)} offen</small></Show>
@@ -437,7 +471,7 @@ export function Berichtsseite(p: Mitte) {
             <Dialog titel="Hinzufügen" onAbbrechen={() => setHinzu(false)} knoepfe={<button class="knopf" onClick={() => setHinzu(false)}>Abbrechen</button>}>
               <div class="bt-kacheln">
                 <For each={ABSCHNITTE.filter((a) => darf(a.id === 'fotos' ? 'foto' : 'bericht_eintrag', 'schreiben'))}>{(a) => (
-                  <button type="button" class="bt-kachel" onClick={() => { setHinzu(false); setFokus(a.id); queueMicrotask(() => neuIn.get(a.id)?.()); }}>
+                  <button type="button" class={`bt-kachel bt-${a.id}`} onClick={() => { setHinzu(false); setFokus(a.id); queueMicrotask(() => neuIn.get(a.id)?.()); }}>
                     <span class="bt-symbol"><Zeichen name={a.zeichen} groesse={18} /></span><b>{a.id === 'fotos' ? 'Foto' : a.titel}</b>
                   </button>
                 )}</For>

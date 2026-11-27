@@ -19,7 +19,7 @@ const ARTEN: [string, (b: Buffer) => boolean][] = [
 const bildart = (b: Buffer) => ARTEN.find(([, passt]) => passt(b))?.[0];
 const GRENZE_ORIGINAL = 40 * 1024 * 1024, GRENZE_VORSCHAU = 800 * 1024;
 
-export interface Hochgeladen { projekt: string; bericht: string; name: string; original: Buffer; vorschau: Buffer; beschriftung?: string; kennung?: string; herkunft?: string }
+export interface Hochgeladen { projekt: string; bericht: string; eintrag?: string; name: string; original: Buffer; vorschau: Buffer; beschriftung?: string; kennung?: string; herkunft?: string }
 
 export async function fotoAblegen(db: Db, register: Modulregister, umgebung: string, wer: Benutzer, f: Hochgeladen): Promise<{ id: string; ort: string }> {
   if (!KENNUNG.test(f.projekt) || !KENNUNG.test(f.bericht)) throw new Ablehnung('Projekt und Bericht fehlen');
@@ -32,6 +32,7 @@ export async function fotoAblegen(db: Db, register: Modulregister, umgebung: str
     if (!(await c.query("select bp_darf('foto', 'schreiben', $1) as d", [f.projekt])).rows[0].d) throw new Ablehnung('Dazu fehlt dir das Recht');
     const b = (await c.query('select nummer, datum from o_tagesbericht where id = $1 and projekt = $2 and not geloescht', [f.bericht, f.projekt])).rows[0];
     if (!b) throw new Ablehnung('Den Bericht gibt es nicht (mehr)');
+    if (f.eintrag && !(await c.query('select 1 from o_bericht_eintrag where id = $1 and bericht = $2 and not geloescht', [f.eintrag, f.bericht])).rows.length) throw new Ablehnung('Den Eintrag gibt es in diesem Bericht nicht (mehr)');
     return { bericht: b as { nummer: string | null; datum: string }, ordner: (await c.query('select ordner from o_projekt where id = $1', [f.projekt])).rows[0]?.ordner as string | undefined,
       reihe: (await c.query('select coalesce(max(reihe), 0) + 1 as n from o_foto where bericht = $1', [f.bericht])).rows[0].n as number };
   });
@@ -39,7 +40,7 @@ export async function fotoAblegen(db: Db, register: Modulregister, umgebung: str
   const id = randomUUID();
   await db.query('insert into kern_vorschau (id, bild) values ($1, $2)', [id, f.vorschau]);
   await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'foto', art: 'anlegen', objektId: id, ...(f.herkunft ? { herkunft: f.herkunft } : {}),
-    werte: { projekt: f.projekt, bericht: f.bericht, name: wo.pfad.split('/').pop()!.replace(/^[0-9a-f]{16}-/, ''), beschriftung: f.beschriftung ?? '', ort: wo.ort, pfad: wo.pfad, reihe: Number(z.reihe), kennung: f.kennung ?? '' } });
+    werte: { projekt: f.projekt, bericht: f.bericht, eintrag: f.eintrag || null, name: wo.pfad.split('/').pop()!.replace(/^[0-9a-f]{16}-/, ''), beschriftung: f.beschriftung ?? '', ort: wo.ort, pfad: wo.pfad, reihe: Number(z.reihe), kennung: f.kennung ?? '' } });
   return { id, ort: wo.ort };
 }
 
@@ -50,9 +51,10 @@ export function fotoRouten(app: FastifyInstance, e: { db: Db; register: Modulreg
     (KENNUNG.test(id) ? (await c.query('select f.projekt, f.ort, f.pfad, f.name, p.ordner from o_foto f join o_projekt p on p.id = f.projekt where f.id = $1', [id])).rows[0] : undefined) as { projekt: string; ort: string; pfad: string; name: string; ordner: string } | undefined);
 
   app.post('/api/foto', { preHandler: e.nurAngemeldet, bodyLimit: 60 * 1024 * 1024 }, async (req, reply) => {
-    const b = (req.body ?? {}) as { projekt?: string; bericht?: string; name?: string; original?: string; vorschau?: string };
+    const b = (req.body ?? {}) as { projekt?: string; bericht?: string; eintrag?: string; name?: string; original?: string; vorschau?: string };
+    if (b.eintrag && !KENNUNG.test(String(b.eintrag))) throw new Ablehnung('Eintrag unbekannt');
     try {
-      const r = await fotoAblegen(db, e.register, e.umgebung, req.benutzer!, { projekt: String(b.projekt ?? ''), bericht: String(b.bericht ?? ''), name: String(b.name ?? ''),
+      const r = await fotoAblegen(db, e.register, e.umgebung, req.benutzer!, { projekt: String(b.projekt ?? ''), bericht: String(b.bericht ?? ''), eintrag: b.eintrag ? String(b.eintrag) : undefined, name: String(b.name ?? ''),
         original: Buffer.from(String(b.original ?? ''), 'base64'), vorschau: Buffer.from(String(b.vorschau ?? ''), 'base64') });
       e.nachBefehlen();
       return r;

@@ -1,6 +1,6 @@
 # Bautagebuch – Vergleich mit dem bisherigen Bauportal
 
-Stand 26.11.2026. Grundlage: das Bautagebuch im bisherigen Bauportal (live angesehen und Quelltext `bautagebuch/static`: Bericht, Start, Projekt, Suche, Kontakte, Assistent, Diktat).
+Stand 27.11.2026. Grundlage: das Bautagebuch im bisherigen Bauportal (live angesehen und Quelltext `bautagebuch/static`: Bericht, Start, Projekt, Suche, Kontakte, Assistent, Diktat).
 
 ## Haben wir
 - Links oben Kalender oder Liste der Berichte, darunter die Abschnitte des Berichts mit Symbol und Anzahl, darunter die Ansichten der App
@@ -13,15 +13,15 @@ Stand 26.11.2026. Grundlage: das Bautagebuch im bisherigen Bauportal (live anges
 - Älterer Bericht: Hinweis, Neues kommt in den Bericht von heute
 
 ## Fehlt
-1. **Verlauf: „Wiederherstellen“** – den Bericht auf einen früheren Stand zurücksetzen (Fotos bleiben); braucht den Baustein Verlauf
-2. Kopf links: Projektname und „n Berichte“ statt „Kalender“
-3. Rechts die Reiter Details · Foto · PDF (PDF: der zuletzt erzeugte Bericht als Vorschau)
-4. Projekt nach Standort wählen (nächstes Projekt zum Handy-Standort)
+1. ~~Verlauf: „Wiederherstellen“~~ – erledigt (Baustein Verlauf, Fotos bleiben)
+2. ~~Kopf links: Projektname und „n Berichte“~~ – erledigt
+3. ~~Rechts die Reiter Details · Foto · PDF~~ – erledigt
+4. ~~Projekt nach Standort wählen~~ – erledigt 27.11. (Menüleiste „Standort“, näher als 600 m)
 5. Ansicht Kontakte im Bautagebuch: Beteiligte des Projekts mit Filter, Excel, Drucken (bei uns: Adressen mit Projekt)
 6. Projektdaten im Bautagebuch (bei uns: Projekte in der Verwaltung)
 7. Frist mit Uhrzeit und Erinnerung per E-Mail – **über die zentrale Versandstelle** (Regel: Meldungen nur über die eine Stelle)
 8. Hinweise zu Gewerken/Leistungen aus dem Wiki (geprüfte Einträge) – das Wiki gibt es hier noch nicht
-9. Foto direkt auf einen Eintrag oder Abschnitt ziehen (hängt dann daran)
+9. ◐ Fotos an Einträgen (Kamera in der Zeile, klein am Eintrag, groß unter „Bilder“) – erledigt 27.11.; Hineinziehen auf den Eintrag fehlt noch
 10. Suche über alle Projekte (Berichte, Mängel, Notizen, Anwesende, Weisungen, Fotobeschreibungen) – bei uns die Suche oben über alles
 
 ## Regelfragen

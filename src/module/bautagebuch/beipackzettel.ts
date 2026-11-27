@@ -89,6 +89,8 @@ export const foto: ObjektModell = {
   felder: [
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
     { name: 'bericht', titel: 'Tagesbericht', art: 'verweis', ziel: 'tagesbericht', pflicht: true, inListe: true, breite: 220, gruppe: 'Foto' },
+    // Foto zu einem Eintrag (Mangel, Notiz …) – wie bisher: klein am Eintrag, groß unter „Bilder“
+    { name: 'eintrag', titel: 'Zum Eintrag', art: 'verweis', ziel: 'bericht_eintrag', spalte: true, breite: 200, gruppe: 'Foto' },
     { name: 'name', titel: 'Dateiname', art: 'text', pflicht: true, inListe: true, breite: 260, gruppe: 'Foto' },
     { name: 'beschriftung', titel: 'Beschriftung', art: 'text', inListe: true, breite: 300, gruppe: 'Foto' },
     { name: 'ort', titel: 'Original liegt', art: 'auswahl', inListe: true, breite: 170, gruppe: 'Ablage', optionen: [{ wert: 'ablage', titel: 'im Projektordner' }, { wert: 'bauportal', titel: 'im Bauportal' }] },

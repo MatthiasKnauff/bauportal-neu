@@ -16,10 +16,10 @@ Zeichen:
 
 | # | Bisher | Neu | Plan |
 |---|---|---|---|
-| R1 | Navigation links in vier Gruppen. **Ausschreibung**: Leistungsverzeichnis (mit Anzahl), Fenster- & Türliste. **Vergabe**: Versand & Rücklauf, Nachverfolgen, Angebote & Preisspiegel, Angebotsbesprechung. **Prüfung und Abrechnung**: Aufträge, Aufmaßprüfung, Rechnungen. **Kostenübersicht**. | ◐ Es gibt zu viele Einträge: LV-Liste, Positionen, Angebote, Preisspiegel getrennt, Bauverträge, Nachträge. | Gliederung wie bisher. Die Listen bleiben über Verweise erreichbar, stehen aber nicht mehr im Menü. |
+| R1 | Navigation links in vier Gruppen. **Ausschreibung**: Leistungsverzeichnis (mit Anzahl), Fenster- & Türliste. **Vergabe**: Versand & Rücklauf, Nachverfolgen, Angebote & Preisspiegel, Angebotsbesprechung. **Prüfung und Abrechnung**: Aufträge, Aufmaßprüfung, Rechnungen. **Kostenübersicht**. | ✓ | Gliederung wie bisher. Die Listen bleiben über Verweise erreichbar, stehen aber nicht mehr im Menü. |
 | R2 | Kopf: „‹Bereich›: LV ‹Nr› ‹Name›“, Stand als Auswahl, Feld „vergeben an …“ bzw. „noch nicht vergeben“, Gewerk · Vertrag · Strafe, Knöpfe Projektdaten und Ausschreibungsdaten | ◐ LV-Auswahl statt Titel | Kopf wie bisher. Das LV wird im Baum gewählt. |
 | R3 | Ablaufleiste mit 7 Stufen über die ganze Breite, Unterstrich als Fortschritt, Stufe ergibt sich aus dem Inhalt | ✓ | Optik angleichen |
-| R4 | Kennzahlen in der Menüleiste: Schätzung, bestes Angebot, Auftrag, Nachträge beauftragt, Leistungsstand, abgerechnet. Je Bereich passend, Reihenfolge ziehbar. | ✗ (nur in der LV-Karte) | Baustein „Kennzahl“ in der Menüleiste |
+| R4 | Kennzahlen in der Menüleiste: Schätzung, bestes Angebot, Auftrag, Nachträge beauftragt, Leistungsstand, abgerechnet. Je Bereich passend, Reihenfolge ziehbar. | ✓ | Baustein „Kennzahl“ in der Menüleiste |
 | R5 | Volltextsuche links oben mit Bereich „dieses LV · Projekt · alle Projekte“. Sie durchsucht Kurz- und Langtext, OZ, Titel, Nachträge, Bieter:innen, Aufmaß, Rechnungen und Türliste. | ✗ | Suchfeld links mit den drei Bereichen |
 | R6 | Rechte Seite mit Reitern je Bereich: LV (Details, Baudaten, Bauteile, Planung, Baukasten, Fragen & Antworten), Aufträge (Position, Auftrag), Aufmaß/Rechnungen (PDF, Dokument, Abzüge) | ◐ Nur Details | Reiter über den Baustein Detailkarte (kartenReiter) |
 | R7 | Datei: Import · Export · Drucken und Löschen je Bereich (immer an derselben Stelle) | ◐ | Gruppe „Datei“ je Bereich |
@@ -27,15 +27,15 @@ Zeichen:
 | R9 | Eingangsordner (Scans vom Kopierer) | ◐ Einstellungen vorhanden | Später mit der Rechnungsprüfung |
 | R10 | Versionen der AVA (Startversion …) | ⊘ | Entscheidung 36: Die AVA folgt der Abfolge |
 | R11 | Rückgängig mit Verlauf (↶ ▾ Anzahl) | ✓ | |
-| R12 | Handyansicht (nur lesen): Aufträge (Summen, Balken Leistung/abgerechnet), LVs mit Titelsummen und Positionen (Tippen zeigt den Langtext), Nachträge, Rechnungen | ✗ | Eigene Handyansicht |
+| R12 | Handyansicht (nur lesen): Aufträge (Summen, Balken Leistung/abgerechnet), LVs mit Titelsummen und Positionen (Tippen zeigt den Langtext), Nachträge, Rechnungen | ✓ (27.11.) | Eigene Handyansicht |
 
 ## Leistungsverzeichnis
 
 | # | Bisher | Neu | Plan |
 |---|---|---|---|
-| L1 | Baum: Projekt → LVs als Ordner → Gliederung → Positionen. Das gewählte LV ist offen, die anderen sind zugeklappt (Klick öffnet), das Archiv steht am Ende. | ✗ Nur ein LV | Baum wie bisher |
-| L2 | Spalten: Bezeichnung (OZ + Text), Menge, EH, Art, KG, EP (Schätzung), GP. Nach der Vergabe: EP Auftrag + EP Schätz. Darunter „Summe netto (ohne Bedarfs-/Wahlpositionen)“. | ◐ | Spalten wie bisher, KG neu an der Position |
-| L3 | Symbol je Art: Normal, Bedarf (gestrichelt E), Wahl (A), Pauschal (P), Hinweistext (i), Vorbemerkung, Nachtrag (orange +) | ✗ | Symbole |
+| L1 | Baum: Projekt → LVs als Ordner → Gliederung → Positionen. Das gewählte LV ist offen, die anderen sind zugeklappt (Klick öffnet), das Archiv steht am Ende. | ✓ | Baum wie bisher |
+| L2 | Spalten: Bezeichnung (OZ + Text), Menge, EH, Art, KG, EP (Schätzung), GP. Nach der Vergabe: EP Auftrag + EP Schätz. Darunter „Summe netto (ohne Bedarfs-/Wahlpositionen)“. | ✓ | Spalten wie bisher, KG neu an der Position |
+| L3 | Symbol je Art: Normal, Bedarf (gestrichelt E), Wahl (A), Pauschal (P), Hinweistext (i), Vorbemerkung, Nachtrag (orange +) | ✓ | Symbole |
 | L4 | Zuschlagsposition (Art Z aus GAEB, % auf Positionen) und Vorbemerkung als Positionsart V | ✗ | Art Z und V |
 | L5 | Neu: LV (Womit anfangen?), Gliederung, Position, Hinweistext darunter | ✓ | |
 | L6 | Nummerieren mit OZ-Maske und Vorschau | ✓ | |
@@ -46,7 +46,7 @@ Zeichen:
 | L11 | Zeilen an der OZ ziehen; auf ein anderes LV ziehen (verschieben/kopieren, beauftragte LVs nur kopieren). Über zugeklappten Titeln kurz verweilen klappt sie auf. | ◐ | Auf anderes LV ziehen |
 | L12 | Kopieren/Ausschneiden/Einfügen, Mehrfachauswahl wie unter Windows, Leiste für mehrere Zeilen, „Als Normal/Bedarf/Wahl“ für mehrere | ◐ | Art für mehrere |
 | L13 | Eigenschaften der Position (Allgemein · Weiteres · Menge · Grafik), Blättern „1 von 35“ | ◐ (Detailkarte) | Blättern in der Karte |
-| L14 | KG-Spalte mit Vorschlägen (KG des LV, benutzte, passend zum Gewerk). Ändert sich die KG des LV, ziehen Positionen ohne eigene KG mit. | ✗ | KG an der Position |
+| L14 | KG-Spalte mit Vorschlägen (KG des LV, benutzte, passend zum Gewerk). Ändert sich die KG des LV, ziehen Positionen ohne eigene KG mit. | ◐ (KG an der Position) | KG an der Position |
 | L15 | GAEB-Prüfhinweis: Positionen außerhalb der häufigsten Titeltiefe, übersprungene Ebene, mehr als 4 Ebenen | ✗ | Hinweis in der Leiste |
 | L16 | Sperre nach Vergabe 🔒/🔓, Warnung vor der ersten Änderung, beauftragte Nachträge einzeln gesperrt | ◐ | |
 | L17 | Kontextmenü: Position/Gliederungspunkt darin bzw. darunter, Hinweistext darunter, Eigenschaften, Langtext, Kopieren/Ausschneiden/Einfügen, Art setzen, Bietertextergänzung, Nachtrag aus dieser Position, In der Aufmaßprüfung zeigen, Umbenennen, Löschen | ◐ | Ergänzen (höchstens 6 Punkte, Rest unter „Weitere“) |
@@ -71,18 +71,18 @@ Zeichen:
 
 | # | Bisher | Neu | Plan |
 |---|---|---|---|
-| V1 | Versand & Rücklauf: links die LVs (Anzahl Positionen, Summe), Termine Abgabe/Rückmeldung, Zähler (angeschrieben, abgegeben, wollen abgeben, geben nicht ab, offen) | ◐ | Layout wie bisher |
-| V2 | Unterlagen für Bieter:innen: LV-PDF ohne Preise (immer dabei), GAEB X83, Pläne & Dateien, Dateien vom Rechner. Status „noch nicht verschickt“. | ✗ | Unterlagen-Karte (Versand selbst später über die zentrale Versandstelle) |
+| V1 | Versand & Rücklauf: links die LVs (Anzahl Positionen, Summe), Termine Abgabe/Rückmeldung, Zähler (angeschrieben, abgegeben, wollen abgeben, geben nicht ab, offen) | ✓ | Layout wie bisher |
+| V2 | Unterlagen für Bieter:innen: LV-PDF ohne Preise (immer dabei), GAEB X83, Pläne & Dateien, Dateien vom Rechner. Status „noch nicht verschickt“. | ◐ (LV-PDF, X83) | Unterlagen-Karte (Versand selbst später über die zentrale Versandstelle) |
 | V3 | Bieter:innen suchen und mehrere anhaken, passendes Gewerk zuerst, neue Firma direkt anlegen | ◐ | |
 | V4 | Je Bieter:in ein Verlauf: angeschrieben · nachgesandt · nachgefragt (Telefonnotiz, höchstens 10) · nächster Anruf (To-do) · Rückmeldung · Angebot eingegangen. Entfernen (🗑, Entf). | ◐ | |
 | V5 | Senden (Mail mit Vorlagen je LV/Firma, Erinnerung, Nachsenden), mehrere LVs in einem Versand | ⊘ | Später über die zentrale Versandstelle (Entscheidung 26.11.) |
 | V6 | Bieterliste drucken/Excel mit eigener Spaltenwahl | ✗ | Druck |
 | V7 | Nachverfolgen über alle LVs | ✓ | |
-| V8 | Preisspiegel im LV-Baum (Projekt → LVs → Titel mit Summe je Bieter:in → Positionen), Spalte Mittel, Bieter-Spalten ein/aus und ordnen | ◐ | Baum, Mittel, Spaltenwahl |
+| V8 | Preisspiegel im LV-Baum (Projekt → LVs → Titel mit Summe je Bieter:in → Positionen), Spalte Mittel, Bieter-Spalten ein/aus und ordnen | ✓ | Baum, Mittel, Spaltenwahl |
 | V9 | Bieterangaben (Antworten auf Bietertextergänzungen aus X84) im Preisspiegel | ✗ | |
-| V10 | Angaben zum Angebot: Nachlass in % oder €, Skonto % / Tage, Eingang, ausgeschlossen | ◐ (Nachlass nur %) | % oder € |
+| V10 | Angaben zum Angebot: Nachlass in % oder €, Skonto % / Tage, Eingang, ausgeschlossen | ✓ | % oder € |
 | V11 | Angebot einlesen: X84 ✓, Excel ✗, PDF/Scan ⊘ | ◐ | Excel |
-| V12 | Vergeben …, Vergabe aufheben (mit Rechnungen erst nach Rückfrage), Nicht vergeben (zählt nicht mehr für Budget und To-dos) | ◐ | Aufheben, Nicht vergeben |
+| V12 | Vergeben …, Vergabe aufheben (mit Rechnungen erst nach Rückfrage), Nicht vergeben (zählt nicht mehr für Budget und To-dos) | ✓ | Aufheben, Nicht vergeben |
 | V13 | Klärungspunkte je Angebot: EP mehr als 30 % vom Mittel, Bedarfs-/Wahlpositionen. Sie gehen ins Protokoll. | ◐ | |
 | V14 | Angebotsbesprechung: Auswahlfelder mit üblichen Antworten, Abschließen (Angaben in Adressen/Auftragsdaten übernehmen, mit Haken), unterschriebene Fassung hinterlegen | ◐ | Abschließen, Hinterlegen |
 
@@ -90,18 +90,18 @@ Zeichen:
 
 | # | Bisher | Neu | Plan |
 |---|---|---|---|
-| A1 | Aufträge als Baum über alle LVs. Spalten: Bezeichnung, Menge, EH, Art, KG, EP Auftrag, EP Schätz., GP, Prognose, abgerechnet. Sortieren je Ebene, Spaltenwahl. | ✗ | Baum wie im LV |
-| A2 | Nachtrag: Gliederungspunkt/Position, Eingabezeile wie Excel (auch aus der Zwischenablage), Nachtragsangebot einlesen, aus Position ableiten (Mehrmenge / geänderte Leistung), ans Ende/an OZ, verschieben | ◐ | |
-| A3 | Stände des Nachtrags (angemeldet · angeboten · geprüft · beauftragt · abgelehnt), Nachtragsakte mit Prüfablauf (je Projekt oder ab Auftragssumme) | ◐ | Stände; Prüfablauf später |
-| A4 | Auftrag ohne LV („Zettelwirtschaft“: Firma, Summe, KG) | ✗ | |
+| A1 | Aufträge als Baum über alle LVs. Spalten: Bezeichnung, Menge, EH, Art, KG, EP Auftrag, EP Schätz., GP, Prognose, abgerechnet. Sortieren je Ebene, Spaltenwahl. | ✓ | Baum wie im LV |
+| A2 | Nachtrag: Gliederungspunkt/Position, Eingabezeile wie Excel (auch aus der Zwischenablage), Nachtragsangebot einlesen, aus Position ableiten (Mehrmenge / geänderte Leistung), ans Ende/an OZ, verschieben | ◐ (Gliederung, Position, Mehrmenge aus dem Aufmaß) | |
+| A3 | Stände des Nachtrags (angemeldet · angeboten · geprüft · beauftragt · abgelehnt), Nachtragsakte mit Prüfablauf (je Projekt oder ab Auftragssumme) | ◐ (Stände) | Stände; Prüfablauf später |
+| A4 | Auftrag ohne LV („Zettelwirtschaft“: Firma, Summe, KG) | ✓ (27.11.) | |
 | A5 | Vertrag: Bauvertrag, Auftragsschreiben, Vergabe aufheben | ◐ (Bauvertrag) | Auftragsschreiben |
 | A6 | Auftragskarte rechts: Konditionen (Nachlass, Skonto) mit Hinweis bei Abweichung vom Angebot, Bedingungen, Sicherheiten | ◐ | |
-| A7 | Aufmaß je Rechnung: kumulierende Kette (Abschlag → Schluss, Nachtrag), Rechenweg als Stand oder „+“ Zuwachs, Leiste der Rechnungen mit Farben, Mengenüberschreitung als Balken (100/110 %), Datum/Ort/Raum je Zeile | ◐ | Ausbauen |
-| A8 | Mengen der Firma als Zeile „lt. Firma“ übernehmen (eine oder alle), Nachtrag direkt aus dem Aufmaß | ◐ | |
+| A7 | Aufmaß je Rechnung: kumulierende Kette (Abschlag → Schluss, Nachtrag), Rechenweg als Stand oder „+“ Zuwachs, Leiste der Rechnungen mit Farben, Mengenüberschreitung als Balken (100/110 %), Datum/Ort/Raum je Zeile | ✓ (27.11.) | Ausbauen |
+| A8 | Mengen der Firma als Zeile „lt. Firma“ übernehmen (eine oder alle), Nachtrag direkt aus dem Aufmaß | ✓ | |
 | A9 | PDF der Firma daneben mit Haken ✔/✘ direkt im Dokument, automatische Marken | ⊘ vorerst | Erst Abgleich ohne Scan (Merkzettel 25.11.) |
-| A10 | Rechnungsarten: Abschlag, Schluss, Nachtrag, Regie/Stundenlohn, Sicherheit, ohne LV; offene Rechnung derselben Kette sperrt neue | ◐ | |
-| A11 | Prüfen Schritt für Schritt (Rechnung → Prüfweg → Leistung → Abzüge → Freigabe) | ✗ | Assistent |
-| A12 | Rechnungsfreigabe als PDF-Paket (Freigabe, Prüfblatt, Massenermittlung, Rechnung der Firma), „GEPRÜFT ablegen“, Freigabe von Hand mit Pflichtgrund | ✗ | Ausdrucke |
+| A10 | Rechnungsarten: Abschlag, Schluss, Nachtrag, Regie/Stundenlohn, Sicherheit, ohne LV; offene Rechnung derselben Kette sperrt neue | ✓ (Einzelrechnung ohne LV dazu) | |
+| A11 | Prüfen Schritt für Schritt (Rechnung → Prüfweg → Leistung → Abzüge → Freigabe) | ✓ (27.11.) | Assistent |
+| A12 | Rechnungsfreigabe als PDF-Paket (Freigabe, Prüfblatt, Massenermittlung, Rechnung der Firma), „GEPRÜFT ablegen“, Freigabe von Hand mit Pflichtgrund | ◐ (Freigabe, Prüfblatt, Massenermittlung, ablegen – ohne Rechnung der Firma) | Ausdrucke |
 | A13 | Rechenleiter, Skonto je Rechnung, Zahlungen, Sicherheiten, Bürgschaft | ✓ | |
 | A14 | Kostenübersicht | ✓ | |
 

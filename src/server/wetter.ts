@@ -33,6 +33,12 @@ async function holen<T>(adresse: string): Promise<T> {
   return (await r.json()) as T;
 }
 
+/** Abstand zweier Orte in Metern (Haversine). */
+export function abstand(a: number, b: number, c: number, d: number): number {
+  const r = Math.PI / 180, h = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
+  return 12742000 * Math.asin(Math.sqrt(h));
+}
+
 /** WMO-Wettercode -> Auswahl im Tagesbericht */
 export function wetterlage(code: number, wind: number, temperatur: number): string {
   if (wind >= 62 || code >= 95) return 'sturm';
@@ -73,6 +79,22 @@ export function wetterRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (
     const p = await alsBenutzer(e.db, req.benutzer!, async (c) => (await c.query('select strasse, plz, ort from o_projekt where id = $1 and not geloescht', [id])).rows[0] as { strasse: string; plz: string; ort: string } | undefined);
     if (!p || (!p.ort && !p.plz)) return { land: '' };
     try { return { land: (await ortSuchen([p.strasse, [p.plz, p.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '))).land }; } catch { return { land: '' }; }
+  });
+  // Projekt nach Standort (wie im bisherigen Bautagebuch): das nächste aktive Projekt zum Standort des Geräts. Hinaus gehen nur die
+  // Anschriften der Baustellen (einmal je Anschrift, dann gemerkt) – der Standort des Geräts bleibt hier.
+  app.post('/api/projekt/naechstes', { preHandler: e.nurAngemeldet }, async (req) => {
+    const b = (req.body ?? {}) as { lat?: number; lon?: number };
+    const lat = Number(b.lat), lon = Number(b.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Ablehnung('Standort fehlt');
+    const P = await alsBenutzer(e.db, req.benutzer!, async (c) => (await c.query("select id, name, strasse, plz, ort from o_projekt where not geloescht and coalesce(status, 'aktiv') = 'aktiv' and (coalesce(ort, '') <> '' or coalesce(plz, '') <> '')")).rows as { id: string; name: string; strasse: string; plz: string; ort: string }[]);
+    let best: { id: string; name: string; meter: number } | null = null;
+    for (const p of P) {
+      let o: { lat: number; lon: number };
+      try { o = await ortSuchen([p.strasse, [p.plz, p.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '), true); } catch { continue; }
+      const m = abstand(lat, lon, o.lat, o.lon);
+      if (!best || m < best.meter) best = { id: p.id, name: p.name, meter: Math.round(m) };
+    }
+    return { projekt: best };
   });
   app.post('/api/wetter', { preHandler: e.nurAngemeldet }, async (req) => {
     const b = (req.body ?? {}) as { projekt?: string; datum?: string; uhrzeit?: string };

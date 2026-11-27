@@ -11,6 +11,17 @@ import { darf, modell, ruf } from '../unterbau/api';
 import { feldAendern } from './detailkarte';
 import { hinweis } from '../unterbau/meldungen';
 
+/** Fotos hochladen – jedes einzeln mit Vorschaubild, Fortschritt über lage (Bilder, Fotos an Einträgen). */
+export async function fotosHochladen(adresse: string, fest: Werte, dateien: File[], lage: (t: string) => void): Promise<void> {
+  let n = 0;
+  for (const d of dateien) {
+    lage(`Foto ${++n} von ${dateien.length} wird abgelegt …`);
+    try { await ruf(adresse, { ...fest, name: d.name, original: await base64(d), vorschau: await base64(await vorschaubild(d)) }); }
+    catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
+  }
+  lage('');
+}
+
 const KANTE = 800;   // längste Kante des Vorschaubilds in Pixeln – reicht für Karte und Ausdruck (zwei Bilder je Zeile)
 
 export const base64 = (b: Blob) => new Promise<string>((ok, nein) => { const l = new FileReader(); l.onload = () => ok(String(l.result).split(',')[1] ?? ''); l.onerror = () => nein(l.error); l.readAsDataURL(b); });
@@ -40,17 +51,7 @@ export function Bilder(p: {
   const [lage, setLage] = createSignal('');
   const bilder = createMemo(() => Object.values(sicht[p.objekt] ?? {}).filter((z) => !z.geloescht && Object.entries(p.fest).every(([k, w]) => z.werte[k] === w)).sort(listenfolge));
   let wahl!: HTMLInputElement;
-  const dazu = async () => {
-    const dateien = [...(wahl.files ?? [])];
-    wahl.value = '';
-    let n = 0;
-    for (const d of dateien) {
-      setLage(`Foto ${++n} von ${dateien.length} wird abgelegt …`);
-      try { await ruf(p.hochladen, { ...p.fest, name: d.name, original: await base64(d), vorschau: await base64(await vorschaubild(d)) }); }
-      catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
-    }
-    setLage('');
-  };
+  const dazu = async () => { const d = [...(wahl.files ?? [])]; wahl.value = ''; await fotosHochladen(p.hochladen, p.fest, d, setLage); };
   const weg = (z: Zeile) => {
     ausfuehren({ objekt: p.objekt, art: 'loeschen', objektId: z.id }, `Foto „${z.werte.name}“ entfernen`);
     hinweis('Foto aus dem Bericht entfernt. Das Original bleibt im Projektordner liegen.', { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
