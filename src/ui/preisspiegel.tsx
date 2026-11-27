@@ -4,8 +4,8 @@
 // Vergabe aufheben, Nicht vergeben. Hinweistexte und Nachträge stehen nicht im Preisspiegel.
 import { Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { gp, wertung, zaehlt, zahl } from '../module/ava/rechnung';
-import { angeboteVon, name, preiseVon } from './ava';
+import { istZuschlag, lvMenge, wertung, zaehlt, zahl } from '../module/ava/rechnung';
+import { angeboteVon, gpMit, name, preiseVon } from './avadaten';
 import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
@@ -47,13 +47,14 @@ export function Preisspiegel(m: Mitte): JSX.Element {
     id: `a:${a.id}`, titel: name(a.werte.bieter), breite: 108, rechts: true, frei: true,
     kopf: () => <span class="ps-kopf-bieter" classList={{ aus: a.werte.ausgeschlossen === true, gewaehlt: psAngebot() === a.id }} role="button" tabIndex={0} title={a.werte.ausgeschlossen === true ? 'ausgeschlossen – nicht gewertet' : 'Klick: Angaben zum Angebot rechts'}
       onClick={(e) => { e.stopPropagation(); setLvZeiger(null); setPsAngebot(psAngebot() === a.id ? null : a.id); }}>{name(a.werte.bieter)}{a.werte.beauftragt === true ? ' ✓' : ''}</span>,
-    wert: (q) => { const e = preis(a.id, q.id); return e == null ? '' : eur(e); }, roh: (q) => zahlText(preis(a.id, q.id)),
+    wert: (q) => { const e = preis(a.id, q.id); return e == null ? '' : `${eur(e)}${istZuschlag(q.werte.art) ? ' %' : ''}`; }, roh: (q) => zahlText(preis(a.id, q.id)),
+    hinweis: (q) => { const x = preise().get(`${a.id}:${q.id}`)?.werte.angaben; return x ? `Angaben der Bieter:in – ${String(x)}` : undefined; },
     klasse: (q) => { const e = preis(a.id, q.id); if (e == null || a.werte.ausgeschlossen === true) return undefined; const v = vergleich(q); return v.min != null && e === v.min ? 'guenstig' : v.mittel && Math.abs(e / v.mittel - 1) > 0.3 ? 'abweichend' : undefined; },
-    summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gp(q.werte.menge, preis(a.id, q.id) ?? 0), 0),
+    summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gpMit(q, lvMenge, (y) => preis(a.id, y.id)), 0),
     ...(darfPreise() ? { setzen: (q: Zeile, t: string) => setzen(a, q, t) } : {}),
   });
   const spalten = (): BaumSpalte[] => [nurLesen('menge'), nurLesen('einheit'), nurLesen('art'),
-    { ...nurLesen('ep'), id: 'schaetzung', titel: 'Schätzung', summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gp(q.werte.menge, q.werte.ep), 0) },
+    { ...nurLesen('ep'), id: 'schaetzung', titel: 'Schätzung', summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gpMit(q), 0) },
     ...ang().map(bieterSpalte),
     ...(ang().length ? [{ id: 'mittel', titel: 'Mittel', breite: 96, rechts: true, frei: true, hilfe: 'Mittel der gewerteten Angebote', wert: (q: Zeile) => { const x = vergleich(q).mittel; return x == null ? '' : eur(x); } }] : []),
   ];

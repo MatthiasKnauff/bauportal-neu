@@ -1576,3 +1576,5 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .preisspiegel.kostenkontrolle td:not(.zahl) { white-space: normal; } .preisspiegel.kostenkontrolle th, .preisspiegel.kostenkontrolle td { padding: 5px 4px; }
 .kk-nr{color:var(--text-still);margin-right:4px}
 .bsp-rueckweg { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; } .bsp-rueckweg label { display: flex; gap: 8px; align-items: flex-start; }
+.lvt-zelle.mit-hinweis { position: relative; } .lvt-zelle.mit-hinweis::after { content: ""; position: absolute; top: 2px; right: 2px; border: 4px solid transparent; border-top-color: var(--akzent); border-right-color: var(--akzent); }
+.zuschlag-auf { grid-column: 1 / -1; display: grid; gap: 6px; } .zuschlag-auf ul { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); } .zuschlag-auf li { padding: 3px 8px; border-bottom: 1px solid var(--rand); } .zuschlag-auf .reihe { display: flex; gap: 8px; align-items: center; }

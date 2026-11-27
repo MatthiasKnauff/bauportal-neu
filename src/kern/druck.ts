@@ -6,7 +6,7 @@
 import { zumDrucken } from './textergaenzung';
 import type { Feld, ObjektModell, Wert, Werte } from './modell';
 import { nachOz } from './oz';
-import { istHinweis } from './lvarten';
+import { istHinweis, istZuschlag, mengeVon, nachKennung, zuschlagAuf } from './lvarten';
 
 export type Druckblock =
   | { id: string; art: 'briefkopf' }                                   // Büro links, Projekt rechts
@@ -270,7 +270,7 @@ const OHNE_GP: Record<string, string> = { bedarf: 'Bedarfsposition – nur Einhe
 /** Die Tabelle des LV: Titel öffnen eine Gruppe (Ebene aus der OZ), nach ihrer letzten Position steht die Titelsumme. */
 function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; werte: Werte }[], e: Einstellungen): string {
   const preise = e[`${b.id}.preise`] === 'ja', nurKurz = e[`${b.id}.kurz`] === 'ja';
-  const z = nachOz(eintraege);
+  const z = nachOz(eintraege), alle = nachKennung(eintraege);
   const leer = '<span class="leer"></span>';
   const offen: { oz: string; text: string; ebene: number; summe: number }[] = [];
   const oben: { oz: string; text: string; summe: number }[] = [];
@@ -288,10 +288,12 @@ function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; we
     const kurz = sicher(String(w.kurztext ?? '')), lang = nurKurz ? '' : zumDrucken(String(w.langtext ?? '').trim());
     if (art === 'titel') { schliessen(ebene); offen.push({ oz, text: String(w.kurztext ?? ''), ebene, summe: 0 }); zeilen.push(`<tr class="lv-titel"><td class="oz">${sicher(oz)}</td><td colspan="5">${kurz}</td></tr>`); continue; }
     if (istHinweis(art)) { zeilen.push(`<tr><td class="oz">${sicher(oz)}</td><td colspan="5"><div class="kurz">${kurz}</div>${lang ? `<div class="lang">${sicher(lang)}</div>` : ''}</td></tr>`); continue; }
-    const menge = zahlVon(w.menge), ep = zahlVon(w.ep), gp = Math.round(menge * ep * 100) / 100, zaehlt = !OHNE_GP[art];
+    // Zuschlagsposition: Satz in % auf die GP ihrer Positionen (kern/lvarten.ts) – als Menge die Summe / 100
+    const zu = istZuschlag(art), menge = zu ? mengeVon({ id: '', werte: w }, alle, (y) => zahlVon(y.werte.menge), (y) => zahlVon(y.werte.ep)) : zahlVon(w.menge);
+    const ep = zahlVon(w.ep), gp = Math.round(menge * ep * 100) / 100, zaehlt = !OHNE_GP[art];
     if (zaehlt) { if (offen.length) offen[offen.length - 1]!.summe += gp; else gesamt += gp; }
     zeilen.push(`<tr><td class="oz">${sicher(oz)}</td><td><div class="kurz">${kurz}</div>${lang ? `<div class="lang">${sicher(lang)}</div>` : ''}${OHNE_GP[art] ? `<div class="merk">${OHNE_GP[art]}</div>` : art === 'stundenlohn' ? '<div class="merk">Stundenlohnarbeiten</div>' : ''}</td>`
-      + `<td class="zahl">${w.menge != null && w.menge !== '' ? sicher(menge.toLocaleString('de', { maximumFractionDigits: 3 })) : ''}</td><td>${sicher(String(w.einheit ?? ''))}</td>`
+      + `<td class="zahl">${zu ? `auf ${zuschlagAuf(w).length} Pos.` : w.menge != null && w.menge !== '' ? sicher(menge.toLocaleString('de', { maximumFractionDigits: 3 })) : ''}</td><td>${zu ? '%' : sicher(String(w.einheit ?? ''))}</td>`
       + `<td class="betrag">${preise ? (ep ? geld(ep) : '') : leer}</td><td class="betrag">${zaehlt ? (preise ? geld(gp) : leer) : ''}</td></tr>`);
   }
   schliessen(1);

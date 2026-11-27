@@ -10,19 +10,13 @@ import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Vorlage } from '../kern/befehl';
+import { TABELLEN, dateiWaehlen } from './baukasten/dateiwahl';
 
 const [offen, setOffen] = createSignal<{ name: string; t: Tabelle } | null>(null);
 const AKTIONEN: { wert: Aktion; titel: string }[] = [{ wert: 'ergaenzen', titel: 'ergänzen' }, { wert: 'ueberspringen', titel: 'überspringen' }, { wert: 'doppelt', titel: 'doppelt anlegen' }];
 
 export function adressenEinlesen(): void {
-  const wahl = document.createElement('input');
-  wahl.type = 'file'; wahl.accept = '.xlsx,.xlsm,.csv,.txt';
-  wahl.onchange = async () => {
-    const d = wahl.files?.[0]; if (!d) return;
-    try { setOffen({ name: d.name, t: await tabelleLesen(d.name, new Uint8Array(await d.arrayBuffer())) }); }
-    catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
-  };
-  wahl.click();
+  dateiWaehlen(TABELLEN, async (d) => { setOffen({ name: d.name, t: await tabelleLesen(d.name, new Uint8Array(await d.arrayBuffer())) }); });
 }
 
 function EinlesenFenster(p: { name: string; t: Tabelle }) {

@@ -110,3 +110,21 @@ export class Kalender {
   anfangsdatum(s: number): string { return isoAus(this.tag(s)); }
   endedatum(s: number, f: number): string { return isoAus(this.tag(f > s ? f - 1 : s)); }
 }
+
+/** „16.11.2026“, „16.11.26“, „16.11.“ oder ISO → ISO; null, wenn nicht lesbar. */
+export function datumLesen(t: string): string | null {
+  const s = t.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = /^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})?$/.exec(s);
+  if (!m) return null;
+  const j = !m[3] ? new Date().getFullYear() : m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const iso = `${j}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}`;
+  return isoAus(tagAus(iso)) === iso ? iso : null;
+}
+
+// ---------- Anzeige (Balkenplan, Gewerke & Firmen – eine Stelle) ----------
+export const MONATE_KURZ = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+/** „16.11.26“ */
+export const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}` : '');
+/** „Mo 16.11.26“ */
+export const tagname = (iso: string) => (iso ? `${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][wochentag(tagAus(iso))]} ${kurz(iso)}` : '');

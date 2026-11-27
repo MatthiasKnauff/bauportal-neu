@@ -1200,6 +1200,10 @@ test('GAEB DA XML: schreiben und wieder lesen (X83 ohne, X84 mit Preisen)', asyn
   const x84 = g.gaebLesen(g.gaebSchreiben({ projekt: 'Haus A', name: 'Malerarbeiten', nummer: '034' }, posten, '84', (oz) => ({ '01.0010': 7.5, '02.0010': 280 } as Record<string, number>)[oz] ?? null));
   assert.deepEqual(x84.posten.filter((x) => x.ep != null).map((x) => [x.oz, x.ep]), [['01.0010', 7.5], ['02.0010', 280]], 'X84: Einheitspreise');
   assert.throws(() => g.gaebLesen('<foo/>'), /GAEB/);
+  // Bieterangaben (V9): Antworten in den Bieter-Ergänzungen – „Angeboten“ gehört zur Frage davor
+  const mit = g.gaebSchreiben({ projekt: 'A', name: 'M', nummer: '1' }, [{ oz: '01', art: 'titel', kurztext: 'T', langtext: '', menge: null, einheit: '', ep: null }, { oz: '01.0010', art: 'normal', kurztext: 'W', langtext: 'Farbe [[Bieter: Fabrikat]]\nTyp [[Bieter: Typ | Caparol X]]', menge: 1, einheit: 'm2', ep: null }], '84', () => 5);
+  let n = 0; const antwort = mit.replace(/<ComplBody><\/ComplBody>/g, () => `<ComplBody><span>${['Brillux', 'Caparol X'][n++]}</span></ComplBody>`);
+  assert.equal(g.gaebLesen(antwort).posten[1]!.angaben, 'Fabrikat: Brillux; Typ: Caparol X');
 });
 
 test('Ausschreibung: Rechenleiter einer Abschlagsrechnung (Nachlass, USt, Einbehalt, bisherige Zahlungen)', async () => {
@@ -2033,4 +2037,57 @@ test('Adressen aufräumen: „Nicht ähnlich“ gemerkte Werte bilden keine Grup
   assert.equal(w.aehnlicheGruppen(W).length, 2);
   const g = w.aehnlicheGruppen(W, new Set(w.paareDer(['Elektro', 'Elektroinstallation'])));
   assert.deepEqual(g.map((x) => x.map((y) => y.wert)), [['Maler', 'maler']]);
+});
+
+test('Bauzeitenplan: Änderung am Master in die Kopien (nur wo die Kopie noch wie vorher ist), Pfeilwege', async () => {
+  const { masterNachziehen } = await import('../src/module/bauzeitenplan/master');
+  const v = [{ id: 'M', reihe: 1, ebene: 0, master: true }, { id: 'A', reihe: 2, ebene: 1 }, { id: 'K', reihe: 3, ebene: 0, kopieVon: 'M' }, { id: 'A2', reihe: 4, ebene: 1, kopieVon: 'A' },
+    { id: 'K2', reihe: 5, ebene: 0, kopieVon: 'M' }, { id: 'A3', reihe: 6, ebene: 1, kopieVon: 'A' }];
+  const werte: Record<string, Record<string, string | number>> = { M: { name: 'Haus 1' }, A: { dauer: 6 }, A2: { dauer: 5 }, A3: { dauer: 9 } };
+  const u = { v: () => v, l: () => [], werte: (id: string) => werte[id], linkAlt: () => undefined, kopienDer: () => [], z: {}, neu: () => 'neu', autom: true };
+  const r = masterNachziehen([{ objekt: 'vorgang', art: 'aendern', objektId: 'A', werte: { dauer: 6 } }], [{ objekt: 'vorgang', art: 'aendern', objektId: 'A', werte: { dauer: 5 } }], u);
+  assert.ok(r); assert.equal(r!.kopien, 2); assert.equal(r!.mname, 'Haus 1');
+  assert.deepEqual(r!.uebernehmen(), [{ objekt: 'vorgang', art: 'aendern', objektId: 'A2', werte: { dauer: 6 } }]);   // A3 von Hand geändert: bleibt
+  assert.equal(masterNachziehen([{ objekt: 'vorgang', art: 'aendern', objektId: 'A', werte: { pct: 5 } }], [], u), null);
+  const { pfeilWege } = await import('../src/module/bauzeitenplan/pfeile');
+  const t = new Map([['a', { s: 0, f: 2, kritisch: true, abschnitte: [] }], ['b', { s: 2, f: 4, kritisch: true, abschnitte: [] }]]) as never;
+  const p = pfeilWege([{ id: 'l', von: 'a', nach: 'b', art: 'ea', abstand: 0 }], t, new Map([['a', 0], ['b', 1]]), 'kritisch', null, { x: (w) => w * 10, xEnde: (_s, f) => f * 10, h: 30 });
+  assert.deepEqual(p, [{ id: 'l', d: 'M20,15 H26 V45 H14 L20,45', kritisch: true, x2: 20, yb: 45, links: true }]);
+  assert.deepEqual(pfeilWege([{ id: 'l', von: 'a', nach: 'b', art: 'ea', abstand: 0 }], t, new Map([['a', 0], ['b', 1]]), 'keine', null, { x: (w) => w, xEnde: (_s, f) => f, h: 30 }), []);
+});
+
+test('Zuschlagsposition (Art Z): Satz in % auf die GP der gewählten Positionen – Schätzung, Angebot, GAEB hin und zurück', async () => {
+  const r = await import('../src/module/ava/rechnung'), g = await import('../src/module/ava/gaeb');
+  type E = { id: string; werte: Record<string, string | number | null> };
+  const P: E[] = [{ id: 'a', werte: { oz: '01.0010', art: 'normal', menge: 10, ep: 100 } }, { id: 'b', werte: { oz: '01.0020', art: 'normal', menge: 2, ep: 50 } },
+    { id: 'z', werte: { oz: '01.0030', art: 'zuschlag', ep: 10, zuschlag_auf: 'a,b' } }];
+  assert.equal(r.summeGeschaetzt(P), 1100 + 110);   // 1000 + 100 + 10 % davon
+  const w = r.wertung(P, [{ id: 'x', werte: {} }], (_a, q) => ({ a: 90, b: 40, z: 5 } as Record<string, number>)[q] ?? null);
+  assert.equal(w[0]!.netto, 900 + 80 + 49);   // 5 % auf 980
+  const x = g.gaebSchreiben({ projekt: 'A', name: 'M', nummer: '1' }, [{ oz: '01', art: 'titel', kurztext: 'T', langtext: '', menge: null, einheit: '', ep: null },
+    { oz: '01.0010', art: 'normal', kurztext: 'A', langtext: '', menge: 10, einheit: 'm2', ep: null }, { oz: '01.0020', art: 'normal', kurztext: 'B', langtext: '', menge: 2, einheit: 'St', ep: null },
+    { oz: '01.0030', art: 'zuschlag', kurztext: 'Zuschlag Baustelleneinrichtung', langtext: '', menge: null, einheit: '%', ep: null, zuschlagAuf: ['01.0010'] }], '84', (oz) => (oz === '01.0030' ? 7.5 : 1));
+  const z = g.gaebLesen(x).posten.find((y) => y.art === 'zuschlag')!;
+  assert.equal(z.ep, 7.5); assert.equal(z.oz, '01.0030');
+  assert.deepEqual(z.zuschlagAuf, [g.gaebLesen(x).posten.find((y) => y.oz === '01.0010')!.kennung]);
+});
+
+test('Versandstelle: Mitteilungen gleich, Erinnerungen einmal am Tag je Adresse gebündelt; Anrede', async () => {
+  const v = await import('../src/module/verwaltung/versand');
+  const N: { id: string; werte: Record<string, string> }[] = [
+    { id: '1', werte: { stand: 'wartet', art: 'mitteilung', an: 'a@x.de', betreff: 'Angebot', text: 'T1' } },
+    { id: '2', werte: { stand: 'wartet', art: 'erinnerung', an: 'b@x.de', betreff: 'Frist Mangel 1', text: 'M1' } },
+    { id: '3', werte: { stand: 'wartet', art: 'erinnerung', an: 'B@x.de', betreff: 'Frist Mangel 2', text: 'M2' } },
+    { id: '4', werte: { stand: 'wartet', art: 'erinnerung', an: 'c@x.de', betreff: 'später', faellig: '2026-12-31' } },
+    { id: '5', werte: { stand: 'verschickt', art: 'mitteilung', an: 'd@x.de', betreff: 'alt' } },
+  ];
+  const frueh = new Date('2026-11-27T05:00:00Z'), spaeter = new Date('2026-11-27T07:30:00Z');   // 06:00 bzw. 08:30 in Berlin
+  assert.deepEqual(v.pakete(N, frueh, {}).pakete.map((p) => p.ids), [['1']]);          // vor 07:00: nur die Mitteilung
+  const r = v.pakete(N, spaeter, {});
+  assert.equal(r.lauf, '2026-11-27');
+  assert.deepEqual(r.pakete.map((p) => p.ids), [['1'], ['2', '3']]);
+  assert.equal(r.pakete[1]!.betreff, '2 Erinnerungen aus dem Bauportal');
+  assert.deepEqual(v.pakete(N, spaeter, { letzter: '2026-11-27' }).pakete.map((p) => p.ids), [['1']]);   // heute schon gebündelt
+  assert.equal(v.anredeVon({ anrede: 'Frau', ansprechpartner: 'Erika Muster' }), 'Sehr geehrte Frau Muster,');
+  assert.equal(v.anredeVon({ name: 'Muster GmbH' }), 'Sehr geehrte Damen und Herren,');
 });

@@ -19,7 +19,7 @@ import { darstellungAusAlt, type AlteDarstellung } from '../kern/design';
 import { festeKennung } from './grundausstattung';
 import { MIT_ERLEDIGT } from '../module/bautagebuch/beipackzettel';
 import { planUebernehmen } from './bauzeitenplan';
-import { abgleicher, merken, type Eintrag, type Vorschau, type Zahl } from './uebernahme';
+import { abgleicher, merken, type Vorschau, type Zahl } from './uebernahme';
 
 type Alt = Record<string, unknown>;
 interface Export { format?: number; tables?: Record<string, Alt[]> }

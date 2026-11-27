@@ -7,7 +7,8 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import { beitrag, geprueft as istGeprueft, ketteVon, mehrmenge, nachAufmass, pruefung, rechnungTitel, vorige, zeileAus } from '../module/ava/aufmass';
 import { abschliessen, aufmassVon, setRechnungWahl, zuruecknehmbar, zuruecknehmen } from './rechnungpruefen';
-import { gp, zaehlt, zahl } from '../module/ava/rechnung';
+import { gp, istZuschlag, zaehlt, zahl } from '../module/ava/rechnung';
+import { gpMit } from './avadaten';
 import { AufmassEinlesen } from './aufmasseinlesen';
 import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
@@ -42,6 +43,7 @@ export function Aufmasspruefung(m: Mitte): JSX.Element {
     else ausfuehren({ objekt: 'aufmass', art: 'anlegen', objektId: neueKennung(), werte: { projekt: projekt(), lv: lvId(), position: q.id, rechnung: a.r() && ketteVon(a.r()!) === null ? a.r()!.id : null, datum: heute(), quelle: 'eigen', ...werte } }, 'Aufmaß');
   };
   const vorTitel = () => { const v = vorige(a.rechnungen(), a.r()); return v ? `bis ${RART[String(v.werte.art)] ?? ''} ${String(v.werte.nummer ?? '')}`.trim() : 'bisher'; };
+  const geprueft = (y: Zeile) => a.stand().get(y.id) ?? 0;
   const spalten = (): BaumSpalte[] => [
     { ...LV_SPALTEN.find((s) => s.id === 'menge')!, titel: 'Menge LV', setzen: undefined }, { ...LV_SPALTEN.find((s) => s.id === 'einheit')!, setzen: undefined },
     { id: 'ep', titel: 'EP Auftrag', aus: true, breite: 80, rechts: true, wert: (q) => { const e = a.ep(q); return e == null ? '' : eur(e); } },
@@ -65,10 +67,11 @@ export function Aufmasspruefung(m: Mitte): JSX.Element {
       const f = a.firma().get(q.id)?.werte.menge; if ((f == null || f === '') && a.stand().get(q.id) == null) return '';
       return { stimmt: '✓', abweichend: '✗', offen: '○' }[pruefung(f == null || f === '' ? null : zahl(f), a.stand().get(q.id))]; },
       klasse: (q) => { const f = a.firma().get(q.id)?.werte.menge; const p = pruefung(f == null || f === '' ? null : zahl(f), a.stand().get(q.id)); return `am-${p}`; } },
-    { id: 'gp_gepr', titel: 'GP geprüft', breite: 96, rechts: true, wert: (q) => { const s = a.stand().get(q.id), e = a.ep(q); return s == null || e == null || !zaehlt(q) ? '' : eur(gp(s, e)); },
-      summe: (pos) => pos.filter(zaehlt).reduce((x, q) => x + gp(a.stand().get(q.id) ?? 0, a.ep(q) ?? 0), 0) },
+    { id: 'gp_gepr', titel: 'GP geprüft', breite: 96, rechts: true, wert: (q) => { const s = a.stand().get(q.id), e = a.ep(q); return (s == null && !istZuschlag(q.werte.art)) || e == null || !zaehlt(q) ? '' : eur(gpMit(q, geprueft, a.ep)); },
+      summe: (pos) => pos.filter(zaehlt).reduce((x, q) => x + gpMit(q, geprueft, a.ep), 0) },
   ];
-  const summeFirma = (pos: Zeile[]) => pos.filter(zaehlt).reduce((x, q) => { const f = a.firma().get(q.id)?.werte.menge; return x + (f == null || f === '' ? 0 : gp(f, a.ep(q) ?? 0)); }, 0);
+  const laut = (y: Zeile) => { const f = a.firma().get(y.id)?.werte.menge; return f == null || f === '' ? 0 : zahl(f); };
+  const summeFirma = (pos: Zeile[]) => pos.filter(zaehlt).reduce((x, q) => x + gpMit(q, laut, a.ep), 0);
   const fuss = (): FussZeile[] => [
     { titel: 'Leistungsstand netto geprüft', wert: (s, pos) => (s.id === 'gp_gepr' ? eur(s.summe!(pos) ?? 0) : '') },
     { titel: 'Leistungsstand netto laut Firma (Menge Firma × EP Auftrag)', wert: (s, pos) => (s.id === 'gp_gepr' ? eur(summeFirma(pos)) : '') },

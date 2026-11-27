@@ -2,9 +2,9 @@
 // Haken vorn an jeder Zeile oder Karte; Strg+Klick dazu/ab, Umschalt+Klick von … bis; Haken im Kopf = alle gefilterten
 // (halb = einige); Strg+A alle gefilterten, Esc hebt auf; am Handy lange tippen beginnt die Auswahl, danach tippen = dazu/ab.
 // Die Auswahl bleibt beim Ändern des Filters. Die Befehle stehen in einer schwebenden Leiste unten über der Liste
-// (nichts schiebt die Liste) und, auf eine gewählte Zeile mit der rechten Maustaste, im Kontextmenü (höchstens 6 Punkte).
+// (nichts schiebt die Liste) und, auf eine gewählte Zeile mit der rechten Maustaste, im Kontextmenü (höchstens 9 Punkte).
 import { For, Show, createEffect, createMemo, createSignal } from 'solid-js';
-import { zeigeMenue, type Menuepunkt } from './kontextmenue';
+import { HOECHSTENS, zeigeMenue, type Menuepunkt } from './kontextmenue';
 import { handy } from '../unterbau/geraet';
 import { Zeichen } from './zeichen';
 
@@ -82,7 +82,7 @@ export function KopfHaken(p: { auswahl: Auswahl; reihe: () => string[] }) {
     checked={!!p.reihe().length && n() === p.reihe().length} ref={(el) => createEffect(() => { el.indeterminate = n() > 0 && n() < p.reihe().length; })} onClick={(e) => { e.stopPropagation(); p.auswahl.alle(p.reihe()); }} />;
 }
 
-/** Ein Befehl für die Gewählten. menue: statt sofort auszuführen klappt eine Liste auf (höchstens 6 Punkte). */
+/** Ein Befehl für die Gewählten. menue: statt sofort auszuführen klappt eine Liste auf (höchstens 9 Punkte). */
 export interface AuswahlBefehl {
   titel: string;
   tun?: (ids: string[]) => void;
@@ -140,10 +140,10 @@ export function Auswahlleiste(p: { auswahl: Auswahl; reihe: () => string[]; befe
   );
 }
 
-/** Kontextmenü auf einer gewählten Zeile: dieselben Befehle wie die Leiste, dazu „Auswahl aufheben“ – höchstens 6. */
+/** Kontextmenü auf einer gewählten Zeile: dieselben Befehle wie die Leiste, dazu „Auswahl aufheben“ – höchstens so viele wie das Kontextmenü erlaubt. */
 export function auswahlMenue(a: Auswahl, befehle: AuswahlBefehl[], e: MouseEvent): void {
   const ids = [...a.ids()];
   const punkte: Menuepunkt[] = befehle.map((b) => ({ titel: `${b.titel}${b.menue ? ' …' : ''}`, gefahr: b.gefahr, gesperrt: !!b.gesperrt?.(ids), tun: () => ausfuehren(b, ids, e) }));
   const aufheben: Menuepunkt = { titel: 'Auswahl aufheben', tun: a.leeren };
-  zeigeMenue(e, punkte.length >= 6 ? [...punkte.slice(0, 5), aufheben] : [...punkte, aufheben]);
+  zeigeMenue(e, [...punkte.slice(0, HOECHSTENS - 1), aufheben]);
 }

@@ -1,7 +1,7 @@
 // Adressen: Befehle für mehrere gewählte Kontakte (wie im bisherigen Bauportal, Mock „Adressen auswählen“):
 // ＋ Projekt · Ändern (Art; Gewerk, Stichwort, Tag dazu oder entfernen; Projekt entfernen) · Ausgeben (Excel, Visitenkarten)
 // · Zusammenführen (2–8). Jede Änderung ist ein Schritt – ein „Zurück“ nimmt sie für alle Gewählten zurück.
-// „Mail an alle“ kommt mit der zentralen Versandstelle.
+// · Mail an alle (über die zentrale Versandstelle: je Kontakt eine Mail im Postausgang).
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Wert } from '../kern/modell';
 import type { Vorlage } from '../kern/befehl';
@@ -13,6 +13,7 @@ import { FeldEingabe } from './baukasten/feld';
 import type { AuswahlBefehl } from './baukasten/auswahl';
 import type { AuswahlHilfen } from './baukasten/anpassung';
 import { aufraeumenOeffnen } from './aufraeumen';
+import { mailAnAlle } from './versand';
 
 type Art = 'art' | 'gewerk' | 'stichworte' | 'tags' | 'projekt' | 'projekt_weg';
 const [offen, setOffen] = createSignal<{ art: Art; ids: string[] } | null>(null);
@@ -44,6 +45,7 @@ export function kontaktAuswahl(h: AuswahlHilfen): AuswahlBefehl[] {
       ...(h.drucken ? [{ titel: 'Drucken / PDF', tun: () => h.drucken!(ids) }] : []),
       { titel: 'Visitenkarten (vCard)', tun: () => void ladeDatei('/api/kontakte.vcf', { ids }).catch((e) => hinweis((e as Error).message, { art: 'fehler' })) },
     ] },
+    { titel: 'Mail an alle', gesperrt: () => (darf('nachricht', 'schreiben') ? undefined : 'Dazu fehlt dir das Recht'), tun: (ids) => mailAnAlle(ids) },
     { titel: 'Zusammenführen', gesperrt: (ids) => (!darf('kontakt', 'loeschen') ? 'Dazu fehlt dir das Recht' : ids.length < 2 ? 'Ab zwei gewählten Kontakten' : ids.length > 8 ? 'Höchstens 8 auf einmal' : undefined),
       tun: (ids) => aufraeumenOeffnen(ids) },
   ];

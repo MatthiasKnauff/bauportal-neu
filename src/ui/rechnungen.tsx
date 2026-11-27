@@ -7,8 +7,8 @@ import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
 import { geprueft as istGeprueft, ketteVon, nachAufmass, neueGesperrt, pruefFrist, pruefung, rechnungTitel, standAus, zeilenBis, zeilenSumme } from '../module/ava/aufmass';
 import { RECHNUNGSARTEN } from '../module/ava/beipackzettel';
-import { bedingungenAus, gp, leiter, strafeVorschlag, zaehlt, zahl } from '../module/ava/rechnung';
-import { angeboteVon, lvZahlen, name } from './ava';
+import { bedingungenAus, gp, istZuschlag, leiter, strafeVorschlag, zaehlt, zahl } from '../module/ava/rechnung';
+import { angeboteVon, gpMit, lvZahlen, name } from './avadaten';
 import { Aufmasspruefung, AufmassKarte, RechnungsLeiste } from './aufmasspruefung';
 import { lvVon, lvWaehlen } from './avakopf';
 import { projektId } from './projekt';
@@ -120,7 +120,7 @@ function Leistung(p: { r: Zeile; zumAufmass?: () => void }): JSX.Element {
     let laut = 0, abw = 0, offen = 0;
     for (const q of pos) {
       const f = firma.get(q.id), s = stand.get(q.id);
-      if (f != null) laut += gp(f, ep(q) ?? 0);
+      if (f != null || istZuschlag(q.werte.art)) laut += gpMit(q, (y) => firma.get(y.id) ?? 0, ep);
       const pr = pruefung(f, s); if (pr === 'abweichend' && (f != null || s)) abw++; else if (pr === 'offen' && f != null) offen++;
     }
     return { laut: Math.round(laut * 100) / 100, abw, offen, firma: firma.size };

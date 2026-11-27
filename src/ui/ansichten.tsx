@@ -22,7 +22,7 @@ import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { hinweis } from './unterbau/meldungen';
 import type { Anpassung } from './baukasten/anpassung';
-import { AVA_OBEN, nurGewaehltesLv } from './avakopf';
+import { AVA_OBEN } from './avakopf';
 import { KatasterHolen } from './kataster';
 import { TuerlisteOben, tuerKnoepfe } from './tuerliste';
 import { Detailkarte } from './baukasten/detailkarte';
@@ -44,7 +44,7 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
-import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvSummen, LvWahl, PositionSumme } from './ava';
+import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvSummen, PositionSumme, ZuschlagAuf } from './ava';
 import { RechnungLeiter, Rechnungen } from './rechnungen';
 import { AvaHandy } from './avahandy';
 import { planDerVersion } from './plandaten';
@@ -64,6 +64,7 @@ import { rechnungEinlesen } from './rechnungeinlesen';
 import { EingangAnsicht } from './dokumentablage';
 import { kontaktAuswahl } from './kontaktauswahl';
 import { PruefSchluessel } from './pruefki';
+import { MailVersand } from './versand';
 
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
 
@@ -431,7 +432,7 @@ function Darstellung() {
   return <Rahmen schluessel="verwaltung.darstellung" inhalt={<Darstellungsseite />} />;
 }
 
-const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht, 'dateien.alle': AlleDateien, 'dateien.eingang': EingangAnsicht };
+const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.mail': MailVersand, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht, 'dateien.alle': AlleDateien, 'dateien.eingang': EingangAnsicht };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
 // Mehrere wählen: ein Feld für alle setzen und die Auswahl als Excel – dazu kommt vom Baustein der Papierkorb
 const ANPASSUNG: Record<string, Anpassung> = {
@@ -475,7 +476,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   // Ausschreibung: Summen in den Karten
   lv: { kartenZusatz: (z) => <LvSummen lv={z} />, kartenEinschub: { vergabenummer: (z) => <VergabenummerVorschlag lv={z} /> } },
-  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), neuVorgabe: (vorh, schon) => {
+  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), kartenEinschub: { ep: (z) => <ZuschlagAuf pos={z} /> }, neuVorgabe: (vorh, schon) => {
     // im Nachtrag: dessen Nummer vorne (N1.0010, N1.0020 …), sonst hinter der letzten Position der Ausschreibung
     const nt = schon.nachtrag ? sicht.nachtrag?.[String(schon.nachtrag)] : undefined;
     if (nt) { const eigene = vorh.filter((x) => x.werte.nachtrag === nt.id); return { art: 'normal', oz: eigene.length ? naechsteOz(eigene) : `${String(nt.werte.nummer || 'N')}.0010` }; }
@@ -521,15 +522,15 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
   'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, neuTitel: 'LV',
     detailsHinweis: 'Eine Zeile anklicken – hier stehen dann alle Angaben der Position (Kurz- und Langtext, Menge, Einheit, Preis), direkt änderbar.',
-    details: (_, heftzwecke, standard) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={z} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : standard(); } },
+    details: (_, heftzwecke, standard) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} {...karteVon('lv_position')} zeile={z} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : standard(); } },
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, ohneNeu: true,
     details: (_, heftzwecke, standard) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; const a = psAngebot() ? sicht.angebot?.[psAngebot()!] : undefined;
-      return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} />
+      return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} {...karteVon('lv_position')} zeile={q} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} />
         : a && !a.geloescht ? <Detailkarte modell={modell('angebot')} zeile={a} heftzwecke={heftzwecke()} onZu={() => setPsAngebot(null)} verborgen={['projekt', 'lv']} zusatz={(z) => <><AngebotSumme angebot={z} /><BesprechungKnopf angebot={z} /></>} /> : standard(); },
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },
   'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, ohneNeu: true,
     detailsHinweis: 'Eine Position anklicken – hier steht dann ihre Karte. Ohne Auswahl: der Auftrag mit Nachträgen, Summen und Sicherheiten.',
-    details: (z, heftzwecke) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : <div class="karte"><div class="karte-kopf">{heftzwecke()}</div><AuftragKarte lv={z} /></div>; } },
+    details: (z, heftzwecke) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} {...karteVon('lv_position')} zeile={q} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : <div class="karte"><div class="karte-kopf">{heftzwecke()}</div><AuftragKarte lv={z} /></div>; } },
   'ava.rechnungen': { mitte: (m) => <Rechnungen {...m} />, ohneNeu: true,
     detailsHinweis: 'Links ein vergebenes LV wählen, oben eine Rechnung – hier stehen dann alle ihre Angaben (auch Zahlung und Prüfvermerk).',
     details: (z, heftzwecke, standard) => { const r = z ? gewaehlteRechnung(z.id) : null; return r ? <Detailkarte modell={modell('rechnung')} zeile={r} heftzwecke={heftzwecke()} onZu={() => setRechnungWahl(null)} verborgen={['projekt', 'lv']} /> : standard(); } },

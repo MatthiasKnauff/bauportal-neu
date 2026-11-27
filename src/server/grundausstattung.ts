@@ -5,7 +5,7 @@ import type { Modulregister } from '../kern/modul';
 import { ROLLEN } from '../kern/rechte';
 import { SYSTEM, type Db } from './db';
 import { befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
-import { ABLAGE_ID, BUERO_ID } from '../module/verwaltung/beipackzettel';
+import { ABLAGE_ID, BUERO_ID, MAILSERVER_ID } from '../module/verwaltung/beipackzettel';
 import { VORINSTALLIERT } from '../kern/design';
 
 /** Aus einem Text immer dieselbe Kennung – so entsteht ein Eintrag auch bei mehreren Starts nur einmal. */
@@ -42,6 +42,8 @@ export async function grundausstattung(db: Db, register: Modulregister): Promise
   }
   if (!(await db.query('select 1 from o_buero where id = $1', [BUERO_ID])).rowCount) await system('buero', BUERO_ID, {});
   if (!(await db.query('select 1 from o_ablage where id = $1', [ABLAGE_ID])).rowCount) await system('ablage', ABLAGE_ID, {});
+  // Versandstelle: zurückhaltend voreingestellt – Erinnerungen einmal am Tag um 07:00
+  if (!(await db.query('select 1 from o_mailserver where id = $1', [MAILSERVER_ID])).rowCount) await system('mailserver', MAILSERVER_ID, { port: 587, sicherheit: 'starttls', buendeln: 'tag', uhrzeit: '07:00' });
   // Vorinstallierte Designs (die Farbschemen des bisherigen Bauportals): je einmal; was das Büro gelöscht oder geändert hat, bleibt so
   for (const v of VORINSTALLIERT) {
     const id = festeKennung(`design:${v.schluessel}`);

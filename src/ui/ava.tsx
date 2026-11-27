@@ -2,80 +2,26 @@
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, nachOz, summeGeschaetzt, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
+import { nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Ruecklauf, nachtragNetto, ozVergleich, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
 import type { Werte } from '../kern/modell';
-import { abgerechnetAus, standAus, zeilenBis } from '../module/ava/aufmass';
-import { epAus } from '../module/ava/freigabe';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
-import { gaebSchreiben, type GaebPosten } from '../module/ava/gaeb';
 import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
-import { Seitenliste } from './baukasten/seitenliste';
-import { lvVon, lvWaehlen } from './avakopf';
+import { lvVon } from './avakopf';
 import { springeZu } from './sprung';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
-import { darf, modell, neueKennung } from './unterbau/api';
+import { darf, modell } from './unterbau/api';
 import { FeldEingabe } from './baukasten/feld';
 import { Zeichen } from './baukasten/zeichen';
 import { druckOeffnen, verzeichnisDrucken } from './druck';
 import { LvListe } from './lvliste';
 import { hinweis } from './unterbau/meldungen';
 import { BieterDazu } from './preisspiegel';
-import { istText } from '../kern/lvarten';
+import { allePositionenVon, angeboteVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon, type LvZahlen } from './avadaten';
+import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
 
 const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-export const name = (kontakt: unknown) => String(sicht.kontakt?.[String(kontakt ?? '')]?.werte.name ?? 'Bieter:in');
-/** Positionen der Ausschreibung (ohne Nachträge) – Preisspiegel, Summen, GAEB. */
-const positionenVon = (lv: string) => nachOz(lebende('lv_position').filter((p) => p.werte.lv === lv && ausgeschrieben(p)));
-/** Alle Positionen eines Auftrags, mit Nachträgen – Aufmaß und Abrechnung. */
-const allePositionenVon = (lv: string) => nachOz(lebende('lv_position').filter((p) => p.werte.lv === lv));
-export const angeboteVon = (lv: string) => lebende('angebot').filter((a) => a.werte.lv === lv).sort((a, b) => name(a.werte.bieter).localeCompare(name(b.werte.bieter), 'de'));
-/** Preise eines LV: „angebot:position“ → Eintrag. */
-export const preiseVon = (angebote: Zeile[]) => { const ids = new Set(angebote.map((a) => a.id)); return new Map(lebende('angebot_preis').filter((x) => ids.has(String(x.werte.angebot))).map((x) => [`${x.werte.angebot}:${x.werte.position}`, x])); };
-/** EP des Auftrags je Position (Nachtragspositionen: ihr eigener EP) – null: kein Preis. */
-export const epVon = (lvId: string) => { const ang = angeboteVon(lvId); return epAus(ang, [...preiseVon(ang).values()]); };
-
-/** Die Zahlen eines LV an einer Stelle (Karte, Aufträge, Kostenkontrolle): Schätzung, bestes Angebot, Auftrag, Nachträge, abgerechnet. */
-export interface LvZahlen { schaetzung: number; bestes: number | null; besterBieter: string; auftrag: Zeile | undefined; haupt: number; nachlass: number; stand: Auftragsstand; leistung: number; abgerechnet: number; rechnungen: number }
-export function lvZahlen(lvId: string): LvZahlen {
-  const pos = positionenVon(lvId), ang = angeboteVon(lvId), pr = preiseVon(ang);
-  const w = wertung(pos, ang, (a, q) => (pr.has(`${a}:${q}`) ? zahl(pr.get(`${a}:${q}`)!.werte.ep) : null));
-  const erster = w.find((x) => x.rang === 1), auftrag = ang.find((x) => x.werte.beauftragt === true);
-  const ohneLv = !!sicht.lv?.[lvId]?.werte.ohne_lv;   // Auftrag ohne LV: die eingetragene Auftragssumme
-  const nachlass = zahl(auftrag?.werte.nachlass), haupt = !auftrag ? 0 : ohneLv ? zahl(sicht.lv?.[lvId]?.werte.auftragssumme) : w.find((x) => x.angebot === auftrag.id)?.nachLass ?? 0;
-  const nachtraege = lebende('nachtrag').filter((n) => n.werte.lv === lvId);
-  const rechnungen = lebende('rechnung').filter((r) => r.werte.lv === lvId).sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')));
-  // Leistungsstand: geprüfte Mengen (Aufmaß) × EP des Auftrags (Nachtragspositionen: ihr eigener EP), nach Nachlass
-  const ep = epVon(lvId);
-  const stand = standAus(zeilenBis(lebende('aufmass').filter((a) => a.werte.lv === lvId), rechnungen, null));
-  const leistung = auftrag ? allePositionenVon(lvId).filter(zaehlt).reduce((s, q) => s + gp(stand.get(q.id) ?? 0, ep(q) ?? 0), 0) * (1 - nachlass / 100) : 0;
-  return {
-    leistung: Math.round(leistung * 100) / 100,
-    schaetzung: summeGeschaetzt(pos), bestes: erster?.nachLass ?? null, besterBieter: name(ang.find((a) => a.id === erster?.angebot)?.werte.bieter),
-    auftrag, haupt, nachlass, stand: auftragsstand(haupt, auftrag ? nachtraege : [], allePositionenVon(lvId), nachlass),
-    abgerechnet: Math.round(abgerechnetAus(rechnungen) * (1 - nachlass / 100) * 100) / 100, rechnungen: rechnungen.length,
-  };
-}
-
-/** Kennzahlen in der Menüleiste (wie im bisherigen Bauportal): je Bereich die passenden Summen des gewählten LV. */
-const KENNZAHLEN: Record<string, ('schaetzung' | 'bestes' | 'auftrag' | 'nachtraege' | 'leistung' | 'abgerechnet')[]> = {
-  lv: ['schaetzung'], tueren: [], versand: ['schaetzung', 'bestes'], nachverfolgen: [], preisspiegel: ['schaetzung', 'bestes', 'auftrag', 'leistung'],
-  besprechungen: ['schaetzung', 'bestes', 'auftrag', 'nachtraege', 'leistung', 'abgerechnet'], auftraege: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'],
-  aufmass: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'], rechnungen: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'],
-};
-const KZ_TITEL = { schaetzung: 'Schätzung', bestes: 'Bestes Angebot', auftrag: 'Auftrag', nachtraege: 'Nachträge beauftragt', leistung: 'Leistungsstand', abgerechnet: 'abgerechnet' };
-export function AvaKennzahlen(p: { lv: Zeile | undefined; ansicht: string }): JSX.Element {
-  const z = createMemo(() => (p.lv ? lvZahlen(p.lv.id) : undefined));
-  const welche = () => (KENNZAHLEN[p.ansicht] ?? []).map((k) => (k === 'schaetzung' && z()?.auftrag && p.ansicht === 'lv' ? 'auftrag' : k));
-  const wert = (k: keyof typeof KZ_TITEL): string => {
-    const x = z(); if (!x) return '–';
-    const n = { schaetzung: x.schaetzung, bestes: x.bestes, auftrag: x.auftrag ? x.haupt : null, nachtraege: x.auftrag ? x.stand.beauftragt : null, leistung: x.auftrag ? x.leistung : null, abgerechnet: x.rechnungen ? x.abgerechnet : null }[k];
-    return n == null ? '–' : `${Math.round(n).toLocaleString('de-DE')} €`;
-  };
-  return <div class="kennzahlen" role="group" aria-label="Kennzahlen"><For each={welche()}>{(k) => <span class="kennzahl" title={k === 'bestes' && z()?.bestes != null ? z()!.besterBieter : undefined}><small>{KZ_TITEL[k]}</small><b>{wert(k)}</b></span>}</For></div>;
-}
-
 /** Karte eines LV: die Summen – geschätzt, Angebote (günstigstes), Auftrag, abgerechnet. */
 export function LvSummen(p: { lv: Zeile }): JSX.Element {
   const pos = () => positionenVon(p.lv.id);
@@ -101,32 +47,30 @@ export function LvSummen(p: { lv: Zeile }): JSX.Element {
   );
 }
 
-/** Das LV als GAEB-Datei herunterladen: X83 Angebotsaufforderung (ohne Preise). */
-export function gaebAusgeben(lv: Zeile, dp: '83'): void {
-  const pos = positionenVon(lv.id).map((x): Omit<GaebPosten, 'kennung'> => ({ oz: String(x.werte.oz ?? ''), art: (x.werte.art || 'normal') as GaebPosten['art'], kurztext: String(x.werte.kurztext ?? ''), langtext: String(x.werte.langtext ?? ''),
-    menge: x.werte.menge == null ? null : zahl(x.werte.menge), einheit: String(x.werte.einheit ?? ''), ep: null }));
-  const projekt = sicht.projekt?.[String(lv.werte.projekt)]?.werte;
-  const xml = gaebSchreiben({ projekt: [projekt?.nummer, projekt?.name].filter(Boolean).join(' '), name: String(lv.werte.name ?? ''), nummer: String(lv.werte.nummer ?? '') }, pos, dp);
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([xml], { type: 'application/xml' }));
-  a.download = `${[lv.werte.nummer, lv.werte.name].filter(Boolean).join(' ') || 'LV'}.X${dp}`.replace(/[\\/:*?"<>|]+/g, '-');
-  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+/** Karte einer Zuschlagsposition (wie bisher Art Z): auf welche Positionen des LV der Satz gerechnet wird – zum Ankreuzen. */
+export function ZuschlagAuf(p: { pos: Zeile }): JSX.Element | undefined {
+  if (!istZuschlag(p.pos.werte.art)) return undefined;
+  const kandidaten = () => allePositionenVon(String(p.pos.werte.lv ?? '')).filter((q) => q.id !== p.pos.id && !istText(q.werte.art) && !istZuschlag(q.werte.art));
+  const auf = () => new Set(zuschlagAuf(p.pos.werte));
+  const setzen = (ids: Set<string>) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: p.pos.id, werte: { zuschlag_auf: [...ids].join(',') || null } }, 'Zuschlag auf Positionen');
+  const umschalten = (id: string) => { const n = new Set(auf()); if (n.has(id)) n.delete(id); else n.add(id); setzen(n); };
+  const schreiben = () => darf('lv_position', 'schreiben');
+  return (
+    <div class="zuschlag-auf">
+      <div class="reihe"><strong>Zuschlag auf</strong><span class="still-text klein-text">{auf().size} von {kandidaten().length} Positionen</span>
+        <Show when={schreiben()}><button type="button" class="knopf klein still" onClick={() => setzen(new Set(kandidaten().map((q) => q.id)))}>alle</button>
+          <button type="button" class="knopf klein still" onClick={() => setzen(new Set())}>keine</button></Show></div>
+      <ul><For each={kandidaten()}>{(q) => <li><label><input type="checkbox" disabled={!schreiben()} checked={auf().has(q.id)} onChange={() => umschalten(q.id)} /> {String(q.werte.oz ?? '')} {String(q.werte.kurztext ?? '')}</label></li>}</For></ul>
+    </div>
+  );
 }
 
 /** Karte einer Position: der Gesamtpreis (und warum er nicht zählt). */
 export function PositionSumme(p: { pos: Zeile }): JSX.Element | undefined {
   if (istText(p.pos.werte.art)) return undefined;
-  return <p class="ava-gp">Gesamtpreis geschätzt: <b>{eur(gp(p.pos.werte.menge, p.pos.werte.ep))} €</b>{!zaehlt(p.pos) ? ' – zählt nicht zur Summe des LV' : ''}</p>;
+  return <p class="ava-gp">Gesamtpreis geschätzt: <b>{eur(gpMit(p.pos))} €</b>{!zaehlt(p.pos) ? ' – zählt nicht zur Summe des LV' : ''}</p>;
 }
 
-/** Links im Preisspiegel: die LVs des Projekts. */
-export function LvWahl(p: Mitte): JSX.Element {
-  // wie im bisherigen Bauportal: archivierte LVs stehen nicht mehr in der Liste, sondern darunter unter „Archiv“
-  const eintraege = (archiv: boolean) => [...p.alle()].filter((l) => !!l.werte.archiviert === archiv).sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true }))
-    .map((l) => ({ id: l.id, titel: [l.werte.nummer, l.werte.name].filter(Boolean).join(' · '), zeichen: 'ausschreibung' as const, anzahl: angeboteVon(l.id).length }));
-  return <Seitenliste name="Leistungsverzeichnisse" aktiv={lvVon(p)?.id ?? ''} onWahl={(id) => lvWaehlen(p, id)}
-    abschnitte={[{ titel: 'Leistungsverzeichnisse', eintraege: eintraege(false) }, ...(eintraege(true).length ? [{ titel: 'Archiv', eintraege: eintraege(true) }] : [])]} />;
-}
 
 /** Für die Karte eines Angebots: seine Summe und sein Rang im Preisspiegel. */
 export function AngebotSumme(p: { angebot: Zeile }): JSX.Element {
@@ -165,7 +109,7 @@ export function AuftragKarte(p: { lv: Zeile }): JSX.Element {
                       <Auswahlliste titel={`Stand ${String(n.werte.nummer ?? '')}`} wert={String(n.werte.stand ?? '')} optionen={NACHTRAGSSTAENDE} onWert={(w) => setzeStand(n, w)} /></Show></td>
                     <td class="zahl">{eur(Math.round(nachtragNetto(n, alle()) * (1 - nachlass() / 100) * 100) / 100)}</td>
                   </tr>
-                  <For each={posVon(n)}>{(q) => <tr class="nt-pos"><td>{String(q.werte.oz ?? '')}</td><td colSpan={2}>{String(q.werte.kurztext ?? '')} · {String(q.werte.menge ?? '').replace('.', ',')} {String(q.werte.einheit ?? '')} × {q.werte.ep != null ? eur(zahl(q.werte.ep)) : '–'} €</td><td class="zahl still-text">{eur(gp(q.werte.menge, q.werte.ep))}</td></tr>}</For>
+                  <For each={posVon(n)}>{(q) => <tr class="nt-pos"><td>{String(q.werte.oz ?? '')}</td><td colSpan={2}>{String(q.werte.kurztext ?? '')} · {String(q.werte.menge ?? '').replace('.', ',')} {String(q.werte.einheit ?? '')} × {q.werte.ep != null ? eur(zahl(q.werte.ep)) : '–'} €</td><td class="zahl still-text">{eur(gpMit(q))}</td></tr>}</For>
                 </>)}</For>
               </tbody>
               <tfoot>

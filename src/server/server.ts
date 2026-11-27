@@ -37,6 +37,7 @@ import { dokumentRouten } from './dokument';
 import { aufbauRouten, type Langsam } from './aufbau';
 import { altdatenRouten } from './altdaten';
 import { handbuchRouten } from './handbuch';
+import { versandRouten } from './versand';
 
 export interface Einstellungen {
   db: Db;
@@ -217,6 +218,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   });
 
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
+  versandRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   ifcRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
   netzRouten(app, { db, nurAngemeldet });
   logoRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });

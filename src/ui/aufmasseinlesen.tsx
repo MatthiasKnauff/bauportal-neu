@@ -1,13 +1,13 @@
 // Aufmaß der Firma einlesen (Excel/CSV): Datei wählen → Vorschau je Position (bisher → neu, abwählbar) → „Übernehmen“
 // schreibt „Menge laut Firma“ zur Rechnung, ein Rückgängig für alles. Gelesen wird im Gerät – die Datei geht nirgends hin.
 import { For, Show, createMemo, createSignal } from 'solid-js';
-import { tabelleLesen } from '../kern/tabellendatei';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import { aufmassAusZeilen, type AufmassLesung, type AufmassTreffer } from '../module/ava/aufmasslesen';
 import { Dialog } from './baukasten/dialog';
 import { ausfuehrenMehrere } from './unterbau/abgleich';
 import { neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
+import { tabelleWaehlen } from './baukasten/dateiwahl';
 
 const zahlText = (n: unknown) => (n == null || n === '' ? '' : Number(n).toLocaleString('de-DE', { maximumFractionDigits: 3 }));
 
@@ -15,16 +15,7 @@ const zahlText = (n: unknown) => (n == null || n === '' ? '' : Number(n).toLocal
 export function AufmassEinlesen(p: { lv: Zeile; rechnung: Zeile; positionen: Zeile[]; mengen: Map<string, Zeile> }) {
   const [offen, setOffen] = createSignal<{ name: string; l: AufmassLesung } | null>(null);
   const waehlen = () => {
-    const wahl = document.createElement('input');
-    wahl.type = 'file'; wahl.accept = '.xlsx,.xlsm,.csv,.txt';
-    wahl.onchange = async () => {
-      const d = wahl.files?.[0]; if (!d) return;
-      try {
-        const t = await tabelleLesen(d.name, new Uint8Array(await d.arrayBuffer()));
-        setOffen({ name: d.name, l: aufmassAusZeilen([t.kopf, ...t.zeilen], p.positionen) });
-      } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
-    };
-    wahl.click();
+    tabelleWaehlen((name, zeilen) => setOffen({ name, l: aufmassAusZeilen(zeilen, p.positionen) }));
   };
   return (
     <>

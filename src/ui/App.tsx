@@ -18,7 +18,7 @@ import { Hilfe } from './hilfe';
 import { Projektkacheln } from './startkacheln';
 import { setSprung, springeZu, sprung } from './sprung';
 import { AppUmgebung } from './baukasten/rahmen';
-import { projektId, setProjektId } from './projekt';
+import { projektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
 import { Aufraeumen } from './aufraeumen';
 import { AdressenEinlesen } from './adresseneinlesen';
@@ -31,11 +31,11 @@ import { LvLoeschen } from './lvloeschen';
 import { Druck } from './druck';
 import { KiFenster } from './baukasten/ki';
 import { Auswahlliste } from './baukasten/auswahlliste';
-import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { Hinweise } from './baukasten/hinweise';
 import { hinweis } from './unterbau/meldungen';
 import { BUNDESLAENDER } from '../module/verwaltung/beipackzettel';
+import { MailAnAlleFenster } from './versand';
 
 export function App() {
   const [bereit, setBereit] = createSignal(false);
@@ -78,6 +78,7 @@ export function App() {
       <FeldSetzen />
       <ProjektLoeschen />
       <LvLoeschen />
+      <MailAnAlleFenster />
       <Druck />
       <KiFenster />
       <Show when={wartetLange() > 0}><div class="warte" role="status">Einen Moment …</div></Show>

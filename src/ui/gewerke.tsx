@@ -6,7 +6,7 @@ import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { xlsxSchreiben } from '../kern/xlsx';
-import { isoAus } from '../module/bauzeitenplan/kalender';
+import { MONATE_KURZ as MONATE, isoAus, kurz } from '../module/bauzeitenplan/kalender';
 import { GEWERKFARBEN, gewerkFarbe, gewerkFarbenAus } from '../module/bauzeitenplan/plan';
 import { firmaInDenPlan, gewerkeAus, passtZumGewerk, type Gewerkzeile } from '../module/bauzeitenplan/gewerke';
 import type { Mitte } from './baukasten/anpassung';
@@ -19,14 +19,14 @@ import { hinweis } from './unterbau/meldungen';
 import { aktuelleVersion, planDerVersion } from './plandaten';
 import { projektId } from './projekt';
 import { verzeichnisDrucken } from './druck';
+import { mailAnAlle } from './versand';
 
 /** Die Firma eines Gewerks im Projekt (Eintrag der Beteiligten mit Aufgabe = Gewerk) – auch für die Handyansicht des Plans. */
 export const firmaDesGewerks = (projekt: string, gewerk: string): Zeile | undefined => {
   const b = lebende('projekt_kontakt').find((x) => x.werte.projekt === projekt && String(x.werte.aufgabe ?? '').trim().toLowerCase() === gewerk.toLowerCase());
   return b ? sicht.kontakt?.[String(b.werte.kontakt)] : undefined;
 };
-const datum = (tag: number) => { const i = isoAus(tag); return `${i.slice(8, 10)}.${i.slice(5, 7)}.${i.slice(2, 4)}`; };
-const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const datum = (tag: number) => kurz(isoAus(tag));
 const [offen, setOffen] = createSignal<Set<string>>(new Set());   // aufgeklappte Gewerke
 
 export function GewerkeFirmen(p: Mitte) {
@@ -149,15 +149,21 @@ export function GewerkeFirmen(p: Mitte) {
     if (befehle.length) ausfuehrenMehrere(befehle, 'Gewerke & Farben');
   };
 
+  /** Die Firmen der Gewerke im Plan (Firma des Gewerks und bei Leistungen eingetragene) – für Drucken und Mail an alle. */
+  const firmenDesPlans = () => [...new Set(zeilen().flatMap((r) => [firmaDesGewerks(projektId() ?? '', r.gewerk)?.id, ...r.firmen].filter((x): x is string => !!x && !!sicht.kontakt?.[x])))];
   p.setNeu(() => setNeuGewerk({ gewerk: '', firma: null }));   // „＋ Gewerk“ im Menüband (Stellschraube neuTitel)
   p.setKnoepfe([
     ...(schreiben() ? [{ titel: 'Firmen in den Plan', zeichen: 'personen', gruppe: 'Plan', tun: firmenInDenPlan }] : []),
     ...(darf('vorgang', 'schreiben') && version() ? [{ titel: 'Farben', zeichen: 'farben', gruppe: 'Gewerke', tun: farbenOeffnen },
       { titel: 'Gewerke erkennen', zeichen: 'assistent', gruppe: 'Gewerke', tun: erkennen }] : []),
     { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: excel },
+    { titel: 'Mail an alle', zeichen: 'senden', gruppe: 'Datei', rechts: true, gesperrt: !darf('nachricht', 'schreiben'), tun: () => {
+      const ids = firmenDesPlans(); if (!ids.length) { hinweis('Noch keine Firmen bei den Gewerken.'); return; }
+      mailAnAlle(ids, 'Mail an alle Firmen', projektId() ?? undefined);
+    } },
     // Firmenliste wie bisher: das Adressverzeichnis mit den Firmen der Gewerke (ein Ausdruck, keine eigene Liste)
     { titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => {
-      const ids = [...new Set(zeilen().flatMap((r) => [firmaDesGewerks(projektId() ?? '', r.gewerk)?.id, ...r.firmen].filter((x): x is string => !!x && !!sicht.kontakt?.[x])))];
+      const ids = firmenDesPlans();
       if (!ids.length) { hinweis('Noch keine Firmen bei den Gewerken.'); return; }
       verzeichnisDrucken('adressen.verzeichnis', [{ titel: 'Die Firmen des Plans', ids, filter: `Firmen im Bauzeitenplan · ${String(sicht.projekt?.[projektId() ?? '']?.werte.name ?? '')}` }]);
     } },

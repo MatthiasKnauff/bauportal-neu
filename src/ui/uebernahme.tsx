@@ -10,6 +10,7 @@ import { gruppen } from './baukasten/detailkarte';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './unterbau/meldungen';
+import { dateiWaehlen } from './baukasten/dateiwahl';
 
 type Zahl = { neu: number; geaendert: number; entfernt: number; unveraendert: number; behalten: number };
 export interface Vorschau { token: string; je: Record<string, Zahl>; hinweise: string[]; befehle: number; eintraege: number /* ohne Befehle eingespielt (Nachschlag) */ }
@@ -26,26 +27,14 @@ export async function vorschauZeigen(q: Quelle, holen: () => Promise<Vorschau>):
 }
 
 export function ifcEinlesen(projekt: string, version: string): void {
-  const wahl = document.createElement('input');
-  wahl.type = 'file'; wahl.accept = '.ifc';
-  wahl.onchange = () => {
-    const datei = wahl.files?.[0];
-    if (datei) void vorschauZeigen({ titel: `IFC einlesen – ${datei.name}`, wartetext: 'Die Datei wird gelesen und mit dem Gebäudemodell verglichen. Bei großen Dateien dauert das einen Moment …', fertig: `„${datei.name}“ ist ins Gebäudemodell übernommen.` },
-      () => ruf<Vorschau>(`/api/gebaeudemodell/ifc/vorschau?projekt=${projekt}&version=${version}`, datei));
-  };
-  wahl.click();
+  dateiWaehlen('.ifc', (datei) => void vorschauZeigen({ titel: `IFC einlesen – ${datei.name}`, wartetext: 'Die Datei wird gelesen und mit dem Gebäudemodell verglichen. Bei großen Dateien dauert das einen Moment …', fertig: `„${datei.name}“ ist ins Gebäudemodell übernommen.` },
+      () => ruf<Vorschau>(`/api/gebaeudemodell/ifc/vorschau?projekt=${projekt}&version=${version}`, datei)));
 }
 
 /** GAEB einlesen: ohne LV ein neues LV (X83/X86), mit LV der Abgleich – oder ein Angebot (X84) zu diesem LV. */
 export function gaebEinlesen(projekt: string, lv?: string): void {
-  const wahl = document.createElement('input');
-  wahl.type = 'file'; wahl.accept = '.x83,.x84,.x86,.x81,.x82,.xml,.X83,.X84,.X86';
-  wahl.onchange = () => {
-    const datei = wahl.files?.[0];
-    if (datei) void vorschauZeigen({ titel: `GAEB einlesen – ${datei.name}`, wartetext: 'Die Datei wird gelesen und mit dem Projekt verglichen …', fertig: `„${datei.name}“ ist übernommen.` },
-      () => ruf<Vorschau>(`/api/ava/gaeb/vorschau?projekt=${projekt}${lv ? `&lv=${lv}` : ''}`, datei));
-  };
-  wahl.click();
+  dateiWaehlen('.x83,.x84,.x86,.x81,.x82,.xml,.X83,.X84,.X86', (datei) => void vorschauZeigen({ titel: `GAEB einlesen – ${datei.name}`, wartetext: 'Die Datei wird gelesen und mit dem Projekt verglichen …', fertig: `„${datei.name}“ ist übernommen.` },
+      () => ruf<Vorschau>(`/api/ava/gaeb/vorschau?projekt=${projekt}${lv ? `&lv=${lv}` : ''}`, datei)));
 }
 
 // ---------- Assistent: Fragen zum Gebäude, daraus ein erstes geschätztes Modell ----------

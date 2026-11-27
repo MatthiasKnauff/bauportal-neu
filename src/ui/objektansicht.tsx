@@ -294,8 +294,8 @@ export function ObjektAnsicht(p: {
           ...(a.mitte ? mitteKnoepfe() : []),
           ...(a.kachel ? [{ titel: 'Karten', zeichen: 'kacheln', gruppe: 'Ansicht', an: kacheln(), tun: () => { if (!kacheln()) formWechseln(); } },
             { titel: 'Tabelle', zeichen: 'tabelle', gruppe: 'Ansicht', an: !kacheln(), tun: () => { if (kacheln()) formWechseln(); } }] : []),
-          ...(a.mitte || kacheln() ? [] : [{ titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: () => tabelle.spaltenEinstellen() },
-            { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: () => excelSpeichern(tabelle.alsZeilen()) }]),
+          // Spalten wählen: Rechtsklick auf den Tabellenkopf (kein eigener Knopf – Entscheidung 27.11.2026)
+          ...(a.mitte || kacheln() ? [] : [{ titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: () => excelSpeichern(tabelle.alsZeilen()) }]),
           ...(verzeichnis() ? [{ titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => drucken() }] : []),
         ]}
         menueMitteTitel={a.menueMitte ? '' : undefined}

@@ -12,11 +12,13 @@ import { For, Show, createEffect, createMemo, createResource, createSignal, onCl
 import { unwrap } from 'solid-js/store';
 import type { Vorlage as KernVorlage, Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
-import { BUNDESLAENDER, isoAus, tagAus, wochentag } from '../module/bauzeitenplan/kalender';
+import { BUNDESLAENDER, MONATE_KURZ as MONATE, datumLesen, isoAus, kurz, tagAus, tagname, wochentag } from '../module/bauzeitenplan/kalender';
+import { pfeilWege } from '../module/bauzeitenplan/pfeile';
 import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../module/bauzeitenplan/rechnung';
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
-import { ablageAus, gruppeUm, masterNeu, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, kopienVon, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { masterNachziehen } from '../module/bauzeitenplan/master';
+import { ablageAus, gruppeUm, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { DuplizierenFenster } from './duplizieren';
 import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
@@ -33,6 +35,7 @@ import { vorschauZeigen, type Vorschau } from './uebernahme';
 import { SollFesthalten, SollZurueck } from './sollfenster';
 import { sollLesen, vergleichen, type SollZeile } from '../module/bauzeitenplan/soll';
 import { handy as geraetHandy } from './unterbau/geraet';
+import { dateiWaehlen } from './baukasten/dateiwahl';
 
 const H = 30, KOPF = 46;
 type Spalte = { id: 'nr' | 'name' | 'dauer' | 'anfang' | 'ende' | 'vorg' | 'gewerk' | 'pct'; titel: string; breite: number; rechts?: boolean };
@@ -44,23 +47,10 @@ const SPALTEN: Spalte[] = [
 const BEARBEITBAR = new Set(['name', 'dauer', 'anfang', 'vorg', 'gewerk', 'pct']);
 const ZOOM = [3, 6, 12, 24, 40];   // Bildpunkte je Kalendertag
 const STUFEN: [number, string][] = [[0, '0'], [25, '25'], [50, '50'], [75, '75'], [100, '100']];   // Fortschritt in Stufen (Menüleiste; Zahl als Symbol)
-const tagname = (iso: string) => (iso ? `${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][wochentag(tagAus(iso))]} ${kurz(iso)}` : '');
-const kurz = (iso: string) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(2, 4)}` : '');
-const MONATE = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 const naechsterMontag = () => montag(new Date().toLocaleDateString('sv'));
 const merken = (k: string, w: unknown) => { try { localStorage.setItem(k, JSON.stringify(w)); } catch { /* ohne Speicher geht es auch */ } };
 const holen = <T,>(k: string, d: T): T => { try { const x = localStorage.getItem(k); return x ? (JSON.parse(x) as T) : d; } catch { return d; } };
 
-/** „16.11.2026“, „16.11.26“, „16.11.“ oder ISO → ISO; null, wenn nicht lesbar. */
-export function datumLesen(t: string): string | null {
-  const s = t.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const m = /^(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})?$/.exec(s);
-  if (!m) return null;
-  const j = !m[3] ? new Date().getFullYear() : m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
-  const iso = `${j}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}`;
-  return isoAus(tagAus(iso)) === iso ? iso : null;
-}
 
 export function Balkenplan(p: Mitte) {
   const z = () => p.fest() as Record<string, Wert> & { projekt: string; version: string };
@@ -103,7 +93,6 @@ export function Balkenplan(p: Mitte) {
   const [drucken, setDrucken] = createSignal(false);
   const [assi, setAssi] = createSignal(false);
   // Export als Datei (im Browser erzeugt) und Plan aus einer Datei einlesen (Vorschau wie jede Übernahme)
-  let dateiWahl!: HTMLInputElement;
   const titel = () => { const pr = sicht.projekt?.[z().projekt]?.werte; return `Bauzeitenplan ${[pr?.nummer, pr?.name].filter(Boolean).join(' ')} ${sicht.version?.[z().version]?.werte.name ?? ''}`.trim(); };
   const speichern = (inhalt: string, endung: string, typ: string) => herunterladen(inhalt, `${titel()} ${new Date().toLocaleDateString('sv')}.${endung}`, typ);
   // Befehle des Balkenplans in der Menüleiste (Band) – wie im bisherigen Bauportal
@@ -153,9 +142,8 @@ export function Balkenplan(p: Mitte) {
     { titel: 'Ganzer Plan', zeichen: 'einpassen', gruppe: 'Ansicht', gesperrt: !vorgaenge().length, tun: ganzerPlan },
     { titel: 'Heute', zeichen: 'kalender', gruppe: 'Ansicht', tun: () => zumTag(tagAus(new Date().toLocaleDateString('sv')), 0.3) },
     { titel: 'Zur Leistung', zeichen: 'zielen', gruppe: 'Ansicht', gesperrt: !markiert(), tun: zurLeistung },
-    { titel: 'Spalten', zeichen: 'spalten', gruppe: 'Ansicht', tun: (e) => setSpaltenFeld({ x: e.clientX, y: e.clientY + 12 }) },
     { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: (e) => austauschMenue(e) },
-    ...(schreiben() ? [{ titel: 'Einlesen', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => dateiWahl.click() }] : []),
+    ...(schreiben() ? [{ titel: 'Einlesen', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => einlesen() }] : []),
     { titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => setDrucken(true) },
   ]));
   const fortschrittIds = () => { const l = vorgaenge(), ids = new Set(gewaehlt()); const aus: string[] = [];
@@ -212,13 +200,8 @@ export function Balkenplan(p: Mitte) {
     { titel: 'MS Project (XML)', tun: () => speichern(mspdiAus(plan(), titel()), 'xml', 'application/xml') },
     { titel: 'Sicherung (.gantt)', tun: () => speichern(planJsonAus(plan(), titel(), (zp()?.werte ?? {}) as Record<string, Wert>, lebend('freier_tag')), 'gantt', 'application/json') },
   ]);
-  const einlesen = async () => {
-    const d = dateiWahl.files?.[0];
-    dateiWahl.value = '';
-    if (!d) return;
-    const inhalt = await d.text();
-    void vorschauZeigen({ titel: `Plan einlesen – ${d.name}`, wartetext: 'Die Datei wird gelesen und mit dieser Version verglichen …', fertig: 'Der Plan ist übernommen.' }, () => ruf<Vorschau>('/api/bauzeitenplan/einlesen', { version: z().version, inhalt }));
-  };
+  const einlesen = () => dateiWaehlen('.gantt,.json,application/json', async (d) => { const inhalt = await d.text();
+    void vorschauZeigen({ titel: `Plan einlesen – ${d.name}`, wartetext: 'Die Datei wird gelesen und mit dieser Version verglichen …', fertig: 'Der Plan ist übernommen.' }, () => ruf<Vorschau>('/api/bauzeitenplan/einlesen', { version: z().version, inhalt })); });
   // Auf dem Handy nur Nummer und Leistung links – der Platz gehört den Balken
   const schmal = geraetHandy;
   const [handy, setHandy] = createSignal<'jetzt' | 'ablauf' | 'gewerke' | 'plan'>(holen('bzp.handy', 'jetzt'));
@@ -261,7 +244,6 @@ export function Balkenplan(p: Mitte) {
   const wahl = zeilenwahl({ reihe: () => vorgaenge().map((v) => v.id), sichtbar: () => sichtbar().map((v) => v.id), onZeiger: (id) => p.onWahl(id) });
   const { markiert, auswahl, setMarkiert, istGewaehlt, gewaehlt } = wahl;
   const zeileKlick = (e: MouseEvent, id: string) => wahl.klick(e, id);
-  const bisZu = (id: string) => wahl.bisZu(id);
   createEffect(() => { const g = p.gewaehlt(); if (g && g !== untrack(markiert)) wahl.zeigerStill(g); });   // z. B. Sprung aus der Suche
   const oeffnen = (id = markiert()) => { if (id) { setMarkiert(id); p.onWahl(id); p.onOeffnen(); } };
   const [spalte, setSpalte] = createSignal<Spalte['id']>('name');
@@ -390,48 +372,11 @@ export function Balkenplan(p: Mitte) {
   const kopieren = () => { const ids = gewaehlt(); if (!ids.length) return; setAblage(ablageAus(V_(), L_(), ids, werteVon)); hinweis(`${anzahlText(ablage()!.zeilen.length)} kopiert – mit Strg+V unter einer Zeile einfügen.`); };
   const ausschneiden = () => { const ids = gewaehlt(); if (!ids.length) return; setAblage(ablageAus(V_(), L_(), ids, werteVon)); entfernen(ids); };
   const ablageEinfuegenHier = () => { const a = ablage(); if (!a) return hinweis('Nichts zum Einfügen – erst Leistungen kopieren (Strg+C).', { art: 'fehler' }); const [z, e] = unterMarkierter(); einfuegenBei(a, z, e, `${anzahlText(a.zeilen.length)} einfügen`); };
-  // Änderung am Master → auf Nachfrage in alle Kopien; übernommen wird nur, was in einer Kopie noch so steht wie vorher im Master
-  // (von Hand Geändertes bleibt). Der Name der obersten Zeile bleibt in jeder Kopie ihr eigener.
-  const MASTERFELDER = ['name', 'dauer', 'unterbrechung', 'gewerk', 'vob', 'unternehmer', 'firma', 'farbe', 'notiz'];
+  // Änderung am Master → auf Nachfrage in alle Kopien (gerechnet in module/bauzeitenplan/master.ts)
   const masterSchritt = ({ wieder, gegen }: { wieder: KernVorlage[]; gegen: KernVorlage[] }) => {
-    const v = V_(), aenderungen = wieder.filter((b) => b.objekt === 'vorgang' && b.art === 'aendern' && Object.keys(b.werte ?? {}).some((k) => MASTERFELDER.includes(k)));
-    const neue = wieder.filter((b) => b.objekt === 'vorgang' && b.art === 'anlegen' && !b.werte?.kopie_von);
-    const weg = wieder.filter((b) => b.objekt === 'vorgang' && b.art === 'loeschen'), wegLinks = wieder.filter((b) => b.objekt === 'verknuepfung' && b.art === 'loeschen');
-    if (!aenderungen.length && !neue.length && !weg.length) return;
-    // zu welchem Master gehört die geänderte Zeile? (der Master selbst oder eine Zeile darin)
-    const masterVon = (id: string) => { let i = v.findIndex((x) => x.id === id); const e = v[i]!.ebene; for (; i >= 0; i--) if (v[i]!.master && v[i]!.ebene <= e && block(v, i) > v.findIndex((x) => x.id === id)) return v[i]!; return undefined; };
-    const befehle: KernVorlage[] = [], spaeter: (() => KernVorlage[])[] = []; let kopien = 0; let mname = '';
-    for (const b of aenderungen) {
-      const m = masterVon(b.objektId); if (!m) continue;
-      const K = kopienVon(v, m.id); if (!K.length) continue;
-      kopien = K.length; mname = String(vorgaenge().find((x) => x.id === m.id)?.werte.name ?? '');
-      const alt = gegen.find((g) => g.objektId === b.objektId)?.werte ?? {};
-      for (const k of K) {
-        const ziel = k.glieder.get(b.objektId), z0 = ziel && vorgaenge().find((x) => x.id === ziel); if (!z0) continue;
-        const w = Object.fromEntries(Object.entries(b.werte ?? {}).filter(([f]) => MASTERFELDER.includes(f) && !(f === 'name' && b.objektId === m.id) && (z0.werte[f] ?? null) === (alt[f] ?? null)));
-        if (Object.keys(w).length) befehle.push({ objekt: 'vorgang', art: 'aendern', objektId: z0.id, werte: w });
-      }
-    }
-    // neue Zeilen im Master: in jede Kopie an die entsprechende Stelle; gelöschte: auch ihre Gegenstücke; gelöschte Verknüpfungen zwischen
-    // Zeilen des Masters: auch in den Kopien (sonst bliebe dort die Kette, die der Master gerade überbrückt hat)
-    for (const b of neue) {
-      const m = masterVon(b.objektId); if (!m || m.id === b.objektId) continue;
-      const K = kopienVon(v, m.id); if (!K.length) continue;
-      kopien = K.length; mname = String(vorgaenge().find((x) => x.id === m.id)?.werte.name ?? '');
-      // erst beim Übernehmen gerechnet: so kommt mit, was inzwischen an der neuen Zeile eingetragen wurde (z. B. ihr Name)
-      spaeter.push(() => { const jetzt = vorgaenge().find((x) => x.id === b.objektId); if (!jetzt) return [];
-        const w = Object.fromEntries(Object.entries(jetzt.werte).filter(([f]) => [...MASTERFELDER, 'fortschritt', 'anfang_nicht_vor', 'abschnitt', 'teil'].includes(f)));
-        return masterNeu(V_(), L_(), m.id, b.objektId, w, zu(), neueKennung); });
-      for (const x of wegLinks) { const alt = sicht.verknuepfung?.[x.objektId]?.werte; if (!alt) continue;
-        for (const k of K) { const von = k.glieder.get(String(alt.von)), nach = k.glieder.get(String(alt.nach));
-          const g = von && nach && L_().find((y) => y.von === von && y.nach === nach); if (g) befehle.push({ objekt: 'verknuepfung', art: 'loeschen', objektId: g.id }); } }
-    }
-    for (const b of weg) {
-      const gegen = vorgaenge().filter((x) => x.werte.kopie_von === b.objektId); if (!gegen.length) continue;
-      kopien = Math.max(kopien, gegen.length); mname = mname || 'Master';
-      befehle.push(...loeschen(V_(), L_(), gegen.map((g) => g.id), zu(), neueKennung, autom()));   // wie Entf: Kette überbrücken, Verknüpfungen mit weg
-    }
-    if (befehle.length || spaeter.length) hinweis(`„${mname}“ ist Master von ${kopien} ${kopien === 1 ? 'Kopie' : 'Kopien'}.`, { aktion: { titel: `In ${kopien === 1 ? 'die Kopie' : `alle ${kopien} Kopien`} übernehmen`, tun: () => ausfuehrenMehrere([...befehle, ...spaeter.flatMap((f) => f())], `Änderung am Master „${mname}“ in die Kopien übernehmen`) } });
+    const r = masterNachziehen(wieder, gegen, { v: V_, l: L_, werte: (id) => sicht.vorgang?.[id]?.werte, linkAlt: (id) => sicht.verknuepfung?.[id]?.werte,
+      kopienDer: (id) => vorgaenge().filter((x) => x.werte.kopie_von === id).map((x) => x.id), z: zu(), neu: neueKennung, autom: autom() });
+    if (r) hinweis(`„${r.mname}“ ist Master von ${r.kopien} ${r.kopien === 1 ? 'Kopie' : 'Kopien'}.`, { aktion: { titel: `In ${r.kopien === 1 ? 'die Kopie' : `alle ${r.kopien} Kopien`} übernehmen`, tun: () => ausfuehrenMehrere(r.uebernehmen(), `Änderung am Master „${r.mname}“ in die Kopien übernehmen`) } });
   };
   nachEigenemSchritt.add(masterSchritt); onCleanup(() => nachEigenemSchritt.delete(masterSchritt));
   // Gruppieren …: Gliederung nach Gebäudeteil, Bauphase, Gewerk, Firma neu bilden (im Fenster mit Vorschau)
@@ -633,20 +578,7 @@ export function Balkenplan(p: Mitte) {
   const verlaengerung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'dauer' ? tageAus(g.dx) * px() : 0; };
 
   // ---------- Pfeile ----------
-  const pfeilListe = createMemo(() => {
-    const m = pfeile(), sel = markiert(), t = erg().termine, zeile = new Map(sichtbar().map((v, i) => [v.id, i]));
-    if (m === 'keine') return [];
-    return L_().filter((l) => zeile.has(l.von) && zeile.has(l.nach) && (m === 'alle' || (m === 'kritisch' ? t.get(l.von)?.kritisch && t.get(l.nach)?.kritisch : l.von === sel || l.nach === sel)))
-      .map((l) => {
-        // Pfeile an geteilten Vorgängen: vom bzw. zum gewählten Teil, sonst vom ganzen Vorgang
-        const teil = (tm: { s: number; f: number; abschnitte: { s: number; f: number }[] }, k: number | null | undefined) => (k != null && tm.abschnitte[k]) || tm;
-        const a = teil(t.get(l.von)!, l.vonAbschnitt), b = teil(t.get(l.nach)!, l.nachAbschnitt), ya = zeile.get(l.von)! * H + H / 2, yb = zeile.get(l.nach)! * H + H / 2;
-        const vonEnde = l.art === 'ea' || l.art === 'ee', nachEnde = l.art === 'ee' || l.art === 'ae';
-        const x1 = vonEnde ? xEnde(a.s, a.f) : x(a.s), x2 = nachEnde ? xEnde(b.s, b.f) : x(b.s);
-        const knick = vonEnde ? x1 + 6 : x1 - 6, rein = nachEnde ? x2 + 6 : x2 - 6;
-        return { id: l.id, d: `M${x1},${ya} H${knick} V${yb} H${rein} L${x2},${yb}`, kritisch: !!(t.get(l.von)!.kritisch && t.get(l.nach)!.kritisch), x2, yb, links: !nachEnde };
-      });
-  });
+  const pfeilListe = createMemo(() => pfeilWege(L_(), erg().termine, new Map(sichtbar().map((v, i) => [v.id, i])), pfeile(), markiert(), { x, xEnde, h: H }));
   const linkMenue = (e: MouseEvent, id: string) => {
     if (!schreiben()) return;
     const l = links().find((x) => x.id === id);
@@ -715,7 +647,6 @@ export function Balkenplan(p: Mitte) {
         <PlanHandy plan={plan()} heute={new Date().toLocaleDateString('sv')} ansicht={handy() as 'jetzt'} onOeffnen={(id) => oeffnen(id)} />
       </Show>
       <Show when={!schmal() || handy() === 'plan'}>
-      <input ref={dateiWahl} type="file" accept=".gantt,.json,application/json" hidden onChange={() => void einlesen()} />
       <Show when={erg().zyklen.length}><p class="feld-fehler bzp-warnung">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</p></Show>
       <div class="bzp-flaeche" classList={{ teilen: teilen() }} ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
         onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); setZoom(Math.max(0, Math.min(ZOOM.length - 1, zoom() + (e.deltaY < 0 ? 1 : -1)))); } }}>

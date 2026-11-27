@@ -3,22 +3,23 @@
 // Reine Rechnung – im Browser und in den Tests gleich.
 import type { Werte } from '../../kern/modell';
 import { mengeLesen, ozSchluessel } from './aufmasslesen';
-import { gp, nachOz, zaehlt, zahl } from './rechnung';
+import { gpVon, lvEp, lvMenge, nachKennung, nachOz, zaehlt, zahl } from './rechnung';
 import { istHinweis, istText } from '../../kern/lvarten';
 
 type E = { id: string; werte: Werte };
-const ART: Record<string, string> = { titel: 'Titel', normal: 'Normal', bedarf: 'Bedarf', alternativ: 'Wahl', pauschal: 'Pauschal', stundenlohn: 'Stundenlohn', hinweis: 'Hinweis', vorbemerkung: 'Vorbemerkung' };
+const ART: Record<string, string> = { titel: 'Titel', normal: 'Normal', bedarf: 'Bedarf', alternativ: 'Wahl', pauschal: 'Pauschal', stundenlohn: 'Stundenlohn', hinweis: 'Hinweis', vorbemerkung: 'Vorbemerkung', zuschlag: 'Zuschlag' };
 const ART_AUS = Object.fromEntries(Object.entries(ART).map(([k, t]) => [t.toLowerCase(), k])) as Record<string, string>;
 export const EXCEL_KOPF = ['OZ', 'Art', 'Kurztext', 'Langtext', 'Menge', 'EH', 'EP', 'GP'];
 
 /** Zeilen für die Excel-Datei (Kopf, dann die Zeilen nach OZ). */
 export function lvAlsTabelle(positionen: E[]): (string | number | null)[][] {
+  const alle = nachKennung(positionen);
   return [EXCEL_KOPF, ...nachOz(positionen).map((q) => {
     const art = String(q.werte.art ?? 'normal'), ep = q.werte.ep == null || q.werte.ep === '' ? null : zahl(q.werte.ep);
     return istText(art)
       ? [String(q.werte.oz ?? ''), ART[art]!, String(q.werte.kurztext ?? ''), String(q.werte.langtext ?? ''), null, null, null, null]
       : [String(q.werte.oz ?? ''), ART[art] ?? 'Normal', String(q.werte.kurztext ?? ''), String(q.werte.langtext ?? ''), q.werte.menge == null || q.werte.menge === '' ? null : zahl(q.werte.menge),
-        String(q.werte.einheit ?? ''), ep, ep != null && zaehlt(q) ? gp(q.werte.menge, ep) : null];
+        String(q.werte.einheit ?? ''), ep, ep != null && zaehlt(q) ? gpVon(q, alle, lvMenge, lvEp) : null];
   })];
 }
 

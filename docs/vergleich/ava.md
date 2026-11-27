@@ -36,7 +36,7 @@ Zeichen:
 | L1 | Baum: Projekt → LVs als Ordner → Gliederung → Positionen. Das gewählte LV ist offen, die anderen sind zugeklappt (Klick öffnet), das Archiv steht am Ende. | ✓ | Baum wie bisher |
 | L2 | Spalten: Bezeichnung (OZ + Text), Menge, EH, Art, KG, EP (Schätzung), GP. Nach der Vergabe: EP Auftrag + EP Schätz. Darunter „Summe netto (ohne Bedarfs-/Wahlpositionen)“. | ✓ | Spalten wie bisher, KG neu an der Position |
 | L3 | Symbol je Art: Normal, Bedarf (gestrichelt E), Wahl (A), Pauschal (P), Hinweistext (i), Vorbemerkung, Nachtrag (orange +) | ✓ | Symbole |
-| L4 | Zuschlagsposition (Art Z aus GAEB, % auf Positionen) und Vorbemerkung als Positionsart V | ◐ (Vorbemerkung V – 27.11.; Zuschlag Z offen: rechnet in LV, Preisspiegel, Aufmaß, Rechnung und GAEB mit – vorher melden) | Art Z und V |
+| L4 | Zuschlagsposition (Art Z aus GAEB, % auf Positionen) und Vorbemerkung als Positionsart V | ✓ (27.11.: Vorbemerkung V; Zuschlag Z – Satz in % auf gewählte Positionen, rechnet in Schätzung, Preisspiegel, Auftrag, Aufmaß, Rechnung, Druck und GAEB mit) | Art Z und V |
 | L5 | Neu: LV (Womit anfangen?), Gliederung, Position, Hinweistext darunter | ✓ | |
 | L6 | Nummerieren mit OZ-Maske und Vorschau | ✓ | |
 | L7 | Langtext aufklappen; der offene Langtext wandert mit der Auswahl | ✓ (27.11.: ist genau ein Langtext offen, wandert er mit der Auswahl) | Langtext folgt |
@@ -79,7 +79,7 @@ Zeichen:
 | V6 | Bieterliste drucken/Excel mit eigener Spaltenwahl | ✓ (27.11.: Knopf „Bieterliste“ im Versand, Spalten frei – auch Telefon, E-Mail, Ort der Firma; Excel über den Druck noch nicht) | Druck |
 | V7 | Nachverfolgen über alle LVs | ✓ | |
 | V8 | Preisspiegel im LV-Baum (Projekt → LVs → Titel mit Summe je Bieter:in → Positionen), Spalte Mittel, Bieter-Spalten ein/aus und ordnen | ✓ | Baum, Mittel, Spaltenwahl |
-| V9 | Bieterangaben (Antworten auf Bietertextergänzungen aus X84) im Preisspiegel | ✗ | |
+| V9 | Bieterangaben (Antworten auf Bietertextergänzungen aus X84) im Preisspiegel | ✓ (27.11.: Antworten aus dem X84 am Preis gespeichert, im Preisspiegel als Marke mit Hinweis an der Zelle) | |
 | V10 | Angaben zum Angebot: Nachlass in % oder €, Skonto % / Tage, Eingang, ausgeschlossen | ✓ | % oder € |
 | V11 | Angebot einlesen: X84 ✓, Excel ✗, PDF/Scan ⊘ | ✓ X84 und Excel/CSV (27.11.: „Import → Excel-Angebot“ im Preisspiegel, EP je OZ, ein Rückgängig); PDF/Scan ⊘ | Excel |
 | V12 | Vergeben …, Vergabe aufheben (mit Rechnungen erst nach Rückfrage), Nicht vergeben (zählt nicht mehr für Budget und To-dos) | ✓ | Aufheben, Nicht vergeben |

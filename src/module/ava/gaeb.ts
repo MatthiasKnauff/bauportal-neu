@@ -2,14 +2,16 @@
 // wie im bisherigen Bauportal: X83 Angebotsaufforderung (LV ohne Preise), X84 Angebot (mit Preisen der Bieter:in), X86 Auftrag.
 // Unterstützt der übliche Umfang: Titel in beliebiger Tiefe, Positionen mit Kurz- und Langtext, Menge, Einheit, Einheitspreis,
 // Bedarfs-, Wahl- und Pauschalpositionen, Hinweistexte. Ältere Formate (GAEB 90/2000) bitte im anderen Programm als DA XML ausgeben.
-import { alleText, kind, kinder, xmlLesen, xmlText, type XmlKnoten } from '../../kern/xml';
+import { alleText, kind, xmlLesen, xmlText, type XmlKnoten } from '../../kern/xml';
 import { gaebFeld, gaebText, gaebZusammen } from '../../kern/textergaenzung';
 import { istHinweis } from '../../kern/lvarten';
 
 export interface GaebPosten {
   kennung: string;                 // ID aus der Datei oder die OZ – bleibt beim nächsten Einlesen derselbe Eintrag
-  oz: string; art: 'titel' | 'normal' | 'bedarf' | 'alternativ' | 'pauschal' | 'hinweis' | 'vorbemerkung';
+  oz: string; art: 'titel' | 'normal' | 'bedarf' | 'alternativ' | 'pauschal' | 'hinweis' | 'vorbemerkung' | 'zuschlag';
   kurztext: string; langtext: string; menge: number | null; einheit: string; ep: number | null;
+  angaben?: string;                // Antworten der Bieter:in auf die Textergänzungen (X84), „Frage: Antwort; …“
+  zuschlagAuf?: string[];          // Zuschlagsposition (MarkupItem): Kennungen der Positionen, auf die der Satz (ep, %) gerechnet wird
 }
 export interface GaebLv { dp: string; projekt: string; name: string; bieter: string; posten: GaebPosten[] }
 
@@ -28,6 +30,19 @@ function text(k: XmlKnoten | undefined): string {
   return gaebZusammen(absaetze.length ? absaetze.join('\n').replace(/\n+$/, '').trim() : alleText(k));
 }
 
+/** Bieterangaben (wie bisher im Preisspiegel): die Antworten in den Bieter-Ergänzungen eines Textes – „Angeboten“ gehört zur Frage davor. */
+function bieterangaben(k: XmlKnoten | undefined): string {
+  const aus: string[] = []; let frage = '';
+  const geh = (x: XmlKnoten) => {
+    if (x.name !== 'TextComplement') { x.kinder.forEach(geh); return; }
+    const f = alleText(kind(x, 'ComplCaption')).trim().replace(/:$/, '').trim(), a = alleText(kind(x, 'ComplBody')).trim();
+    if ((x.attr.Kind ?? '').toLowerCase() !== 'bidder') { frage = f; return; }
+    if (a) aus.push(`${f.toLowerCase() === 'angeboten' ? frage || 'Angeboten' : f}: ${a}`);
+  };
+  if (k) geh(k);
+  return aus.join('; ');
+}
+
 export function gaebLesen(quelle: string): GaebLv {
   let w: XmlKnoten;
   try { w = xmlLesen(quelle); } catch (e) { throw new Error(`Keine gültige GAEB-XML-Datei (${(e as Error).message}). Bitte im anderen Programm als GAEB DA XML (X83/X84/X86) ausgeben.`); }
@@ -43,12 +58,14 @@ export function gaebLesen(quelle: string): GaebLv {
   const bieter = [alleText(kind(adr, 'Name1')), alleText(kind(adr, 'Name2'))].filter(Boolean).join(' ');
   const posten: GaebPosten[] = [];
   let hinweise = 0;
-  const geh = (body: XmlKnoten | undefined, vorne: string) => {
+  // Zuschläge (MarkupItem): aufgezählte Positionen (ListInSubQty), alle im Gliederungspunkt (AllInCtgy) oder die gekennzeichneten (IdentAsMark)
+  const markiert: string[] = [], imTitel = new Map<string, string[]>(), offen: { p: GaebPosten; typ: string; titel: string }[] = [];
+  const geh = (body: XmlKnoten | undefined, vorne: string, titel = '') => {
     for (const k of body?.kinder ?? []) {
       if (k.name === 'BoQCtgy') {
         const oz = vorne + (k.attr.RNoPart ?? '').trim();
         posten.push({ kennung: k.attr.ID || `oz:${oz}`, oz, art: 'titel', kurztext: alleText(kind(k, 'LblTx')) || 'Titel', langtext: '', menge: null, einheit: '', ep: null });
-        geh(kind(k, 'BoQBody'), `${oz}.`);
+        geh(kind(k, 'BoQBody'), `${oz}.`, k.attr.ID || `oz:${oz}`);
       } else if (k.name === 'Itemlist') {
         for (const it of k.kinder) {
           if (it.name === 'Item') {
@@ -61,7 +78,17 @@ export function gaebLesen(quelle: string): GaebLv {
             if (kind(it, 'ALNGroupNo') || kind(it, 'ALNSerNo')) art = 'alternativ';
             if (/^(yes|true|1)$/i.test(alleText(kind(it, 'LumpSumItem')))) art = 'pauschal';
             const menge = zahl(alleText(kind(it, 'Qty')) || alleText(kind(it, 'QtySplit', 'Qty')));
-            posten.push({ kennung: it.attr.ID || `oz:${oz}`, oz, art, kurztext: kurz || 'Position', langtext: lang !== kurz ? lang : '', menge, einheit: alleText(kind(it, 'QU')), ep: zahl(alleText(kind(it, 'UP'))) });
+            const kennung = it.attr.ID || `oz:${oz}`;
+            posten.push({ kennung, oz, art, kurztext: kurz || 'Position', langtext: lang !== kurz ? lang : '', menge, einheit: alleText(kind(it, 'QU')), ep: zahl(alleText(kind(it, 'UP'))), angaben: bieterangaben(d) });
+            imTitel.set(titel, [...(imTitel.get(titel) ?? []), kennung]);
+            if (/^(yes|true|1)$/i.test(alleText(kind(it, 'MarkupIt')))) markiert.push(kennung);
+          } else if (it.name === 'MarkupItem') {
+            const oz = vorne + (it.attr.RNoPart ?? '').trim(), d = kind(it, 'Description');
+            const lang = text(kind(d, 'CompleteText', 'DetailTxt')) || text(kind(d, 'DetailTxt'));
+            const kurz = text(kind(d, 'CompleteText', 'OutlineText')) || text(kind(d, 'OutlineText')) || 'Zuschlag';
+            const p: GaebPosten = { kennung: it.attr.ID || `oz:${oz}`, oz, art: 'zuschlag', kurztext: kurz, langtext: lang !== kurz ? lang : '', menge: null, einheit: '%', ep: zahl(alleText(kind(it, 'Markup'))),
+              zuschlagAuf: it.kinder.filter((x) => x.name === 'MarkupSubQty').flatMap((q) => q.kinder.filter((r) => r.name === 'RefItem').map((r) => r.attr.IDRef ?? '')).filter(Boolean) };
+            posten.push(p); offen.push({ p, typ: alleText(kind(it, 'MarkupType')) || 'IdentAsMark', titel });
           } else if (it.name === 'Remark') {
             const lang = text(kind(it, 'Description', 'CompleteText', 'DetailTxt')) || text(kind(it, 'Description'));
             const kurz = text(kind(it, 'Description', 'CompleteText', 'OutlineText')) || lang.split('\n')[0]!.slice(0, 120) || 'Hinweis';
@@ -73,6 +100,7 @@ export function gaebLesen(quelle: string): GaebLv {
     }
   };
   geh(kind(boq, 'BoQBody'), '');
+  for (const o of offen) if (o.typ === 'AllInCtgy') o.p.zuschlagAuf = imTitel.get(o.titel) ?? []; else if (o.typ !== 'ListInSubQty') o.p.zuschlagAuf = markiert;
   if (!posten.length) throw new Error('Das Leistungsverzeichnis in der Datei ist leer.');
   return { dp, projekt, name, bieter, posten };
 }
@@ -91,10 +119,18 @@ export function gaebSchreiben(lv: { projekt: string; name: string; nummer: strin
   const teil = (oz: string, vorne: string) => (vorne ? oz.slice(vorne.length + 1) : oz);
   let n = 0;
   const id = () => `ID_${++n}`;
+  // Positionen bekommen feste IDs nach ihrer OZ – darauf verweisen Zuschläge (zuschlagAuf: OZ der Positionen)
+  const pid = new Map(posten.filter((x) => x.art !== 'titel' && x.oz).map((x, i) => [x.oz, `P_${i + 1}`]));
   const item = (x: Omit<GaebPosten, 'kennung'>, vorne: string) => {
+    if (x.art === 'zuschlag') {
+      const satz = dp === '83' ? null : preis?.(x.oz) ?? null;
+      return `<MarkupItem ID="${pid.get(x.oz) ?? id()}" RNoPart="${xmlText(teil(x.oz, vorne))}"><MarkupType>ListInSubQty</MarkupType>`
+        + (x.zuschlagAuf ?? []).filter((oz) => pid.has(oz)).map((oz) => `<MarkupSubQty><RefItem IDRef="${pid.get(oz)}"/></MarkupSubQty>`).join('')
+        + `${satz != null ? `<Markup>${satz.toFixed(3)}</Markup>` : ''}<Description><CompleteText>${x.langtext ? `<DetailTxt><Text>${gaebText(x.langtext)}</Text></DetailTxt>` : ''}<OutlineText><OutlTxt><TextOutlTxt>${p(x.kurztext)}</TextOutlTxt></OutlTxt></OutlineText></CompleteText></Description></MarkupItem>`;
+    }
     if (istHinweis(x.art)) return `<Remark ID="${id()}"><Description><CompleteText><DetailTxt><Text>${p(x.langtext || x.kurztext)}</Text></DetailTxt><OutlineText><OutlTxt><TextOutlTxt>${p(x.kurztext)}</TextOutlTxt></OutlTxt></OutlineText></CompleteText></Description></Remark>`;
     const ep = dp === '83' ? null : preis?.(x.oz) ?? null;
-    return `<Item ID="${id()}" RNoPart="${xmlText(teil(x.oz, vorne))}">${x.art === 'bedarf' ? '<Provis>WithoutTotal</Provis>' : ''}${x.art === 'pauschal' ? '<LumpSumItem>Yes</LumpSumItem>' : ''}${x.art === 'alternativ' ? '<ALNGroupNo>1</ALNGroupNo><ALNSerNo>1</ALNSerNo>' : ''}`
+    return `<Item ID="${pid.get(x.oz) ?? id()}" RNoPart="${xmlText(teil(x.oz, vorne))}">${x.art === 'bedarf' ? '<Provis>WithoutTotal</Provis>' : ''}${x.art === 'pauschal' ? '<LumpSumItem>Yes</LumpSumItem>' : ''}${x.art === 'alternativ' ? '<ALNGroupNo>1</ALNGroupNo><ALNSerNo>1</ALNSerNo>' : ''}`
       + `<Qty>${x.menge ?? 0}</Qty><QU>${xmlText(gaebEinheit(x.einheit))}</QU>${ep != null ? `<UP>${ep.toFixed(2)}</UP>` : ''}`
       + `<Description><CompleteText><DetailTxt><Text>${x.langtext ? gaebText(x.langtext) : p(x.kurztext)}</Text></DetailTxt><OutlineText><OutlTxt><TextOutlTxt>${p(x.kurztext)}</TextOutlTxt></OutlTxt></OutlineText></CompleteText></Description></Item>`;
   };

@@ -9,7 +9,7 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, 
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
 import { gaebPruefung, gliederungEinfuegen, lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
-import { gp, summeGeschaetzt, zaehlt, zahl } from '../module/ava/rechnung';
+import { istZuschlag, summeGeschaetzt, zaehlt, zahl } from '../module/ava/rechnung';
 import { Dialog } from './baukasten/dialog';
 import { langtextMenue, ErgaenzungFenster } from './textergaenzung';
 import { LvQuellenLeiste } from './lvquelle';
@@ -19,7 +19,7 @@ import { projektId } from './projekt';
 import { lvFolge, lvVon, lvWaehlen } from './avakopf';
 import { druckOeffnen } from './druck';
 import { springeZu } from './sprung';
-import { gaebAusgeben } from './ava';
+import { gaebAusgeben, gpMit } from './avadaten';
 import { gaebEinlesen } from './uebernahme';
 import { LvExcelFenster, lvExcelAusgeben, lvExcelEinlesen } from './lvexcel';
 import type { Mitte } from './baukasten/anpassung';
@@ -45,6 +45,8 @@ export interface BaumSpalte {
   setzen?: (pos: Zeile, text: string) => string | void;
   roh?: (pos: Zeile) => string;
   klasse?: (pos: Zeile) => string | undefined;
+  /** Hinweis zur Zelle (Tooltip, kleine Marke in der Ecke), z. B. die Bieterangaben zu einem Preis */
+  hinweis?: (pos: Zeile) => string | undefined;
   /** frei: nicht in der Spaltenwahl, immer hinten (z. B. je Bieter:in eine Spalte) */
   frei?: boolean;
   /** ab Werk ausgeblendet (in der Spaltenwahl einschaltbar) – damit die Standardbreite ohne waagerechtes Rollen auskommt */
@@ -55,8 +57,8 @@ export interface BaumSpalte {
 export interface FussZeile { titel: string; wert: (s: BaumSpalte, positionen: Zeile[]) => JSX.Element | string; klasse?: string }
 
 /** Kurzzeichen der Art wie im bisherigen Bauportal: N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext. */
-export const ART_KURZ: Record<string, string> = { normal: 'N', bedarf: 'E', alternativ: 'A', pauschal: 'P', stundenlohn: 'S', hinweis: 'H', vorbemerkung: 'V', titel: '' };
-const ARTEN_MENUE: [string, string][] = [['normal', 'Normal'], ['bedarf', 'Bedarf'], ['alternativ', 'Wahl'], ['pauschal', 'Pauschal'], ['stundenlohn', 'Stundenlohn'], ['hinweis', 'Hinweistext'], ['vorbemerkung', 'Vorbemerkung']];
+export const ART_KURZ: Record<string, string> = { normal: 'N', bedarf: 'E', alternativ: 'A', pauschal: 'P', stundenlohn: 'S', hinweis: 'H', vorbemerkung: 'V', zuschlag: 'Z', titel: '' };
+const ARTEN_MENUE: [string, string][] = [['normal', 'Normal'], ['bedarf', 'Bedarf'], ['alternativ', 'Wahl'], ['pauschal', 'Pauschal'], ['stundenlohn', 'Stundenlohn'], ['hinweis', 'Hinweistext'], ['vorbemerkung', 'Vorbemerkung'], ['zuschlag', 'Zuschlag']];
 const ART_AUS = Object.fromEntries(Object.entries(ART_KURZ).filter(([, k]) => k).map(([w, k]) => [k, w]));
 export const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const zahlText = (w: unknown) => (w === null || w === undefined || w === '' ? '' : zahl(w).toLocaleString('de-DE', { maximumFractionDigits: 3 }));
@@ -79,7 +81,7 @@ const kgNummer = (id: unknown) => String(sicht.kostengruppe?.[String(id ?? '')]?
 export const LV_SPALTEN: BaumSpalte[] = [
   { id: 'menge', titel: 'Menge', breite: 70, rechts: true, wert: (q) => zahlText(q.werte.menge),
     setzen: (q, t) => { const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q.id, { menge: n }, 'Menge'); } },
-  { id: 'einheit', titel: 'EH', breite: 46, wert: (q) => String(q.werte.einheit ?? ''), setzen: (q, t) => aendern(q.id, { einheit: t }, 'Einheit') },
+  { id: 'einheit', titel: 'EH', breite: 46, wert: (q) => (istZuschlag(q.werte.art) ? '%' : String(q.werte.einheit ?? '')), setzen: (q, t) => aendern(q.id, { einheit: t }, 'Einheit') },
   { id: 'art', titel: 'Art', breite: 38, hilfe: 'N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext', wert: (q) => ART_KURZ[String(q.werte.art ?? 'normal')] ?? '',
     setzen: (q, t) => { const w = ART_AUS[t.toUpperCase()]; if (!w) return 'Art: N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext'; aendern(q.id, { art: w }, 'Art'); } },
   { id: 'kg', titel: 'KG', breite: 48, hilfe: 'Kostengruppe nach DIN 276 – leer: wie das LV', wert: (q) => kgNummer(q.werte.kostengruppe) || kgNummer(sicht.lv?.[String(q.werte.lv)]?.werte.kostengruppe),
@@ -90,9 +92,9 @@ export const LV_SPALTEN: BaumSpalte[] = [
       if (!kg) return `Kostengruppe ${t} gibt es nicht (DIN 276, z. B. 330).`;
       aendern(q.id, { kostengruppe: kg.id }, 'Kostengruppe');
     } },
-  { id: 'ep', titel: 'EP (Schätzung)', breite: 110, rechts: true, wert: (q) => (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : eur(zahl(q.werte.ep))), roh: (q) => zahlText(q.werte.ep),
+  { id: 'ep', titel: 'EP (Schätzung)', breite: 110, rechts: true, wert: (q) => (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : `${eur(zahl(q.werte.ep))}${istZuschlag(q.werte.art) ? ' %' : ''}`), roh: (q) => zahlText(q.werte.ep),
     setzen: (q, t) => { const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q.id, { ep: n }, 'Einheitspreis'); } },
-  { id: 'gp', titel: 'GP', breite: 108, rechts: true, wert: (q) => (zaehlt(q) ? (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : eur(gp(q.werte.menge, q.werte.ep))) : istHinweis(q.werte.art) ? '' : 'ohne GP'),
+  { id: 'gp', titel: 'GP', breite: 108, rechts: true, wert: (q) => (zaehlt(q) ? (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : eur(gpMit(q))) : istHinweis(q.werte.art) ? '' : 'ohne GP'),
     summe: summeGeschaetzt },
 ];
 
@@ -347,7 +349,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
       ...(!z.titel ? [{ titel: lang().has(z.id) ? 'Langtext zuklappen' : 'Langtext zeigen', tun: () => umschaltenLang(z.id) }] : []),
       ...(z.titel ? [{ titel: zu().has(z.id) ? 'Aufklappen' : 'Zuklappen', tun: () => umschalten(z.id) }] : []),
       ...(p.struktur && schreiben() && darf('lv_position', 'loeschen') ? [{ titel: wahl.gewaehlt().length > 1 ? `${wahl.gewaehlt().length} Zeilen löschen` : z.titel ? 'Gliederungspunkt mit Inhalt löschen' : 'Position löschen', gefahr: true, tun: loeschen }] : []),
-    ].slice(0, 6));
+    ]);
   };
   const umschalten = (id: string) => { const n = new Set(zu()); if (n.has(id)) n.delete(id); else n.add(id); setZu(n); };
   // wie bisher: ist genau ein Langtext offen – der der gewählten Zeile –, wandert er mit der Auswahl
@@ -421,7 +423,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
               <div class="lvt-zeile" data-id={id} role="row" aria-level={z().ebene + 3} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, 'lvt-hinweis': istHinweis(nachId(z().id)?.werte.art), 'lvt-nt': !!nachId(z().id)?.werte.nachtrag }}
                 onClick={(e) => { if (!edit()) wahl.klick(e, z().id); }} onContextMenu={(e) => menue(e, z())}>
                 <For each={spalten()}>{(s) => (
-                   <div class={`lvt-zelle ${(!z().titel && nachId(id) && s.klasse?.(nachId(id)!)) || ''}`} role="gridcell" data-spalte={s.id} classList={{ rechts: !!s.rechts, zeiger: wahl.markiert() === z().id && spalte() === s.id, ed: bearbeitbar(z(), s.id) }} style={{ width: `${s.breite}px` }}
+                   <div class={`lvt-zelle ${(!z().titel && nachId(id) && s.klasse?.(nachId(id)!)) || ''}`} role="gridcell" data-spalte={s.id} title={(!z().titel && nachId(id) && s.hinweis?.(nachId(id)!)) || undefined} classList={{ rechts: !!s.rechts, zeiger: wahl.markiert() === z().id && spalte() === s.id, ed: bearbeitbar(z(), s.id), 'mit-hinweis': !z().titel && !!nachId(id) && !!s.hinweis?.(nachId(id)!) }} style={{ width: `${s.breite}px` }}
                     onClick={() => setSpalte(s.id)} onDblClick={() => bearbeiten(z().id, s.id)}>
                     <Show when={edit()?.id === z().id && (edit()?.spalte === s.id || (s.id === 'kurztext' && edit()?.spalte === 'oz'))} fallback={
                       s.id === 'kurztext' ? <span class="lvt-baum" style={{ 'padding-left': `${(z().ebene + 2) * 16}px` }}>

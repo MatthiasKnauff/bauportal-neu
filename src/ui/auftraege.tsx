@@ -6,8 +6,8 @@ import { createMemo, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
 import { standAus, zeilenBis } from '../module/ava/aufmass';
-import { gp, naechsteOz, naechsterNachtrag, zaehlt, zahl } from '../module/ava/rechnung';
-import { angeboteVon, lvZahlen, preiseVon } from './ava';
+import { istZuschlag, lvMenge, naechsteOz, naechsterNachtrag, zaehlt, zahl } from '../module/ava/rechnung';
+import { angeboteVon, gpMit, lvZahlen, preiseVon } from './avadaten';
 import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
 import { LV_SPALTEN, LvBaum, eur, lvZeiger, setLvZeiger, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
@@ -56,14 +56,14 @@ export function Auftraege(m: Mitte): JSX.Element {
       wert: (q) => { const e = epAuftrag(q); return e == null ? '' : eur(e); }, roh: (q) => zahlText(epAuftrag(q)),
       setzen: (q, t) => { if (q.werte.nachtrag && ntBeauftragt(q)) return GESPERRT; if (!nt(q)) return 'Der EP des Auftrags kommt aus dem beauftragten Angebot – Änderungen als Nachtrag.'; const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q, { ep: n }, 'Nachtragspreis'); } },
     { id: 'ep_schaetz', titel: 'EP Schätz.', aus: true, breite: 84, rechts: true, wert: (q) => (q.werte.nachtrag || q.werte.ep == null || q.werte.ep === '' ? '' : eur(zahl(q.werte.ep))) },
-    { id: 'gp_auftrag', titel: 'GP', breite: 98, rechts: true, wert: (q) => { const e = epAuftrag(q); return e == null || !zaehlt(q) ? '' : eur(gp(q.werte.menge, e)); },
-      summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gp(q.werte.menge, epAuftrag(q) ?? 0), 0) },
+    { id: 'gp_auftrag', titel: 'GP', breite: 98, rechts: true, wert: (q) => { const e = epAuftrag(q); return e == null || !zaehlt(q) ? '' : eur(gpMit(q, lvMenge, epAuftrag)); },
+      summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gpMit(q, lvMenge, epAuftrag), 0) },
     // Prognose wie bisher: was voraussichtlich kommt – Auftrag und Nachträge außer abgelehnten (vor Nachlass, je Zeile und als Summe)
     { id: 'prognose', titel: 'Prognose', breite: 98, rechts: true, hilfe: 'Auftrag und Nachträge (beauftragt und offen), ohne abgelehnte',
-      wert: (q) => { const e = epAuftrag(q); return e == null || !zaehlt(q) || abgelehnt(q) ? '' : eur(gp(q.werte.menge, e)); },
-      summe: (pos) => pos.filter((q) => zaehlt(q) && !abgelehnt(q)).reduce((s, q) => s + gp(q.werte.menge, epAuftrag(q) ?? 0), 0) },
-    { id: 'abgerechnet', titel: 'abgerechnet', aus: true, breite: 98, rechts: true, hilfe: 'geprüfte Menge (Aufmaß) × EP Auftrag', wert: (q) => { const g = geprueft(q), e = epAuftrag(q); return g == null || e == null || !zaehlt(q) ? '' : eur(gp(g, e)); },
-      summe: (pos) => pos.filter(zaehlt).reduce((s, q) => { const g = geprueft(q); return s + (g == null ? 0 : gp(g, epAuftrag(q) ?? 0)); }, 0) },
+      wert: (q) => { const e = epAuftrag(q); return e == null || !zaehlt(q) || abgelehnt(q) ? '' : eur(gpMit(q, lvMenge, epAuftrag)); },
+      summe: (pos) => pos.filter((q) => zaehlt(q) && !abgelehnt(q)).reduce((s, q) => s + gpMit(q, lvMenge, epAuftrag), 0) },
+    { id: 'abgerechnet', titel: 'abgerechnet', aus: true, breite: 98, rechts: true, hilfe: 'geprüfte Menge (Aufmaß) × EP Auftrag', wert: (q) => { const g = geprueft(q), e = epAuftrag(q); return (g == null && !istZuschlag(q.werte.art)) || e == null || !zaehlt(q) ? '' : eur(gpMit(q, (y) => geprueft(y) ?? 0, epAuftrag)); },
+      summe: (pos) => pos.filter(zaehlt).reduce((s, q) => { return s + gpMit(q, (y) => geprueft(y) ?? 0, epAuftrag); }, 0) },
   ];
   const z = createMemo(() => (lv() ? lvZahlen(lv()!.id) : undefined));
   const zeile = (titel: string, n: () => number | null | undefined, klasse?: string): FussZeile => ({ titel, klasse, wert: (s) => (s.id === 'gp_auftrag' && n() != null ? eur(n()!) : '') });

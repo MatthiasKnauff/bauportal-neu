@@ -2,7 +2,7 @@
 // Auftrag (LV) nach der Firma vorgeschlagen; die Mengen je OZ können gleich ins Aufmaß („Menge laut Firma“). Ein Rückgängig für alles.
 // Gelesen wird im Gerät – die Datei geht nirgends hin. PDFs ohne E-Rechnung (Texterkennung) kommen als eigener Block.
 import { Show, createMemo, createSignal } from 'solid-js';
-import type { Vorlage, Zeile } from '../kern/befehl';
+import type { Vorlage } from '../kern/befehl';
 import { firmenSchluessel } from '../kern/dokumenterkennung';
 import { mengenZuordnen } from '../module/ava/aufmasslesen';
 import { RECHNUNGSARTEN } from '../module/ava/beipackzettel';
@@ -14,22 +14,17 @@ import { Dialog } from './baukasten/dialog';
 import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
+import { dateiWaehlen } from './baukasten/dateiwahl';
 
 const [offen, setOffen] = createSignal<{ name: string; projekt: string; r: ERechnung } | null>(null);
 
 export function rechnungEinlesen(projekt: string): void {
-  const wahl = document.createElement('input');
-  wahl.type = 'file'; wahl.accept = '.pdf,.xml';
-  wahl.onchange = async () => {
-    const d = wahl.files?.[0]; if (!d) return;
-    try {
-      const xml = await eRechnungXml(new Uint8Array(await d.arrayBuffer()));
-      const r = xml ? eRechnungLesen(xml) : null;
-      if (!r) { hinweis(`In „${d.name}“ steckt keine E-Rechnung (XRechnung oder ZUGFeRD). Rechnungen ohne E-Rechnung bitte von Hand anlegen.`, { art: 'fehler' }); return; }
-      setOffen({ name: d.name, projekt, r });
-    } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
-  };
-  wahl.click();
+  dateiWaehlen('.pdf,.xml', async (d) => {
+    const xml = await eRechnungXml(new Uint8Array(await d.arrayBuffer()));
+    const r = xml ? eRechnungLesen(xml) : null;
+    if (!r) { hinweis(`In „${d.name}“ steckt keine E-Rechnung (XRechnung oder ZUGFeRD). Rechnungen ohne E-Rechnung bitte von Hand anlegen.`, { art: 'fehler' }); return; }
+    setOffen({ name: d.name, projekt, r });
+  });
 }
 
 

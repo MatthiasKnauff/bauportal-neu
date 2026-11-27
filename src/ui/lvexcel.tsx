@@ -4,7 +4,6 @@
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Vorlage } from '../kern/befehl';
-import { tabelleLesen } from '../kern/tabellendatei';
 import { xlsxSchreiben } from '../kern/xlsx';
 import { lvAlsTabelle, lvAusTabelle, preiseAusTabelle, type LvEinlesung, type PreisEinlesung } from '../module/ava/lvexcel';
 import { Auswahlliste } from './baukasten/auswahlliste';
@@ -13,6 +12,7 @@ import { herunterladen } from './baukasten/herunterladen';
 import { ausfuehrenMehrere, lebende, verweisname } from './unterbau/abgleich';
 import { neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
+import { tabelleWaehlen } from './baukasten/dateiwahl';
 
 const lvName = (lv: Zeile) => [lv.werte.nummer, lv.werte.name].filter(Boolean).join(' ') || 'LV';
 const positionen = (lv: string) => lebende('lv_position').filter((q) => q.werte.lv === lv && !q.werte.nachtrag);
@@ -23,14 +23,7 @@ export function lvExcelAusgeben(lv: Zeile): void {
 
 const [einlesen, setEinlesen] = createSignal<{ lv: Zeile; datei: string; e: LvEinlesung } | null>(null);
 export function lvExcelEinlesen(lv: Zeile): void {
-  const wahl = document.createElement('input');
-  wahl.type = 'file'; wahl.accept = '.xlsx,.xlsm,.csv,.txt';
-  wahl.onchange = async () => {
-    const d = wahl.files?.[0]; if (!d) return;
-    try { const t = await tabelleLesen(d.name, new Uint8Array(await d.arrayBuffer())); setEinlesen({ lv, datei: d.name, e: lvAusTabelle([t.kopf, ...t.zeilen], positionen(lv.id)) }); }
-    catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
-  };
-  wahl.click();
+  tabelleWaehlen((datei, zeilen) => setEinlesen({ lv, datei, e: lvAusTabelle(zeilen, positionen(lv.id)) }));
 }
 
 export function LvExcelFenster(): JSX.Element {
@@ -60,14 +53,8 @@ const angeboteDes = (lv: string) => lebende('angebot').filter((a) => a.werte.lv 
 
 export function AngebotExcelFenster(): JSX.Element {
   const datei = () => {
-    const x = angebotEin()!, wahl = document.createElement('input');
-    wahl.type = 'file'; wahl.accept = '.xlsx,.xlsm,.csv,.txt';
-    wahl.onchange = async () => {
-      const d = wahl.files?.[0]; if (!d) return;
-      try { const t = await tabelleLesen(d.name, new Uint8Array(await d.arrayBuffer())); setAngebotEin({ ...x, datei: d.name, e: preiseAusTabelle([t.kopf, ...t.zeilen], positionen(x.lv.id)) }); }
-      catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
-    };
-    wahl.click();
+    const x = angebotEin()!;
+    tabelleWaehlen((datei, zeilen) => setAngebotEin({ ...x, datei, e: preiseAusTabelle(zeilen, positionen(x.lv.id)) }));
   };
   const uebernehmen = () => {
     const x = angebotEin()!; if (!x.angebot || !x.e) return; setAngebotEin(null);

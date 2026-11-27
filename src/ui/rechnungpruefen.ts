@@ -7,7 +7,7 @@ import type { Werte } from '../kern/modell';
 import { aktuelleRechnung, geprueft as istGeprueft, ketteVon, nachAufmass, reihe, standAus, vorige, zeilenBis } from '../module/ava/aufmass';
 import { NUR_BEAUFTRAGTE, abrechenbar, leistungAus } from '../module/ava/freigabe';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
-import { angeboteVon, epVon } from './ava';
+import { angeboteVon, epVon } from './avadaten';
 export { epVon };
 import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { hinweis } from './unterbau/meldungen';

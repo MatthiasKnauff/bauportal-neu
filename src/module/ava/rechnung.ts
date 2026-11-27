@@ -1,13 +1,21 @@
 // Ausschreibung: Summen und Wertung – reine Rechnung, im Browser, auf dem Server und in den Tests gleich.
 import type { Werte } from '../../kern/modell';
 import { nachOz } from '../../kern/oz';
+import { mengeVon, nachKennung } from '../../kern/lvarten';
+export { istZuschlag, mengeVon, nachKennung, zuschlagAuf } from '../../kern/lvarten';
 export { nachOz, ozVergleich } from '../../kern/oz';
 
 type E = { id: string; werte: Werte };
 /** Positionen, die in die Summe eingehen: Bedarfs- und Alternativpositionen nicht (sie stehen nur mit EP im LV), Titel und Hinweise ohnehin nicht. */
-export const zaehlt = (p: E) => ['normal', 'pauschal', 'stundenlohn', ''].includes(String(p.werte.art ?? ''));
+export const zaehlt = (p: E) => ['normal', 'pauschal', 'stundenlohn', 'zuschlag', ''].includes(String(p.werte.art ?? ''));
 export const zahl = (w: unknown): number => (typeof w === 'number' ? w : Number(String(w ?? '').replace(/\./g, '').replace(',', '.')) || 0);
 export const gp = (menge: unknown, ep: unknown) => Math.round(zahl(menge) * zahl(ep) * 100) / 100;
+/** GP einer Position mit Menge und EP aus derselben Quelle (LV, Angebot, Auftrag, Aufmaß) – Zuschlagspositionen rechnen auf ihre Positionen. */
+export const gpVon = <T extends E>(q: T, alle: ReadonlyMap<string, T>, menge: (y: T) => number, ep: (y: T) => number | null): number =>
+  gp(mengeVon(q, alle, menge, ep), ep(q) ?? 0);
+/** Menge und EP, wie sie im LV stehen (Schätzung). */
+export const lvMenge = (y: E) => zahl(y.werte.menge);
+export const lvEp = (y: E) => (y.werte.ep == null || y.werte.ep === '' ? null : zahl(y.werte.ep));
 
 /** OZ für eine neue Position: hinter der letzten Position des LV, in Zehnerschritten mit gleicher Stellenzahl (01.0030 → 01.0040). */
 export function naechsteOz(positionen: E[]): string {
@@ -20,7 +28,7 @@ export function naechsteOz(positionen: E[]): string {
 }
 
 /** Summe eines LV mit den geschätzten Preisen. */
-export const summeGeschaetzt = (positionen: E[]) => Math.round(positionen.filter(zaehlt).reduce((s, p) => s + gp(p.werte.menge, p.werte.ep), 0) * 100) / 100;
+export const summeGeschaetzt = (positionen: E[]) => { const alle = nachKennung(positionen); return Math.round(positionen.filter(zaehlt).reduce((s, p) => s + gpVon(p, alle, lvMenge, lvEp), 0) * 100) / 100; };
 
 export interface Wertung { angebot: string; netto: number; nachLass: number; fehlend: number; rang: number | null }
 /**
@@ -28,10 +36,11 @@ export interface Wertung { angebot: string; netto: number; nachLass: number; feh
  * (nur gewertete Angebote, die günstigste Summe nach Nachlass zuerst).
  */
 export function wertung(positionen: E[], angebote: E[], preis: (angebot: string, position: string) => number | null): Wertung[] {
-  const zaehlende = positionen.filter(zaehlt);
+  const zaehlende = positionen.filter(zaehlt), alle = nachKennung(positionen);
   const w = angebote.map((a) => {
     let netto = 0, fehlend = 0;
-    for (const p of zaehlende) { const ep = preis(a.id, p.id); if (ep == null) fehlend++; else netto += gp(p.werte.menge, ep); }
+    const ep = (y: E) => preis(a.id, y.id);
+    for (const p of zaehlende) { const e = ep(p); if (e == null) fehlend++; else netto += gpVon(p, alle, lvMenge, ep); }
     netto = Math.round(netto * 100) / 100;
     // Nachlass in % und/oder als fester Betrag € (wie bisher) – erst %, dann €
     return { angebot: a.id, netto, nachLass: Math.round((netto * (1 - zahl(a.werte.nachlass) / 100) - zahl(a.werte.nachlass_eur)) * 100) / 100, fehlend, rang: null as number | null, aus: a.werte.ausgeschlossen === true };
@@ -195,7 +204,8 @@ export const NACHTRAG_OFFEN = ['angemeldet', 'angeboten', 'geprueft', ''];
 /** Betrag eines Nachtrags netto vor Nachlass: Menge × EP seiner Positionen – ohne Positionen der eingetragene Betrag (Pauschale). */
 export function nachtragNetto(nachtrag: E, positionen: E[]): number {
   const eigene = positionen.filter((p) => p.werte.nachtrag === nachtrag.id && zaehlt(p));
-  return eigene.length ? Math.round(eigene.reduce((s, p) => s + gp(p.werte.menge, p.werte.ep), 0) * 100) / 100 : zahl(nachtrag.werte.betrag);
+  const alle = nachKennung(positionen);
+  return eigene.length ? Math.round(eigene.reduce((s, p) => s + gpVon(p, alle, lvMenge, lvEp), 0) * 100) / 100 : zahl(nachtrag.werte.betrag);
 }
 export interface Auftragsstand { auftrag: number; beauftragt: number; offen: number; aktuell: number; prognose: number }
 /** Hauptauftrag (nach Nachlass) und Nachträge (Nachlass des Auftrags gilt auch für sie): aktuell = Auftrag + beauftragte, Prognose = dazu die offenen. */

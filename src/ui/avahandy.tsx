@@ -6,8 +6,8 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { geprueft as istGeprueft, rechnungTitel, standAus, zeilenBis } from '../module/ava/aufmass';
 import { NACHTRAGSSTAENDE } from '../module/ava/beipackzettel';
-import { bedingungenAus, gp, leiter, nachOz, zaehlt, zahl } from '../module/ava/rechnung';
-import { angeboteVon, epVon, lvZahlen, name } from './ava';
+import { bedingungenAus, leiter, lvMenge, nachOz, zaehlt, zahl } from '../module/ava/rechnung';
+import { angeboteVon, epVon, gpMit, lvZahlen, name } from './avadaten';
 import { gewaehltesLv, lvFolge, setAktivesLv } from './avakopf';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { projektId } from './projekt';
@@ -120,7 +120,7 @@ function LvPositionen(p: { lv: Zeile; lang: string | null; setLang: (id: string 
   const nt = (q: Zeile) => (q.werte.nachtrag ? sicht.nachtrag?.[String(q.werte.nachtrag)] : undefined);
   const unter = (t: Zeile) => { const k = `${String(t.werte.oz ?? '')}.`; return alle().filter((q) => String(q.werte.oz ?? '').startsWith(k)); };
   const versteckt = (q: Zeile) => [...p.zu].some((id) => { const t = sicht.lv_position?.[id]; return !!t && t.id !== q.id && String(q.werte.oz ?? '').startsWith(`${String(t.werte.oz ?? '')}.`); });
-  const summe = (L: Zeile[]) => L.filter(zaehlt).reduce((s, q) => s + gp(q.werte.menge, ep()(q) ?? 0), 0);
+  const summe = (L: Zeile[]) => L.filter(zaehlt).reduce((s, q) => s + gpMit(q, lvMenge, ep()), 0);
   const klappe = (id: string) => { const s = new Set(p.zu); if (s.has(id)) s.delete(id); else s.add(id); p.setZu(s); };
   return (
     <div class="mv-lv">
@@ -132,9 +132,9 @@ function LvPositionen(p: { lv: Zeile; lang: string | null; setLang: (id: string 
         <Show when={!versteckt(q)}>
           <Show when={q.werte.art === 'titel'} fallback={
             <div class="mv-pos" classList={{ still: !zaehlt(q) && !istHinweis(q.werte.art), hinweis: istHinweis(q.werte.art) }} data-mp={q.id} onClick={() => p.setLang(p.lang === q.id ? null : q.id)}>
-              <small>{String(q.werte.oz ?? '')}<Show when={nt(q)}> · <b class="mv-nt">{String(nt(q)!.werte.nummer ?? '')} {NT[String(nt(q)!.werte.stand ?? '')] ?? ''}</b></Show>{!zaehlt(q) && q.werte.art !== 'hinweis' ? ' · ohne GB' : ''}</small>
+              <small>{String(q.werte.oz ?? '')}<Show when={nt(q)}> · <b class="mv-nt">{String(nt(q)!.werte.nummer ?? '')} {NT[String(nt(q)!.werte.stand ?? '')] ?? ''}</b></Show>{!zaehlt(q) && !istHinweis(q.werte.art) ? ' · ohne GB' : ''}</small>
               <span class="mv-text">{String(q.werte.kurztext ?? '')}</span>
-              <Show when={!istHinweis(q.werte.art)}><span class="mv-zeile"><span>{zt(q.werte.menge)} {String(q.werte.einheit ?? '')}{ep()(q) != null ? ` × ${eur(ep()(q)!)}` : ''}</span><b>{ep()(q) != null && zaehlt(q) ? eur(gp(q.werte.menge, ep()(q))) : ''}</b></span></Show>
+              <Show when={!istHinweis(q.werte.art)}><span class="mv-zeile"><span>{zt(q.werte.menge)} {String(q.werte.einheit ?? '')}{ep()(q) != null ? ` × ${eur(ep()(q)!)}` : ''}</span><b>{ep()(q) != null && zaehlt(q) ? eur(gpMit(q, lvMenge, ep())) : ''}</b></span></Show>
               <Show when={p.lang === q.id && q.werte.langtext}><p class="mv-lang">{String(q.werte.langtext)}</p></Show>
             </div>}>
             <h3 class="mv-gliederung" style={{ 'padding-left': `${(String(q.werte.oz ?? '').split('.').length - 1) * 12}px` }} onClick={() => klappe(q.id)}>

@@ -61,7 +61,7 @@ export interface Anpassung {
   kachel?: (z: Zeile) => JSX.Element;
   /** Eigene Darstellung einer Tabellenzelle; ohne Rückgabe gilt die übliche. */
   zelle?: (f: Feld, z: Zeile) => JSX.Element | undefined;
-  /** Zusätzliche Punkte im Kontextmenü einer Zeile (insgesamt bleiben es höchstens 6). */
+  /** Zusätzliche Punkte im Kontextmenü einer Zeile (insgesamt bleiben es höchstens 9). */
   /** Mehrere wählen (Haken, schwebende Leiste unten): die Befehle des Moduls für die Gewählten – dazu kommen Excel und Papierkorb. */
   auswahl?: (h: AuswahlHilfen) => AuswahlBefehl[];
   zeilenMenue?: (z: Zeile) => Menuepunkt[];

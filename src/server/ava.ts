@@ -43,8 +43,8 @@ export function avaRouten(app: FastifyInstance, e: { db: Db; register: Modulregi
         if (!kontakt) je.kontakt = adressen.je.kontakt!;
         await abgleichen('angebot', [{ kennung: `gaeb:${q.lv}:${bieter}`, werte: { lv: q.lv!, bieter } }], () => false);
         const angebot = ort.angebot!.get(`gaeb:${q.lv}:${bieter}`)!;
-        const mitPreis = d.posten.filter((x) => x.ep != null && pos.has(x.oz));
-        await abgleichen('angebot_preis', mitPreis.map((x) => ({ kennung: `gaeb:${angebot}:${x.oz}`, werte: { angebot, position: pos.get(x.oz)!, ep: x.ep } })), () => false);
+        const mitPreis = d.posten.filter((x) => (x.ep != null || x.angaben) && pos.has(x.oz));
+        await abgleichen('angebot_preis', mitPreis.map((x) => ({ kennung: `gaeb:${angebot}:${x.oz}`, werte: { angebot, position: pos.get(x.oz)!, ep: x.ep, angaben: x.angaben || null } })), () => false);
         const ohne = d.posten.filter((x) => x.ep != null && !pos.has(x.oz)).length;
         hinweise.push(`Angebot von ${name}${kontakt ? '' : ' (neu in den Adressen)'}: ${mitPreis.length} Preise zum LV „${lvDa.name}“.`);
         if (ohne) hinweise.push(`${ohne} Preise passen zu keiner OZ des LV und bleiben weg.`);
@@ -52,9 +52,11 @@ export function avaRouten(app: FastifyInstance, e: { db: Db; register: Modulregi
       }
       // Leistungsverzeichnis: neues LV oder Abgleich mit dem gewählten
       const lvId = lvDa ? String(lvDa.id) : randomUUID();
-      const { liste, je, abgleichen } = abgleicher(c, e.register, { projekt: q.projekt!, lv: lvId }, 'gaeb', ['gaeb']);
+      const { liste, je, abgleichen, ort: abgleicherOrt } = abgleicher(c, e.register, { projekt: q.projekt!, lv: lvId }, 'gaeb', ['gaeb']);
       if (!lvDa) liste.push({ id: randomUUID(), gesehen: ALLES_GESEHEN, herkunft: 'gaeb', objekt: 'lv', art: 'anlegen', objektId: lvId, werte: { projekt: q.projekt!, name: d.name || 'LV aus GAEB', nummer: '', status: 'bearbeitung' } });
-      await abgleichen('lv_position', d.posten.map((x, i) => ({ kennung: x.kennung, werte: { oz: x.oz, art: x.art, kurztext: x.kurztext, langtext: x.langtext, menge: x.menge, einheit: x.einheit, ep: x.ep, reihe: i + 1 } })),
+      await abgleichen('lv_position', d.posten.map((x, i) => ({ kennung: x.kennung, werte: () => ({ oz: x.oz, art: x.art, kurztext: x.kurztext, langtext: x.langtext, menge: x.menge, einheit: x.einheit, ep: x.ep, reihe: i + 1,
+        // Zuschlag: die Positionen über ihre Kennung aus der Datei – nach dem ersten Durchgang kennt der Abgleich ihre Kennung hier
+        ...(x.art === 'zuschlag' ? { zuschlag_auf: (x.zuschlagAuf ?? []).map((k) => abgleicherOrt.lv_position?.get(k)).filter(Boolean).join(',') || null } : {}) }) })),
         (k) => k !== '');
       hinweise.push(lvDa ? `Abgleich mit dem LV „${lvDa.name}“: Positionen aus der Datei ersetzen die früher eingelesenen; von Hand Geändertes bleibt.` : `Neues LV „${d.name || 'LV aus GAEB'}“.`);
       if (d.posten.some((x) => x.ep != null)) hinweise.push('Die Einheitspreise der Datei stehen als geschätzte EP im LV.');

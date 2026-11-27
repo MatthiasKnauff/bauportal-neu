@@ -88,6 +88,56 @@ export const ablage: ObjektModell = {
   ],
 };
 
+// Zentrale Versandstelle (Regel „Nie zu viele Meldungen“): jede Mail des Bauportals geht als Nachricht in den Postausgang
+// und von dort über den Mailserver – Erinnerungen gebündelt (ab Werk einmal am Tag), Mitteilungen gleich. Das Kennwort steht
+// wie bei der Ablage nicht hier, sondern verschlüsselt in der Datenbank. Der Testserver verschickt nie etwas.
+export const MAILSERVER_ID = '00000000-0000-4000-8000-0000000e0a11';
+export const BUENDELN = [{ wert: 'tag', titel: 'einmal am Tag (empfohlen)' }, { wert: 'stunde', titel: 'einmal in der Stunde' }, { wert: 'sofort', titel: 'sofort' }];
+export const mailserver: ObjektModell = {
+  name: 'mailserver',
+  titel: 'Mailserver',
+  titelMehrzahl: 'Mailserver',
+  anzeigeFeld: 'host',
+  einzeln: MAILSERVER_ID,
+  rechte: { lesen: [], schreiben: [], loeschen: [] },
+  felder: [
+    { name: 'host', titel: 'Server für ausgehende Mails (SMTP), z. B. smtp.office365.com', art: 'text', gruppe: 'Mailserver' },
+    { name: 'port', titel: 'Port (meist 587)', art: 'zahl', kartenBreite: 2, gruppe: 'Mailserver' },
+    { name: 'sicherheit', titel: 'Verschlüsselung', art: 'auswahl', kartenBreite: 4, gruppe: 'Mailserver',
+      optionen: [{ wert: 'starttls', titel: 'STARTTLS (Port 587)' }, { wert: 'ssl', titel: 'SSL/TLS (Port 465)' }] },
+    { name: 'benutzer', titel: 'Benutzer am Mailserver', art: 'text', gruppe: 'Mailserver' },
+    { name: 'absender_name', titel: 'Absender (Name), z. B. GK3 Bauportal', art: 'text', gruppe: 'Absender' },
+    { name: 'absender', titel: 'Absender (E-Mail-Adresse)', art: 'email', gruppe: 'Absender' },
+    { name: 'buendeln', titel: 'Erinnerungen bündeln', art: 'auswahl', optionen: BUENDELN, kartenBreite: 4, gruppe: 'Zurückhaltend' },
+    { name: 'uhrzeit', titel: 'täglich um (z. B. 07:00)', art: 'text', kartenBreite: 2, gruppe: 'Zurückhaltend' },
+    { name: 'letzter_lauf', titel: 'Zuletzt gebündelt', art: 'text', verborgen: true },   // „2026-11-27“ bzw. „2026-11-27T07“ – führt die Versandstelle selbst
+  ],
+};
+export const NACHRICHT_STAENDE = [{ wert: 'wartet', titel: 'wartet' }, { wert: 'verschickt', titel: 'verschickt' }, { wert: 'zurueckgehalten', titel: 'zurückgehalten (Testserver)' },
+  { wert: 'fehler', titel: 'Fehler' }, { wert: 'verworfen', titel: 'verworfen' }];
+export const nachricht: ObjektModell = {
+  name: 'nachricht',
+  titel: 'Nachricht',
+  titelMehrzahl: 'Postausgang',
+  anzeigeFeld: 'betreff',
+  sortierFeld: 'faellig',
+  rechte: { lesen: OHNE_GAST, schreiben: ['bueroleitung', 'bauleitung', 'mitarbeiter'], loeschen: ['bueroleitung', 'bauleitung'] },
+  felder: [
+    { name: 'an', titel: 'An (E-Mail)', art: 'email', pflicht: true, inListe: true, breite: 220, gruppe: 'Nachricht' },
+    { name: 'kontakt', titel: 'Kontakt', art: 'verweis', ziel: 'kontakt', spalte: true, breite: 200, gruppe: 'Nachricht' },
+    { name: 'betreff', titel: 'Betreff', art: 'text', pflicht: true, inListe: true, breite: 320, gruppe: 'Nachricht' },
+    { name: 'text', titel: 'Text', art: 'langtext', gruppe: 'Nachricht' },
+    { name: 'art', titel: 'Art', art: 'auswahl', inListe: true, breite: 110, kartenBreite: 2, gruppe: 'Versand',
+      optionen: [{ wert: 'mitteilung', titel: 'Mitteilung (gleich)' }, { wert: 'erinnerung', titel: 'Erinnerung (gebündelt)' }] },
+    { name: 'faellig', titel: 'Fällig ab (leer: gleich)', art: 'datum', inListe: true, breite: 110, kartenBreite: 2, gruppe: 'Versand' },
+    { name: 'stand', titel: 'Stand', art: 'auswahl', optionen: NACHRICHT_STAENDE, inListe: true, breite: 130, kartenBreite: 2, gruppe: 'Versand' },
+    { name: 'verschickt_am', titel: 'Verschickt am', art: 'text', spalte: true, breite: 150, gruppe: 'Versand' },
+    { name: 'fehler', titel: 'Fehler beim Versand', art: 'text', spalte: true, breite: 220, gruppe: 'Versand' },
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', spalte: true, breite: 180, gruppe: 'Herkunft' },
+    { name: 'quelle', titel: 'Aus (Objekt|Kennung)', art: 'text', verborgen: true },
+  ],
+};
+
 // Was das Büro an einem Ausdruck eingestellt hat – je Stelle ein Eintrag (Druckwerk, kern/druck.ts).
 export const druckeinstellung: ObjektModell = {
   name: 'druckeinstellung',
@@ -205,7 +255,7 @@ export const verwaltung: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',
   braucht: [],
-  objekte: [benutzer, recht, buero, ablage, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
+  objekte: [benutzer, recht, buero, ablage, mailserver, nachricht, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
   abgesetzt: ['Für mich'],   // wie im bisherigen Bauportal: „Für mich – <Name>“ farbig abgesetzt
   ansichten: [
     // „Für mich“: für jede:n – eigenes Konto und Darstellung (wie im bisherigen Bauportal)
@@ -216,6 +266,8 @@ export const verwaltung: Beipackzettel = {
     { id: 'benutzer', titel: 'Benutzer', abschnitt: 'Einstellungen', zeichen: 'personen', objekt: 'benutzer', baum: ['rolle'] },
     { id: 'rechte', titel: 'Rechte', abschnitt: 'Einstellungen', zeichen: 'schluessel', nurAdmin: true, hilfe: 'Wer darf was: je Rolle sehen, ändern, löschen – für jede Art von Eintrag.' },
     { id: 'ablage', titel: 'Ablage & Server', abschnitt: 'Einstellungen', zeichen: 'dateien', nurAdmin: true, einstellungen: 'ablage', hilfe: 'Verbindung zum Dateiserver (Freigabe, Benutzer, Kennwort) für Pläne & Dateien und die Projektordner.' },
+    { id: 'mail', titel: 'Mail & Versand', abschnitt: 'Einstellungen', zeichen: 'senden', nurAdmin: true, einstellungen: 'mailserver', hilfe: 'Die zentrale Versandstelle: Mailserver (SMTP, Kennwort), Absender und wie zurückhaltend Erinnerungen gebündelt werden.' },
+    { id: 'postausgang', titel: 'Postausgang', abschnitt: 'Büro', zeichen: 'senden', objekt: 'nachricht', baum: ['stand'], hilfe: 'Alle Mails des Bauportals – was wartet, was verschickt ist, was nicht ging. Nichts verlässt das Bauportal an dieser Stelle vorbei.' },
     { id: 'ki', titel: 'KI', abschnitt: 'Einstellungen', zeichen: 'assistent', objekt: 'ki_anbindung', nurAdmin: true },
     { id: 'ratschlaege', titel: 'Ratschläge', abschnitt: 'Prüfung', zeichen: 'liste_aufgaben', objekt: 'pruefrat', nurAdmin: true, baum: ['stand'] },
     { id: 'pruefki', titel: 'Prüf-KI', abschnitt: 'Prüfung', zeichen: 'pruefung', objekt: 'pruefzugang', nurAdmin: true },

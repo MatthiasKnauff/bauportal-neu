@@ -72,6 +72,7 @@ export const POSITIONSARTEN = [
   { wert: 'titel', titel: 'Titel' }, { wert: 'normal', titel: 'Position' }, { wert: 'bedarf', titel: 'Bedarfsposition (ohne GP)' },
   { wert: 'alternativ', titel: 'Alternativposition (ohne GP)' }, { wert: 'pauschal', titel: 'Pauschal' }, { wert: 'stundenlohn', titel: 'Stundenlohn' },
   { wert: 'hinweis', titel: 'Hinweistext' }, { wert: 'vorbemerkung', titel: 'Vorbemerkung' },
+  { wert: 'zuschlag', titel: 'Zuschlag (% auf Positionen)' },
 ];
 
 export const lvPosition: ObjektModell = {
@@ -87,7 +88,8 @@ export const lvPosition: ObjektModell = {
     { name: 'kostengruppe', titel: 'Kostengruppe (DIN 276, leer: wie das LV)', art: 'verweis', ziel: 'kostengruppe', spalte: true, breite: 200, kartenBreite: 6, gruppe: 'Position' },
     { name: 'menge', titel: 'Menge', art: 'zahl', einheit: 'einheit', inListe: true, breite: 90, kartenBreite: 2, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'einheit', titel: 'Einheit', art: 'text', vorschlagen: true, inListe: true, breite: 70, kartenBreite: 1, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
-    { name: 'ep', titel: 'EP geschätzt in €', art: 'zahl', inListe: true, breite: 110, kartenBreite: 3, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
+    { name: 'ep', titel: 'EP geschätzt in € (Zuschlag: Satz in %)', art: 'zahl', inListe: true, breite: 110, kartenBreite: 3, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn', 'zuschlag'] } },
+    { name: 'zuschlag_auf', titel: 'Zuschlag auf (Positionen)', art: 'text', verborgen: true },   // Kennungen „a,b,c“ – gewählt an der Karte (kern/lvarten.ts)
     { name: 'nachtrag', titel: 'Nachtrag', art: 'verweis', ziel: 'nachtrag', inListe: true, breite: 160, gruppe: 'Position' },   // leer: Position der Ausschreibung; mit Nachtrag: erst nach der Vergabe, nicht im Preisspiegel
     { name: 'quelle', titel: 'Aus Liste oder Modell', art: 'text', verborgen: true },   // Schlüssel „Quelle|Gruppe|…“ (module/ava/lvplan.ts) – hält LV und Quelle abgleichbar
     { name: 'reihe', titel: 'Reihenfolge', art: 'zahl', verborgen: true },
@@ -170,6 +172,7 @@ export const angebotPreis: ObjektModell = {
     { name: 'angebot', titel: 'Angebot', art: 'verweis', ziel: 'angebot', pflicht: true },
     { name: 'position', titel: 'Position', art: 'verweis', ziel: 'lv_position', pflicht: true },
     { name: 'ep', titel: 'EP in €', art: 'zahl' },
+    { name: 'angaben', titel: 'Angaben der Bieter:in (Fabrikat, Typ …)', art: 'text' },   // aus den Bietertextergänzungen des X84
     { name: 'kennung', titel: 'Kennung (GAEB)', art: 'text', verborgen: true },
   ],
 };

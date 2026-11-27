@@ -1,7 +1,7 @@
 // AVA: ein gewähltes LV für alle Ansichten der App (LV bearbeiten, Versand, Preisspiegel, Aufträge, Aufmaß …) und oben sein Kopf –
 // Bezeichnung, Stand, an wen vergeben, Eckdaten; darunter der Ablauf (Abfolge-Leiste), wie weit das LV ist. Wie im bisherigen Bauportal.
-import { Show, createEffect, createSignal, useContext, type JSX } from 'solid-js';
-import { AvaKennzahlen } from './ava';
+import { For, Show, createEffect, createMemo, createSignal, useContext, type JSX } from 'solid-js';
+import { lvZahlen } from './avadaten';
 import { AppUmgebung } from './baukasten/rahmen';
 import type { Zeile } from '../kern/befehl';
 import { avaAbfolge, avaSchrittVon } from '../module/ava/abfolge';
@@ -31,9 +31,6 @@ export function lvVon(p: Mitte): Zeile | undefined {
   const z = sicht.lv?.[p.gewaehlt() ?? ''];
   return z && !z.geloescht && z.werte.projekt === projektId() ? z : gewaehltesLv();
 }
-/** Ansichten mit Einträgen eines LV (Angebote, Besprechungen, Nachträge, Rechnungen …): nur die des gewählten LV, neue gehören
- *  zu ihm – wie im bisherigen Bauportal bezieht sich alles auf das LV oben (Entscheidung 26.11.2026). */
-export const nurGewaehltesLv = (): Record<string, string> => { const z = gewaehltesLv(); return z ? { lv: z.id } : {}; };
 /** Ein LV wählen – gilt dann in allen Ansichten der AVA (zeigt die Ansicht LVs, ist es dort auch gewählt). */
 export const lvWaehlen = (p: Mitte, id: string) => { setAktivesLv(id); if (p.alle().some((z) => z.id === id)) p.onWahl(id); };
 const lvListe = () => lebende('lv').filter((z) => z.werte.projekt === projektId())
@@ -99,3 +96,21 @@ function abfolge(p: Mitte, ansicht: string) {
 /** Für jede Ansicht der AVA: oben der Kopf des LV und der Ablauf. */
 export const AVA_OBEN: Anpassung = { kopf: (p) => <AvaKopf {...p} />, abfolge, menueMitte: (p) => <Kennzahlen {...p} />, linksTitel: 'Bereiche' };
 function Kennzahlen(p: Mitte) { const app = useContext(AppUmgebung); return <AvaKennzahlen lv={lvVon(p)} ansicht={(app?.aktiv() ?? '').replace(/^ava\./, '')} />; }
+
+/** Kennzahlen in der Menüleiste (wie im bisherigen Bauportal): je Bereich die passenden Summen des gewählten LV. */
+const KENNZAHLEN: Record<string, ('schaetzung' | 'bestes' | 'auftrag' | 'nachtraege' | 'leistung' | 'abgerechnet')[]> = {
+  lv: ['schaetzung'], tueren: [], versand: ['schaetzung', 'bestes'], nachverfolgen: [], preisspiegel: ['schaetzung', 'bestes', 'auftrag', 'leistung'],
+  besprechungen: ['schaetzung', 'bestes', 'auftrag', 'nachtraege', 'leistung', 'abgerechnet'], auftraege: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'],
+  aufmass: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'], rechnungen: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'],
+};
+const KZ_TITEL = { schaetzung: 'Schätzung', bestes: 'Bestes Angebot', auftrag: 'Auftrag', nachtraege: 'Nachträge beauftragt', leistung: 'Leistungsstand', abgerechnet: 'abgerechnet' };
+export function AvaKennzahlen(p: { lv: Zeile | undefined; ansicht: string }): JSX.Element {
+  const z = createMemo(() => (p.lv ? lvZahlen(p.lv.id) : undefined));
+  const welche = () => (KENNZAHLEN[p.ansicht] ?? []).map((k) => (k === 'schaetzung' && z()?.auftrag && p.ansicht === 'lv' ? 'auftrag' : k));
+  const wert = (k: keyof typeof KZ_TITEL): string => {
+    const x = z(); if (!x) return '–';
+    const n = { schaetzung: x.schaetzung, bestes: x.bestes, auftrag: x.auftrag ? x.haupt : null, nachtraege: x.auftrag ? x.stand.beauftragt : null, leistung: x.auftrag ? x.leistung : null, abgerechnet: x.rechnungen ? x.abgerechnet : null }[k];
+    return n == null ? '–' : `${Math.round(n).toLocaleString('de-DE')} €`;
+  };
+  return <div class="kennzahlen" role="group" aria-label="Kennzahlen"><For each={welche()}>{(k) => <span class="kennzahl" title={k === 'bestes' && z()?.bestes != null ? z()!.besterBieter : undefined}><small>{KZ_TITEL[k]}</small><b>{wert(k)}</b></span>}</For></div>;
+}

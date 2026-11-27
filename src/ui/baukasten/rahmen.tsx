@@ -2,7 +2,7 @@
 //   Abfolge-Leiste (nur bei Apps mit Abfolge) · Menüleiste · darunter drei Plätze: Baum | Inhalt | Details
 // Die App setzt fertige Bausteine auf die Plätze. Ein leerer Platz fehlt einfach; wer zugeklappt ist,
 // gibt seinen Platz an die Mitte ab. Am Handy stehen die Plätze nacheinander statt nebeneinander.
-import { For, Show, createContext, createEffect, createSignal, onCleanup, useContext, type JSX } from 'solid-js';
+import { Show, createContext, createEffect, createSignal, onCleanup, useContext, type JSX } from 'solid-js';
 import { Zeichen } from './zeichen';
 import { Seitenliste, type SeitenAbschnitt } from './seitenliste';
 import { Abfolgeleiste, type Schritt } from './abfolgeleiste';
@@ -122,7 +122,8 @@ export function Rahmen(p: {
   // Am Handy nur zum Ansehen (wie im bisherigen Bauportal): keine Befehle – nur die Reiter der Ansichten bleiben
   const knoepfe = (): Knopf[] => nurAnsehen() ? [] : [
     ...(p.knoepfe ?? []).filter((k) => !k.nurHandy).filter((k) => !schmal() || !(k.haupt || k.gruppe === 'Neu') || (!plusDa() && handystufe() !== 'ansicht')),
-    ...(p.baum || ansichten().length > 1 ? [{ titel: p.baumTitel ?? 'Links', zeichen: 'gliederung', gruppe: 'Ansicht', an: schmal() ? baumAmHandy() : !linksZu(), tun: () => (schmal() ? setBaumAmHandy(!baumAmHandy()) : setLinksZu(!linksZu())) }] : []),
+    // Links ein-/ausblenden: am Rechner über die Heftzwecke des Bereichs (kein eigener Knopf – 27.11.2026); am Handy der einzige Weg zum Baum
+    ...(schmal() && (p.baum || ansichten().length > 1) ? [{ titel: p.baumTitel ?? 'Links', zeichen: 'gliederung', gruppe: 'Ansicht', an: baumAmHandy(), tun: () => setBaumAmHandy(!baumAmHandy()) }] : []),
   ];
   const linksTitel = () => ansichten().find((a) => a.id === app?.aktiv())?.titel ?? p.baumTitel ?? 'Gliederung';
   // Alle Heftzwecken gleich groß (Bereiche links und rechts, Kopf und Menüleiste)

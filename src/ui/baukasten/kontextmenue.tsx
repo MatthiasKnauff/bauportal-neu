@@ -1,13 +1,14 @@
-// Baustein „Kontextmenü“: kurzes Menü an der Maus – höchstens 6 Punkte, überall gleich.
+// Baustein „Kontextmenü“: kurzes Menü an der Maus – höchstens 9 Punkte (Regel seit 27.11.2026, vorher 6), überall gleich.
 import { For, Show, createSignal, onCleanup } from 'solid-js';
 
+export const HOECHSTENS = 9;
 export interface Menuepunkt { titel: string; tun: () => void; gefahr?: boolean; gesperrt?: boolean }
 const [menue, setMenue] = createSignal<{ x: number; y: number; punkte: Menuepunkt[] } | null>(null);
 
 export function zeigeMenue(e: MouseEvent, punkte: Menuepunkt[]): void {
   e.preventDefault();
-  if (punkte.length > 6) console.warn('Kontextmenü mit mehr als 6 Punkten – gekürzt');
-  const p = punkte.slice(0, 6);
+  if (punkte.length > HOECHSTENS) console.warn(`Kontextmenü mit mehr als ${HOECHSTENS} Punkten – gekürzt`);
+  const p = punkte.slice(0, HOECHSTENS);
   setMenue({ x: Math.min(e.clientX, innerWidth - 250), y: Math.min(e.clientY, innerHeight - p.length * 38 - 16), punkte: p });
 }
 

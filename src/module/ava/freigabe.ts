@@ -5,7 +5,8 @@ import type { Werte } from '../../kern/modell';
 import { BUERO_ID } from '../verwaltung/beipackzettel';
 import type { Druckquelle, DruckTabelle, Hole } from '../../kern/druck';
 import { beitrag, geprueft, ketteVon, nachAufmass, rechnungTitel, reihe, standAus, vorige, zeilenBis, zeilenSumme } from './aufmass';
-import { bedingungenAus, gp, leiter, nachOz, zaehlt, zahl } from './rechnung';
+import { bedingungenAus, gp, gpVon, istZuschlag, leiter, mengeVon, nachKennung, nachOz, zaehlt, zahl } from './rechnung';
+import { istHinweis } from '../../kern/lvarten';
 
 type E = { id: string; werte: Werte };
 /** Was zur Abrechnung eines LV gehört. */
@@ -34,7 +35,8 @@ export function epAus(angebote: E[], preise: E[]): (q: E) => number | null {
 export function leistungAus(d: Pick<Abrechnung, 'rechnungen' | 'positionen' | 'aufmass' | 'zeilen'>, r: E, ep: (q: E) => number | null): number {
   if (!nachAufmass(r)) { const Z = d.zeilen.filter((z) => z.werte.rechnung === r.id); return Z.length ? zeilenSumme(Z) : zahl(r.werte.geprueft ?? r.werte.betrag); }
   const stand = standAus(zeilenBis(d.aufmass, d.rechnungen, r));
-  return Math.round(d.positionen.filter(zaehlt).reduce((x, q) => x + gp(stand.get(q.id) ?? 0, ep(q) ?? 0), 0) * 100) / 100;
+  const alle = nachKennung(d.positionen), menge = (y: E) => stand.get(y.id) ?? 0;
+  return Math.round(d.positionen.filter(zaehlt).reduce((x, q) => x + gpVon(q, alle, menge, ep), 0) * 100) / 100;
 }
 
 const zt = (n: number | null | undefined, stellen = 3) => (n == null ? '' : n.toLocaleString('de-DE', { maximumFractionDigits: stellen }));
@@ -53,15 +55,16 @@ export function freigabeTabellen(d: Abrechnung, r: E, mengen: E[]): { zahlbetrag
   if (nachAufmass(r)) {
     const st = standAus(zeilenBis(d.aufmass, d.rechnungen, r)), v = vorige(d.rechnungen, r), vor = v ? standAus(zeilenBis(d.aufmass, d.rechnungen, v)) : new Map<string, number>();
     const firma = new Map(mengen.map((m) => [String(m.werte.position), zahl(m.werte.menge)]));
-    const kum = ketteVon(r) !== null;
+    const kum = ketteVon(r) !== null, alle = nachKennung(d.positionen);
     const zeilen: DruckTabelle['zeilen'] = [];
     let summe = 0;
     for (const q of nachOz(d.positionen)) {
       const art = String(q.werte.art ?? 'normal');
       if (art === 'titel') { zeilen.push({ zellen: [String(q.werte.oz ?? ''), String(q.werte.kurztext ?? ''), '', '', '', '', '', '', ''], art: 'titel' }); continue; }
-      if (art === 'hinweis') continue;
-      const s = st.get(q.id), f = firma.get(q.id), e = ep(q);
-      if (s == null && f == null) continue;
+      if (istHinweis(art)) continue;
+      // Zuschlagsposition: ihre „Menge“ ist die Summe der geprüften GP ihrer Positionen / 100
+      const s = istZuschlag(art) ? mengeVon(q, alle, (y) => st.get(y.id) ?? 0, ep) : st.get(q.id), f = firma.get(q.id), e = ep(q);
+      if ((s == null || (istZuschlag(art) && !s)) && f == null) continue;
       const g = zaehlt(q) && s != null && e != null ? gp(s, e) : null; if (g) summe += g;
       zeilen.push({ zellen: [String(q.werte.oz ?? ''), String(q.werte.kurztext ?? ''), String(q.werte.einheit ?? ''), zt(zahl(q.werte.menge)), kum ? zt(vor.get(q.id) ?? null) : '', zt(f ?? null), zt(s ?? null), e == null ? '' : eur(e), g == null ? '' : eur(g)],
         art: f != null && s != null && Math.abs(f - s) > 0.0005 ? 'hinweis' : undefined });

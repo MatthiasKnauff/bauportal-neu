@@ -8,7 +8,6 @@ import { ausfuehren, objektname, rueckgaengig } from '../unterbau/abgleich';
 import { darf, neueKennung } from '../unterbau/api';
 import { Dialog } from './dialog';
 import { FeldEingabe } from './feld';
-import { Zeichen } from './zeichen';
 import { hinweis } from '../unterbau/meldungen';
 
 export function gruppen(m: ObjektModell, werte: Werte, verborgen: string[] = []): { titel: string; felder: Feld[] }[] {
