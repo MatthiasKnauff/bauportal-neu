@@ -3,6 +3,7 @@
 // das eine App am Handy in die Leiste unten legt.
 import { createSignal } from 'solid-js';
 import type { Handystufe } from '../../kern/modul';
+import { holen, merken } from './speicher';
 
 export const HANDY_BREITE = 820;
 const abfrage = typeof matchMedia === 'function' ? matchMedia(`(max-width: ${HANDY_BREITE}px)`) : null;
@@ -28,3 +29,10 @@ export const LEISTE_VORGABE = ['start', 'bautagebuch', 'aufgaben', 'adressen', '
 export const ERSATZ = ['aufgaben', 'bautagebuch', 'adressen', 'dateien', 'bauzeitenplan', 'ava'];
 /** Die gewählten Plätze aus der Darstellung („start,bautagebuch,…“) – leer: die Vorgabe. */
 export const handyleistePlaetze = (w: unknown): string[] => { const l = String(w ?? '').split(',').map((x) => x.trim()).filter(Boolean); return l.length ? l : LEISTE_VORGABE; };
+
+/** Apps mit eigener Handyansicht: am Handy auf „Desktop-Ansicht“ umgeschaltet (wie bisher, je Gerät gemerkt) – zurück über „Handy-Ansicht“. */
+const [desktop, setDesktop] = createSignal<string[]>(holen('bp_desktop_apps', []));
+export const desktopGewaehlt = (app: string) => desktop().includes(app);
+export function desktopWaehlen(app: string, an: boolean): void {
+  setDesktop(an ? [...new Set([...desktop(), app])] : desktop().filter((x) => x !== app)); merken('bp_desktop_apps', desktop());
+}

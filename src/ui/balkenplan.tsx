@@ -30,7 +30,7 @@ import { hinweis } from './unterbau/meldungen';
 import { zeigeMenue } from './baukasten/kontextmenue';
 import { PlanDrucken } from './plandruck';
 import { PlanAssistent } from './planassistent';
-import { PlanHandy } from './planhandy';
+import { holen, merken } from './unterbau/speicher';
 import { herunterladen } from './baukasten/herunterladen';
 import { csvAus, mspdiAus, planJsonAus } from '../module/bauzeitenplan/austausch';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
@@ -49,8 +49,6 @@ const SPALTEN: Spalte[] = [
 const BEARBEITBAR = new Set(['name', 'dauer', 'anfang', 'vorg', 'gewerk', 'pct']);
 const ZOOM = [3, 6, 12, 24, 40];   // Bildpunkte je Kalendertag
 const naechsterMontag = () => montag(new Date().toLocaleDateString('sv'));
-const merken = (k: string, w: unknown) => { try { localStorage.setItem(k, JSON.stringify(w)); } catch { /* ohne Speicher geht es auch */ } };
-const holen = <T,>(k: string, d: T): T => { try { const x = localStorage.getItem(k); return x ? (JSON.parse(x) as T) : d; } catch { return d; } };
 
 
 export function Balkenplan(p: Mitte) {
@@ -215,8 +213,6 @@ export function Balkenplan(p: Mitte) {
     void vorschauZeigen({ titel: `Plan einlesen – ${d.name}`, wartetext: 'Die Datei wird gelesen und mit dieser Version verglichen …', fertig: 'Der Plan ist übernommen.' }, () => ruf<Vorschau>('/api/bauzeitenplan/einlesen', { version: z().version, inhalt })); });
   // Auf dem Handy nur Nummer und Leistung links – der Platz gehört den Balken
   const schmal = geraetHandy;
-  const [handy, setHandy] = createSignal<'jetzt' | 'ablauf' | 'gewerke' | 'plan'>(holen('bzp.handy', 'jetzt'));
-  createEffect(() => merken('bzp.handy', handy()));
   // Spalten wählen und ordnen: derselbe Baustein wie bei jeder Tabelle (Spaltenwahl, Spaltenfeld)
   const spw = spaltenwahl('bp_spalten_bauzeitenplan', SPALTEN.map((x) => ({ ...x, name: x.id, inListe: true, fest: x.id === 'nr' || x.id === 'name' })));
   const [spaltenFeld, setSpaltenFeld] = createSignal<{ x: number; y: number } | null>(null);
@@ -668,16 +664,6 @@ export function Balkenplan(p: Mitte) {
 
   return (
     <div class="bzp">
-      <Show when={schmal()}>
-        <div class="ph-umschalter" role="tablist">
-          <For each={[['jetzt', 'Jetzt'], ['ablauf', 'Ablauf'], ['gewerke', 'Gewerke'], ['plan', 'Balken']] as const}>{([k, t]) =>
-            <button role="tab" aria-selected={handy() === k} classList={{ an: handy() === k }} onClick={() => setHandy(k)}>{t}</button>}</For>
-        </div>
-      </Show>
-      <Show when={schmal() && handy() !== 'plan'}>
-        <PlanHandy plan={plan()} heute={new Date().toLocaleDateString('sv')} ansicht={handy() as 'jetzt'} onOeffnen={(id) => oeffnen(id)} />
-      </Show>
-      <Show when={!schmal() || handy() === 'plan'}>
       <Show when={erg().zyklen.length}><p class="feld-fehler bzp-warnung">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</p></Show>
       <div class="bzp-flaeche" classList={{ teilen: teilen() }} ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
         onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); zoomBei(e.clientX, e.deltaY < 0 ? 1 : -1); } }}>
@@ -813,7 +799,6 @@ export function Balkenplan(p: Mitte) {
           <input type="range" min={0} max={ZOOM.length - 1} step={1} value={zoom()} aria-label="Zoom der Zeitachse" onInput={(e) => setZoom(Number(e.currentTarget.value))} />
           <Zeichen name="groesser" groesse={14} /></label>
       </div>
-      </Show>
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>

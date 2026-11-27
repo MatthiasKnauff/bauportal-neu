@@ -30,6 +30,7 @@ import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
 import { AlleDateien, DateienAnsicht, OrdnerFenster } from './dateien';
+import { BauzeitenplanHandy } from './planhandy';
 import { assistentStarten, ifcEinlesen } from './uebernahme';
 import { druckOeffnen } from './druck';
 import { handy } from './unterbau/geraet';
@@ -708,4 +709,4 @@ export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
 }
 
 /** Apps mit eigener Handyansicht (Beipackzettel handy: 'eigen'): am Handy steht sie statt der Ansichten. */
-export const HANDY_APPS: Record<string, () => JSX.Element> = { ava: () => <AvaHandy /> };
+export const HANDY_APPS: Record<string, () => JSX.Element> = { ava: () => <AvaHandy />, bauzeitenplan: () => <BauzeitenplanHandy /> };

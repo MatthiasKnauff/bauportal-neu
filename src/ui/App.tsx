@@ -2,7 +2,7 @@
 import { Ansehen } from './baukasten/ansehen';
 import { AppSymbol } from './baukasten/zeichen';
 import { designBeobachten, meineWahl } from './unterbau/design';
-import { ERSATZ, handy, handyPlus, handyleistePlaetze, setHandystufe } from './unterbau/geraet';
+import { ERSATZ, desktopGewaehlt, desktopWaehlen, handy, handyPlus, handyleistePlaetze, setHandystufe } from './unterbau/geraet';
 import { Projektwahl } from './projektwahl';
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { createStore } from 'solid-js/store';
@@ -301,7 +301,10 @@ function Portal() {
             </div>
             <p class="start-version still-text klein-text">{zustand()!.umgebung === 'test' ? `Testserver · wird ${zustand()!.version}` : `Version ${zustand()!.version}`}</p>
             </div>}>
-            {(_s: string) => <Show when={handy() && HANDY_APPS[modul()!.modul.id]} fallback={<AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}>{(eigen) => eigen()()}</Show>}
+            {(_s: string) => <Show when={handy() && !desktopGewaehlt(modul()!.modul.id) && HANDY_APPS[modul()!.modul.id]} fallback={<>
+              <AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />
+              {/* am Handy auf die Desktop-Ansicht umgeschaltet: unten ein kleiner Knopf zurück (wie bisher) */}
+              <Show when={handy() && desktopGewaehlt(modul()!.modul.id) && HANDY_APPS[modul()!.modul.id]}><button type="button" class="knopf klein mv-zurueck" onClick={() => desktopWaehlen(modul()!.modul.id, false)}>📱 Handy-Ansicht</button></Show></>}>{(eigen) => eigen()()}</Show>}
           </Show>
         </AppUmgebung.Provider>
       </main>

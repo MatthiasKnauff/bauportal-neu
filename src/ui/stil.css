@@ -574,7 +574,14 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .ph-umschalter button { flex: 1; min-height: 36px; border: 0; border-radius: 999px; background: transparent; font-weight: 600; color: var(--text-still); }
 .ph-umschalter button.an { background: var(--akzent); color: var(--auf-akzent); }
 .ph { flex: 1; min-height: 0; overflow: auto; padding: 0 10px; border-block: solid transparent; border-width: 4px 0 16px; }
-.ph-kopf { margin: 4px 2px 6px; font-size: 13px; }
+.ph-kopf { margin: 4px 2px 6px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+/* Handyansicht Bauzeitenplan wie bisher: Abschnitte zum Aufklappen, Fortschritt im Balken, Marke (Meilenstein, Anzahl) */
+.ph h3.klappbar { cursor: pointer; } .ph-klapp { margin-left: auto; font-weight: 400; font-size: 12px; }
+.ph-fertig { position: absolute; inset: 0 auto 0 0; background: rgba(0, 0, 0, .28); border-radius: inherit; }
+.ph-marke { margin-left: auto; font-size: 11px; font-weight: 500; padding: 1px 6px; border-radius: 999px; background: var(--still); color: var(--text-still); }
+.ph-unter { margin: 8px 2px 4px; font-size: 12.5px; font-weight: 600; }
+.ph-karte.vorbei { opacity: .65; }
+.mv-zurueck { position: fixed; left: 10px; bottom: 76px; z-index: 40; box-shadow: var(--schatten); }
 .ph h3 { margin: 14px 2px 6px; font-size: 15px; display: flex; align-items: center; gap: 6px; }
 .ph-karte { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 8px; border: 1px solid var(--rand); border-left-width: 4px; border-radius: calc(10px * var(--rund)); background: var(--flaeche); cursor: pointer; }
 .ph-karte.jetzt { border-color: var(--akzent); box-shadow: 0 0 0 1px var(--akzent); }
