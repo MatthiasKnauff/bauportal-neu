@@ -1948,3 +1948,15 @@ test('GAEB-Prüfhinweis: Tiefe der Positionen, höchstens 4 Ebenen, übersprunge
   assert.match(gaebPruefung(lvZeilen([E('t', '01', 'titel'), E('a', '01.02.0010')])).join(' '), /Übersprungene Gliederungsebene bei 01\.02\.0010/);
   assert.match(gaebPruefung(lvZeilen([E('1', '1', 'titel'), E('2', '1.1', 'titel'), E('3', '1.1.1', 'titel'), E('4', '1.1.1.1', 'titel'), E('5', '1.1.1.1.1', 'titel'), E('p', '1.1.1.1.1.10')])).join(' '), /Mehr als 4/);
 });
+
+test('Angebotsbesprechung: Klärungspunkte aus dem Preisspiegel', async () => {
+  const { klaerungspunkte, ausDenDaten } = await import('../src/module/ava/besprechung');
+  const E = (id: string, werte: Werte) => ({ id, werte });
+  const pos = [E('t', { oz: '01', art: 'titel' }), E('a', { oz: '01.0010', art: 'normal', kurztext: 'Wände' }), E('b', { oz: '01.0020', art: 'bedarf', kurztext: 'Risse' }), E('c', { oz: '01.0030', art: 'normal', kurztext: 'Decke' })];
+  const P: Record<string, number> = { 'x:a': 12, 'y:a': 8, 'z:a': 7, 'x:b': 20, 'y:b': 21, 'z:b': 19, 'y:c': 9 };
+  const t = klaerungspunkte(pos, [E('x', {}), E('y', {}), E('z', {})], 'x', (a, q) => P[`${a}:${q}`] ?? null);
+  assert.match(t, /Pos\. 01\.0010 Wände: EP 12,00 € – 33 % über dem Mittel \(9,00 €\)/);
+  assert.match(t, /Pos\. 01\.0020 Risse: Bedarfsposition – wird sie beauftragt\? \(EP 20,00 €\)/);
+  assert.match(t, /Ohne Preis: 01\.0030/);
+  assert.equal(ausDenDaten({ klaerung: t }).klaerung, t);
+});

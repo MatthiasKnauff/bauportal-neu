@@ -4,7 +4,9 @@
 import { For, Show, createMemo } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
-import { abgleich, ausDenDaten, type Quellen } from '../module/ava/besprechung';
+import { abgleich, ausDenDaten, klaerungspunkte, type Quellen } from '../module/ava/besprechung';
+import { nachOz, zahl } from '../module/ava/rechnung';
+import { angeboteVon, preiseVon } from './ava';
 import { vertragAusDaten } from '../module/ava/vertrag';
 import { lvZahlen } from './ava';
 import { einsatzAus } from '../module/bauzeitenplan/gewerke';
@@ -25,6 +27,13 @@ function quellen(angebot: Werte): Quellen {
     projekt: sicht.projekt?.[projekt]?.werte, buero: sicht.buero?.[BUERO_ID]?.werte, bieter: sicht.kontakt?.[String(angebot.bieter)]?.werte, angebot, lv,
     gewerkName: lv?.gewerk ? String(sicht.gewerk?.[String(lv.gewerk)]?.werte.name ?? '') : '', kostengruppe: kg ? String(kg.nummer ?? '') : '',
   };
+  // Klärungspunkte aus dem Preisspiegel: Abweichung vom Mittel, Bedarfs-/Wahlpositionen, fehlende Preise
+  const lvId = String(angebot.lv ?? ''), eigenes = angeboteVon(lvId).find((x) => x.werte.bieter === angebot.bieter && x.werte.lv === angebot.lv);
+  if (eigenes) {
+    const ang = angeboteVon(lvId), pr = preiseVon(ang);
+    q.klaerung = klaerungspunkte(nachOz(lebende('lv_position').filter((x) => x.werte.lv === lvId && !x.werte.nachtrag)), ang, eigenes.id,
+      (a, p) => { const x = pr.get(`${a}:${p}`)?.werte.ep; return x == null || x === '' ? null : zahl(x); });
+  }
   // Termine: die Leistungen des Plans mit diesem Gewerk nach VOB/C oder dieser Firma
   const v = projekt ? aktuelleVersion(projekt) : undefined;
   if (v) {

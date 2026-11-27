@@ -44,14 +44,14 @@ Zeichen:
 | L9 | Kopierquelle „Baudaten“ rechts: Kataloge (Gliederung, ★ häufig) oder ein LV aus einem anderen Projekt. Mehrere Zeilen wählen, ins LV ziehen oder einfügen. Bei Titel oder Bauteil die Teile einzeln ankreuzen. Korb. | ✗ | Reiter „Baudaten“ mit LVs anderer Projekte; Kataloge, sobald der Positionskatalog kommt |
 | L10 | Bauteile aus dem Gebäudemodell übernehmen, verknüpft halten, abgleichen | ✓ (Dialog) | |
 | L11 | Zeilen an der OZ ziehen; auf ein anderes LV ziehen (verschieben/kopieren, beauftragte LVs nur kopieren). Über zugeklappten Titeln kurz verweilen klappt sie auf. | ◐ | Auf anderes LV ziehen |
-| L12 | Kopieren/Ausschneiden/Einfügen, Mehrfachauswahl wie unter Windows, Leiste für mehrere Zeilen, „Als Normal/Bedarf/Wahl“ für mehrere | ◐ | Art für mehrere |
+| L12 | Kopieren/Ausschneiden/Einfügen, Mehrfachauswahl wie unter Windows, Leiste für mehrere Zeilen, „Als Normal/Bedarf/Wahl“ für mehrere | ✓ (Art für mehrere, 27.11.) | Art für mehrere |
 | L13 | Eigenschaften der Position (Allgemein · Weiteres · Menge · Grafik), Blättern „1 von 35“ | ◐ (Detailkarte) | Blättern in der Karte |
 | L14 | KG-Spalte mit Vorschlägen (KG des LV, benutzte, passend zum Gewerk). Ändert sich die KG des LV, ziehen Positionen ohne eigene KG mit. | ◐ (KG an der Position) | KG an der Position |
-| L15 | GAEB-Prüfhinweis: Positionen außerhalb der häufigsten Titeltiefe, übersprungene Ebene, mehr als 4 Ebenen | ✗ | Hinweis in der Leiste |
+| L15 | GAEB-Prüfhinweis: Positionen außerhalb der häufigsten Titeltiefe, übersprungene Ebene, mehr als 4 Ebenen | ✓ (27.11.) | Hinweis in der Leiste |
 | L16 | Sperre nach Vergabe 🔒/🔓, Warnung vor der ersten Änderung, beauftragte Nachträge einzeln gesperrt | ◐ | |
 | L17 | Kontextmenü: Position/Gliederungspunkt darin bzw. darunter, Hinweistext darunter, Eigenschaften, Langtext, Kopieren/Ausschneiden/Einfügen, Art setzen, Bietertextergänzung, Nachtrag aus dieser Position, In der Aufmaßprüfung zeigen, Umbenennen, Löschen | ◐ | Ergänzen (höchstens 6 Punkte, Rest unter „Weitere“) |
 | L18 | Doppelklick auf das LV öffnet die LV- & Auftragsdaten. Diese haben drei Ebenen (Projekt → LV → Auftrag) mit Schildern für geerbte und eigene Werte. | ◐ | Doppelklick; Vererbung später |
-| L19 | Export GAEB X83/X86, Excel, PDF (Druck mit Layout). Import GAEB, Excel/Tabelle. | ◐ (GAEB, PDF) | Excel aus und ein |
+| L19 | Export GAEB X83/X86, Excel, PDF (Druck mit Layout). Import GAEB, Excel/Tabelle. | ✓ (Excel aus und ein, 27.11.) | Excel aus und ein |
 | L20 | LV löschen: Kette zeigen (Angebote, Auftrag, Rechnungen), zwei Warnungen, Papierkorb, wiederherstellen | ◐ | |
 | L21 | Bietertextergänzung (GAEB), nur über das Kontextmenü | ✓ | |
 | L22 | ✨ Langtext vorschlagen (KI) | ⊘ | KI vorerst raus (Entscheidung 26.11.) |
@@ -83,7 +83,7 @@ Zeichen:
 | V10 | Angaben zum Angebot: Nachlass in % oder €, Skonto % / Tage, Eingang, ausgeschlossen | ✓ | % oder € |
 | V11 | Angebot einlesen: X84 ✓, Excel ✗, PDF/Scan ⊘ | ◐ | Excel |
 | V12 | Vergeben …, Vergabe aufheben (mit Rechnungen erst nach Rückfrage), Nicht vergeben (zählt nicht mehr für Budget und To-dos) | ✓ | Aufheben, Nicht vergeben |
-| V13 | Klärungspunkte je Angebot: EP mehr als 30 % vom Mittel, Bedarfs-/Wahlpositionen. Sie gehen ins Protokoll. | ◐ | |
+| V13 | Klärungspunkte je Angebot: EP mehr als 30 % vom Mittel, Bedarfs-/Wahlpositionen. Sie gehen ins Protokoll. | ✓ (Klärungspunkte ins Protokoll, 27.11.) | |
 | V14 | Angebotsbesprechung: Auswahlfelder mit üblichen Antworten, Abschließen (Angaben in Adressen/Auftragsdaten übernehmen, mit Haken), unterschriebene Fassung hinterlegen | ◐ | Abschließen, Hinterlegen |
 
 ## Prüfung und Abrechnung
