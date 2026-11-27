@@ -6,12 +6,16 @@ export function PdfAnsicht(p: { inhalt: Blob; titel?: string }) {
   let kasten!: HTMLDivElement;
   const [breite, setBreite] = createSignal(0);
   onMount(() => { const ro = new ResizeObserver(() => setBreite(kasten.clientWidth)); ro.observe(kasten); onCleanup(() => ro.disconnect()); });
+  // pdf.js 6: das Ladeobjekt räumt auf (Worker und Dokument) – je PDF eins, das vorige geht beim Wechsel und am Ende
+  let laden: { destroy: () => Promise<void> } | undefined;
   const [dok] = createResource(() => p.inhalt, async (b) => {
     const pdfjs = await import('pdfjs-dist');
     pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
-    return pdfjs.getDocument({ data: new Uint8Array(await b.arrayBuffer()) }).promise;
+    void laden?.destroy();
+    const t = pdfjs.getDocument({ data: new Uint8Array(await b.arrayBuffer()) }); laden = t;
+    return t.promise;
   });
-  onCleanup(() => void dok.latest?.destroy());
+  onCleanup(() => void laden?.destroy());
   const seiten = () => Array.from({ length: dok()?.numPages ?? 0 }, (_, i) => i + 1);
   return (
     <div class="pdf-ansicht" ref={kasten} role="document" aria-label={p.titel ?? 'PDF'}>
