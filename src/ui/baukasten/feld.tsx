@@ -181,9 +181,9 @@ export function FeldEingabe(p: {
             onClick={() => p.onWert(wert() !== true)}><span /></button>
         </Match>
         <Match when={p.feld.art === 'verweis'}>
-          <Auswahlliste id={id} titel={p.feld.titel} platzhalter="wählen …" blass={geerbt()} wert={wert() === null ? null : String(wert())} gesperrt={p.gesperrt} onWert={(w) => p.onWert(w || null)}
-            optionen={[...(p.feld.pflicht ? [] : [{ wert: '', titel: '(keins)' }]), ...verweisziele(p.feld, p.zusammenhang, p.objekt)]}
-            neu={verweisNeu(p.feld, (id) => p.onWert(id))} />
+          {(() => { const wahl = () => verweisWahl(p.feld, p.zusammenhang, p.objekt); return <Auswahlliste id={id} titel={p.feld.titel} platzhalter="wählen …" blass={geerbt()} wert={wert() === null ? null : String(wert())} gesperrt={p.gesperrt} onWert={(w) => p.onWert(w || null)}
+            optionen={[...(p.feld.pflicht ? [] : [{ wert: '', titel: '(keins)' }]), ...wahl().optionen]} weitere={wahl().weitere}
+            neu={verweisNeu(p.feld, (id) => p.onWert(id))} />; })()}
         </Match>
       </Switch>
       <Show when={p.fehler}><div class="feld-fehler">{p.fehler}</div></Show>
@@ -204,6 +204,16 @@ function zielAnlegen(f: Feld, text: string): string {
   return id;
 }
 
+/** Stellschraube „imProjekt“: zur Wahl stehen erst die Ziele, die im Projekt schon vorkommen – in diesem Feld früherer Einträge
+ *  und z. B. bei den Beteiligten; alle anderen erst über die Suche unten in der Liste (Auswahlliste „weitere“). */
+export function verweisWahl(f: Feld, zusammenhang?: Werte, objekt?: string): { optionen: { wert: string; titel: string }[]; weitere?: { titel: string; optionen: { wert: string; titel: string }[] } } {
+  const alle = verweisziele(f, zusammenhang, objekt), projekt = zusammenhang?.projekt;
+  if (!f.imProjekt || !projekt) return { optionen: alle };
+  const quellen = [...(objekt ? [{ objekt, feld: f.name }] : []), ...f.imProjekt];
+  const da = new Set(quellen.flatMap((q) => lebende(q.objekt).filter((z) => z.werte.projekt === projekt).map((z) => String(z.werte[q.feld] ?? ''))));
+  return { optionen: alle.filter((o) => da.has(o.wert)), weitere: { titel: `Weitere ${modell(f.ziel!).titelMehrzahl}`, optionen: alle.filter((o) => !da.has(o.wert)) } };
+}
+
 /** Was ein Verweis zur Wahl stellt: die Einträge des Ziels aus demselben Projekt und derselben Version. */
 export function verweisziele(f: Feld, zusammenhang?: Werte, objekt?: string): { wert: string; titel: string }[] {
   const m = modell(f.ziel!);
@@ -211,13 +221,6 @@ export function verweisziele(f: Feld, zusammenhang?: Werte, objekt?: string): { 
   const alle = gemerkt(f.ziel!, `ziele:${gleich.map((k) => String(zusammenhang![k])).join(':')}`, () => lebende(f.ziel!).filter((z) => gleich.every((k) => z.werte[k] === zusammenhang![k]))
     .map((z) => ({ wert: z.id, titel: objektname(m, z.werte) })).sort((a, b) => a.titel.localeCompare(b.titel, 'de', { numeric: true })));
   // Stellschraube „zuerst“: die passenden oben (z. B. Firmen, deren Gewerk zum Gewerk der Leistung passt), sonst wie gehabt
-  // Stellschraube „imProjekt“: oben, was im Projekt schon vorkommt – in früheren Einträgen und z. B. bei den Beteiligten
-  const projekt = zusammenhang?.projekt;
-  if (f.imProjekt && projekt) {
-    const quellen = [...(objekt ? [{ objekt, feld: f.name }] : []), ...f.imProjekt];
-    const da = new Set(quellen.flatMap((q) => lebende(q.objekt).filter((z) => z.werte.projekt === projekt).map((z) => String(z.werte[q.feld] ?? ''))));
-    return [...alle.filter((o) => da.has(o.wert)), ...alle.filter((o) => !da.has(o.wert))];
-  }
   const such = f.zuerst ? String(zusammenhang?.[f.zuerst.feld] ?? '').trim().toLowerCase() : '';
   if (!such) return alle;
   const passt = (id: string) => String(sicht[f.ziel!]?.[id]?.werte[f.zuerst!.ziel] ?? '').toLowerCase().includes(such);

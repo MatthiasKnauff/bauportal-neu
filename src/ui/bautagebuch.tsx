@@ -18,7 +18,7 @@ import type { Mitte } from './baukasten/anpassung';
 import { Bilder, FotoGross, fotosHochladen } from './baukasten/bilder';
 import { PdfAnsicht } from './baukasten/pdfansicht';
 import { Detailkarte, feldAendern, inEigenemFenster, loesche } from './baukasten/detailkarte';
-import { FeldEingabe, anzeige, verweisNeu, verweisziele } from './baukasten/feld';
+import { FeldEingabe, anzeige, verweisNeu, verweisWahl } from './baukasten/feld';
 import { Schrittweise } from './baukasten/schrittweise';
 import { Unterliste } from './baukasten/unterliste';
 import { Zaehler } from './baukasten/zaehler';
@@ -136,8 +136,9 @@ export function BerichtLinks(p: Mitte) {
 /** Firmen zur Auswahl: zuerst die Beteiligten des Projekts, dann alle übrigen Kontakte. */
 /** Firmen zur Wahl wie im Feld „Firma“ der Einträge (Stellschrauben imProjekt, neuAnlegen) – mit dem Gewerk dahinter wie bisher. */
 const firmaFeld = () => modell('bericht_eintrag').felder.find((f) => f.name === 'firma')!;
-const firmenFuer = (projekt: unknown) => () => verweisziele(firmaFeld(), { projekt: projekt as Wert }, 'bericht_eintrag')
-  .map((o) => ({ ...o, titel: [o.titel, sicht.kontakt?.[o.wert]?.werte.gewerk].filter(Boolean).join(' – ') }));
+const mitGewerk = (l: { wert: string; titel: string }[]) => l.map((o) => ({ ...o, titel: [o.titel, sicht.kontakt?.[o.wert]?.werte.gewerk].filter(Boolean).join(' – ') }));
+const firmenFuer = (projekt: unknown) => () => { const w = verweisWahl(firmaFeld(), { projekt: projekt as Wert }, 'bericht_eintrag');
+  return { optionen: mitGewerk(w.optionen), weitere: w.weitere && { ...w.weitere, optionen: mitGewerk(w.weitere.optionen) } }; };
 
 /** Anwesende wie im bisherigen Bautagebuch: je Firma Kürzel, Name (öffnet den Kontakt), Personen mit − / +, ✕ – darunter die
  *  Art der Tätigkeit. Unten „＋ Firma hinzufügen“ mit den Beteiligten des Projekts zuerst. */
@@ -208,7 +209,7 @@ function Vorschlaege(p: { bericht: Zeile; neu: (werte: Record<string, Wert>, tit
               <div class="aw-name"><b>{o.gewerk}</b> <small class="still-text">{o.leistungen.join(', ')}</small></div>
               <div class="soll-knoepfe">
                 <Show when={darf('vorgang', 'schreiben')}>
-                  <Auswahlliste titel={`Firma für ${o.gewerk}`} platzhalter="Firma eintragen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)()} neu={verweisNeu(firmaFeld(), (k) => firmaFuerGewerk(k))}
+                  <Auswahlliste titel={`Firma für ${o.gewerk}`} platzhalter="Firma eintragen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)().optionen} weitere={firmenFuer(p.bericht.werte.projekt)().weitere} neu={verweisNeu(firmaFeld(), (k) => firmaFuerGewerk(k))}
                     onWert={(k) => { if (k) firmaFuerGewerk(k); }} />
                 </Show>
                 <button type="button" class="knopf klein still" title="Heute nicht – Hinweis ausblenden" aria-label={`${o.gewerk} heute nicht`} onClick={() => ausblenden(`g:${o.gewerk}`)}>–</button>
@@ -258,7 +259,7 @@ function Anwesende(p: { bericht: Zeile }) {
       )}</For>
       <Vorschlaege bericht={p.bericht} neu={neu} />
       <Show when={schreiben()}>
-        <Auswahlliste titel="Firma hinzufügen" platzhalter="＋ Firma hinzufügen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)()} neu={verweisNeu(firmaFeld(), (k) => neu({ firma: k, personen: 1, text: '' }, 'Firma eintragen'))}
+        <Auswahlliste titel="Firma hinzufügen" platzhalter="＋ Firma hinzufügen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)().optionen} weitere={firmenFuer(p.bericht.werte.projekt)().weitere} neu={verweisNeu(firmaFeld(), (k) => neu({ firma: k, personen: 1, text: '' }, 'Firma eintragen'))}
           onWert={(k) => { if (k) neu({ firma: k, personen: 1, text: '' }, 'Firma eintragen'); }} />
       </Show>
     </div>

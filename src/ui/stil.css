@@ -265,6 +265,9 @@ main { flex: 1; min-height: 0; display: flex; }
 .auswahlliste-aktionen button:hover:not(:disabled) { background: var(--still); } .auswahlliste-aktionen button:disabled { color: var(--text-still); cursor: default; }
 .auswahlliste-aktionen .gefahr-text:not(:disabled) { color: var(--gefahr); }
 .auswahlliste-leer { padding: 8px 10px; color: var(--text-still); }
+/* Stellschraube „weitere“: der Rest erst über die Suche unten – Suchfeld unter der Liste, Treffer abgesetzt */
+.auswahlliste-fenster [role=listbox] + input { margin: 6px 0 0; }
+.auswahlliste-trenner { padding: 6px 10px 2px; font-size: 11px; font-weight: 600; color: var(--text-still); border-top: 1px solid var(--rand); margin-top: 4px; }
 
 .schaltliste { list-style: none; margin: 0; padding: 0; }
 .schaltliste li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rand); min-height: 44px; }
