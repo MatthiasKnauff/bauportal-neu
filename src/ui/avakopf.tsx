@@ -13,7 +13,7 @@ import { anzeige } from './baukasten/feld';
 import { Zeichen } from './baukasten/zeichen';
 import { projektId } from './projekt';
 import { karteOeffnen } from './kartendialog';
-import { ausfuehren, lebende, sicht } from './unterbau/abgleich';
+import { ausfuehren, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
 import { darf, modell } from './unterbau/api';
 
 const [aktivesLv, setAktivesLv] = createSignal<string | null>(null);
@@ -47,9 +47,9 @@ function AvaKopf(p: Mitte): JSX.Element {
   const feld = (n: string) => m().felder.find((f) => f.name === n)!;
   const auftrag = () => (lv() ? lebende('angebot').find((a) => a.werte.lv === lv()!.id && a.werte.beauftragt === true) : undefined);
   // wie bisher: Gewerk · Vertrag · Strafe, dazu die Fristen
-  const strafe = () => { const w = lv()!.werte; return w.strafe_prozent ? `${anzeige(feld('strafe_prozent'), w.strafe_prozent)} % je ${anzeige(feld('strafe_tagart'), w.strafe_tagart ?? 'wt')}${w.strafe_max ? `, höchstens ${anzeige(feld('strafe_max'), w.strafe_max)} %` : ''}` : ''; };
+  const strafe = () => { const w = wirksameWerte(modell('lv'), lv()!.werte); return w.strafe_prozent ? `${anzeige(feld('strafe_prozent'), w.strafe_prozent)} % je ${anzeige(feld('strafe_tagart'), w.strafe_tagart ?? 'wt')}${w.strafe_max ? `, höchstens ${anzeige(feld('strafe_max'), w.strafe_max)} %` : ''}` : ''; };
   // wie bisher rechts: Gewerk · Vertrag · Strafe (die Fristen stehen in den Ausschreibungsdaten und im Überblick der Karte)
-  const angaben = () => (lv() ? [['Gewerk', anzeige(feld('gewerk'), lv()!.werte.gewerk)], ['Vertrag', anzeige(feld('vertragsart'), lv()!.werte.vertragsart)], ['Strafe', strafe() || 'keine']] as const : []).filter(([, w]) => w);
+  const angaben = () => (lv() ? [['Gewerk', anzeige(feld('gewerk'), lv()!.werte.gewerk)], ['Vertrag', anzeige(feld('vertragsart'), wirksameWerte(modell('lv'), lv()!.werte).vertragsart)], ['Strafe', strafe() || 'keine']] as const : []).filter(([, w]) => w);
   const app = useContext(AppUmgebung);
   const ansichtTitel = () => app?.reiter().find((r) => r.id === app.aktiv())?.titel ?? 'Ausschreibung';
   return (

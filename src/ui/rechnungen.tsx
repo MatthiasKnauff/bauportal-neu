@@ -23,7 +23,7 @@ import { eur, lvZeiger, setLvZeiger } from './lvbearbeiten';
 import { LvListe } from './lvliste';
 import { abschliessen, aufmassVon, epVon, leistungJetzt, rechnungenVon, setRechnungWahl, zeilenDer, zuruecknehmbar, zuruecknehmen } from './rechnungpruefen';
 import { rechnungEinlesen } from './rechnungeinlesen';
-import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
 import { darf, modell, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 
@@ -144,7 +144,7 @@ function Leistung(p: { r: Zeile; zumAufmass?: () => void }): JSX.Element {
  *  Vertragsstrafe aus den Vertragsbedingungen des LV; offene Rechnungen mit dem Stand der Prüfung. */
 export function RechnungLeiter(p: { rechnung: Zeile }): JSX.Element {
   const lvId = () => String(p.rechnung.werte.lv ?? '');
-  const bed = createMemo(() => bedingungenAus(sicht.lv?.[lvId()]?.werte, angeboteVon(lvId()).find((a) => a.werte.beauftragt === true)?.werte));
+  const bed = createMemo(() => bedingungenAus(wirksameWerte(modell('lv'), sicht.lv?.[lvId()]?.werte), angeboteVon(lvId()).find((a) => a.werte.beauftragt === true)?.werte));
   const zeilen = createMemo(() => { if (!lvId()) return []; const ep = epVon(lvId()); return leiter(rechnungenVon(lvId()), p.rechnung.id, bed(), (r) => leistungJetzt(r, ep)); });
   // Schlussrechnung mit Abnahme: Vertragsstrafe vorschlagen (Verzug nach der vertraglichen Fertigstellung), solange keine eingetragen ist
   const vorschlag = createMemo(() => {
@@ -186,7 +186,7 @@ function Freigabe(p: { r: Zeile }): JSX.Element {
   const hand = () => p.r.werte.zahlbetrag_hand != null && p.r.werte.zahlbetrag_hand !== '';
   const gefordert = () => zahl(p.r.werte.betrag), kuerzung = () => gefordert() > 0 && leistungJetzt(p.r) < gefordert() - 0.5;
   const vor = createMemo(() => abweichungenText(p.r));
-  const rechnerisch = () => { const lvId = String(p.r.werte.lv ?? ''); const b = bedingungenAus(sicht.lv?.[lvId]?.werte, angeboteVon(lvId).find((a) => a.werte.beauftragt === true)?.werte);
+  const rechnerisch = () => { const lvId = String(p.r.werte.lv ?? ''); const b = bedingungenAus(wirksameWerte(modell('lv'), sicht.lv?.[lvId]?.werte), angeboteVon(lvId).find((a) => a.werte.beauftragt === true)?.werte);
     return leiter(rechnungenVon(lvId), p.r.id, b, (x) => leistungJetzt(x)).find((z) => z.titel === 'Zahlbetrag netto')?.betrag ?? 0; };
   return (
     <div class="re-freigabe">

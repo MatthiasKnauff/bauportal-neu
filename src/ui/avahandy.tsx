@@ -12,7 +12,8 @@ import { gewaehltesLv, lvFolge, setAktivesLv } from './avakopf';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { projektId } from './projekt';
 import { leistungJetzt, rechnungenVon } from './rechnungpruefen';
-import { lebende, sicht } from './unterbau/abgleich';
+import { lebende, sicht, wirksameWerte } from './unterbau/abgleich';
+import { modell } from './unterbau/api';
 import { istHinweis, istText } from '../kern/lvarten';
 
 const eur0 = (n: number) => `${Math.round(n).toLocaleString('de-DE')} €`;
@@ -173,7 +174,7 @@ function Aufmass(p: { lv: Zeile | undefined; lang: string | null; setLang: (id: 
 function Rechnungen(p: { lvs: Zeile[] }): JSX.Element {
   const A = createMemo(() => p.lvs.map((l) => ({ l, R: rechnungenVon(l.id) })).filter((x) => x.R.length));
   const zahlbetrag = (r: Zeile) => {
-    const lvId = String(r.werte.lv ?? ''), b = bedingungenAus(sicht.lv?.[lvId]?.werte, angeboteVon(lvId).find((a) => a.werte.beauftragt === true)?.werte);
+    const lvId = String(r.werte.lv ?? ''), b = bedingungenAus(wirksameWerte(modell('lv'), sicht.lv?.[lvId]?.werte), angeboteVon(lvId).find((a) => a.werte.beauftragt === true)?.werte);
     const L = leiter(rechnungenVon(lvId), r.id, b, (x) => leistungJetzt(x));
     return { netto: L.find((z) => z.titel.startsWith('Zahlbetrag netto') && z.summe)?.betrag ?? 0, brutto: L.find((z) => z.titel === 'Zahlbetrag')?.betrag ?? 0 };
   };

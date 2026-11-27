@@ -112,6 +112,7 @@ Zeichen:
 | E1 | Schema für Vergabe- und Auftragsnummern | ✓ (Büro → Ausschreibung, Vorschlag an der LV-Karte – 27.11.) | Verwaltung |
 | E2 | Abrechnung: welche Nachträge als Leistung zählen | ✓ (27.11.: Verwaltung → Büro → Abrechnung: angemeldete und beauftragte oder nur beauftragte Nachträge; abgelehnte zählen nie – vorher zählten sie mit; Mehrmenge gelb/rot ab einstellbarem %) | Verwaltung |
 | E3 | Nachtragsabwicklung einfach oder mit Prüfablauf | ✗ | Später |
+| E4 | Ausschreibungsdaten in drei Ebenen Büro → Projekt → LV (Vergabeart, Abgabe, Aufforderung, Austauschformat, Vereinbarungen, Vertragsbedingungen) mit üblichen Werten zur Auswahl | ✓ (27.11.: Feld „erbt“ im Kern, kern/erben.ts; Projektdaten „Ausschreibung (alle LVs)“, Büro „Vorgaben für Ausschreibungen“; am LV „vom Projekt/vom Büro“, ↺, „↑ fürs Projekt“; LV-Druck mit Deckblatt) | Vorschläge (Kostenansatz aus der Schätzung, Bindefrist +Wochen, Ausführung aus dem Bauzeitenplan) folgen mit den Projektdaten |
 
 ## Reihenfolge
 

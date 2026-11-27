@@ -435,6 +435,12 @@ a.knopf { display: inline-flex; align-items: center; text-decoration: none; colo
 /* ---- Herkunft je Wert ---- */
 .herkunft { margin-left: 8px; font-size: 11px; font-weight: 600; border-radius: 99px; padding: 1px 8px; background: var(--akzent-hell); color: var(--akzent); }
 .herkunft-geschaetzt { background: var(--still); color: var(--text-still); }
+.herkunft-geerbt { background: var(--still); color: var(--text-still); font-weight: 500; }
+/* geerbter Wert (kern/erben.ts): steht da, aber blass – wer etwas einträgt, weicht ab */
+.feld[data-geerbt] > :is(input, textarea), .feld[data-geerbt] .feld-mit-knopf > input, .feld[data-geerbt] > .auswahl > button.aktiv, .auswahlliste.blass .auswahlliste-knopf { color: var(--text-still); font-style: italic; }
+.feld[data-geerbt] > .schalter.aktiv { opacity: .55; }
+.feld:has(> .feld-erbe) { position: relative; }
+.feld-erbe { position: absolute; top: -2px; right: 0; display: flex; gap: 2px; }
 td.herkunft-geschaetzt { color: var(--text-still); font-style: italic; }
 td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--akzent) 35%, var(--flaeche)); }
 .vorschau-tabelle { margin: 12px 0; width: 100%; } .vorschau-tabelle td { font-variant-numeric: tabular-nums; }
@@ -682,6 +688,8 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .bt-info > span { display: inline-flex; align-items: center; gap: 5px; } .bt-info .zeichen { flex: none; }
 .bt-nr { font-weight: 700; }
 .bt-stift { flex: none; width: 40px; height: 40px; min-height: 40px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: calc(10px * var(--rund)); color: var(--akzent); margin-left: auto; }
+.bt-stift.ok { background: var(--gut); color: #fff; font-size: 20px; font-weight: 700; }
+.bt-kopf-felder { padding: 4px 0 8px; }
 .bt-wetter { flex-wrap: nowrap; align-items: center; } .bt-wetter-inhalt { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; } .bt-wetter .bt-schalter { justify-content: flex-end; }
 .bt-wetter > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
 .bt-stand { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: -6px 6px 0; font-size: 13px; } .bt-stand > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -978,7 +986,7 @@ html[data-verlauf="zwei"]:not([data-rahmen="verlauf"]) :is(.platz-links, .platz-
 /* Fenster im Mac-Stil: Leuchtrand im Feld, Menüs mit Milchglas, drei Punkte in Akzentfarbe im Fenstertitel (Zierde) */
 html[data-fenster="mac"] :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--akzent) 45%, transparent), inset 0 0 0 1px var(--akzent); }
 html[data-fenster="mac"] :is(.menue-liste, .kontextmenue, .auswahlliste-fenster) { background: color-mix(in srgb, var(--flaeche) 86%, transparent); backdrop-filter: blur(18px) saturate(1.4); }
-html[data-fenster="mac"] .fenster::before { content: ''; flex: none; height: 10px; width: 44px; margin: 14px 0 -4px 16px; background: radial-gradient(circle, var(--akzent) 4.5px, transparent 5px) 0 0 / 17px 10px repeat-x; }
+html[data-fenster="mac"] .fenster::before { content: ''; flex: none; height: 10px; width: 51px; margin: 14px 0 -4px 16px; background: radial-gradient(circle, var(--akzent) 4.5px, transparent 5px) 0 0 / 17px 10px repeat-x; }
 html[data-effekte="aus"] * { backdrop-filter: none !important; }
 /* Häkchen als Schalter – nur in Einstellungen; in Tabellen und Listen zum Auswählen bleiben Häkchen */
 html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *) { appearance: none; width: 2.1em; height: 1.25em; min-width: 2.1em; margin: 0 .25em 0 0; padding: 0; border: 0; border-radius: 99px; background: color-mix(in srgb, currentColor 28%, transparent); position: relative; cursor: pointer; flex: none; vertical-align: middle; transition: background .15s; }
@@ -1447,7 +1455,7 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lv-liste { display: flex; flex-direction: column; align-self: start; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: var(--flaeche); overflow: hidden; }
 .lv-liste-projekt { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--still-hell); border-bottom: 1px solid var(--rand); font-size: 13px; }
 .lv-liste-projekt b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lv-liste-projekt span { font-size: 12px; font-weight: 600; }
-.lv-liste-lv { display: flex; align-items: center; gap: 6px; padding: 7px 10px 7px 22px; border: 0; border-bottom: 1px solid var(--rand); background: none; text-align: left; font: inherit; font-size: 13px; cursor: pointer; color: inherit; }
+.lv-liste-lv { display: flex; align-items: center; gap: 6px; padding: 7px 10px 7px 26px; border: 0; border-bottom: 1px solid var(--rand); background: none; text-align: left; font: inherit; font-size: 13px; cursor: pointer; color: inherit; }
 .lv-liste-lv:hover { background: var(--still-hell); } .lv-liste-lv.an { background: var(--akzent-hell); box-shadow: inset 2px 0 0 var(--akzent); }
 .lv-liste-text { flex: 1; min-width: 0; display: flex; flex-direction: column; } .lv-liste-text b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lv-liste-text small { color: var(--text-still); font-size: 11.5px; }
 .lv-liste-summe { font-size: 12px; color: var(--text-still); font-variant-numeric: tabular-nums; }
@@ -1616,3 +1624,7 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 [data-spalte-gezogen] { opacity: .45; }
 [data-spalte-ziel="links"] { box-shadow: inset 3px 0 0 var(--akzent); } [data-spalte-ziel="rechts"] { box-shadow: inset -3px 0 0 var(--akzent); }
 [data-spalte] { user-select: none; }
+
+/* Nummerieren (LV): vier Auswahlen in einer Reihe, am Handy zwei */
+.nummerieren-wahl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; }
+@media (max-width: 600px) { .nummerieren-wahl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

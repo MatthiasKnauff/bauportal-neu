@@ -6,6 +6,7 @@ import { createStore, produce, reconcile } from 'solid-js/store';
 import { anwenden, gegenbefehl, type Befehl, type Protokolliert, type Vorlage, type Zeile } from '../../kern/befehl';
 import type { Feld, ObjektModell, Wert, Werte } from '../../kern/modell';
 import { benennen } from '../../kern/druck';
+import { wirksam } from '../../kern/erben';
 import { Netzfehler, Serverfehler, merkeZustand, modell, neueKennung, ruf, type Benutzer, type Zustand } from './api';
 import { hinweis } from './meldungen';
 
@@ -41,6 +42,15 @@ export function gemerkt<T>(objekte: string | string[], schluessel: string, rechn
 export const feldWerte = (objekt: string, feld: string): string[] => gemerkt(objekt, `werte:${feld}`, () =>
   [...new Set(lebende(objekt).map((z) => String(z.werte[feld] ?? '')))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'de')));
 export const lebende = (objekt: string): Zeile[] => { geaendert(objekt); return untrack(() => Object.values(sicht[objekt] ?? {}).filter((z) => !z.geloescht)); };
+/** Werte der Ebenen, von denen ein Modell erbt (kern/erben.ts) – aus der Sicht, fein verfolgt. */
+export function ebenenWerte(m: ObjektModell, werte: Werte): (Werte | undefined)[] {
+  return (m.erben?.ebenen ?? []).map((e) => {
+    const id = e.ueber ? String(werte[e.ueber] ?? '') : modell(e.objekt).einzeln ?? '';
+    return id ? sicht[e.objekt]?.[id]?.werte : undefined;
+  });
+}
+/** Die wirksamen Werte eines Eintrags: eigene, leere erbende Felder mit dem Wert der Ebene darüber (LV ← Projekt ← Büro). */
+export const wirksameWerte = (m: ObjektModell, werte: Werte | undefined): Werte => (werte && m.erben ? wirksam(m, werte, ebenenWerte(m, werte)).werte : werte ?? {});
 const melde = (objekt: string) => zaehlerFuer(objekt)[1]((n) => n + 1);
 
 interface Schritt { gegen: Vorlage[]; wieder: Vorlage[]; titel: string }

@@ -7,6 +7,8 @@ import type { ObjektModell } from '../../kern/modell';
 import { ALLE } from '../../kern/rechte';
 import { GRUNDLAGEN } from './besprechung';
 import { AG_ARTEN } from './vertrag';
+import { vorgabeFelder } from '../../kern/erben';
+import { ABGABEORTE, AUFFORDERUNGEN, AUSTAUSCHFORMATE, ENERGIE, NACHUNTERNEHMER, NACHWEISE, RECHNUNGSSTELLUNG, UHRZEITEN, VERGABEARTEN, VEREINBARUNGEN, ZAHLUNGSFRISTEN } from './ausschreibungsdaten';
 
 const rechte = { lesen: ALLE, schreiben: ['bueroleitung', 'bauleitung', 'mitarbeiter'], loeschen: ['bueroleitung', 'bauleitung'] };
 
@@ -24,6 +26,8 @@ export const FRISTARTEN = [{ wert: 'kt', titel: 'Kalendertagen (Mo–So)' }, { w
 export const lv: ObjektModell = {
   name: 'lv', titel: 'Leistungsverzeichnis', titelMehrzahl: 'Leistungsverzeichnisse', anzeigeFeld: 'name', ersatzName: ['nummer'], sortierFeld: 'nummer',
   projektFeld: 'projekt', rechte,
+  eingeklappt: ['Angebotsaufforderung', 'Vertragsbedingungen', 'Sicherheiten'],
+  erben: { praefix: 'lv_', ebenen: [{ objekt: 'projekt', ueber: 'projekt', titel: 'vom Projekt' }, { objekt: 'buero', titel: 'vom Büro' }] },
   felder: [
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
     { name: 'nummer', titel: 'LV-Nr.', art: 'text', inListe: true, breite: 80, kartenBreite: 2, gruppe: 'Leistungsverzeichnis' },
@@ -32,35 +36,55 @@ export const lv: ObjektModell = {
     { name: 'kostengruppe', titel: 'Kostengruppe (DIN 276)', art: 'verweis', ziel: 'kostengruppe', gruppe: 'Leistungsverzeichnis' },
     { name: 'status', titel: 'Stand', art: 'auswahl', optionen: LV_STATUS, inListe: true, breite: 150, gruppe: 'Leistungsverzeichnis' },
     { name: 'archiviert', titel: 'Im Archiv (aus den Listen genommen, alles bleibt erhalten)', art: 'ja_nein', gruppe: 'Leistungsverzeichnis' },
-    { name: 'vergabenummer', spalte: true, titel: 'Vergabenummer', art: 'text', gruppe: 'Vergabe' },
-    { name: 'budget', titel: 'Kostenansatz netto in €', art: 'zahl', inListe: true, breite: 130, gruppe: 'Vergabe' },
+    // Ausschreibung (wie im bisherigen Bauportal): „erbt“ = leer gilt die Angabe am Projekt bzw. die Vorgabe des Büros
+    { name: 'vergabeart', titel: 'Vergabeart', art: 'auswahl', optionen: VERGABEARTEN, eigeneWerte: true, erbt: true, gruppe: 'Ausschreibung' },
+    { name: 'vergabenummer', spalte: true, titel: 'Vergabenummer', art: 'text', gruppe: 'Ausschreibung' },
+    { name: 'budget', titel: 'Kostenansatz netto in €', art: 'zahl', inListe: true, breite: 130, gruppe: 'Ausschreibung' },
     // Auftrag ohne LV und Angebot (bisher „Zettelwirtschaft“): nur Firma (das beauftragte Angebot ohne Preise) und Auftragssumme;
     // abgerechnet wird mit Einzelrechnungen (Betrag oder Positionen von Hand)
-    { name: 'ohne_lv', spalte: true, titel: 'Auftrag ohne LV (nur Firma und Summe)', art: 'ja_nein', gruppe: 'Vergabe' },
-    { name: 'auftragssumme', spalte: true, titel: 'Auftragssumme netto in € (ohne LV)', art: 'zahl', gruppe: 'Vergabe' },
-    { name: 'abgabe', spalte: true, titel: 'Angebotsabgabe bis', art: 'datum', gruppe: 'Vergabe' },
-    { name: 'rueckmeldung_bis', titel: 'Rückmeldung der Bieter:innen bis', art: 'datum', gruppe: 'Vergabe' },
-    { name: 'bindefrist', spalte: true, titel: 'Bindefrist bis', art: 'datum', gruppe: 'Vergabe' },
-    { name: 'ausfuehrung_beginn', spalte: true, titel: 'Ausführung ab', art: 'datum', gruppe: 'Vergabe' },
-    { name: 'ausfuehrung_ende', spalte: true, titel: 'Ausführung bis', art: 'datum', gruppe: 'Vergabe' },
+    { name: 'ohne_lv', spalte: true, titel: 'Auftrag ohne LV (nur Firma und Summe)', art: 'ja_nein', gruppe: 'Ausschreibung' },
+    { name: 'auftragssumme', spalte: true, titel: 'Auftragssumme netto in € (ohne LV)', art: 'zahl', gruppe: 'Ausschreibung' },
+    { name: 'versand', spalte: true, titel: 'Versand an die Bieter:innen', art: 'datum', kartenBreite: 3, gruppe: 'Ausschreibung' },
+    { name: 'rueckmeldung_bis', titel: 'Rückmeldung der Bieter:innen bis', art: 'datum', kartenBreite: 3, gruppe: 'Ausschreibung' },
+    { name: 'abgabe', spalte: true, titel: 'Angebotsabgabe bis', art: 'datum', kartenBreite: 3, gruppe: 'Ausschreibung' },
+    { name: 'abgabe_zeit', titel: 'Uhrzeit', art: 'auswahl', optionen: UHRZEITEN, eigeneWerte: true, erbt: true, kartenBreite: 3, gruppe: 'Ausschreibung' },
+    { name: 'abgabeort', titel: 'Abgabeort', art: 'auswahl', optionen: ABGABEORTE, eigeneWerte: true, erbt: true, gruppe: 'Ausschreibung' },
+    { name: 'eroeffnung', spalte: true, titel: 'Eröffnungstermin (Submission)', art: 'datum', kartenBreite: 3, gruppe: 'Ausschreibung' },
+    { name: 'bindefrist', spalte: true, titel: 'Zuschlags- und Bindefrist bis', art: 'datum', kartenBreite: 3, gruppe: 'Ausschreibung' },
+    { name: 'zuschlag', spalte: true, titel: 'Zuschlag erteilt am', art: 'datum', kartenBreite: 3, gruppe: 'Ausschreibung' },
+    { name: 'nebenangebote', titel: 'Nebenangebote zugelassen', art: 'ja_nein', erbt: true, kartenBreite: 3, gruppe: 'Ausschreibung' },
+    // Angebotsaufforderung: Deckblatt des LV
+    { name: 'aufforderung', titel: 'Text der Angebotsaufforderung', art: 'auswahl', optionen: AUFFORDERUNGEN, eigeneWerte: true, erbt: true, gruppe: 'Angebotsaufforderung' },
+    { name: 'austauschformat', titel: 'Austauschformat', art: 'auswahl', optionen: AUSTAUSCHFORMATE, eigeneWerte: true, erbt: true, gruppe: 'Angebotsaufforderung' },
+    { name: 'vereinbarungen', titel: 'Sonstige Vereinbarungen', art: 'mehrfach', optionen: VEREINBARUNGEN, erbt: true, gruppe: 'Angebotsaufforderung' },
+    { name: 'vereinbarungen_weitere', titel: 'Weitere Vereinbarungen (je Zeile eine)', art: 'langtext', erbt: true, gruppe: 'Angebotsaufforderung' },
     // Vertragsbedingungen (wie im bisherigen Bauportal: Zahlen, mit denen die Rechnungen rechnen – Protokoll und Vertrag nehmen den Text daraus)
-    { name: 'vertragsart', spalte: true, titel: 'Vertrag nach', art: 'auswahl', optionen: VERTRAGSARTEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
-    { name: 've_prozent', titel: 'Sicherheit Vertragserfüllung in %', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
-    { name: 've_form', titel: 'als', art: 'auswahl', optionen: SICHERHEITSFORMEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
-    { name: 'ma_prozent', titel: 'Sicherheit Mängelansprüche in %', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
-    { name: 'ma_form', titel: 'als', art: 'auswahl', optionen: SICHERHEITSFORMEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
-    { name: 'gewaehrleistung_jahre', titel: 'Mängelansprüche verjähren nach Jahren', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
-    { name: 'strafe_prozent', titel: 'Vertragsstrafe in % je Tag', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
-    { name: 'strafe_tagart', titel: 'je', art: 'auswahl', optionen: TAGARTEN, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
-    { name: 'strafe_max', titel: 'höchstens in %', art: 'zahl', kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'vertragsart', spalte: true, titel: 'Vertrag nach', art: 'auswahl', optionen: VERTRAGSARTEN, erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 've_prozent', titel: 'Sicherheit Vertragserfüllung in %', art: 'zahl', erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 've_form', titel: 'als', art: 'auswahl', optionen: SICHERHEITSFORMEN, erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'ma_prozent', titel: 'Sicherheit Mängelansprüche in %', art: 'zahl', erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'ma_form', titel: 'als', art: 'auswahl', optionen: SICHERHEITSFORMEN, erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'ma_abloesbar', titel: 'Einbehalt ablösbar gegen Bürgschaft', art: 'ja_nein', erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'gewaehrleistung_jahre', titel: 'Mängelansprüche verjähren nach Jahren', art: 'zahl', erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'strafe_prozent', titel: 'Vertragsstrafe in % je Tag', art: 'zahl', erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'strafe_tagart', titel: 'je', art: 'auswahl', optionen: TAGARTEN, erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'strafe_max', titel: 'höchstens in %', art: 'zahl', erbt: true, kartenBreite: 2, gruppe: 'Vertragsbedingungen' },
+    { name: 'vb_rechnungsstellung', titel: 'Rechnungsstellung', art: 'auswahl', optionen: RECHNUNGSSTELLUNG, eigeneWerte: true, erbt: true, gruppe: 'Vertragsbedingungen' },
+    { name: 'vb_zahlungsfrist', titel: 'Zahlungsfrist', art: 'auswahl', optionen: ZAHLUNGSFRISTEN, eigeneWerte: true, erbt: true, gruppe: 'Vertragsbedingungen' },
+    { name: 'vb_nachweise', titel: 'Nachweise', art: 'auswahl', optionen: NACHWEISE, eigeneWerte: true, erbt: true, gruppe: 'Vertragsbedingungen' },
+    { name: 'vb_nachunternehmer', titel: 'Nachunternehmer', art: 'auswahl', optionen: NACHUNTERNEHMER, eigeneWerte: true, erbt: true, gruppe: 'Vertragsbedingungen' },
+    { name: 'vb_energie', titel: 'Energie- / Medienkosten', art: 'auswahl', optionen: ENERGIE, eigeneWerte: true, erbt: true, gruppe: 'Vertragsbedingungen' },
+    { name: 'bauabzug', titel: 'Bauabzugsteuer einbehalten (§ 48 EStG)', art: 'ja_nein', kartenBreite: 3, gruppe: 'Vertragsbedingungen' },
+    { name: 'freistellung_bis', titel: 'Freistellungsbescheinigung gültig bis', art: 'datum', kartenBreite: 3, gruppe: 'Vertragsbedingungen' },
+    // Ausführung
+    { name: 'ausfuehrung_beginn', spalte: true, titel: 'Ausführungsbeginn', art: 'datum', kartenBreite: 3, gruppe: 'Ausführung' },
+    { name: 'ausfuehrung_ende', spalte: true, titel: 'Fertigstellung der Leistung', art: 'datum', kartenBreite: 3, gruppe: 'Ausführung' },
     // Sicherheiten im Lauf des Auftrags (wie im bisherigen Bauportal): Bürgschaft eingegangen = kein Einbehalt mehr; Abnahme → Ende der Verjährung
     { name: 've_eingang', titel: 'Bürgschaft Vertragserfüllung eingegangen am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten', wenn: { ve_form: ['buergschaft'] } },
     { name: 've_rueckgabe', titel: 'zurückgegeben am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten', wenn: { ve_form: ['buergschaft'] } },
     { name: 'abnahme', spalte: true, titel: 'Abnahme am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten' },
     { name: 'ma_eingang', titel: 'Bürgschaft Mängelansprüche eingegangen am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten', wenn: { ma_form: ['buergschaft'] } },
     { name: 'ma_rueckgabe', titel: 'zurückgegeben am', art: 'datum', kartenBreite: 3, gruppe: 'Sicherheiten', wenn: { ma_form: ['buergschaft'] } },
-    { name: 'bauabzug', titel: 'Bauabzugsteuer einbehalten (§ 48 EStG)', art: 'ja_nein', kartenBreite: 3, gruppe: 'Vertragsbedingungen' },
-    { name: 'freistellung_bis', titel: 'Freistellungsbescheinigung gültig bis', art: 'datum', kartenBreite: 3, gruppe: 'Vertragsbedingungen' },
     { name: 'vorbemerkungen', titel: 'Vorbemerkungen', art: 'langtext', gruppe: 'Vorbemerkungen' },   // stehen vor den Positionen (LV bearbeiten: „Vorbemerkungen“)
     { name: 'oz_maske', titel: 'OZ-Maske', art: 'text', verborgen: true },   // „2.2.2.2:4:10“ = Stellen je Titelebene : Stellen der Position : Schritt (Nummerieren)
     { name: 'notiz', titel: 'Bemerkung', art: 'langtext', gruppe: 'Notiz' },
@@ -359,6 +383,11 @@ export const ava: Beipackzettel = {
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
   objekte: [lv, lvPosition, tuerliste, tuer, angebot, angebotPreis, nachtrag, aufmass, rechnungsmenge, rechnung, rechnungszeile, besprechung, bauvertrag],
+  // Ausschreibungsdaten in drei Ebenen (wie bisher): am Projekt für alle seine LVs, im Büro als Vorgabe – das LV erbt (kern/erben.ts)
+  ergaenzt: [
+    { objekt: 'projekt', felder: vorgabeFelder(lv, 'Ausschreibung (alle LVs)'), eingeklappt: ['Ausschreibung (alle LVs)'], erben: { praefix: '', ebenen: [{ objekt: 'buero', titel: 'vom Büro' }] } },
+    { objekt: 'buero', felder: vorgabeFelder(lv, 'Vorgaben für Ausschreibungen'), eingeklappt: ['Vorgaben für Ausschreibungen'] },
+  ],
   // Ins Fenster ziehen (PDF, Scan, Foto): vorbelegt nach der Seite, auf der man steht – erkannt am Text
   dokumentarten: [
     { art: 'angebot', titel: 'Angebot', objekt: 'angebot', ansichten: ['angebote', 'preisspiegel', 'versand', 'nachverfolgen', 'besprechungen'], ordner: 'Ausschreibung/{lv}/Angebote',
@@ -418,7 +447,11 @@ export const ava: Beipackzettel = {
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Leistungsverzeichnis', unter: '{nummer} {name}' },
-      { id: 'angaben', art: 'felder', felder: ['vergabenummer', 'gewerk', 'abgabe', 'bindefrist', 'ausfuehrung_beginn', 'ausfuehrung_ende'] },
+      // Deckblatt wie bisher: Angebotsaufforderung, Termine, Abgabe, Vereinbarungen (geerbt vom Projekt bzw. Büro, wo das LV nichts eigenes hat)
+      { id: 'aufforderung', art: 'text', feld: 'aufforderung' },
+      { id: 'angaben', art: 'felder', felder: ['vergabeart', 'vergabenummer', 'gewerk', 'abgabe', 'abgabe_zeit', 'abgabeort', 'eroeffnung', 'bindefrist', 'ausfuehrung_beginn', 'ausfuehrung_ende', 'nebenangebote', 'austauschformat'] },
+      { id: 'vereinbarungen', art: 'felder', felder: ['vereinbarungen'] },
+      { id: 'vereinbarungen_weitere', art: 'text', feld: 'vereinbarungen_weitere' },
       { id: 'vorbemerkungen', art: 'text', feld: 'vorbemerkungen' },
       { id: 'positionen', art: 'lv', objekt: 'lv_position', ueber: 'lv', ohne: 'nachtrag', titel: 'Leistungen' },
       { id: 'unterschrift', art: 'unterschriften', parteien: ['Bieter:in (Firma, Stempel, Unterschrift)'] },

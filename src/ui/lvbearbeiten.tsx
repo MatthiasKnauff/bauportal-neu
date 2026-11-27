@@ -12,7 +12,8 @@ import { avaSuchtext } from './avasuche';
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
-import { ebeneAendern, gaebPruefung, gliederungEinfuegen, lvZeilen, mitUnterzeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
+import { ebeneAendern, gaebPruefung, gliederungEinfuegen, lvZeilen, mitUnterzeilen, maskeBeispiel, maskeLesen, maskePruefen, maskeSchreiben, positionEinfuegen, neueOz, nummerieren, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
+import { Auswahlliste } from './baukasten/auswahlliste';
 import { istZuschlag, summeGeschaetzt, zaehlt, zahl } from '../module/ava/rechnung';
 import { Dialog } from './baukasten/dialog';
 import { langtextMenue, ErgaenzungFenster } from './textergaenzung';
@@ -208,10 +209,20 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
     setSpalte(s); wahl.setMarkiert(id); setEdit({ id, spalte: s, text: text ?? (s === 'oz' ? z.oz : sp ? (sp.roh ?? sp.wert)(q) : ''), alles });
   };
   // ---------- neue Zeilen, Gliederung, löschen, nummerieren (nur LV bearbeiten) ----------
+  // die Gliederungsebene, in der zuletzt gearbeitet wurde: Titel der zuletzt markierten Zeile (bzw. der Titel selbst)
+  const [letzteEbene, setLetzteEbene] = createSignal<string | null>(null);
+  createEffect(() => { const id = wahl.markiert(); const z = id ? nachZeile().get(id) : undefined; if (z) setLetzteEbene(z.titel ? z.id : z.eltern); });
+  /** Neue Zeile (wie bisher) direkt unter der markierten; ohne Markierung am Ende der Gliederungsebene, in der zuletzt gearbeitet wurde
+   *  (sonst am Ende des LV). Ist zwischen den Nachbarn keine OZ frei, rücken die Positionen danach auf – ein Schritt zum Rückgängigmachen. */
   const neu = (titel: boolean) => {
     if (!schreiben() || !lv()) return;
-    const nach = wahl.markiert(), id = neueKennung(), oz = neueOz(zeilen(), { nach, titel }, maske());
-    ausfuehren({ objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Gliederungspunkt' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } }, titel ? 'Gliederungspunkt einfügen' : 'Position einfügen');
+    const Z = zeilen(), id = neueKennung(), markiert = wahl.markiert();
+    const ebene = letzteEbene() && Z.some((z) => z.id === letzteEbene()) ? letzteEbene() : [...Z].reverse().find((z) => z.titel)?.id ?? null;
+    const oz = titel ? new Map([[id, neueOz(Z, { nach: markiert ?? Z[Z.length - 1]?.id ?? null, titel }, maske())]])
+      : positionEinfuegen(Z, markiert ? { nach: markiert } : { amEnde: ebene }, maske(), id);
+    ausfuehrenMehrere([
+      { objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(id)!, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Gliederungspunkt' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } },
+      ...[...oz].filter(([k]) => k !== id).map(([k, v]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: k, werte: { oz: v } }))], titel ? 'Gliederungspunkt einfügen' : 'Position einfügen');
     setLvZu(false); wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext', undefined, true));
   };
   /** Neuer Gliederungspunkt eine Ebene unter der markierten Zeile – gewählte Positionen kommen hinein (wie bisher). */
@@ -518,21 +529,25 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   );
 }
 
-/** Nummerieren: OZ-Maske wie in GAEB – Stellen je Titelebene, Stellen der Position, Schritt – mit Beispiel. */
+/** Nummerieren wie bisher (OZ-Maske nach GAEB), kompakt: Titelstufen, Stellen je Titel, Stellen der Position, Schrittweite in einer
+ *  Reihe (eigene Auswahl, keine Systemlisten), darunter das Beispiel; passt das Schema nicht zum LV, steht der Grund rot da. */
 function NummerierenFenster(p: { maske: OzMaske; beispiel: LvZeile[]; onZu: () => void; onFertig: (m: OzMaske) => void }) {
-  const [titel, setTitel] = createSignal(p.maske.titel.join('.')), [pos, setPos] = createSignal(String(p.maske.position)), [schritt, setSchritt] = createSignal(String(p.maske.schritt));
-  const m = () => maskeLesen(`${titel()}:${pos()}:${schritt()}`);
-  const gueltig = () => maskeSchreiben(m()) === `${titel()}:${pos()}:${schritt()}`;
-  const probe = () => { const n = nummerieren(p.beispiel, m()); return p.beispiel.slice(0, 4).map((z) => `${n.get(z.id) ?? z.oz}  ${z.titel ? 'Titel' : 'Position'}`); };
+  const tiefe = Math.max(1, ...p.beispiel.filter((z) => z.titel).map((z) => z.ebene + 1));
+  const [stufen, setStufen] = createSignal(String(Math.max(tiefe, Math.min(4, p.maske.titel.length)))), [jeTitel, setJeTitel] = createSignal(String(p.maske.titel[0] ?? 2));
+  const [pos, setPos] = createSignal(String(p.maske.position)), [schritt, setSchritt] = createSignal(String(p.maske.schritt));
+  const m = (): OzMaske => ({ titel: Array(Number(stufen())).fill(Number(jeTitel())), position: Number(pos()), schritt: Number(schritt()) });
+  const warnung = () => maskePruefen(p.beispiel, m());
+  const wahl = (titel: string, werte: number[], w: () => string, setzen: (x: string) => void) =>
+    <label class="feld"><span>{titel}</span><Auswahlliste titel={titel} optionen={werte.map((x) => ({ wert: String(x), titel: String(x) }))} wert={w()} onWert={setzen} /></label>;
   return (
-    <Dialog titel="Nummerieren" onAbbrechen={p.onZu} knoepfe={<><button class="knopf" onClick={p.onZu}>Abbrechen</button><button class="knopf haupt" disabled={!gueltig()} onClick={() => p.onFertig(m())}>Nummerieren</button></>}>
-      <p class="still-text">Die Ordnungszahlen werden in der jetzigen Reihenfolge neu vergeben. Die Maske wird am LV gemerkt und gilt auch für neue Zeilen.</p>
-      <label class="feld"><span>Stellen je Titelebene (z. B. 2.2 – zwei Ebenen mit je zwei Stellen)</span><input value={titel()} onInput={(e) => setTitel(e.currentTarget.value.trim())} /></label>
-      <label class="feld"><span>Stellen der Position</span><input value={pos()} inputmode="numeric" onInput={(e) => setPos(e.currentTarget.value.trim())} /></label>
-      <label class="feld"><span>Schritt zwischen Positionen</span><input value={schritt()} inputmode="numeric" onInput={(e) => setSchritt(e.currentTarget.value.trim())} /></label>
-      <Show when={gueltig()} fallback={<p class="fehler-text">Titelebenen 1 bis 4 Stellen (höchstens 4 Ebenen), Position 1 bis 6 Stellen, Schritt ab 1.</p>}>
-        <p class="still-text">So sieht es aus: {probe().join(' · ')}</p>
-      </Show>
+    <Dialog titel="Nummerieren" onAbbrechen={p.onZu} knoepfe={<><button class="knopf" onClick={p.onZu}>Abbrechen</button><button class="knopf haupt" disabled={warnung().length > 0} onClick={() => p.onFertig(m())}>Nummerieren</button></>}>
+      <p class="still-text">Ordnungszahlen nach einem Schema wie in GAEB (OZ-Maske). Das Schema wird beim LV gemerkt.</p>
+      <div class="nummerieren-wahl">
+        {wahl('Titelstufen', [1, 2, 3, 4], stufen, setStufen)}{wahl('Stellen je Titel', [1, 2, 3], jeTitel, setJeTitel)}
+        {wahl('Stellen der Position', [3, 4, 5], pos, setPos)}{wahl('Schrittweite', [1, 5, 10], schritt, setSchritt)}
+      </div>
+      <p class="still-text">Beispiel: <b>{maskeBeispiel(m())}</b>{tiefe > 1 ? ` · im LV gibt es ${tiefe} Titelstufen` : ''}</p>
+      <Show when={warnung().length}><p class="fehler-text">⚠ {warnung().join(' ')}</p></Show>
     </Dialog>
   );
 }

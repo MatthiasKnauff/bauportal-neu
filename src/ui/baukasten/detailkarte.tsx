@@ -1,13 +1,14 @@
 // Baustein „Detailkarte“ (Platz rechts): alle Felder eines Objekts, erzeugt aus dem Datenmodell.
 // Jede Änderung eines Feldes ist ein Befehl – sofort wirksam, mit Rückgängig.
 import { Kartenrahmen } from './kartenrahmen';
-import { For, Show, createEffect, createSignal, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, untrack, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Eingabefehler, gilt, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
 import type { Zeile } from '../../kern/befehl';
-import { ausfuehren, objektname, rueckgaengig } from '../unterbau/abgleich';
-import { darf, neueKennung } from '../unterbau/api';
-import { Dialog } from './dialog';
+import { ausfuehren, ausfuehrenMehrere, ebenenWerte, objektname, rueckgaengig, verlauf } from '../unterbau/abgleich';
+import { geerbt, wirksam } from '../../kern/erben';
+import { darf, modell, neueKennung } from '../unterbau/api';
+import { Dialog, VerwerfenFrage } from './dialog';
 import { FeldEingabe } from './feld';
 import { hinweis } from '../unterbau/meldungen';
 
@@ -64,13 +65,35 @@ export function Detailkarte(p: {
   ohneKopf?: boolean;                      // ohne Kopfzeile – das Fenster drumherum trägt den Titel (Karte im Fenster, schwebende Karte)
   ohneRahmen?: boolean;                    // ohne eigenen Rahmen – sie steht schon in einer Fläche (Fenster, Bautagebuch rechts)
   gruppe?: string;                         // zu dieser Gruppe springen und ihr erstes Feld wählen (z. B. „Wetter“ beim Stift am Wetter)
+  nurGruppen?: string[];                   // nur diese Gruppen (z. B. die Kopfdaten des Tagesberichts direkt im Bericht)
+  bestaetigen?: boolean;                   // statt × unten Abbrechen (nimmt mit Rückfrage alles seit dem Öffnen zurück) und OK – beides ruft onZu
 }) {
   const schreiben = () => darf(p.modell.name, 'schreiben');
+  // OK/Abbrechen: Schritte seit dem Öffnen dieses Eintrags (ein anderer Eintrag zählt neu)
+  const start = createMemo(() => { void p.zeile.id; return untrack(() => verlauf().zurueck); });
+  const schritte = () => Math.max(0, verlauf().zurueck - start());
+  const [frage, setFrage] = createSignal(false);
+  const verwerfen = () => { setFrage(false); for (let i = schritte(); i > 0; i--) rueckgaengig(); p.onZu?.(); };
   const [fehler, setFehler] = createStore<Record<string, string | undefined>>({});
   const titel = () => objektname(p.modell, p.zeile.werte);
   const [reiter, setReiter] = createSignal(0);
   const reiterListe = () => [...(p.reiter?.(p.zeile) ?? []), ...reiterFuerAlle.flatMap((r) => r(p.modell, p.zeile) ?? [])];
   const aendern = (f: Feld, w: Wert, herkunft?: string) => setFehler(f.name, feldAendern(p.modell, p.zeile, f, w, herkunft));
+  // Erben (z. B. LV ← Projekt ← Büro): leere Felder zeigen den Wert der Ebene darüber; „wenn“ richtet sich nach den wirksamen Werten
+  const ebenen = () => ebenenWerte(p.modell, p.zeile.werte);
+  const wirksame = () => (p.modell.erben ? wirksam(p.modell, p.zeile.werte, ebenen()).werte : p.zeile.werte);
+  // Gruppen nach Titel (Text) und Felder als Teile des Modells: eine Änderung zeichnet nichts neu (Fokus, offene Gruppen bleiben)
+  const gruppenListe = createMemo(() => gruppen(p.modell, wirksame(), p.verborgen).filter((g) => !p.nurGruppen || p.nurGruppen.includes(g.titel)));
+  const gruppenTitel = createMemo(() => gruppenListe().map((g) => g.titel), undefined, { equals: (a, b) => a.length === b.length && a.every((x, i) => x === b[i]) });
+  const erbe = (f: Feld) => {
+    const e = p.modell.erben; if (!f.erbt || !e) return undefined;
+    const g = geerbt(p.modell, f, ebenen()), oben = e.ebenen[0]!, ziel = oben.ueber ? String(p.zeile.werte[oben.ueber] ?? '') : modell(oben.objekt).einzeln ?? '';
+    const w = p.zeile.werte[f.name];
+    return { wert: g?.wert ?? null, von: g ? e.ebenen[g.ebene]!.titel : undefined, hochTitel: oben.titel.replace(/^vom /, 'fürs '),
+      hoch: ziel && w != null && w !== '' && darf(oben.objekt, 'schreiben') ? () => ausfuehrenMehrere([
+        { objekt: oben.objekt, art: 'aendern', objektId: ziel, werte: { [e.praefix + f.name]: w } },
+        { objekt: p.modell.name, art: 'aendern', objektId: p.zeile.id, werte: { [f.name]: null } }], `${f.titel} ${oben.titel.replace(/^vom /, 'fürs ')} übernehmen`) : undefined };
+  };
   let karte!: HTMLElement;
   createEffect(() => {
     const g = p.gruppe; if (!g) return;
@@ -78,8 +101,9 @@ export function Detailkarte(p: {
   });
   const angaben = () => <>
     {p.oben?.(p.zeile)}
-    <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => {
-      const felder = () => <For each={g.felder}>{(f) => <><FeldEingabe feld={f} breit={f.name === p.modell.anzeigeFeld} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />{p.einschub?.[f.name]?.(p.zeile)}</>}</For>;
+    <For each={gruppenTitel()}>{(titel) => {
+      const g = { titel, get felder() { return gruppenListe().find((x) => x.titel === titel)?.felder ?? []; } };
+      const felder = () => <For each={g.felder}>{(f) => <><FeldEingabe feld={f} breit={f.name === p.modell.anzeigeFeld} wert={p.zeile.werte[f.name] ?? null} erbe={erbe(f)} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />{p.einschub?.[f.name]?.(p.zeile)}</>}</For>;
       return <>{p.modell.eingeklappt?.includes(g.titel)
         ? <details class="feldgruppe" data-gruppe={g.titel} open={p.gruppe === g.titel || undefined}><summary>{g.titel}</summary><div class="feldgruppe-inhalt">{felder()}</div></details>
         : <fieldset data-gruppe={g.titel}><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>}{p.einschub?.[g.titel]?.(p.zeile)}</>;
@@ -89,9 +113,16 @@ export function Detailkarte(p: {
     <Show when={p.onZu && !p.modell.einzeln && darf(p.modell.name, 'loeschen')}>
       <div class="karte-fuss"><button class="knopf gefahr" onClick={() => loesche(p.modell, p.zeile)}>{p.modell.titel} löschen</button></div>
     </Show>
+    <Show when={p.bestaetigen && p.onZu}>
+      <Show when={frage()} fallback={<div class="fenster-knoepfe karte-bestaetigen">
+        <button type="button" class="knopf" onClick={() => (schritte() ? setFrage(true) : p.onZu!())}>Abbrechen</button>
+        <button type="button" class="knopf haupt" onClick={() => p.onZu!()}>OK</button></div>}>
+        <VerwerfenFrage onWeiter={() => setFrage(false)} onVerwerfen={verwerfen} />
+      </Show>
+    </Show>
   </>;
   return (
-    <Kartenrahmen label={`${p.modell.titel} ${titel()}`} ref={(el) => (karte = el)} titel={titel() || p.modell.titel} onZu={p.onZu} heftzwecke={p.heftzwecke}
+    <Kartenrahmen label={`${p.modell.titel} ${titel()}`} ref={(el) => (karte = el)} titel={titel() || p.modell.titel} onZu={p.bestaetigen ? undefined : p.onZu} heftzwecke={p.heftzwecke}
       ohneKopf={p.ohneKopf} ohneRahmen={p.ohneRahmen} schliessenZeichen={p.symbole?.schliessen}
       knoepfe={<Show when={p.heftzwecke}><button class="knopf still nur-breit" aria-label="In eigenem Fenster öffnen" title="In eigenem Fenster öffnen" onClick={() => inEigenemFenster(p.modell, p.zeile.id)}>{p.symbole?.fenster ?? '⧉'}</button></Show>}
       unterKopf={<Show when={p.blaettern && p.blaettern.anzahl > 1}>{(_) => { const b = () => p.blaettern!; return (

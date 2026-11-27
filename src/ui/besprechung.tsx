@@ -13,7 +13,7 @@ import { lvZahlen } from './avadaten';
 import { einsatzAus } from '../module/bauzeitenplan/gewerke';
 import { isoAus } from '../module/bauzeitenplan/kalender';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
-import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
 import { darf, ich, modell, neueKennung } from './unterbau/api';
 import { aktuelleVersion, planDerVersion } from './plandaten';
 import { springeZu } from './sprung';
@@ -22,7 +22,7 @@ const kurz = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
 
 /** Die Quellen eines Angebots: Projekt, Büro, Bieter:in, Angebot, LV und die Termine des Gewerks im Bauzeitenplan. */
 function quellen(angebot: Werte): Quellen {
-  const lv = sicht.lv?.[String(angebot.lv)]?.werte, projekt = String(angebot.projekt ?? '');
+  const lv = sicht.lv?.[String(angebot.lv)] && wirksameWerte(modell('lv'), sicht.lv[String(angebot.lv)]!.werte), projekt = String(angebot.projekt ?? '');
   const kg = lv?.kostengruppe ? sicht.kostengruppe?.[String(lv.kostengruppe)]?.werte : undefined;
   const q: Quellen = {
     projekt: sicht.projekt?.[projekt]?.werte, buero: sicht.buero?.[BUERO_ID]?.werte, bieter: sicht.kontakt?.[String(angebot.bieter)]?.werte, angebot, lv,

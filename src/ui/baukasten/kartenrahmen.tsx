@@ -40,7 +40,7 @@ export function Kartenrahmen(p: {
       </Show>
       {p.unterKopf}
       <Show when={reiter().length}>
-        <div class="karte-reiter" role="tablist">
+        <div class="karte-reiter" role="tablist" aria-label={`${p.label} – Reiter`}>
           <For each={reiter()}>{(r, i) => <button type="button" role="tab" aria-selected={wahl() === i()} onClick={() => p.onReiterWahl?.(i())}>{r.titel}</button>}</For>
           <Show when={!kopf() && p.heftzwecke}><span class="karte-reiter-zwecke">{p.heftzwecke}</span></Show>
         </div>

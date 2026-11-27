@@ -11,6 +11,7 @@ export interface Option { wert: string; titel: string; anzahl?: number }   // an
 export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string; platzhalter?: string; neu?: { titel: string; tun: (text: string) => void }; gewaehlt?: (w: string) => boolean;
   /** Aussehen des Knopfs: wie ein Feld (Vorgabe), als Überschrift (z. B. das LV oben im Kopf), als Kapsel mit Vorsatz (z. B. „Stand: Entwurf“) oder als Chip (Filter) */
   aussehen?: 'feld' | 'titel' | 'kapsel' | 'chip'; vorsatz?: string;
+  blass?: boolean;   // Wert gilt nur geerbt (Feld mit „erbt“) – blass und kursiv
   /** als Chip: hervorgehoben, wenn schon etwas gewählt ist (z. B. ein Filter) */
   aktiv?: boolean;
   /** Zahl vorn im Knopf (z. B. wie viele Versionen es gibt) */
@@ -60,7 +61,7 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
     fenster?.querySelector('.zeiger')?.scrollIntoView({ block: 'nearest' });
   };
   return (
-    <div class={`auswahlliste ${p.aussehen && p.aussehen !== 'feld' ? `als-${p.aussehen}` : ''}`} classList={{ aktiv: !!p.aktiv }} ref={wurzel}>
+    <div class={`auswahlliste ${p.aussehen && p.aussehen !== 'feld' ? `als-${p.aussehen}` : ''}`} classList={{ aktiv: !!p.aktiv, blass: !!p.blass }} ref={wurzel}>
       <button type="button" id={p.id} class="auswahlliste-knopf" aria-label={p.id ? undefined : `${p.titel}: ${aktuell() || 'keine Auswahl'}`} aria-haspopup="listbox" aria-expanded={offen()} disabled={p.gesperrt}
         onClick={() => (offen() ? zu() : auf())} onKeyDown={(e) => { if (e.key === 'ArrowDown' && !offen()) { e.preventDefault(); auf(); } }}
         onContextMenu={(e) => { if (p.kontext && p.wert) { e.preventDefault(); p.kontext(e, p.wert); } }}>

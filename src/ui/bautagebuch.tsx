@@ -38,7 +38,7 @@ const hole = (k: string, d: string) => { try { return localStorage.getItem(k) ??
 // Was rechts steht: ein Eintrag des Berichts, der Bericht selbst zum Bearbeiten – oder nichts
 const [eintrag, setEintrag] = createSignal<string | null>(null);
 const [bearbeiten, setBearbeiten] = createSignal(false);
-const [bearbeitenBei, setBearbeitenBei] = createSignal<string>();   // Gruppe, zu der die Karte springt (Stift am Kopf: Bericht, am Wetter: Wetter)
+const [bearbeitenBei, setBearbeitenBei] = createSignal<string>();   // Gruppe, die direkt im Bericht offen ist (Stift am Kopf: Bericht, am Wetter: Wetter)
 const [foto, setFoto] = createSignal<string | null>(null);   // rechts groß gezeigtes Foto des Berichts
 
 /** Die Abschnitte eines Berichts – Reihenfolge wie im alten Bautagebuch. */
@@ -354,7 +354,6 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
   const nichtHeute = () => !!w().datum && w().datum !== heute();
   const projekt = () => (w().projekt ? sicht.projekt?.[String(w().projekt)]?.werte : undefined);
   const baustelle = () => { const x = projekt(); return x ? [x.strasse, [x.plz, x.ort].filter(Boolean).join(' ')].filter(Boolean).map(String).join(', ') : ''; };
-  const stift = (gruppe: string) => { setEintrag(null); setFoto(null); setBearbeitenBei(gruppe); setBearbeiten(true); };
   return (
     <>
     <section class="bt-kopf bt-karte" id="abschnitt-kopf" aria-label="Tagesbericht">
@@ -370,8 +369,9 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
             <Show when={baustelle()}><span class="bt-adresse" title="Baustelle"><Zeichen name="standort" groesse={15} />{baustelle()}</span></Show>
           </p>
         </div>
-        <Show when={schreiben()}><button class="knopf bt-stift" aria-label="Kopfdaten bearbeiten" title="Bericht bearbeiten: Nummer, Datum, Uhrzeit, Bauleitung, Wetter, Kontrollen" onClick={() => stift('Bericht')}><Zeichen name="bearbeiten" groesse={18} /></button></Show>
+        <Show when={schreiben()}><KopfStift gruppe="Bericht" name="Kopfdaten bearbeiten" titel="Kopfdaten bearbeiten: Nummer, Datum, Uhrzeit, Bauleitung" /></Show>
       </div>
+      <Show when={bearbeiten() && bearbeitenBei() === 'Bericht'}><KopfFelder bericht={p.bericht} gruppe="Bericht" /></Show>
       <div class="bt-kopf-zeile bt-wetter">
         <div class="bt-wetter-inhalt">
         <span><Zeichen name="wetter" groesse={16} /> {wetter().join(' · ') || 'kein Wetter eingetragen'}</span>
@@ -383,7 +383,9 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
           )}</For>
         </span>
         </div>
+        <Show when={schreiben()}><KopfStift gruppe="Wetter" name="Wetter bearbeiten" titel="Wetter bearbeiten" /></Show>
       </div>
+      <Show when={bearbeiten() && bearbeitenBei() === 'Wetter'}><KopfFelder bericht={p.bericht} gruppe="Wetter" /></Show>
       <Show when={darf('bericht_eintrag', 'schreiben')}><span class="bt-werkzeuge"><Diktieren bericht={p.bericht} steuer={(f) => (p.werkzeuge.diktat = f)} /><Schritte bericht={p.bericht} steuer={(f) => (p.werkzeuge.schritte = f)} /></span></Show>
     </section>
     <div class="bt-stand">
@@ -398,6 +400,17 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
     </div>
     </>
   );
+}
+/** Stift wie bisher: öffnet die Felder direkt im Bericht; an derselben Stelle das grüne Häkchen zum Übernehmen (Enter übernimmt auch). */
+function KopfStift(p: { gruppe: string; name: string; titel: string }) {
+  const an = () => bearbeiten() && bearbeitenBei() === p.gruppe;
+  return <button class="knopf bt-stift" classList={{ ok: an() }} aria-label={an() ? 'Übernehmen' : p.name} title={an() ? 'Übernehmen (Enter)' : p.titel}
+    onClick={() => { if (an()) setBearbeiten(false); else { setBearbeitenBei(p.gruppe); setBearbeiten(true); } }}>{an() ? '✓' : <Zeichen name="bearbeiten" groesse={18} />}</button>;
+}
+/** Die Felder einer Gruppe des Tagesberichts direkt im Bericht – dieselbe Detailkarte, nur diese Gruppe. */
+function KopfFelder(p: { bericht: Zeile; gruppe: string }) {
+  return <div class="bt-kopf-felder" onKeyDown={(e) => { const t = e.target as HTMLElement; if ((e.key === 'Enter' && t.tagName === 'INPUT') || e.key === 'Escape') { e.preventDefault(); t.blur(); setTimeout(() => setBearbeiten(false)); } }}>
+    <Detailkarte modell={modell('tagesbericht')} zeile={p.bericht} ohneKopf ohneRahmen nurGruppen={[p.gruppe]} verborgen={['projekt']} /></div>;
 }
 const KURZ: Record<string, string> = { aufgeraeumt: 'aufgeräumt', masskontrolle: 'Maßkontrolle', fotodoku: 'Fotos', firmen_angesprochen: 'Firmen angesprochen' };
 const kurz = (f: Feld) => KURZ[f.name] ?? f.titel;
@@ -501,7 +514,7 @@ type RechtsReiter = 'details' | 'foto' | 'pdf';
 const [reiterRechts, setReiterRechts] = createSignal<RechtsReiter>('details');
 createRoot(() => {
   createEffect(on(foto, (f) => { if (f) setReiterRechts('foto'); }, { defer: true }));
-  createEffect(on(() => [eintrag(), bearbeiten()] as const, ([e, b]) => { if (e || b) setReiterRechts('details'); }, { defer: true }));
+  createEffect(on(() => eintrag(), (e) => { if (e) setReiterRechts('details'); }, { defer: true }));
 });
 const HINWEIS_RECHTS = 'Im Bericht einen Eintrag anklicken – hier stehen dann Text, Firma, Frist und Erledigt, direkt änderbar. Der Stift im Kopf öffnet den ganzen Bericht.';
 
@@ -560,9 +573,8 @@ export function BerichtDetails(z: Zeile, heftzwecke?: () => JSX.Element): JSX.El
   const gezeigt = () => (foto() && fotos().some((f) => f.id === foto()) ? foto()! : fotos()[0]?.id);
   const details = () => (
     <Show when={eintrag() && sicht.bericht_eintrag?.[eintrag()!] && !sicht.bericht_eintrag[eintrag()!]!.geloescht ? sicht.bericht_eintrag[eintrag()!] : undefined}
-      fallback={<Show when={bearbeiten()} fallback={<p class="still-text bt-rechts-leer">{HINWEIS_RECHTS}</p>}>
-        <Detailkarte modell={modell('tagesbericht')} zeile={z} ohneRahmen onZu={() => setBearbeiten(false)} verborgen={['projekt']} gruppe={bearbeitenBei()} /></Show>}>
-      {(e) => <Detailkarte modell={modell('bericht_eintrag')} zeile={e()} ohneRahmen onZu={() => setEintrag(null)} verborgen={['projekt', 'bericht', 'reihe']} />}
+      fallback={<p class="still-text bt-rechts-leer">{HINWEIS_RECHTS}</p>}>
+      {(e) => <Detailkarte modell={modell('bericht_eintrag')} zeile={e()} ohneRahmen bestaetigen onZu={() => setEintrag(null)} verborgen={['projekt', 'bericht', 'reihe']} />}
     </Show>
   );
   return (
@@ -576,4 +588,4 @@ export function BerichtDetails(z: Zeile, heftzwecke?: () => JSX.Element): JSX.El
   );
 }
 /** Rechts ist am großen Bildschirm immer da (Reiter); am Handy nur, wenn ein Eintrag gewählt ist oder der Bericht bearbeitet wird. */
-export const berichtDetailsDa = () => !!eintrag() || bearbeiten() || !!foto();
+export const berichtDetailsDa = () => !!eintrag() || !!foto();

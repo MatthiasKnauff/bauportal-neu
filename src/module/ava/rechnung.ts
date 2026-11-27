@@ -192,7 +192,11 @@ export function vertragsbedingungenText(lv: Werte = {}): Record<string, string> 
   if (lv.strafe_prozent != null && lv.strafe_prozent !== '') aus.vertragsstrafe = b.strafe ? `${prozent(b.strafe)} % der Abrechnungssumme netto je ${tag} Verzug${b.strafeMax ? `, höchstens ${prozent(b.strafeMax)} %` : ''}` : 'keine';
   if (lv.ve_prozent != null && lv.ve_prozent !== '') aus.erfuellung = b.ve ? `${prozent(b.ve)} % ${b.veForm === 'buergschaft' ? 'als Bürgschaft' : 'Einbehalt von jeder Abschlagszahlung'}` : 'entfällt';
   if (lv.gewaehrleistung_jahre != null && lv.gewaehrleistung_jahre !== '') aus.gewaehrleistung = `${String(lv.gewaehrleistung_jahre)} Jahre ab Abnahme`;
-  if (lv.ma_prozent != null && lv.ma_prozent !== '') aus.einbehalt = b.ma ? `${prozent(b.ma)} % der Bruttoabrechnungssumme${b.maForm === 'buergschaft' ? ' als Bürgschaft' : ', ablösbar gegen Bürgschaft'}` : 'keiner';
+  if (lv.ma_prozent != null && lv.ma_prozent !== '') aus.einbehalt = b.ma ? `${prozent(b.ma)} % der Bruttoabrechnungssumme${b.maForm === 'buergschaft' ? ' als Bürgschaft' : lv.ma_abloesbar === false ? '' : ', ablösbar gegen Bürgschaft'}` : 'keiner';
+  // Texte, die das LV (bzw. Projekt, Büro) gleich als Wortlaut führt
+  for (const [feld, punkt] of [['vb_rechnungsstellung', 'rechnungsstellung'], ['vb_zahlungsfrist', 'zahlungsfrist'], ['vb_nachweise', 'bescheinigungen'], ['vb_nachunternehmer', 'nachunternehmer'], ['vb_energie', 'energie']] as const) {
+    const t = String(lv[feld] ?? '').trim(); if (t) aus[punkt] = t;
+  }
   return aus;
 }
 

@@ -2,6 +2,7 @@
 // Druckdienst (Hilfscontainer mit Chromium) daraus das PDF machen. Gelesen wird als der Benutzer – wer ein Objekt
 // nicht sehen darf, bekommt auch keinen Ausdruck davon.
 import { DRUCKQUELLEN } from '../module/druckquellen';
+import { wirksam } from '../kern/erben';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
@@ -25,7 +26,17 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
   const t = await alsBenutzer(db, wer, async (c) => {
     const zeile = (await c.query(`select * from ${tabelle(m.name)} where id = $1 and not geloescht`, [objektId])).rows[0];
     if (!zeile) throw new Ablehnung(`${m.titel} nicht gefunden`);
-    const werte = werteAus(m, zeile);
+    let werte = werteAus(m, zeile);
+    // Erbende Felder (z. B. LV ← Projekt ← Büro): gedruckt wird der wirksame Wert
+    if (m.erben) {
+      const ebenen: (Werte | undefined)[] = [];
+      for (const e of m.erben.ebenen) {
+        const ziel = register.modell(e.objekt)!, id = e.ueber ? werte[e.ueber] : ziel.einzeln;
+        const z = id ? (await c.query(`select * from ${tabelle(ziel.name)} where id = $1 and not geloescht`, [id])).rows[0] : undefined;
+        ebenen.push(z ? werteAus(ziel, z) : undefined);
+      }
+      werte = wirksam(m, werte, ebenen).werte;
+    }
     // Verweise der gedruckten Felder vorab auflösen
     const namen = new Map<string, string>();
     for (const f of m.felder.filter((x) => x.art === 'verweis' && werte[x.name])) {

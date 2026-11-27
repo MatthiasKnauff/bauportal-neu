@@ -1,7 +1,7 @@
 // Modulgerüst: Jedes Modul bringt einen Beipackzettel mit.
 // Der Kern liest daraus, welche Objekte es gibt und was das Modul braucht.
 
-import { pruefeModell, type Feld, type ObjektModell, type Werte } from './modell';
+import { pruefeModell, type Erben, type Feld, type ObjektModell, type Werte } from './modell';
 import { spaltenFeld, type Ausdruck } from './druck';
 
 export interface Beipackzettel {
@@ -13,6 +13,9 @@ export interface Beipackzettel {
   farbe?: string;             // App-Farbe (#rrggbb) wie im bisherigen Bauportal – für Verlauf und Strich der Flächen (Darstellung)
   braucht: string[];          // Module, ohne die dieses nicht läuft
   objekte: ObjektModell[];    // Objekte, die das Modul mitbringt
+  /** Felder, die das Modul an Objekten anderer Module ergänzt (z. B. die Ausschreibung ihre Vorgaben an Projekt und Büro) –
+   *  das Register fügt sie dem Objekt hinzu; das andere Modul muss davon nichts wissen. */
+  ergaenzt?: Ergaenzung[];
   ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
   kataloge?: Katalog[];       // Kataloge, die über den Katalog-Kanal kommen und sich auf Knopfdruck aktualisieren lassen
   nachschlagen?: Nachschlag[];   // große Kataloge, die nur am Server liegen und seitenweise gesucht werden
@@ -45,6 +48,7 @@ export interface Dokumentart {
   /** Felder, an denen ein vorhandener Eintrag erkannt wird – dann wird er ergänzt statt neu angelegt (z. B. Angebot: LV und Bieter:in) */
   vorhanden?: string[];
 }
+export interface Ergaenzung { objekt: string; felder: Feld[]; eingeklappt?: string[]; erben?: Erben }
 export type Handystufe = 'voll' | 'eigen' | 'ansicht' | 'lesen' | 'keine';
 
 /** Ein Katalog füllt ein Objekt (seine Einträge erkennt man an der Kennung, Feld „kennung“) – oder einen Nachschlag. */
@@ -118,6 +122,23 @@ export class Modulregister {
         for (const f of [n.anzeigeFeld, ...n.gliederung, ...n.suche]) if (!n.felder.some((x) => x.name === f)) throw new Error(`Nachschlag „${n.name}“: Feld „${f}“ fehlt`);
         this.nachschlaege.set(n.name, n);
       }
+    }
+    // Ergänzungen anderer Module: neues Objekt (Kopie) mit den zusätzlichen Feldern – auch im Beipackzettel des Moduls, dem es gehört
+    for (const z of module) for (const e of z.ergaenzt ?? []) {
+      const m = this.modelle.get(e.objekt);
+      if (!m) throw new Error(`Modul „${z.id}“ ergänzt „${e.objekt}“, das fehlt`);
+      if (e.erben && m.erben) throw new Error(`Modul „${z.id}“: „${e.objekt}“ erbt schon`);
+      const neu: ObjektModell = { ...m, felder: [...m.felder, ...e.felder], ...(e.eingeklappt ? { eingeklappt: [...(m.eingeklappt ?? []), ...e.eingeklappt] } : {}), ...(e.erben ? { erben: e.erben } : {}) };
+      pruefeModell(neu);
+      this.modelle.set(m.name, neu);
+      for (const [id, x] of this.zettel) if (x.objekte.includes(m)) this.zettel.set(id, { ...x, objekte: x.objekte.map((o) => (o === m ? neu : o)) });
+    }
+    // Erben: die Ebenen gibt es, und sie halten jedes erbende Feld unter praefix + Name
+    for (const m of this.modelle.values()) if (m.erben) for (const e of m.erben.ebenen) {
+      const ziel = this.modelle.get(e.objekt);
+      if (!ziel) throw new Error(`„${m.name}“ erbt von „${e.objekt}“, das fehlt`);
+      if (e.ueber ? !m.felder.some((f) => f.name === e.ueber && f.art === 'verweis' && f.ziel === e.objekt) : !ziel.einzeln) throw new Error(`„${m.name}“ erbt von „${e.objekt}“: kein Weg dorthin`);
+      for (const f of m.felder.filter((x) => x.erbt)) if (!ziel.felder.some((x) => x.name === m.erben!.praefix + f.name)) throw new Error(`„${m.name}.${f.name}“ erbt, aber „${e.objekt}“ hat kein Feld „${m.erben.praefix + f.name}“`);
     }
     for (const k of this.kataloge) {
       if (!!k.objekt === !!k.nachschlag) throw new Error(`Katalog „${k.id}“: genau eins von Objekt oder Nachschlag angeben`);

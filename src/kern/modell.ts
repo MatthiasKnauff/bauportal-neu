@@ -26,6 +26,14 @@ export interface Feld {
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)
   verborgen?: boolean;     // führt das Programm selbst (z. B. die Reihenfolge) – steht in keiner Karte
   einheit?: string;        // bei art = zahl: Feld mit der Einheit dieser Menge – die Tabelle zeigt dann unten die Summe der gezeigten Zeilen
+  erbt?: boolean;          // leer gilt der Wert der Ebene darüber (Modell „erben“, z. B. LV ← Projekt ← Büro) – kern/erben.ts
+}
+
+/** Ebenen, von denen Felder mit „erbt“ ihren Wert nehmen, solange sie leer sind – in dieser Reihenfolge (z. B. erst Projekt, dann Büro).
+ *  Die Ebene hält den Wert unter praefix + Feldname (z. B. „lv_vergabeart“ am Projekt). */
+export interface Erben {
+  praefix: string;
+  ebenen: { objekt: string; ueber?: string; titel: string }[];   // ueber: Verweisfeld zur Ebene (ohne: das Objekt gibt es einmal, „einzeln“)
 }
 
 export type Rechtart = 'lesen' | 'schreiben' | 'loeschen';
@@ -52,6 +60,8 @@ export interface ObjektModell {
   versionsBereich?: string;
   /** Feste Kennung, wenn es das Objekt genau einmal gibt (z. B. die Bürodaten). */
   einzeln?: string;
+  /** Felder mit „erbt“ nehmen leer den Wert dieser Ebenen (z. B. Ausschreibungsdaten: LV ← Projekt ← Büro). */
+  erben?: Erben;
 }
 
 export class Eingabefehler extends Error {
@@ -92,6 +102,7 @@ export function gilt(f: Feld, werte: Werte, m?: ObjektModell): boolean {
 }
 
 export function leerwert(f: Feld): Wert {
+  if (f.erbt) return null;   // leer = geerbt (kern/erben.ts)
   if (f.art === 'zahl' || f.art === 'verweis') return null;
   if (f.art === 'ja_nein') return false;
   if (f.art === 'auswahl') return f.optionen![0]!.wert;
@@ -99,6 +110,7 @@ export function leerwert(f: Feld): Wert {
 }
 
 function pruefeFeld(f: Feld, roh: unknown): Wert {
+  if (f.erbt && (roh === null || roh === undefined || roh === '')) return null;   // zurück auf den geerbten Wert
   switch (f.art) {
     case 'zahl': {
       if (roh === null || roh === '' || roh === undefined) return null;

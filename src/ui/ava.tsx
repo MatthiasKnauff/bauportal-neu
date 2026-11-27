@@ -13,7 +13,7 @@ import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { lvVon } from './avakopf';
 import { springeZu } from './sprung';
-import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
 import { darf, modell } from './unterbau/api';
 import { FeldEingabe } from './baukasten/feld';
 import { Zeichen } from './baukasten/zeichen';
@@ -77,27 +77,25 @@ export function LvUeberblick(p: { lv: Zeile }): JSX.Element {
 }
 
 /** Karte einer Zuschlagsposition (wie bisher Art Z): auf welche Positionen des LV der Satz gerechnet wird – zum Ankreuzen. */
-export function ZuschlagAuf(p: { pos: Zeile }): JSX.Element | undefined {
-  if (!istZuschlag(p.pos.werte.art)) return undefined;
+export function ZuschlagAuf(p: { pos: Zeile }): JSX.Element {
   const kandidaten = () => allePositionenVon(String(p.pos.werte.lv ?? '')).filter((q) => q.id !== p.pos.id && !istText(q.werte.art) && !istZuschlag(q.werte.art));
   const auf = () => new Set(zuschlagAuf(p.pos.werte));
   const setzen = (ids: Set<string>) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: p.pos.id, werte: { zuschlag_auf: [...ids].join(',') || null } }, 'Zuschlag auf Positionen');
   const umschalten = (id: string) => { const n = new Set(auf()); if (n.has(id)) n.delete(id); else n.add(id); setzen(n); };
   const schreiben = () => darf('lv_position', 'schreiben');
   return (
-    <div class="zuschlag-auf">
+    <Show when={istZuschlag(p.pos.werte.art)}><div class="zuschlag-auf">
       <div class="reihe"><strong>Zuschlag auf</strong><span class="still-text klein-text">{auf().size} von {kandidaten().length} Positionen</span>
         <Show when={schreiben()}><button type="button" class="knopf klein still" onClick={() => setzen(new Set(kandidaten().map((q) => q.id)))}>alle</button>
           <button type="button" class="knopf klein still" onClick={() => setzen(new Set())}>keine</button></Show></div>
       <ul><For each={kandidaten()}>{(q) => <li><label><input type="checkbox" disabled={!schreiben()} checked={auf().has(q.id)} onChange={() => umschalten(q.id)} /> {String(q.werte.oz ?? '')} {String(q.werte.kurztext ?? '')}</label></li>}</For></ul>
-    </div>
+    </div></Show>
   );
 }
 
 /** Karte einer Position: der Gesamtpreis (und warum er nicht zählt). */
-export function PositionSumme(p: { pos: Zeile }): JSX.Element | undefined {
-  if (istText(p.pos.werte.art)) return undefined;
-  return <p class="ava-gp">Gesamtpreis geschätzt: <b>{eur(gpMit(p.pos))} €</b>{!zaehlt(p.pos) ? ' – zählt nicht zur Summe des LV' : ''}</p>;
+export function PositionSumme(p: { pos: Zeile }): JSX.Element {
+  return <Show when={!istText(p.pos.werte.art)}><p class="ava-gp">Gesamtpreis geschätzt: <b>{eur(gpMit(p.pos))} €</b>{!zaehlt(p.pos) ? ' – zählt nicht zur Summe des LV' : ''}</p></Show>;
 }
 
 
@@ -161,7 +159,7 @@ export function AuftragKarte(p: { lv: Zeile }): JSX.Element {
 /** Sicherheiten des Auftrags (VOB/B § 17, wie im bisherigen Bauportal): Vertragserfüllung und Mängelansprüche – Einbehalt oder
  *  Bürgschaft (eingegangen, zurückgegeben), Abnahme und Ende der Verjährung. Eingetragen wird im LV unter „Sicherheiten“. */
 function Sicherheiten(p: { lv: Zeile }): JSX.Element {
-  const w = () => p.lv.werte, b = () => bedingungenAus(w());
+  const w = () => wirksameWerte(modell('lv'), p.lv.werte), b = () => bedingungenAus(w());
   const de = (d: unknown) => (d ? new Date(`${String(d)}T12:00:00`).toLocaleDateString('de-DE') : '');
   const art = (form: unknown, satz: number | undefined, eingang: unknown, rueckgabe: unknown, standard: number) => {
     const s = `${String(satz ?? standard).replace('.', ',')} %`;

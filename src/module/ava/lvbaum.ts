@@ -183,3 +183,41 @@ export function ebeneAendern(zeilen: LvZeile[], id: string, richtung: -1 | 1): L
   const k = ohne.indexOf(ende) + 1;
   return [...ohne.slice(0, k), ...neu, ...ohne.slice(k)];
 }
+
+/** Passt die Maske zum LV (wie bisher beim Nummerieren)? Titelstufen, Titel je Stufe und Positionen je Titel müssen in die Stellen passen. */
+export function maskePruefen(zeilen: LvZeile[], m: OzMaske): string[] {
+  const tiefe = Math.max(0, ...zeilen.filter((z) => z.titel).map((z) => z.ebene + 1));
+  const titelJe = new Map<string | null, number>(), posJe = new Map<string | null, number>();
+  for (const z of zeilen) (z.titel ? titelJe : posJe).set(z.eltern, ((z.titel ? titelJe : posJe).get(z.eltern) ?? 0) + 1);
+  const maxT = Math.max(0, ...titelJe.values()), maxP = Math.max(0, ...posJe.values()), w: string[] = [];
+  if (m.titel.length < tiefe) w.push(`Im LV gibt es ${tiefe} Titelstufen – bitte mindestens ${tiefe} wählen.`);
+  const ts = Math.min(...m.titel);
+  if (maxT >= 10 ** ts) w.push(`Auf einer Stufe stehen ${maxT} Titel – dafür reichen ${ts} Stelle${ts > 1 ? 'n' : ''} nicht (höchstens ${10 ** ts - 1}).`);
+  if (maxP * m.schritt >= 10 ** m.position) w.push(`Ein Titel hat ${maxP} Positionen – mit Schrittweite ${m.schritt} reichen ${m.position} Stellen nicht (bis ${maxP * m.schritt}).`);
+  return w;
+}
+/** Beispiel zur Maske: „01.02.0010 (Titel 01, Positionen 0010, 0020 …)“. */
+export const maskeBeispiel = (m: OzMaske) => {
+  const t = m.titel.map((s, i) => String(i + 1).padStart(s, '0')).join('.'), p = (k: number) => String(k * m.schritt).padStart(m.position, '0');
+  return `${t}.${p(1)} (Titel ${'1'.padStart(m.titel[0] ?? 2, '0')}, Positionen ${p(1)}, ${p(2)} …)`;
+};
+
+/** Neue Position direkt unter „nach“ (wie bisher: unter der markierten Zeile; hinter einem Titel als erste darin). Ist zwischen den
+ *  Nachbarn keine Nummer frei, rücken die Positionen danach auf (neu im Schritt der Maske) – sonst stünde die neue an falscher Stelle.
+ *  → Kennung → OZ; die neue Zeile unter „neu“. */
+export function positionEinfuegen(zeilen: LvZeile[], wo: { nach: string | null } | { amEnde: string | null }, m: OzMaske = MASKE_VORGABE, neu = '\u0000neu'): Map<string, string> {
+  // „amEnde“: ans Ende dieser Gliederungsebene (Titel, null: oberste) – hinter ihre letzte eigene Position, sonst als erste darin
+  const nach = 'nach' in wo ? wo.nach : ([...zeilen].reverse().find((z) => z.eltern === wo.amEnde && !z.titel)?.id ?? wo.amEnde);
+  const oz = neueOz(zeilen, { nach, titel: false }, m), n = zeilen.find((z) => z.id === nach);
+  const eltern = n ? (n.titel ? n.id : n.eltern) : null;
+  const gruppe = zeilen.filter((z) => z.eltern === eltern && !z.titel);
+  const stelle = n && !n.titel ? gruppe.findIndex((z) => z.id === n.id) + 1 : n ? 0 : gruppe.length;
+  const nummer = (o: string) => Number(teile(o).pop() ?? 0) || 0;
+  const vor = gruppe[stelle - 1], hinter = gruppe[stelle];
+  if ((!vor || nummer(vor.oz) < nummer(oz)) && (!hinter || nummer(oz) < nummer(hinter.oz))) return new Map([[neu, oz]]);
+  // kein Platz: die Gruppe in der neuen Reihenfolge im Schritt der Maske
+  const vorn = eltern ? zeilen.find((z) => z.id === eltern)!.oz : '', reihe = [...gruppe.slice(0, stelle).map((z) => z.id), neu, ...gruppe.slice(stelle).map((z) => z.id)];
+  const aus = new Map<string, string>();
+  reihe.forEach((id, k) => { const o = (vorn ? `${vorn}.` : '') + stellen((k + 1) * m.schritt, m.position); if (id === neu || zeilen.find((z) => z.id === id)!.oz !== o) aus.set(id, o); });
+  return aus;
+}

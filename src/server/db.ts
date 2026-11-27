@@ -39,6 +39,7 @@ export const spalte = (feld: string) => `"${feld}"`;
 function spaltentyp(f: Feld): string {
   if (f.art === 'zahl') return 'numeric';
   if (f.art === 'verweis') return 'uuid';   // datum: Text JJJJ-MM-TT, sortiert richtig und bleibt ohne Zeitzone
+  if (f.erbt) return f.art === 'ja_nein' ? 'boolean' : 'text';   // leer (null) = geerbt (kern/erben.ts)
   if (f.art === 'ja_nein') return 'boolean not null default false';
   return "text not null default ''";
 }
@@ -207,6 +208,9 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
       )`);
       for (const f of m.felder) {
         await c.query(`alter table ${t} add column if not exists ${spalte(f.name)} ${spaltentyp(f)}`);
+        // Feld erbt jetzt (vorher mit Vorgabe): leer heißt dann „wie darüber“ – die Spalte darf leer sein, '' wird zu leer
+        if (f.erbt && f.art !== 'zahl') await c.query(`alter table ${t} alter column ${spalte(f.name)} drop not null, alter column ${spalte(f.name)} drop default`);
+        if (f.erbt && f.art !== 'zahl' && f.art !== 'ja_nein') await c.query(`update ${t} set ${spalte(f.name)} = null where ${spalte(f.name)} = ''`);
         if (f.eindeutig) await c.query(`create unique index if not exists "o_${m.name}_${f.name}_eindeutig" on ${t} (${spalte(f.name)}) where not geloescht`);
         // Jeder Verweis bekommt seinen Index – aus dem Datenmodell, damit keiner vergessen wird (Joins, „alle zu dieser Version“, Rechte je Projekt)
         if (f.art === 'verweis') await c.query(`create index if not exists "o_${m.name}_${f.name}_verweis" on ${t} (${spalte(f.name)})`);

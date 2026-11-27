@@ -7,6 +7,8 @@ import type { Druckquelle, DruckTabelle, Hole } from '../../kern/druck';
 import { beitrag, geprueft, ketteVon, nachAufmass, rechnungTitel, reihe, standAus, vorige, zeilenBis, zeilenSumme } from './aufmass';
 import { bedingungenAus, gp, gpVon, istZuschlag, leiter, mengeVon, nachKennung, nachOz, zaehlt, zahl } from './rechnung';
 import { istHinweis } from '../../kern/lvarten';
+import { wirksam } from '../../kern/erben';
+import { lv as lvModell } from './beipackzettel';
 
 type E = { id: string; werte: Werte };
 /** Was zur Abrechnung eines LV gehört. */
@@ -92,13 +94,14 @@ export function freigabeTabellen(d: Abrechnung, r: E, mengen: E[]): { zahlbetrag
 function abrechnungAus(hole: Hole, r: E): Abrechnung {
   const lv = String(r.werte.lv ?? ''), angebote = hole('angebot', 'lv', lv), ids = new Set(angebote.map((a) => a.id));
   const positionen = abrechenbar(hole('lv_position', 'lv', lv), hole('nachtrag', 'lv', lv), NUR_BEAUFTRAGTE(hole('buero', 'id', BUERO_ID)[0]?.werte));
-  return { lv: hole('lv', 'id', lv)[0], rechnungen: reihe(hole('rechnung', 'lv', lv)), positionen, angebote,
+  const l = hole('lv', 'id', lv)[0], ebenen = [hole('projekt', 'id', String(r.werte.projekt ?? ''))[0]?.werte, hole('buero', 'id', BUERO_ID)[0]?.werte];
+  return { lv: l && { ...l, werte: wirksam(lvModell, l.werte, ebenen).werte }, rechnungen: reihe(hole('rechnung', 'lv', lv)), positionen, angebote,
     preise: hole('angebot_preis', 'projekt', String(r.werte.projekt ?? '')).filter((x) => ids.has(String(x.werte.angebot))), aufmass: hole('aufmass', 'lv', lv), zeilen: hole('rechnungszeile', 'projekt', String(r.werte.projekt ?? '')) };
 }
 const BRAUCHT: Druckquelle['braucht'] = [{ objekt: 'lv', feld: 'id', wert: 'lv' }, { objekt: 'rechnung', feld: 'lv', wert: 'lv' }, { objekt: 'lv_position', feld: 'lv', wert: 'lv' },
   { objekt: 'angebot', feld: 'lv', wert: 'lv' }, { objekt: 'angebot_preis', feld: 'projekt', wert: 'projekt' }, { objekt: 'aufmass', feld: 'lv', wert: 'lv' },
   { objekt: 'rechnungszeile', feld: 'projekt', wert: 'projekt' }, { objekt: 'rechnungsmenge', feld: 'rechnung', wert: 'id' },
-  { objekt: 'nachtrag', feld: 'lv', wert: 'lv' }, { objekt: 'buero', feld: 'id', fest: BUERO_ID }];
+  { objekt: 'nachtrag', feld: 'lv', wert: 'lv' }, { objekt: 'buero', feld: 'id', fest: BUERO_ID }, { objekt: 'projekt', feld: 'id', wert: 'projekt' }];
 const quelle = (teil: 'zahlbetrag' | 'pruefblatt' | 'massen'): Druckquelle => ({ braucht: BRAUCHT,
   tabellen: (hole, r) => freigabeTabellen(abrechnungAus(hole, r), r, hole('rechnungsmenge', 'rechnung', r.id))[teil] });
 export const DRUCKQUELLEN: Record<string, Druckquelle> = { 'ava.zahlbetrag': quelle('zahlbetrag'), 'ava.pruefblatt': quelle('pruefblatt'), 'ava.massen': quelle('massen') };

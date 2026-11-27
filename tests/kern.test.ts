@@ -2182,3 +2182,52 @@ test('Filter „enthält“ sucht im angezeigten Text (Name zur Kennung), Werte 
   assert.ok(!f.erfuellt(b, () => ['g2'], titel));
   assert.ok(!f.erfuellt(b, () => ['g1']), 'ohne Titel nur die Kennung');
 });
+
+test('Erben: LV ← Projekt ← Büro – leer gilt die Ebene darüber, eigener Wert weicht ab; Druck und Rechnungen rechnen mit dem wirksamen Wert', async () => {
+  const { wirksam, geerbt } = await import('../src/kern/erben');
+  const { vertragsbedingungenText, bedingungenAus } = await import('../src/module/ava/rechnung');
+  const lvM = register.modell('lv')!, projektM = register.modell('projekt')!, bueroM = register.modell('buero')!;
+  // das Register hat Projekt und Büro um die Vorgaben ergänzt – mit denselben Namen, das Projekt erbt selbst vom Büro
+  assert.ok(projektM.felder.some((f) => f.name === 'lv_vergabeart' && f.gruppe === 'Ausschreibung (alle LVs)'));
+  assert.ok(bueroM.felder.some((f) => f.name === 'lv_ve_prozent' && f.gruppe === 'Vorgaben für Ausschreibungen'));
+  assert.equal(projektM.erben?.ebenen[0]?.objekt, 'buero');
+  assert.ok(register.module.find((m) => m.id === 'projekte')!.objekte.find((o) => o.name === 'projekt')!.felder.some((f) => f.name === 'lv_vergabeart'), 'auch im Beipackzettel, den der Browser bekommt');
+  // leer = geerbt (Anlegen setzt null, nicht die erste Option)
+  const neu = pruefeWerte(lvM, { projekt: randomUUID(), name: 'Rohbau' }, true);
+  assert.equal(neu.vergabeart, null); assert.equal(neu.nebenangebote, null);
+  assert.equal(pruefeWerte(lvM, { vertragsart: '' }, false).vertragsart, null, 'leeren = zurück auf geerbt');
+  const projekt = { lv_vertragsart: 'bgb', lv_strafe_prozent: 0.2 }, buero = { lv_vertragsart: 'vob', lv_ve_prozent: 5, lv_vb_energie: 'bauseits, kostenlos', lv_strafe_prozent: 0.3 };
+  const w = wirksam(lvM, { ...neu, ve_prozent: 10 }, [projekt, buero]);
+  assert.equal(w.werte.vertragsart, 'bgb'); assert.equal(w.herkunft.vertragsart, 0);
+  assert.equal(w.werte.ve_prozent, 10); assert.equal(w.herkunft.ve_prozent, undefined, 'eigener Wert geht vor');
+  assert.equal(w.werte.vb_energie, 'bauseits, kostenlos'); assert.equal(w.herkunft.vb_energie, 1);
+  assert.equal(w.werte.strafe_prozent, 0.2, 'Projekt vor Büro');
+  assert.equal(geerbt(lvM, lvM.felder.find((f) => f.name === 'name')!, [projekt, buero]), undefined, 'nur Felder mit „erbt“');
+  assert.equal(bedingungenAus(w.werte).ve, 10);
+  const t = vertragsbedingungenText(w.werte);
+  assert.match(t.vertragsgrundlage!, /BGB/); assert.equal(t.energie, 'bauseits, kostenlos');
+  assert.match(vertragsbedingungenText({ ma_prozent: 5 }).einbehalt!, /ablösbar/);
+  assert.doesNotMatch(vertragsbedingungenText({ ma_prozent: 5, ma_abloesbar: false }).einbehalt!, /ablösbar/);
+});
+
+test('Nummerieren: Schema muss zum LV passen (Titelstufen, Titel je Stufe, Positionen je Titel), Beispiel wie bisher', async () => {
+  const { maskePruefen, maskeBeispiel } = await import('../src/module/ava/lvbaum');
+  const z = (id: string, ebene: number, titel: boolean, eltern: string | null) => ({ id, ebene, titel, oz: '', eltern });
+  const zeilen = [z('t1', 0, true, null), z('t2', 1, true, 't1'), ...Array.from({ length: 12 }, (_, i) => z(`p${i}`, 2, false, 't2'))];
+  assert.deepEqual(maskePruefen(zeilen, { titel: [2, 2], position: 4, schritt: 10 }), []);
+  assert.match(maskePruefen(zeilen, { titel: [2], position: 4, schritt: 10 })[0]!, /2 Titelstufen/);
+  assert.match(maskePruefen(zeilen, { titel: [2, 2], position: 2, schritt: 10 })[0]!, /12 Positionen/);
+  assert.equal(maskeBeispiel({ titel: [2, 2, 2, 2], position: 4, schritt: 10 }), '01.02.03.04.0010 (Titel 01, Positionen 0010, 0020 …)');
+});
+
+test('Neue Position: direkt unter der markierten (Nachbarn rücken auf, wenn keine OZ frei ist), ohne Markierung ans Ende der Ebene', async () => {
+  const { positionEinfuegen, lvZeilen } = await import('../src/module/ava/lvbaum');
+  const m = { titel: [2], position: 4, schritt: 10 };
+  const Z = lvZeilen([['t', '01', 'titel'], ['a', '01.0010', 'normal'], ['b', '01.0011', 'normal'], ['c', '01.0020', 'normal'], ['u', '02', 'titel']].map(([id, oz, art]) => ({ id: id!, werte: { oz: oz!, art: art! } })));
+  const r = positionEinfuegen(Z, { nach: 'a' }, m, 'neu');
+  assert.deepEqual(Object.fromEntries(r), { neu: '01.0020', b: '01.0030', c: '01.0040' }, 'kein Platz zwischen 0010 und 0011: neue an zweiter Stelle, danach rücken auf');
+  assert.deepEqual(Object.fromEntries(positionEinfuegen(Z, { nach: 'b' }, m, 'neu')), { neu: '01.0015' }, 'Platz da: dazwischen, nichts rückt');
+  assert.deepEqual(Object.fromEntries(positionEinfuegen(Z, { nach: 't' }, m, 'neu')), { neu: '01.0005' }, 'unter dem Titel: als erste darin');
+  assert.deepEqual(Object.fromEntries(positionEinfuegen(Z, { amEnde: 't' }, m, 'neu')), { neu: '01.0030' }, 'ohne Markierung: ans Ende der Ebene');
+  assert.deepEqual(Object.fromEntries(positionEinfuegen(Z, { amEnde: 'u' }, m, 'neu')), { neu: '02.0010' }, 'leerer Titel: erste darin');
+});

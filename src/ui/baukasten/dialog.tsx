@@ -54,15 +54,20 @@ export function Dialog(p: { titel: string; children: JSX.Element; knoepfe: JSX.E
           <div class="fenster-inhalt">{p.children}</div>
           {/* Die Knöpfe bleiben im Fenster (nur verdeckt), damit „Verwerfen“ den gedrückten Knopf danach wirklich auslöst */}
           <div class="fenster-knoepfe" hidden={!!frage()}>{p.knoepfe}</div>
-          <Show when={frage()}>
-            <div class="fenster-knoepfe fenster-frage" role="alertdialog" aria-label="Änderungen verwerfen?">
-              <span>Änderungen verwerfen?</span>
-              <button class="knopf" onClick={() => setFrage(null)}>Weiter bearbeiten</button>
-              <button class="knopf gefahr" onClick={() => { const t = frage()!; setFrage(null); t(); }}>Verwerfen</button>
-            </div>
-          </Show>
+          <Show when={frage()}><VerwerfenFrage onWeiter={() => setFrage(null)} onVerwerfen={() => { const t = frage()!; setFrage(null); t(); }} /></Show>
         </div>
       </div>
     </Portal>
+  );
+}
+
+/** Die Rückfrage vor dem Verwerfen – im Fenster und unter einer Karte mit OK/Abbrechen (Detailkarte „bestaetigen“). */
+export function VerwerfenFrage(p: { onWeiter: () => void; onVerwerfen: () => void }) {
+  return (
+    <div class="fenster-knoepfe fenster-frage" role="alertdialog" aria-label="Änderungen verwerfen?">
+      <span>Änderungen verwerfen?</span>
+      <button class="knopf" onClick={() => p.onWeiter()}>Weiter bearbeiten</button>
+      <button class="knopf gefahr" onClick={() => p.onVerwerfen()}>Verwerfen</button>
+    </div>
   );
 }

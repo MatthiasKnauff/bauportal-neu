@@ -13,7 +13,7 @@ import { kiAnbindungen, kiOeffnen } from './ki';
 // Auswahl mit eigenen Werten (wie die Kontaktart im bisherigen Bauportal): die festen Optionen, dann die eigenen, die es
 // schon gibt, zuletzt „eigene … “ – das öffnet an derselben Stelle ein Eingabefeld (kein Systemdialog).
 const EIGEN = '\u0000eigen';
-function EigeneAuswahl(p: { id: string; feld: Feld; wert: string; objekt?: string; gesperrt?: boolean; onWert: (w: Wert) => void }) {
+function EigeneAuswahl(p: { id: string; feld: Feld; wert: string; objekt?: string; gesperrt?: boolean; blass?: boolean; onWert: (w: Wert) => void }) {
   const [eingabe, setEingabe] = createSignal(false);
   const [angefasst, setAngefasst] = createSignal(false);   // die eigenen Werte aller Einträge erst sammeln, wenn jemand die Auswahl öffnet
   const fest = () => p.feld.optionen!.filter((o) => o.wert !== '');
@@ -27,7 +27,7 @@ function EigeneAuswahl(p: { id: string; feld: Feld; wert: string; objekt?: strin
   const uebernehmen = (t: string) => { setEingabe(false); const w = t.replace(/\s+/g, ' ').trim(); if (w && w !== p.wert) p.onWert(w); };
   return (
     <Show when={eingabe()} fallback={<div class="eigene-auswahl" onPointerDown={() => setAngefasst(true)} onFocusIn={() => setAngefasst(true)} onKeyDown={() => setAngefasst(true)}>
-      <Auswahlliste id={p.id} titel={p.feld.titel} optionen={optionen()} wert={p.wert} gesperrt={p.gesperrt} onWert={(w) => (w === EIGEN ? setEingabe(true) : p.onWert(w))} /></div>}>
+      <Auswahlliste id={p.id} titel={p.feld.titel} optionen={optionen()} wert={p.wert} blass={p.blass} gesperrt={p.gesperrt} onWert={(w) => (w === EIGEN ? setEingabe(true) : p.onWert(w))} /></div>}>
       <input id={p.id} type="text" maxLength={60} autocomplete="off" placeholder={`Eigene ${p.feld.titel}, z. B. Planer:in, Versorger – Enter übernimmt`} aria-label={`Eigene ${p.feld.titel}`}
         ref={(el) => queueMicrotask(() => el.focus())}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); uebernehmen(e.currentTarget.value); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEingabe(false); } }}
@@ -99,10 +99,15 @@ export function FeldEingabe(p: {
   objekt?: string;       // Modell des Eintrags: Schlagworte schlagen vor, was an anderen Einträgen schon steht
   breit?: boolean;       // über die ganze Breite (z. B. der Name in der Karte)
   klein?: boolean;       // kleine Beschriftung (z. B. Felder neben einer Zeile der Unterliste)
+  /** Feld erbt (kern/erben.ts): leer zeigt es den Wert der Ebene darüber („vom Projekt“); eigener Wert: ↺ zurück, ↑ für die Ebene darüber übernehmen. */
+  erbe?: { wert: Wert; von?: string; hoch?: () => void; hochTitel?: string };
 }) {
   const id = createUniqueId();
+  const eigen = () => p.wert !== null && p.wert !== undefined && p.wert !== '';
+  const geerbt = () => !eigen() && !!p.erbe?.von;
+  const wert = (): Wert => (geerbt() ? p.erbe!.wert : p.wert);
   // Zahlen stehen mit Komma da, wie man sie hier schreibt
-  const text = () => (p.wert === null || p.wert === undefined ? '' : typeof p.wert === 'number' ? String(p.wert).replace('.', ',') : String(p.wert));
+  const text = () => (wert() === null || wert() === undefined ? '' : typeof wert() === 'number' ? String(wert()).replace('.', ',') : String(wert()));
   // sofort = jede Eingabe melden (Fenster „Neu“), sonst erst beim Verlassen des Feldes (Detailkarte)
   const melden = (e: Event) => {
     const w = (e.currentTarget as HTMLInputElement | HTMLTextAreaElement).value;
@@ -113,11 +118,18 @@ export function FeldEingabe(p: {
     onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />;
   const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : p.feld.art === 'datum' ? 'date' : 'text');
   return (
-    <div class="feld" style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, klein: !!p.klein, quer: p.feld.art === 'ja_nein',
+    <div class="feld" data-geerbt={geerbt() || undefined} style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, klein: !!p.klein, quer: p.feld.art === 'ja_nein',
       breit: p.breit || (!p.feld.kartenBreite && ['langtext', 'mehrfach', 'schlagworte'].includes(p.feld.art)) || (!p.feld.kartenBreite && p.feld.art === 'auswahl' && !p.feld.eigeneWerte && p.feld.optionen!.length <= 4 && p.feld.optionen!.length > 2) }}>
-      <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show>
+      <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={geerbt()}><span class="herkunft herkunft-geerbt" title="Leer – es gilt dieser Wert. Wer hier etwas einträgt, weicht davon ab.">{p.erbe!.von}</span></Show>
+        <Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show>
         {/* Lange Texte: Wenn das Büro eine KI eingeschaltet hat, kann sie hier einen Vorschlag machen */}
         <Show when={p.feld.art === 'langtext' && !p.gesperrt && kiAnbindungen().length}><button type="button" class="ki-knopf" title="Die KI macht einen Vorschlag – übernommen wird erst nach deiner Bestätigung" onClick={() => kiOeffnen({ titel: p.feld.titel, text: text(), onUebernehmen: (t) => p.onWert(t, 'ki') })}>✦ KI</button></Show></label>
+      <Show when={p.erbe && eigen() && !p.gesperrt}>
+        <span class="feld-erbe">
+          <button type="button" class="knopf mini still" title={p.erbe!.von ? `Zurück auf den Wert ${p.erbe!.von}` : 'Leeren'} aria-label={`${p.feld.titel} zurücksetzen`} onClick={() => p.onWert(null)}>↺</button>
+          <Show when={p.erbe!.hoch}><button type="button" class="knopf mini still" title={`Diesen Wert ${p.erbe!.hochTitel ?? ''} übernehmen – hier gilt er dann geerbt`} onClick={() => p.erbe!.hoch!()}>↑ {p.erbe!.hochTitel}</button></Show>
+        </span>
+      </Show>
       <Switch fallback={
         <Show when={p.feld.art === 'telefon' || p.feld.art === 'email'} fallback={eingabe()}>
           {/* Nummer und E-Mail: daneben kopieren (wie im bisherigen Bauportal) – der Knopf steht immer da, damit beim Tippen nichts springt */}
@@ -134,16 +146,16 @@ export function FeldEingabe(p: {
           <textarea id={id} rows={5} value={text()} readOnly={p.gesperrt} {...ereignis()} />
         </Match>
         <Match when={p.feld.art === 'auswahl' && p.feld.eigeneWerte}>
-          <EigeneAuswahl id={id} feld={p.feld} wert={text()} objekt={p.objekt} gesperrt={p.gesperrt} onWert={p.onWert} />
+          <EigeneAuswahl id={id} feld={p.feld} wert={text()} blass={geerbt()} objekt={p.objekt} gesperrt={p.gesperrt} onWert={p.onWert} />
         </Match>
         <Match when={p.feld.art === 'auswahl' && (p.feld.optionen!.length > 4 || (p.feld.kartenBreite ?? 3) < 3)}>
-          <Auswahlliste id={id} titel={p.feld.titel} optionen={p.feld.optionen!} wert={text()} gesperrt={p.gesperrt} onWert={p.onWert} />
+          <Auswahlliste id={id} titel={p.feld.titel} optionen={p.feld.optionen!} wert={text()} blass={geerbt()} gesperrt={p.gesperrt} onWert={p.onWert} />
         </Match>
         <Match when={p.feld.art === 'auswahl'}>
           <div class="auswahl" role="radiogroup" id={id} aria-label={p.feld.titel}>
             <For each={p.feld.optionen}>{(o) => (
-              <button type="button" role="radio" aria-checked={p.wert === o.wert} classList={{ aktiv: p.wert === o.wert }} disabled={p.gesperrt && p.wert !== o.wert}
-                onClick={() => { if (p.wert !== o.wert && !p.gesperrt) p.onWert(o.wert); }}>{o.titel}</button>
+              <button type="button" role="radio" aria-checked={wert() === o.wert} classList={{ aktiv: wert() === o.wert }} disabled={p.gesperrt && wert() !== o.wert}
+                onClick={() => { if (wert() !== o.wert && !p.gesperrt) p.onWert(o.wert); }}>{o.titel}</button>
             )}</For>
           </div>
         </Match>
@@ -161,11 +173,11 @@ export function FeldEingabe(p: {
             vorschlaege={p.objekt ? () => gemerkt(p.objekt!, `vorkommen:${p.feld.name}`, () => vorkommen(lebende(p.objekt!), p.feld.name)) : undefined} />
         </Match>
         <Match when={p.feld.art === 'ja_nein'}>
-          <button type="button" id={id} role="switch" aria-checked={p.wert === true} class="schalter" classList={{ aktiv: p.wert === true }} disabled={p.gesperrt}
-            onClick={() => p.onWert(p.wert !== true)}><span /></button>
+          <button type="button" id={id} role="switch" aria-checked={wert() === true} class="schalter" classList={{ aktiv: wert() === true }} disabled={p.gesperrt}
+            onClick={() => p.onWert(wert() !== true)}><span /></button>
         </Match>
         <Match when={p.feld.art === 'verweis'}>
-          <Auswahlliste id={id} titel={p.feld.titel} platzhalter="wählen …" wert={p.wert === null ? null : String(p.wert)} gesperrt={p.gesperrt} onWert={(w) => p.onWert(w || null)}
+          <Auswahlliste id={id} titel={p.feld.titel} platzhalter="wählen …" blass={geerbt()} wert={wert() === null ? null : String(wert())} gesperrt={p.gesperrt} onWert={(w) => p.onWert(w || null)}
             optionen={[...(p.feld.pflicht ? [] : [{ wert: '', titel: '(keins)' }]), ...verweisziele(p.feld, p.zusammenhang)]} />
         </Match>
       </Switch>
