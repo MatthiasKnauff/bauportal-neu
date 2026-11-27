@@ -18,6 +18,7 @@ import { darf, modell, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import { aktuelleVersion, planDerVersion } from './plandaten';
 import { projektId } from './projekt';
+import { verzeichnisDrucken } from './druck';
 
 /** Die Firma eines Gewerks im Projekt (Eintrag der Beteiligten mit Aufgabe = Gewerk) – auch für die Handyansicht des Plans. */
 export const firmaDesGewerks = (projekt: string, gewerk: string): Zeile | undefined => {
@@ -154,6 +155,12 @@ export function GewerkeFirmen(p: Mitte) {
     ...(darf('vorgang', 'schreiben') && version() ? [{ titel: 'Farben', zeichen: 'farben', gruppe: 'Gewerke', tun: farbenOeffnen },
       { titel: 'Gewerke erkennen', zeichen: 'assistent', gruppe: 'Gewerke', tun: erkennen }] : []),
     { titel: 'Excel', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: excel },
+    // Firmenliste wie bisher: das Adressverzeichnis mit den Firmen der Gewerke (ein Ausdruck, keine eigene Liste)
+    { titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => {
+      const ids = [...new Set(zeilen().flatMap((r) => [firmaDesGewerks(projektId() ?? '', r.gewerk)?.id, ...r.firmen].filter((x): x is string => !!x && !!sicht.kontakt?.[x])))];
+      if (!ids.length) { hinweis('Noch keine Firmen bei den Gewerken.'); return; }
+      verzeichnisDrucken('adressen.verzeichnis', [{ titel: 'Die Firmen des Plans', ids, filter: `Firmen im Bauzeitenplan · ${String(sicht.projekt?.[projektId() ?? '']?.werte.name ?? '')}` }]);
+    } },
   ]);
 
   // Zeitachse: Projektzeitraum mit Monatsraster, Einsatz in der Gewerkfarbe

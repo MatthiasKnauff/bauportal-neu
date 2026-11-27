@@ -12,8 +12,8 @@ Stand 26.11.2026. Grundlage: der Bauzeitenplan im bisherigen Bauportal (live ang
 - Fortschritt und Firmen aus dem Bautagebuch (neu 26.11.)
 
 ## Fehlt
-1. **Gewerke & Firmen je Gewerk aus dem Plan** – Farbe, „im Plan: …“, Leistungsbereich nach DIN (VOB/C), Firma im Projekt mit Ansprechpartner, Telefon, Mobil, E-Mail, Adresse, Vergabe, **Einsatz im Plan** (nur die tatsächlichen Arbeitszeiträume als Balken), Notiz (bei uns heute: Liste der Beteiligten)
-2. Befehle dort: Gewerk ergänzen (ohne Leistung, z. B. Statiker:in), Firma als Unternehmer:in bei allen Leistungen des Gewerks eintragen, Farben der Gewerke, Leistungen ohne Gewerk: Gewerk vorschlagen (zum Abhaken), Firmenliste drucken, E-Mail an alle Firmen
+1. ~~**Gewerke & Firmen je Gewerk aus dem Plan**~~ (erledigt – „Gewerke & Firmen“) – Farbe, „im Plan: …“, Leistungsbereich nach DIN (VOB/C), Firma im Projekt mit Ansprechpartner, Telefon, Mobil, E-Mail, Adresse, Vergabe, **Einsatz im Plan** (nur die tatsächlichen Arbeitszeiträume als Balken), Notiz (bei uns heute: Liste der Beteiligten)
+2. ◐ (erledigt bis auf „E-Mail an alle Firmen“ – kommt mit der zentralen Versandstelle; Firmenliste drucken 27.11.) Befehle dort: Gewerk ergänzen (ohne Leistung, z. B. Statiker:in), Firma als Unternehmer:in bei allen Leistungen des Gewerks eintragen, Farben der Gewerke, Leistungen ohne Gewerk: Gewerk vorschlagen (zum Abhaken), Firmenliste drucken, E-Mail an alle Firmen
 3. ~~Ältere Stände (Versionshistorie) zum Zurückholen~~ – erledigt 27.11. (Rechtsklick auf die Version → „Ältere Stände …“, aus dem Protokoll; gilt auch fürs Gebäudemodell)
 4. Link zum Ansehen ohne Anmeldung (Firmen, Fachplaner:innen, Bauherr:innen), Termine für das Bauherrenportal freigeben
 5. ~~Vorschlagsliste für Bezeichnungen und für Unternehmer:in~~ – erledigt 27.11. (Leistung schlägt beim Tippen vor; Firma: die des Gewerks oben)
