@@ -209,21 +209,33 @@ function KontaktKachel(p: { kontakt: Zeile }) {
   );
 }
 
-// ---------- Adressen: in welchen Projekten ein Kontakt beteiligt ist ----------
+// ---------- Adressen: in welchen Projekten ein Kontakt beteiligt ist – dazunehmen (＋) und lösen (✕) wie bisher ----------
 function KontaktProjekte(p: { kontakt: Zeile }) {
   const vergabe = (w: unknown) => modell('projekt_kontakt').felder.find((f) => f.name === 'vergabe')?.optionen?.find((o) => o.wert === w)?.titel;
+  const schreiben = () => darf('projekt_kontakt', 'schreiben');
   const liste = () => lebende('projekt_kontakt').filter((b) => b.werte.kontakt === p.kontakt.id)
     .map((b) => ({ b, projekt: sicht.projekt?.[String(b.werte.projekt)] })).filter((x) => x.projekt && !x.projekt.geloescht)
     .sort((a, b) => String(a.projekt!.werte.nummer ?? '').localeCompare(String(b.projekt!.werte.nummer ?? ''), 'de', { numeric: true }));
+  const pname = (z: Zeile) => [z.werte.nummer, z.werte.name].filter(Boolean).join(' · ');
+  const frei = () => { const drin = new Set(liste().map((x) => x.projekt!.id)); return lebende('projekt').filter((z) => !drin.has(z.id)).sort((a, b) => pname(a).localeCompare(pname(b), 'de', { numeric: true })).map((z) => ({ wert: z.id, titel: pname(z) })); };
+  const dazu = (pid: string) => {
+    const alt = Object.values(sicht.projekt_kontakt ?? {}).find((e) => e.geloescht && e.werte.projekt === pid && e.werte.kontakt === p.kontakt.id);
+    const titel = `„${String(p.kontakt.werte.name ?? '')}“ am Projekt beteiligen`;
+    if (alt) ausfuehren({ objekt: 'projekt_kontakt', art: 'wiederherstellen', objektId: alt.id }, titel);
+    else ausfuehren({ objekt: 'projekt_kontakt', art: 'anlegen', objektId: neueKennung(), werte: { projekt: pid, kontakt: p.kontakt.id, aufgabe: String(p.kontakt.werte.gewerk ?? '') } }, titel);
+  };
   return (
     <fieldset>
       <legend>Projekte<span class="anzahl">{liste().length}</span></legend>
       <Show when={liste().length} fallback={<p class="still-text klein-text">In keinem Projekt beteiligt, das du siehst.</p>}>
         <ul class="kontakt-projekte"><For each={liste()}>{(x) => (
-          <li><button class="verweis" onClick={() => springeZu('projekt', x.projekt!.id)}>{[x.projekt!.werte.nummer, x.projekt!.werte.name].filter(Boolean).join(' · ')}</button>
-            <span class="still-text klein-text">{[x.b.werte.aufgabe, vergabe(x.b.werte.vergabe)].filter(Boolean).join(' · ')}</span></li>
+          <li><button class="verweis" onClick={() => springeZu('projekt', x.projekt!.id)}>{pname(x.projekt!)}</button>
+            <span class="still-text klein-text">{[x.b.werte.aufgabe, vergabe(x.b.werte.vergabe)].filter(Boolean).join(' · ')}</span>
+            <Show when={darf('projekt_kontakt', 'loeschen')}><button type="button" class="knopf klein still" aria-label={`Vom Projekt lösen: ${pname(x.projekt!)}`} title="Vom Projekt lösen (Rückgängig möglich)"
+              onClick={() => ausfuehren({ objekt: 'projekt_kontakt', art: 'loeschen', objektId: x.b.id }, `„${String(p.kontakt.werte.name ?? '')}“ vom Projekt lösen`)}>✕</button></Show></li>
         )}</For></ul>
       </Show>
+      <Show when={schreiben() && frei().length}><Auswahlliste titel="Projekt dazunehmen" platzhalter="＋ Projekt …" wert={null} optionen={frei()} onWert={(w) => { if (w) dazu(w); }} /></Show>
     </fieldset>
   );
 }

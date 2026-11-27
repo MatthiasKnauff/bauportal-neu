@@ -1,6 +1,6 @@
 # Adressen – Vergleich mit dem bisherigen Bauportal
 
-Stand 25.11.2026. Grundlage: die Adressen-App im bisherigen Bauportal (Liste, Auswahl, rechter Bereich, Aufräumen, Einlesen, Filter-Baustein, Kontaktmaske).
+Stand 27.11.2026 (Abhaken nach Codeabgleich). Grundlage: die Adressen-App im bisherigen Bauportal (Liste, Auswahl, rechter Bereich, Aufräumen, Einlesen, Filter-Baustein, Kontaktmaske).
 
 ## Haben wir
 - Links nach Art (feste und eigene Arten), Beteiligte des Projekts, Gewerke mit Suche, Ämter der Behörden – je mit Anzahl
@@ -22,13 +22,13 @@ Stand 25.11.2026. Grundlage: die Adressen-App im bisherigen Bauportal (Liste, Au
 5. **Mehrfachauswahl**: Haken je Zeile/Karte, Strg+Klick dazu, Umschalt+Klick von–bis, Haken im Kopf = alle gefilterten (halb = einige), Strg+A, Esc; am Handy lange tippen; Auswahl bleibt beim Filterwechsel („x davon gerade ausgeblendet · nur sichtbare“)
 6. **Befehle für die Auswahl**: Mail an alle (einzeln, {anrede}) · ＋ Projekt · Ändern (Art setzen; Gewerk/Stichwort/Tag dazu oder entfernen; Projekt entfernen) · Zusammenführen (2–8) · Excel / Drucken / vCard nur die Auswahl · Papierkorb (nur unbenutzte) – je ein Rückgängig
 7. **Drucken** als Adressverzeichnis (PDF, Filterbeschreibung oben)
-8. Excel als echte .xlsx statt CSV
+8. ~~Excel als echte .xlsx statt CSV~~ – erledigt
 9. **Einlesen** aus Excel/CSV: Spalten zuordnen, Vorschau, „schon da“ → ergänzen / überspringen / doppelt, ein Rückgängig, danach Aufräumen
 10. **Aufräumen** auch für Gewerk, Art, Stichwörter, Tags: ähnliche Werte zusammenführen, aufteilen, zuordnen; „Nicht ähnlich“ merken; alle Werte A–Z umbenennen
 11. Duplikate: Ergebnis je Feld wählbar, „Keine Duplikate“ merken, Überspringen
 12. Rechts: Reiter **Schriftverkehr** und „Zuletzt“ (braucht das Modul Post & Vorgänge)
-13. Reiter Projekte: ＋ Projekt / ✕ lösen; Projektnummern aus den Projektordnern der Ablage (Projekt noch nicht im Portal)
-14. „kopieren“ je Nummer/Mail; Kartenausschnitt in der Karte
+13. ~~Reiter Projekte: ＋ Projekt / ✕ lösen~~ (erledigt 27.11.); Projektnummern aus den Projektordnern der Ablage (Projekt noch nicht im Portal)
+14. ~~„kopieren“ je Nummer/Mail~~ (erledigt); Kartenausschnitt in der Karte
 15. Neuer Kontakt: Vorschläge aus dem Netz zum Namen (über den KI-Ausgang); Art und Gewerk aus dem Filter vorbelegt
 16. Karten-Ansicht: Sortieren und Filter je Feld
 17. Spalten: Im Bautagebuch (Anzahl), Projekt, weitere Ansprechpartner/Nummern/E-Mails, Geändert
