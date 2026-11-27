@@ -44,6 +44,7 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
+import { Kopierquelle, kopierquelleOffen } from './kopierquelle';
 import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvUeberblick, PositionSumme, ZuschlagAuf } from './ava';
 import { RechnungLeiter, Rechnungen } from './rechnungen';
 import { AvaHandy } from './avahandy';
@@ -542,7 +543,7 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
   'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, neuTitel: 'LV',
     detailsHinweis: 'Eine Zeile anklicken – hier stehen dann alle Angaben der Position (Kurz- und Langtext, Menge, Einheit, Preis), direkt änderbar.',
-    details: (_, heftzwecke, standard) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} {...karteVon('lv_position')} zeile={z} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : standard(); } },
+    details: (lv, heftzwecke, standard) => { if (kopierquelleOffen()) return <Kopierquelle ziel={lv} heftzwecke={heftzwecke()} />; const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} {...karteVon('lv_position')} zeile={z} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : standard(); } },
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, ohneNeu: true,
     details: (_, heftzwecke, standard) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; const a = psAngebot() ? sicht.angebot?.[psAngebot()!] : undefined;
       return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} {...karteVon('lv_position')} zeile={q} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} />

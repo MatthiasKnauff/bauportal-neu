@@ -1628,3 +1628,18 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 /* Nummerieren (LV): vier Auswahlen in einer Reihe, am Handy zwei */
 .nummerieren-wahl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; }
 @media (max-width: 600px) { .nummerieren-wahl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Kopierquelle (LV bearbeiten, rechts): Quelle, Liste zum Anhaken, Übernehmen unten */
+.kopierquelle .karte-inhalt { display: flex; flex-direction: column; min-height: 0; }
+.kq-kopf { display: flex; flex-direction: column; gap: 6px; padding-bottom: 8px; border-bottom: 1px solid var(--rand); }
+.kq-suche { width: 100%; }
+.kq-optionen { display: flex; gap: 14px; font-size: 13px; color: var(--text-still); }
+.kq-optionen label { display: inline-flex; gap: 5px; align-items: center; }
+.kq-liste { flex: 1; min-height: 0; overflow: auto; padding: 4px 0; }
+.kq-zeile { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-bottom: 1px solid var(--rand); font-size: 13px; cursor: pointer; }
+.kq-zeile:hover { background: var(--still-hell); } .kq-zeile.an { background: var(--akzent-hell); }
+.kq-zeile.titel { font-weight: 600; }
+.kq-oz { flex: none; color: var(--text-still); font-variant-numeric: tabular-nums; }
+.kq-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kq-menge, .kq-ep { flex: none; color: var(--text-still); font-variant-numeric: tabular-nums; text-align: right; }
+.kq-ep { min-width: 64px; }
+.kq-fuss { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--rand); }

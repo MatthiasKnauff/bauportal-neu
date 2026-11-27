@@ -4,7 +4,9 @@
 import { createSignal } from 'solid-js';
 
 export function zeilenwahl(o: { reihe: () => string[]; sichtbar: () => string[]; onZeiger: (id: string | null) => void }) {
-  const [markiert, markieren] = createSignal<string | null>(null);
+  const [markiertRoh, markieren] = createSignal<string | null>(null);
+  // eine Zeile, die es nicht mehr gibt (gelöscht, Rückgängig), ist nicht mehr markiert
+  const markiert = () => { const m = markiertRoh(); return m && o.reihe().includes(m) ? m : null; };
   const [auswahl, setAuswahl] = createSignal<Set<string>>(new Set());
   let anker: string | null = null;
   const zeiger = (id: string) => { markieren(id); o.onZeiger(id); };   // die Karte folgt, die Auswahl bleibt

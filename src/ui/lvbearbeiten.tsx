@@ -12,8 +12,10 @@ import { avaSuchtext } from './avasuche';
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
-import { ebeneAendern, gaebPruefung, gliederungEinfuegen, lvZeilen, mitUnterzeilen, maskeBeispiel, maskeLesen, maskePruefen, maskeSchreiben, positionEinfuegen, neueOz, nummerieren, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
+import { ebeneAendern, gaebPruefung, gliederungEinfuegen, lvZeilen, mitUnterzeilen, maskeBeispiel, maskeLesen, maskePruefen, maskeSchreiben, positionEinfuegen, einfuegeStelle, nummerieren, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
 import { Auswahlliste } from './baukasten/auswahlliste';
+import { ablageAus, type Ablage } from '../module/ava/kopierquelle';
+import { kopierquelleOffen, lvAblage, setKopierquelleOffen, setLvAblage, setLvZielfeld } from './kopierquelle';
 import { istZuschlag, summeGeschaetzt, zaehlt, zahl } from '../module/ava/rechnung';
 import { Dialog } from './baukasten/dialog';
 import { langtextMenue, ErgaenzungFenster } from './textergaenzung';
@@ -212,13 +214,20 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   // die Gliederungsebene, in der zuletzt gearbeitet wurde: Titel der zuletzt markierten Zeile (bzw. der Titel selbst)
   const [letzteEbene, setLetzteEbene] = createSignal<string | null>(null);
   createEffect(() => { const id = wahl.markiert(); const z = id ? nachZeile().get(id) : undefined; if (z) setLetzteEbene(z.titel ? z.id : z.eltern); });
+  /** Wohin ohne Markierung: hinter die letzte Zeile der Ebene, in der zuletzt gearbeitet wurde (sonst ans Ende des LV). */
+  const endeDerEbene = (): string | null => {
+    const Z = zeilen(), e = letzteEbene() ? nachZeile().get(letzteEbene()!) : undefined;
+    return (e ? [...Z].reverse().find((z) => z.id === e.id || z.oz.startsWith(`${e.oz}.`))?.id : undefined) ?? Z[Z.length - 1]?.id ?? null;
+  };
+  // Zeilen aus der Kopierquelle: unter die markierte Zeile, sonst ans Ende der Ebene
+  createEffect(() => { const a = lvAblage(); if (!a || !p.struktur) return; untrack(() => { setLvAblage(null); einfuegenAblage(a, wahl.markiert() ?? endeDerEbene()); }); });
   /** Neue Zeile (wie bisher) direkt unter der markierten; ohne Markierung am Ende der Gliederungsebene, in der zuletzt gearbeitet wurde
    *  (sonst am Ende des LV). Ist zwischen den Nachbarn keine OZ frei, rücken die Positionen danach auf – ein Schritt zum Rückgängigmachen. */
   const neu = (titel: boolean) => {
     if (!schreiben() || !lv()) return;
     const Z = zeilen(), id = neueKennung(), markiert = wahl.markiert();
     const ebene = letzteEbene() && Z.some((z) => z.id === letzteEbene()) ? letzteEbene() : [...Z].reverse().find((z) => z.titel)?.id ?? null;
-    const oz = titel ? new Map([[id, neueOz(Z, { nach: markiert ?? Z[Z.length - 1]?.id ?? null, titel }, maske())]])
+    const oz = titel ? einfuegeStelle(Z, markiert ?? Z[Z.length - 1]?.id ?? null, true, maske(), id)
       : positionEinfuegen(Z, markiert ? { nach: markiert } : { amEnde: ebene }, maske(), id);
     ausfuehrenMehrere([
       { objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(id)!, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Gliederungspunkt' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } },
@@ -257,17 +266,23 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   // Ziehen (Baustein Zeilen ziehen): die ganze Zeile ist der Griff, mehrere gewählte wandern zusammen, Strg kopiert,
   // über einem zugeklappten Gliederungspunkt kurz stillhalten klappt ihn auf
   const [zug, setZug] = createSignal<{ ids: string[]; nach: string | null; y: number } | null>(null);
+  const zeileUnter = (ev: PointerEvent) => (document.elementFromPoint(ev.clientX, ev.clientY) as Element | null)?.closest<HTMLElement>('.lvt-zeile[data-id]') ?? null;
+  /** Einfügelinie unter der Maus: hinter welcher Zeile, und wo die Linie steht – auch für Zeilen aus der Kopierquelle. */
+  const zielUnter = (ev: PointerEvent): { nach: string | null; y: number } | null => {
+    const r = zeileUnter(ev); if (!r || !flaeche.contains(r)) return null;
+    const b = r.getBoundingClientRect(), unten = ev.clientY > b.top + b.height / 2, l = sichtbar(), i = l.findIndex((z) => z.id === r.dataset.id);
+    return { nach: unten ? r.dataset.id! : l[i - 1]?.id ?? null, y: (unten ? b.bottom : b.top) - flaeche.getBoundingClientRect().top + flaeche.scrollTop };
+  };
+  if (p.struktur) {
+    setLvZielfeld({ ziel: zielUnter, zug: (z) => setZug(z ? { ids: [], ...z } : null), ablegen: (a, nach) => einfuegenAblage(a, nach), rollen: () => flaeche });
+    onCleanup(() => setLvZielfeld(null));
+  }
   const zugStart = (e: PointerEvent, id: string) => {
     if (e.button !== 0 || !p.struktur || !schreiben() || edit() || (e.target as Element).closest('input, textarea, button, .klappe')) return;
-    const zeileUnter = (ev: PointerEvent) => (document.elementFromPoint(ev.clientX, ev.clientY) as Element | null)?.closest<HTMLElement>('.lvt-zeile[data-id]') ?? null;
     zeilenZiehen<{ nach: string | null; y: number }>({
       start: e, rollen: flaeche,
       ids: () => { if (!wahl.istGewaehlt(id)) wahl.setMarkiert(id); return wahl.gewaehlt(); },
-      ziel: (ev) => {
-        const r = zeileUnter(ev); if (!r) return null;
-        const b = r.getBoundingClientRect(), unten = ev.clientY > b.top + b.height / 2, l = sichtbar(), i = l.findIndex((z) => z.id === r.dataset.id);
-        return { nach: unten ? r.dataset.id! : l[i - 1]?.id ?? null, y: (unten ? b.bottom : b.top) - flaeche.getBoundingClientRect().top + flaeche.scrollTop };
-      },
+      ziel: zielUnter,
       onZug: (z) => setZug(z ? { ids: z.ids, ...z.ziel } : null),
       zu: (ev) => { const r = zeileUnter(ev); return r && zu().has(r.dataset.id!) ? r.dataset.id! : null; },
       aufklappen: (x) => umschalten(x),
@@ -279,14 +294,8 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
       },
     });
   };
-  type Ablage = { titel: boolean; oz: string; werte: Record<string, Wert> }[];
-  const KOPIERT = ['art', 'kurztext', 'langtext', 'menge', 'einheit', 'ep', 'kostengruppe'];
   /** Die Zeilen (mit allem unter ihren Titeln) als Ablage – zum Kopieren über die Zwischenablage oder beim Ziehen mit Strg. */
-  const ablageVon = (gewaehlt: string[]): Ablage => {
-    const ids = new Set(gewaehlt);
-    for (const z of zeilen()) if (z.eltern && ids.has(z.eltern)) ids.add(z.id);
-    return zeilen().filter((z) => ids.has(z.id)).map((z) => ({ titel: z.titel, oz: z.oz, werte: Object.fromEntries(KOPIERT.map((f) => [f, (nachId(z.id)?.werte[f] ?? null) as Wert])) }));
-  };
+  const ablageVon = (gewaehlt: string[]): Ablage => ablageAus(zeilen(), (id) => nachId(id)?.werte, gewaehlt);
   const kopieren = (weg = false) => {
     if (!wahl.gewaehlt().length) return;
     const a = ablageVon(wahl.gewaehlt());
@@ -302,7 +311,9 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
     const neueIds = a.map(() => neueKennung()), vorl = a.map((x) => { const w = wurzeln.findIndex((r) => r === x || x.oz.startsWith(`${r.oz}.`)); return `~${w}${x.oz.slice(wurzeln[w]!.oz.length)}`; });
     const tmp = lvZeilen([...zeilen().map((z) => ({ id: z.id, werte: { oz: z.oz, art: z.titel ? 'titel' : 'normal' } })), ...a.map((x, i) => ({ id: neueIds[i]!, werte: { oz: vorl[i]!, art: x.titel ? 'titel' : 'normal' } }))]);
     const oz = verschieben(tmp, wurzeln.map((r) => neueIds[a.indexOf(r)]!), nach, maske());
-    ausfuehrenMehrere(a.map((x, i) => ({ objekt: 'lv_position', art: 'anlegen' as const, objektId: neueIds[i]!, werte: { ...x.werte, projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(neueIds[i]!) ?? vorl[i]! } })), a.length === 1 ? 'Zeile einfügen' : `${a.length} Zeilen einfügen`);
+    ausfuehrenMehrere([...a.map((x, i) => ({ objekt: 'lv_position', art: 'anlegen' as const, objektId: neueIds[i]!, werte: { ...x.werte, projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(neueIds[i]!) ?? vorl[i]! } })),
+      // aufgerückte Zeilen (kein Platz an der Stelle) im selben Schritt
+      ...[...oz].filter(([k]) => !neueIds.includes(k)).map(([k, v]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: k, werte: { oz: v } }))], a.length === 1 ? 'Zeile einfügen' : `${a.length} Zeilen einfügen`);
     wahl.mehrere(neueIds);
   };
   const [modellFenster, setModellFenster] = createSignal(false);
@@ -312,6 +323,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   createEffect(() => p.m.setKnoepfe([
     ...(p.struktur && darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Gliederung', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: gliederung },
       { titel: 'Position', zeichen: 'neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(false) },
+      { titel: 'Kopierquelle', zeichen: 'kopieren', gruppe: 'Neu', an: kopierquelleOffen(), tun: () => setKopierquelleOffen(!kopierquelleOffen()) },
       { titel: 'Aus dem Gebäudemodell …', zeichen: 'modell3d', gruppe: 'Neu', gesperrt: String(lv()!.werte.status ?? 'bearbeitung') !== 'bearbeitung', tun: () => setModellFenster(true) },
       { titel: 'Art', zeichen: 'bearbeiten', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !artZeilen().length, tun: (e: MouseEvent) => zeigeMenue(e, ARTEN_MENUE.map(([w, t]) => ({ titel: `${t} (${ART_KURZ[w]})`, tun: () => artSetzen(w, t) }))) },
       { titel: 'Nummerieren …', zeichen: 'liste', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !zeilen().length, tun: () => setNumFenster(true) },

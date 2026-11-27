@@ -45,9 +45,11 @@ export function nummerieren(zeilen: LvZeile[], m: OzMaske = MASKE_VORGABE): Map<
 
 /** OZ für eine neue Zeile hinter „nach“ (oder am Ende des Titels „in“): zwischen den Nachbarn, wenn Platz ist; sonst die nächste freie. */
 export function neueOz(zeilen: LvZeile[], o: { nach?: string | null; titel: boolean }, m: OzMaske = MASKE_VORGABE): string {
-  const nach = o.nach ? zeilen.find((z) => z.id === o.nach) : undefined;
+  const markiert = o.nach ? zeilen.find((z) => z.id === o.nach) : undefined;
   // neue Position hinter einem Titel: als erste darin; neuer Titel hinter einer Position: hinter deren Titel auf seiner Ebene
-  const eltern = nach ? (nach.titel && !o.titel ? nach.id : nach.titel && o.titel ? nach.eltern : nach.eltern) : null;
+  // (Titel und Positionen stehen nie nebeneinander in einem Titel – so bleibt es ein gültiges GAEB-LV)
+  const nach = markiert && !markiert.titel && o.titel && markiert.eltern ? zeilen.find((z) => z.id === markiert.eltern) : markiert;
+  const eltern = nach ? (nach.titel && !o.titel ? nach.id : nach.eltern) : null;
   const geschwister = zeilen.filter((z) => z.eltern === eltern && z.titel === o.titel);
   const vorn = eltern ? zeilen.find((z) => z.id === eltern)!.oz : '';
   const nummer = (z: LvZeile) => Number(teile(z.oz).pop() ?? 0) || 0;
@@ -79,8 +81,12 @@ export function verschieben(zeilen: LvZeile[], ids: string[], nach: string | nul
   const neu = new Map<string, string>(), art = (z: LvZeile) => (z.titel ? 'titel' : 'normal');
   let anker = nach;
   for (const w of wurzeln) {
-    const oz = anker ? neueOz(rest, { nach: anker, titel: w.titel }, m) : (w.titel ? '00' : '0000');
+    const stelle = anker ? einfuegeStelle(rest, anker, w.titel, m, w.id) : new Map([[w.id, w.titel ? '00' : '0000']]);
+    const oz = stelle.get(w.id)!;
     neu.set(w.id, oz);
+    // aufgerückte Nachbarn (kein Platz an der Stelle): ihre neue OZ gilt auch für die nächsten Wurzeln
+    for (const [id, o] of stelle) if (id !== w.id) neu.set(id, o);
+    if (stelle.size > 1) rest = lvZeilen(rest.map((z) => ({ id: z.id, werte: { oz: stelle.get(z.id) ?? z.oz, art: art(z) } })));
     const dazu = [w, ...(w.titel ? zeilen.filter((z) => unter(z, w)) : [])].map((z) => ({ id: z.id, werte: { oz: z.id === w.id ? oz : oz + z.oz.slice(w.oz.length), art: art(z) } }));
     for (const d of dazu) if (d.id !== w.id) neu.set(d.id, String(d.werte.oz));
     rest = lvZeilen([...rest.map((z) => ({ id: z.id, werte: { oz: z.oz, art: art(z) } })), ...dazu]);
@@ -202,22 +208,36 @@ export const maskeBeispiel = (m: OzMaske) => {
   return `${t}.${p(1)} (Titel ${'1'.padStart(m.titel[0] ?? 2, '0')}, Positionen ${p(1)}, ${p(2)} …)`;
 };
 
-/** Neue Position direkt unter „nach“ (wie bisher: unter der markierten Zeile; hinter einem Titel als erste darin). Ist zwischen den
- *  Nachbarn keine Nummer frei, rücken die Positionen danach auf (neu im Schritt der Maske) – sonst stünde die neue an falscher Stelle.
- *  → Kennung → OZ; die neue Zeile unter „neu“. */
-export function positionEinfuegen(zeilen: LvZeile[], wo: { nach: string | null } | { amEnde: string | null }, m: OzMaske = MASKE_VORGABE, neu = '\u0000neu'): Map<string, string> {
-  // „amEnde“: ans Ende dieser Gliederungsebene (Titel, null: oberste) – hinter ihre letzte eigene Position, sonst als erste darin
-  const nach = 'nach' in wo ? wo.nach : ([...zeilen].reverse().find((z) => z.eltern === wo.amEnde && !z.titel)?.id ?? wo.amEnde);
-  const oz = neueOz(zeilen, { nach, titel: false }, m), n = zeilen.find((z) => z.id === nach);
-  const eltern = n ? (n.titel ? n.id : n.eltern) : null;
-  const gruppe = zeilen.filter((z) => z.eltern === eltern && !z.titel);
-  const stelle = n && !n.titel ? gruppe.findIndex((z) => z.id === n.id) + 1 : n ? 0 : gruppe.length;
+/** Eine neue Zeile direkt hinter „nach“ (Position hinter einem Titel: als erste darin; Titel hinter einer Position: hinter deren
+ *  Titel). Ist zwischen den Nachbarn keine Nummer frei, rücken die Geschwister danach auf – Titel mit allem darunter –, sonst
+ *  stünde die neue an falscher Stelle. → Kennung → OZ (die neue Zeile unter „neu“, dazu die aufgerückten). */
+export function einfuegeStelle(zeilen: LvZeile[], nach: string | null, titel: boolean, m: OzMaske = MASKE_VORGABE, neu = '\u0000neu'): Map<string, string> {
+  const oz = neueOz(zeilen, { nach, titel }, m), markiert = zeilen.find((z) => z.id === nach);
+  const n = markiert && !markiert.titel && titel && markiert.eltern ? zeilen.find((z) => z.id === markiert.eltern) : markiert;
+  const eltern = n ? (n.titel && !titel ? n.id : n.eltern) : null;
+  const gruppe = zeilen.filter((z) => z.eltern === eltern && z.titel === titel);
+  const stelle = n ? (n.titel && !titel ? 0 : gruppe.findIndex((z) => z.id === n.id) + 1) : gruppe.length;
   const nummer = (o: string) => Number(teile(o).pop() ?? 0) || 0;
   const vor = gruppe[stelle - 1], hinter = gruppe[stelle];
   if ((!vor || nummer(vor.oz) < nummer(oz)) && (!hinter || nummer(oz) < nummer(hinter.oz))) return new Map([[neu, oz]]);
-  // kein Platz: die Gruppe in der neuen Reihenfolge im Schritt der Maske
-  const vorn = eltern ? zeilen.find((z) => z.id === eltern)!.oz : '', reihe = [...gruppe.slice(0, stelle).map((z) => z.id), neu, ...gruppe.slice(stelle).map((z) => z.id)];
+  // kein Platz: die Gruppe in der neuen Reihenfolge durchzählen (Titel in Einerschritten, Positionen im Schritt der Maske)
+  const vorn = eltern ? zeilen.find((z) => z.id === eltern)!.oz : '', ebene = eltern ? zeilen.find((z) => z.id === eltern)!.ebene + 1 : 0;
+  const reihe = [...gruppe.slice(0, stelle).map((z) => z.id), neu, ...gruppe.slice(stelle).map((z) => z.id)];
   const aus = new Map<string, string>();
-  reihe.forEach((id, k) => { const o = (vorn ? `${vorn}.` : '') + stellen((k + 1) * m.schritt, m.position); if (id === neu || zeilen.find((z) => z.id === id)!.oz !== o) aus.set(id, o); });
+  reihe.forEach((id, k) => {
+    const o = (vorn ? `${vorn}.` : '') + (titel ? stellen(k + 1, m.titel[Math.min(ebene, m.titel.length - 1)] ?? 2) : stellen((k + 1) * m.schritt, m.position));
+    const alt = zeilen.find((z) => z.id === id);
+    if (id === neu) { aus.set(id, o); return; }
+    if (alt!.oz === o) return;
+    aus.set(id, o);
+    if (titel) for (const u of zeilen) if (u.oz.startsWith(`${alt!.oz}.`)) aus.set(u.id, o + u.oz.slice(alt!.oz.length));   // mit allem darunter
+  });
   return aus;
+}
+
+/** Neue Position wie bisher: unter der markierten Zeile – oder „amEnde“ einer Gliederungsebene (Titel, null: oberste), hinter ihre
+ *  letzte eigene Position, sonst als erste darin. */
+export function positionEinfuegen(zeilen: LvZeile[], wo: { nach: string | null } | { amEnde: string | null }, m: OzMaske = MASKE_VORGABE, neu = '\u0000neu'): Map<string, string> {
+  const nach = 'nach' in wo ? wo.nach : ([...zeilen].reverse().find((z) => z.eltern === wo.amEnde && !z.titel)?.id ?? wo.amEnde);
+  return einfuegeStelle(zeilen, nach, false, m, neu);
 }

@@ -2231,3 +2231,9 @@ test('Neue Position: direkt unter der markierten (Nachbarn rücken auf, wenn kei
   assert.deepEqual(Object.fromEntries(positionEinfuegen(Z, { amEnde: 't' }, m, 'neu')), { neu: '01.0030' }, 'ohne Markierung: ans Ende der Ebene');
   assert.deepEqual(Object.fromEntries(positionEinfuegen(Z, { amEnde: 'u' }, m, 'neu')), { neu: '02.0010' }, 'leerer Titel: erste darin');
 });
+
+test('Neuer Titel hinter einer Position: hinter deren Titel auf seiner Ebene, die Titel danach rücken mit allem darunter auf', async () => {
+  const { einfuegeStelle, lvZeilen } = await import('../src/module/ava/lvbaum');
+  const Z = lvZeilen([['t', '01', 'titel'], ['a', '01.0010', 'normal'], ['u', '02', 'titel'], ['b', '02.0010', 'normal']].map(([id, oz, art]) => ({ id: id!, werte: { oz: oz!, art: art! } })));
+  assert.deepEqual(Object.fromEntries(einfuegeStelle(Z, 'a', true, { titel: [2], position: 4, schritt: 10 }, 'neu')), { neu: '02', u: '03', b: '03.0010' });
+});
