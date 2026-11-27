@@ -13,8 +13,8 @@ import { zahl } from './rechnung';
 type E = { id: string; werte: Werte };
 export type Kette = 'haupt' | 'nachtrag';
 
-/** Kette einer Rechnung – null: steht für sich (Stundenlohn). */
-export const ketteVon = (r: E): Kette | null => (r.werte.art === 'stundenlohn' ? null : r.werte.art === 'nachtrag' ? 'nachtrag' : 'haupt');
+/** Kette einer Rechnung – null: steht für sich (Stundenlohn, Einzelrechnung ohne LV). */
+export const ketteVon = (r: E): Kette | null => (r.werte.art === 'stundenlohn' || r.werte.art === 'einzel' ? null : r.werte.art === 'nachtrag' ? 'nachtrag' : 'haupt');
 export const geprueft = (r: E) => r.werte.status === 'geprueft' || r.werte.status === 'bezahlt';
 
 /** Rechnungen eines LV in ihrer Reihenfolge (Rechnungsdatum, dann Nummer). */
@@ -82,7 +82,7 @@ export function pruefung(firma: number | null | undefined, stand: number | undef
 }
 
 // ---------- Rechnungen eines Auftrags ----------
-const ARTNAME: Record<string, string> = { abschlag: 'Abschlagsrechnung', schluss: 'Schlussrechnung', nachtrag: 'Nachtragsrechnung', stundenlohn: 'Stundenlohnrechnung' };
+const ARTNAME: Record<string, string> = { abschlag: 'Abschlagsrechnung', schluss: 'Schlussrechnung', nachtrag: 'Nachtragsrechnung', stundenlohn: 'Stundenlohnrechnung', einzel: 'Rechnung' };
 /** Name wie im bisherigen Bauportal: „2. Abschlagsrechnung“ (gezählt je Art), die Schlussrechnung ohne Nummer. */
 export function rechnungTitel(r: E, rechnungen: E[]): string {
   const art = String(r.werte.art || 'abschlag');
@@ -93,7 +93,7 @@ export function rechnungTitel(r: E, rechnungen: E[]): string {
 /** Hält eine offene Rechnung derselben Kette eine neue dieser Art auf? (Kumulierte Rechnungen bauen aufeinander auf – erst die offene
  *  prüfen. Eine zweite Schlussrechnung gibt es nicht. Stundenlohn steht für sich.) */
 export function neueGesperrt(rechnungen: E[], art: string): string | null {
-  if (art === 'stundenlohn') return null;
+  if (art === 'stundenlohn' || art === 'einzel') return null;
   if (art === 'schluss' && rechnungen.some((r) => r.werte.art === 'schluss')) return 'Es gibt schon eine Schlussrechnung.';
   if (art === 'abschlag' && rechnungen.some((r) => r.werte.art === 'schluss')) return 'Nach der Schlussrechnung gibt es keine Abschlagsrechnung mehr.';
   const k = art === 'nachtrag' ? 'nachtrag' : 'haupt';
@@ -108,8 +108,8 @@ export function pruefFrist(eingang: unknown, art: unknown): string {
 }
 /** Summe der Zeilen von Hand (Stundenzettel, Positionen ohne Aufmaß). */
 export const zeilenSumme = (zeilen: E[]) => Math.round(zeilen.reduce((s, z) => s + zahl(z.werte.menge) * zahl(z.werte.ep), 0) * 100) / 100;
-/** Wird diese Rechnung über das Aufmaß geprüft? Stundenlohn nie, sonst wie eingestellt (ab Werk: nach Aufmaß). */
-export const nachAufmass = (r: E) => r.werte.art !== 'stundenlohn' && r.werte.pruefweg !== 'ohne';
+/** Wird diese Rechnung über das Aufmaß geprüft? Stundenlohn und Einzelrechnung nie, sonst wie eingestellt (ab Werk: nach Aufmaß). */
+export const nachAufmass = (r: E) => r.werte.art !== 'stundenlohn' && r.werte.art !== 'einzel' && r.werte.pruefweg !== 'ohne';
 /** Abgerechnet (netto, vor Nachlass): je Kette der Stand der letzten geprüften Rechnung, dazu alle geprüften Stundenlohnrechnungen. */
 export function abgerechnetAus(rechnungen: E[]): number {
   const R = reihe(rechnungen).filter(geprueft), st = (r: E) => zahl(r.werte.geprueft ?? r.werte.betrag);

@@ -12,7 +12,8 @@ import { AufmassEinlesen } from './aufmasseinlesen';
 import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
 import { LV_SPALTEN, LvBaum, eur, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
-import { ausfuehren, ausfuehrenMehrere, lebende } from './unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
+import { nachtragAnlegen } from './auftraege';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 
@@ -138,6 +139,12 @@ export function AufmassKarte(p: { position: Zeile; heftzwecke: JSX.Element }): J
       <p class="still-text">LV-Menge {zahlText(menge())} {String(q().werte.einheit ?? '')} · aufgemessen <b>{zahlText(stand())} {String(q().werte.einheit ?? '')}</b>{pct() != null ? ` (${pct()} %)` : ''}
         {a.ep(q()) != null ? ` · ${eur(gp(stand(), a.ep(q())))} € zum EP ${eur(a.ep(q())!)}` : ''}</p>
       <Show when={pct() != null && pct()! > 100}><div class="am-balken" classList={{ rot: pct()! > 110 }} title={pct()! > 110 ? 'über 10 % mehr als im LV: neuer Preis kann verlangt werden (VOB/B § 2 Abs. 3)' : 'mehr als im LV'}><i style={{ width: `${Math.min(100, pct()! - 100) }%` }} /></div></Show>
+      <Show when={!q().werte.nachtrag && stand() > menge() && menge() > 0 && darf('nachtrag', 'schreiben') && sicht.lv?.[String(q().werte.lv)]}>
+        <p class="still-text klein-text">Mehrmenge {zahlText(stand() - menge())} {String(q().werte.einheit ?? '')} über der LV-Menge.{' '}
+          <button type="button" class="knopf klein" onClick={() => { const n = nachtragAnlegen(sicht.lv![String(q().werte.lv)]!, `Mehrmenge ${String(q().werte.oz ?? '')} ${String(q().werte.kurztext ?? '')}`.trim(), {
+            kurztext: String(q().werte.kurztext ?? ''), langtext: q().werte.langtext ?? null, einheit: q().werte.einheit ?? null, menge: Math.round((stand() - menge()) * 1000) / 1000, ep: a.ep(q()), kostengruppe: q().werte.kostengruppe ?? null });
+            hinweis(`Nachtrag ${n.nr} für die Mehrmenge angelegt (Stand „angemeldet“) – unter „Aufträge“ weiter bearbeiten.`); }}>Nachtrag für die Mehrmenge</button></p>
+      </Show>
       <table class="am-zeilen">
         <thead><tr><th>Datum</th><th>Ort / Bauteil</th><th>Rechenweg</th><th class="zahl">Menge</th><th /></tr></thead>
         <tbody>

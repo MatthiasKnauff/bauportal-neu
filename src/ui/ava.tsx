@@ -41,7 +41,8 @@ export function lvZahlen(lvId: string): LvZahlen {
   const pos = positionenVon(lvId), ang = angeboteVon(lvId), pr = preiseVon(ang);
   const w = wertung(pos, ang, (a, q) => (pr.has(`${a}:${q}`) ? zahl(pr.get(`${a}:${q}`)!.werte.ep) : null));
   const erster = w.find((x) => x.rang === 1), auftrag = ang.find((x) => x.werte.beauftragt === true);
-  const nachlass = zahl(auftrag?.werte.nachlass), haupt = auftrag ? w.find((x) => x.angebot === auftrag.id)?.nachLass ?? 0 : 0;
+  const ohneLv = !!sicht.lv?.[lvId]?.werte.ohne_lv;   // Auftrag ohne LV: die eingetragene Auftragssumme
+  const nachlass = zahl(auftrag?.werte.nachlass), haupt = !auftrag ? 0 : ohneLv ? zahl(sicht.lv?.[lvId]?.werte.auftragssumme) : w.find((x) => x.angebot === auftrag.id)?.nachLass ?? 0;
   const nachtraege = lebende('nachtrag').filter((n) => n.werte.lv === lvId);
   const rechnungen = lebende('rechnung').filter((r) => r.werte.lv === lvId).sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')));
   // Leistungsstand: geprüfte Mengen (Aufmaß) × EP des Auftrags (Nachtragspositionen: ihr eigener EP), nach Nachlass

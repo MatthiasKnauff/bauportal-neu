@@ -1886,7 +1886,8 @@ test('Rechnungen: Sperre der Kette, Namen, Prüffrist, freier Zahlbetrag, Freiga
   assert.match(m.neueGesperrt([r1, r2], 'abschlag')!, /2\. Abschlagsrechnung \(Nr\. A2\)/);
   assert.match(m.neueGesperrt([r1, r2], 'schluss')!, /Erst/);
   assert.equal(m.neueGesperrt([r1, r2], 'nachtrag'), null, 'eigene Kette');
-  assert.equal(m.neueGesperrt([r1, r2], 'stundenlohn'), null);
+  assert.equal(m.neueGesperrt([r1, r2], 'stundenlohn'), null); assert.equal(m.neueGesperrt([r1, r2], 'einzel'), null);
+  assert.equal(m.ketteVon(E('e', { art: 'einzel' })), null); assert.equal(m.nachAufmass(E('e', { art: 'einzel' })), false, 'Einzelrechnung (ohne LV): Betrag oder Zeilen');
   assert.match(m.neueGesperrt([r1, E('sr', { art: 'schluss', status: 'geprueft' })], 'abschlag')!, /Schlussrechnung/);
   assert.equal(m.rechnungTitel(r2, [r1, r2, sl]), '2. Abschlagsrechnung'); assert.equal(m.rechnungTitel(sl, [r1, r2, sl]), '1. Stundenlohnrechnung');
   assert.equal(m.pruefFrist('2026-06-01', 'abschlag'), '2026-06-22'); assert.equal(m.pruefFrist('2026-06-01', 'schluss'), '2026-07-01'); assert.equal(m.pruefFrist('', 'x'), '');

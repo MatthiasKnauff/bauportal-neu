@@ -5,12 +5,13 @@
 import { For, Show, createEffect, createMemo, createSignal, useContext, type JSX } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
-import { geprueft as istGeprueft, nachAufmass, neueGesperrt, pruefFrist, pruefung, rechnungTitel, standAus, zeilenBis, zeilenSumme } from '../module/ava/aufmass';
+import { geprueft as istGeprueft, ketteVon, nachAufmass, neueGesperrt, pruefFrist, pruefung, rechnungTitel, standAus, zeilenBis, zeilenSumme } from '../module/ava/aufmass';
 import { RECHNUNGSARTEN } from '../module/ava/beipackzettel';
 import { bedingungenAus, gp, leiter, strafeVorschlag, zaehlt, zahl } from '../module/ava/rechnung';
 import { angeboteVon, lvZahlen, name } from './ava';
 import { Aufmasspruefung, AufmassKarte, RechnungsLeiste } from './aufmasspruefung';
-import { lvVon } from './avakopf';
+import { lvVon, lvWaehlen } from './avakopf';
+import { projektId } from './projekt';
 import type { Mitte } from './baukasten/anpassung';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
@@ -41,13 +42,14 @@ function RFeld(p: { r: Zeile; n: string; titel?: string; offen?: boolean }): JSX
 /** Neue Rechnung (Menü am Knopf): offene Rechnung derselben Kette erst prüfen – sie baut auf ihr auf. */
 export function neueRechnung(e: MouseEvent, lv: Zeile, danach: (id: string) => void): void {
   const R = rechnungenVon(lv.id), auftrag = angeboteVon(lv.id).find((a) => a.werte.beauftragt === true);
-  zeigeMenue(e, RECHNUNGSARTEN.map((a) => {
+  const arten = RECHNUNGSARTEN.filter((a) => (lv.werte.ohne_lv ? a.wert === 'einzel' || a.wert === 'stundenlohn' : a.wert !== 'einzel'));
+  zeigeMenue(e, arten.map((a) => {
     const grund = neueGesperrt(R, a.wert);
     return { titel: grund ? `${a.titel} – gesperrt` : a.titel, tun: () => {
       if (grund) { hinweis(grund); return; }
       const id = neueKennung(), vor = [...R].reverse().find((x) => x.werte.art === a.wert);
       ausfuehren({ objekt: 'rechnung', art: 'anlegen', objektId: id, werte: { projekt: lv.werte.projekt ?? null, lv: lv.id, firma: auftrag?.werte.bieter ?? null, art: a.wert, status: 'offen', eingang: heute(),
-        ...(a.wert !== 'stundenlohn' ? { pruefweg: String(vor?.werte.pruefweg ?? 'aufmass') } : {}) } }, `Neue ${a.titel}`);
+        ...(a.wert === 'abschlag' || a.wert === 'schluss' || a.wert === 'nachtrag' ? { pruefweg: String(vor?.werte.pruefweg ?? 'aufmass') } : {}) } }, `Neue ${a.titel}`);
       danach(id);
     } };
   }));
@@ -59,7 +61,7 @@ function Kopf(p: { r: Zeile }): JSX.Element {
   return (
     <div class="re-kopf">
       <RFeld r={p.r} n="nummer" /><RFeld r={p.r} n="datum" /><RFeld r={p.r} n="eingang" />
-      <RFeld r={p.r} n="betrag" titel={p.r.werte.art === 'stundenlohn' ? 'gefordert netto in €' : 'gefordert netto (Leistungsstand kumuliert) in €'} />
+      <RFeld r={p.r} n="betrag" titel={ketteVon(p.r) === null ? 'gefordert netto in €' : 'gefordert netto (Leistungsstand kumuliert) in €'} />
       <Show when={p.r.werte.art === 'schluss'}><RFeld r={p.r} n="abnahme" /></Show>
       <Show when={frist()}><p class="re-frist"><span class="pille" classList={{ rot: !istGeprueft(p.r) && frist() < heute() }}>Prüffrist bis {datumText(frist())}</span>
         <small class="still-text">{p.r.werte.art === 'schluss' ? '30 Tage, § 16 Abs. 3 VOB/B' : '21 Tage, § 16 Abs. 1 VOB/B'}</small></p></Show>
@@ -72,7 +74,7 @@ function Pruefweg(p: { r: Zeile }): JSX.Element {
   const WEGE = [['aufmass', '📐', 'Nach Aufmaß', 'Je Position die Menge laut Firma und das eigene Aufmaß (Menge oder Rechenweg), kumuliert × EP des Auftrags.'],
     ['ohne', '💶', 'Ohne Aufmaß', 'Pauschal, kleine Rechnungen, Abschlag nach Zahlungsplan: den geprüften Leistungsstand eintragen – oder die Positionen von Hand.']] as const;
   return (
-    <Show when={p.r.werte.art !== 'stundenlohn'} fallback={<p class="still-text">Stundenlohnrechnung: geprüft wird nach den Stundenzetteln (Lohn, Gerät, Material).</p>}>
+    <Show when={p.r.werte.art !== 'stundenlohn' && p.r.werte.art !== 'einzel'} fallback={<p class="still-text">{p.r.werte.art === 'einzel' ? 'Rechnung ohne LV: geprüft wird der Betrag – oder die Positionen von Hand. Jede Rechnung steht für sich, ohne Einbehalt.' : 'Stundenlohnrechnung: geprüft wird nach den Stundenzetteln (Lohn, Gerät, Material).'}</p>}>
       <div class="re-wege" role="radiogroup" aria-label="Wie wird geprüft?">
         <For each={WEGE}>{([w, ic, t, txt]) => (
           <button type="button" role="radio" class="re-weg" classList={{ an: (p.r.werte.pruefweg || 'aufmass') === w }} aria-checked={(p.r.werte.pruefweg || 'aufmass') === w} disabled={!darfSchreiben(p.r)}
@@ -126,7 +128,7 @@ function Leistung(p: { r: Zeile; zumAufmass?: () => void }): JSX.Element {
   return (
     <div class="re-leistung">
       <Show when={nachAufmass(p.r)} fallback={<>
-        <Show when={p.r.werte.art !== 'stundenlohn' && !zeilenDer(p.r).length}><RFeld r={p.r} n="geprueft" titel="geprüfter Leistungsstand netto (kumuliert) in €" /></Show>
+        <Show when={p.r.werte.art !== 'stundenlohn' && !zeilenDer(p.r).length}><RFeld r={p.r} n="geprueft" titel={ketteVon(p.r) === null ? 'geprüfter Betrag netto in €' : 'geprüfter Leistungsstand netto (kumuliert) in €'} /></Show>
         <Zeilen r={p.r} /></>}>
         <p class="re-zahlen"><span>Leistungsstand nach Aufmaß <b>{eur(leistungJetzt(p.r))} €</b></span>
           <Show when={vergleich()?.firma}><span>laut Firma <b>{eur(vergleich()!.laut)} €</b></span></Show>
@@ -281,10 +283,38 @@ function RechnungKarte(p: { r: Zeile; rechnungen: Zeile[] }): JSX.Element {
   );
 }
 
+/** Auftrag ohne LV und Angebot (bisher „Zettelwirtschaft“): Firma, Kostengruppe, Auftragssumme – ein LV ohne Positionen, an die Firma
+ *  vergeben; abgerechnet wird mit Einzelrechnungen. */
+function AuftragOhneLv(p: { projekt: string; onZu: () => void; onFertig: (lv: string) => void }): JSX.Element {
+  const lvf = (n: string) => modell('lv').felder.find((f) => f.name === n)!;
+  const [firma, setFirma] = createSignal<string | null>(null), [kg, setKg] = createSignal<string | null>(null), [summe, setSumme] = createSignal<Wert>(null);
+  const ok = () => {
+    if (!firma()) { hinweis('Bitte die Firma wählen.', { art: 'fehler' }); return; }
+    const lv = neueKennung();
+    ausfuehrenMehrere([
+      { objekt: 'lv', art: 'anlegen', objektId: lv, werte: { projekt: p.projekt, name: `${name(firma())} (ohne LV)`, kostengruppe: kg(), status: 'vergeben', ohne_lv: true, auftragssumme: summe(), ve_prozent: 0, ma_prozent: 0 } },
+      { objekt: 'angebot', art: 'anlegen', objektId: neueKennung(), werte: { projekt: p.projekt, lv, bieter: firma(), beauftragt: true, auftragsdatum: heute() } },
+    ], 'Auftrag ohne LV');
+    p.onFertig(lv);
+  };
+  return (
+    <Dialog titel="Auftrag ohne LV" onAbbrechen={p.onZu} geaendert={() => !!firma()}
+      knoepfe={<><button type="button" class="knopf" data-abbrechen>Abbrechen</button><button type="button" class="knopf haupt" onClick={ok}>Anlegen</button></>}>
+      <div class="formular">
+        <p class="still-text klein-text">Für kleine Aufträge ohne Ausschreibung: nur Firma und Summe. Geprüft wird jede Rechnung für sich (Betrag oder Positionen von Hand), ohne Einbehalt; sie zählt in der Kostenkontrolle unter der Kostengruppe.</p>
+        <FeldEingabe feld={{ name: 'firma', titel: 'Firma', art: 'verweis', ziel: 'kontakt', pflicht: true }} wert={firma()} onWert={(w) => setFirma(w ? String(w) : null)} />
+        <FeldEingabe feld={lvf('kostengruppe')} wert={kg()} onWert={(w) => setKg(w ? String(w) : null)} />
+        <FeldEingabe feld={{ ...lvf('auftragssumme'), titel: 'Auftragssumme netto in € (leer: zählt, was abgerechnet wird)' }} wert={summe()} onWert={setSumme} />
+      </div>
+    </Dialog>
+  );
+}
+
 export function Rechnungen(m: Mitte): JSX.Element {
   const lv = () => lvVon(m);
   const a = aufmassVon(() => lv()?.id);
   const z = createMemo(() => (lv() ? lvZahlen(lv()!.id) : undefined));
+  const [ohneLv, setOhneLv] = createSignal(false);
   const waehle = (id: string) => { setRechnungWahl(id); };
   const letzte = () => { const R = a.rechnungen(); return a.r() && R.at(-1)?.id === a.r()!.id && !istGeprueft(a.r()!); };
   const wegwerfen = () => {
@@ -295,14 +325,16 @@ export function Rechnungen(m: Mitte): JSX.Element {
   };
   createEffect(() => m.setKnoepfe([
     ...(lv() && z()?.auftrag && darf('rechnung', 'schreiben') ? [{ titel: 'Rechnung', zeichen: 'neu', gruppe: 'Neu', haupt: true, tun: (e: MouseEvent) => neueRechnung(e, lv()!, (id) => { waehle(id); schrittFuerSchritt(id); }) }] : []),
+    ...(projektId() && darf('lv', 'schreiben') ? [{ titel: 'Auftrag ohne LV', zeichen: 'vertrag', gruppe: 'Neu', tun: () => setOhneLv(true) }] : []),
     ...(a.r() ? [{ titel: 'Schritt für Schritt', zeichen: 'liste_aufgaben', gruppe: 'Prüfen', tun: () => schrittFuerSchritt(a.r()!.id, istGeprueft(a.r()!) ? 5 : 2) },
       { titel: 'Rechnungsfreigabe', zeichen: 'drucken', gruppe: 'Ausgabe', tun: () => druckOeffnen('ava.freigabe', a.r()!.id) }] : []),
     ...(lv() && darf('rechnung', 'schreiben') ? [{ titel: 'E-Rechnung einlesen …', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => rechnungEinlesen(String(lv()!.werte.projekt)) }] : []),
     ...(letzte() && darf('rechnung', 'loeschen') ? [{ titel: 'In den Papierkorb', zeichen: 'loeschen', gruppe: 'Löschen', rot: true, tun: wegwerfen }] : []),
   ]));
   return (
-    <LvListe m={m} zusatz={(l) => { const n = rechnungenVon(l.id).length; return n ? `${n} ${n === 1 ? 'Rechnung' : 'Rechnungen'}` : ''; }}>
+    <LvListe m={m} zusatz={(l) => { const n = rechnungenVon(l.id).length; return [l.werte.ohne_lv ? 'ohne LV' : '', n ? `${n} ${n === 1 ? 'Rechnung' : 'Rechnungen'}` : ''].filter(Boolean).join(' · '); }}>
       <SchrittFenster />
+      <Show when={ohneLv() && projektId()}><AuftragOhneLv projekt={projektId()!} onZu={() => setOhneLv(false)} onFertig={(id) => { setOhneLv(false); lvWaehlen(m, id); }} /></Show>
       <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis.</p>}>
         <Show when={z()?.auftrag} fallback={<p class="hinweis-kasten">Rechnungen werden mit den Preisen des Auftrags geprüft – dieses LV erst unter „Angebote & Preisspiegel“ vergeben.</p>}>
           <p class="re-auftrag">Auftrag <b>{name(z()!.auftrag!.werte.bieter)}</b> · aktuell <b>{eur(z()!.stand.aktuell)} €</b> · Leistung <b>{eur(z()!.leistung)} €</b> · abgerechnet <b>{eur(z()!.abgerechnet)} €</b></p>

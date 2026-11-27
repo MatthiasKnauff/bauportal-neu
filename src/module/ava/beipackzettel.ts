@@ -32,6 +32,10 @@ export const lv: ObjektModell = {
     { name: 'archiviert', titel: 'Im Archiv (aus den Listen genommen, alles bleibt erhalten)', art: 'ja_nein', gruppe: 'Leistungsverzeichnis' },
     { name: 'vergabenummer', spalte: true, titel: 'Vergabenummer', art: 'text', gruppe: 'Vergabe' },
     { name: 'budget', titel: 'Kostenansatz netto in €', art: 'zahl', inListe: true, breite: 130, gruppe: 'Vergabe' },
+    // Auftrag ohne LV und Angebot (bisher „Zettelwirtschaft“): nur Firma (das beauftragte Angebot ohne Preise) und Auftragssumme;
+    // abgerechnet wird mit Einzelrechnungen (Betrag oder Positionen von Hand)
+    { name: 'ohne_lv', spalte: true, titel: 'Auftrag ohne LV (nur Firma und Summe)', art: 'ja_nein', gruppe: 'Vergabe' },
+    { name: 'auftragssumme', spalte: true, titel: 'Auftragssumme netto in € (ohne LV)', art: 'zahl', gruppe: 'Vergabe' },
     { name: 'abgabe', spalte: true, titel: 'Angebotsabgabe bis', art: 'datum', gruppe: 'Vergabe' },
     { name: 'rueckmeldung_bis', titel: 'Rückmeldung der Bieter:innen bis', art: 'datum', gruppe: 'Vergabe' },
     { name: 'bindefrist', spalte: true, titel: 'Bindefrist bis', art: 'datum', gruppe: 'Vergabe' },
@@ -226,7 +230,7 @@ export const rechnungsmenge: ObjektModell = {
   ],
 };
 
-export const RECHNUNGSARTEN = [{ wert: 'abschlag', titel: 'Abschlagsrechnung' }, { wert: 'schluss', titel: 'Schlussrechnung' }, { wert: 'nachtrag', titel: 'Nachtrag' }, { wert: 'stundenlohn', titel: 'Stundenlohnrechnung' }];
+export const RECHNUNGSARTEN = [{ wert: 'abschlag', titel: 'Abschlagsrechnung' }, { wert: 'schluss', titel: 'Schlussrechnung' }, { wert: 'nachtrag', titel: 'Nachtrag' }, { wert: 'stundenlohn', titel: 'Stundenlohnrechnung' }, { wert: 'einzel', titel: 'Einzelrechnung (ohne LV)' }];
 
 export const rechnung: ObjektModell = {
   name: 'rechnung', titel: 'Rechnung', titelMehrzahl: 'Rechnungen', anzeigeFeld: 'nummer', ersatzName: ['datum'],

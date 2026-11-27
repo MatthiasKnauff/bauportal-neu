@@ -80,7 +80,7 @@ function sicherheit(r: E, b: Bedingungen): { satz: number; titel: string } {
   const schluss = r.werte.art === 'schluss', ve = b.ve ?? 5, ma = b.ma ?? ve;
   const titel = schluss ? 'Sicherheit Mängelansprüche' : 'Sicherheit Vertragserfüllung';
   if (r.werte.einbehalt != null && r.werte.einbehalt !== '') return { satz: zahl(r.werte.einbehalt), titel };
-  if (r.werte.art === 'stundenlohn') return { satz: 0, titel };
+  if (r.werte.art === 'stundenlohn' || r.werte.art === 'einzel') return { satz: 0, titel };
   return { satz: schluss ? (b.maAbgeloest ? 0 : ma) : (b.veAbgeloest ? 0 : ve), titel };
 }
 const tageNach = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
@@ -100,7 +100,7 @@ export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | n
   const r2 = (x: number) => Math.round(x * 100) / 100;
   const vorher: Record<string, number> = {};
   for (const r of reihe) {
-    const folge = r.werte.art === 'nachtrag' ? 'n' : r.werte.art === 'stundenlohn' ? '' : 'h';
+    const folge = r.werte.art === 'nachtrag' ? 'n' : r.werte.art === 'stundenlohn' || r.werte.art === 'einzel' ? '' : 'h';
     const live = stand && r.werte.status !== 'geprueft' && r.werte.status !== 'bezahlt' ? stand(r) : null;
     const st = live ?? zahl(r.werte.geprueft ?? r.werte.betrag);
     const nachlass = r2(st * b.nachlass / 100), netto = r2(st - nachlass);

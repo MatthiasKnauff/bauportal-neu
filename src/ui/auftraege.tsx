@@ -4,6 +4,7 @@
 // Oben: Nachtrag (Gliederungspunkt, Position), Vertrag (Bauvertrag, Vergabe aufheben). Rechts die Karte des Auftrags.
 import { createMemo, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
+import type { Wert } from '../kern/modell';
 import { standAus, zeilenBis } from '../module/ava/aufmass';
 import { gp, naechsteOz, naechsterNachtrag, zaehlt, zahl } from '../module/ava/rechnung';
 import { angeboteVon, lvZahlen, preiseVon } from './ava';
@@ -16,6 +17,18 @@ import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 
 const heute = () => new Date().toLocaleDateString('sv');
+
+/** Nachtrag anlegen (Aufträge, Aufmaßprüfung): „N1“ mit Gliederungspunkt, auf Wunsch gleich mit einer Position darunter. */
+export function nachtragAnlegen(lv: Zeile, name: string, position?: Record<string, Wert>): { nr: string; id: string; titel: string; position?: string } {
+  const nr = naechsterNachtrag(lebende('nachtrag').filter((n) => n.werte.lv === lv.id)), id = neueKennung(), titel = neueKennung(), pos = position ? neueKennung() : undefined;
+  const p = lv.werte.projekt ?? null;
+  ausfuehrenMehrere([
+    { objekt: 'nachtrag', art: 'anlegen', objektId: id, werte: { projekt: p, lv: lv.id, nummer: nr, name, stand: 'angemeldet', angemeldet: heute() } },
+    { objekt: 'lv_position', art: 'anlegen', objektId: titel, werte: { projekt: p, lv: lv.id, nachtrag: id, oz: nr, art: 'titel', kurztext: name } },
+    ...(position ? [{ objekt: 'lv_position', art: 'anlegen' as const, objektId: pos!, werte: { projekt: p, lv: lv.id, nachtrag: id, oz: `${nr}.0010`, art: 'normal', ...position } }] : []),
+  ], `Nachtrag ${nr}`);
+  return { nr, id, titel, position: pos };
+}
 
 export function Auftraege(m: Mitte): JSX.Element {
   const lv = () => lvVon(m);
@@ -56,13 +69,9 @@ export function Auftraege(m: Mitte): JSX.Element {
   const nachtraege = () => (lv() ? lebende('nachtrag').filter((n) => n.werte.lv === lv()!.id) : []);
   const ntGliederung = () => {
     if (!lv() || !auftrag()) return;
-    const nr = naechsterNachtrag(nachtraege()), id = neueKennung(), titel = neueKennung();
-    ausfuehrenMehrere([
-      { objekt: 'nachtrag', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, nummer: nr, name: 'Neuer Nachtrag', stand: 'angemeldet', angemeldet: heute() } },
-      { objekt: 'lv_position', art: 'anlegen', objektId: titel, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, nachtrag: id, oz: nr, art: 'titel', kurztext: 'Neuer Nachtrag' } },
-    ], `Nachtrag ${nr}`);
-    setLvZeiger(titel);
-    hinweis(`Nachtrag ${nr} angelegt – Bezeichnung in der Zeile ändern, dann „Position“ für die Leistungen; Stand rechts in der Karte.`);
+    const n = nachtragAnlegen(lv()!, 'Neuer Nachtrag');
+    setLvZeiger(n.titel);
+    hinweis(`Nachtrag ${n.nr} angelegt – Bezeichnung in der Zeile ändern, dann „Position“ für die Leistungen; Stand rechts in der Karte.`);
   };
   /** Nachtrag der markierten Zeile (sonst der letzte). */
   const ntVonZeile = () => { const q = sicht.lv_position?.[lvZeiger() ?? '']; const id = q?.werte.nachtrag; return (id && sicht.nachtrag?.[String(id)]) || nachtraege().sort((a, b) => String(a.werte.nummer).localeCompare(String(b.werte.nummer), 'de', { numeric: true })).at(-1); };
