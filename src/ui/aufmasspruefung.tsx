@@ -40,9 +40,9 @@ export function Aufmasspruefung(m: Mitte): JSX.Element {
   const vorTitel = () => { const v = vorige(a.rechnungen(), a.r()); return v ? `bis ${RART[String(v.werte.art)] ?? ''} ${String(v.werte.nummer ?? '')}`.trim() : 'bisher'; };
   const spalten = (): BaumSpalte[] => [
     { ...LV_SPALTEN.find((s) => s.id === 'menge')!, titel: 'Menge LV', setzen: undefined }, { ...LV_SPALTEN.find((s) => s.id === 'einheit')!, setzen: undefined },
-    { id: 'ep', titel: 'EP Auftrag', breite: 90, rechts: true, wert: (q) => { const e = a.ep(q); return e == null ? '' : eur(e); } },
-    ...(kum() ? [{ id: 'vor', titel: vorTitel(), breite: 84, rechts: true, hilfe: 'Stand der vorigen geprüften Rechnung', wert: (q: Zeile) => zahlText(a.vor().get(q.id) || null) }] : []),
-    { id: 'firma', titel: 'lt. Firma', breite: 84, rechts: true, hilfe: 'Menge (Stand) laut Rechnung der Firma',
+    { id: 'ep', titel: 'EP Auftrag', aus: true, breite: 80, rechts: true, wert: (q) => { const e = a.ep(q); return e == null ? '' : eur(e); } },
+    ...(kum() ? [{ id: 'vor', titel: vorTitel(), aus: true, breite: 84, rechts: true, hilfe: 'Stand der vorigen geprüften Rechnung', wert: (q: Zeile) => zahlText(a.vor().get(q.id) || null) }] : []),
+    { id: 'firma', titel: 'lt. Firma', breite: 78, rechts: true, hilfe: 'Menge (Stand) laut Rechnung der Firma',
       klasse: (q) => { const f = a.firma().get(q.id)?.werte.menge; if (f == null || f === '') return undefined; return pruefung(zahl(f), a.stand().get(q.id)) === 'stimmt' ? 'gut' : 'warn'; },
       wert: (q) => zahlText(a.firma().get(q.id)?.werte.menge),
       ...(a.r() && darf('rechnungsmenge', 'schreiben') && !a.fest() ? { setzen: (q: Zeile, t: string) => {
@@ -54,14 +54,14 @@ export function Aufmasspruefung(m: Mitte): JSX.Element {
       wert: (q) => { const s = a.stand().get(q.id); const pct = zahl(q.werte.menge) ? Math.round((s ?? 0) / zahl(q.werte.menge) * 100) : null; return s == null ? '' : `${zahlText(s)}${pct != null && pct > 100 ? ` (${pct} %)` : ''}`; },
       klasse: (q) => { const s = a.stand().get(q.id), mg = zahl(q.werte.menge); if (!s || !mg) return undefined; const p = s / mg * 100; return p > 110 ? 'ueber-rot' : p > 100 ? 'ueber-gelb' : undefined; },
       roh: (q) => { const Z = a.eigene(q.id); return Z.length === 1 ? String(Z[0]!.werte.rechenweg ?? '') : zahlText(a.stand().get(q.id)); }, setzen: direkt },
-    ...(kum() ? [{ id: 'zuwachs', titel: 'Zuwachs', breite: 80, rechts: true, hilfe: 'seit der vorigen geprüften Rechnung – eintippen fügt hinzu',
+    ...(kum() ? [{ id: 'zuwachs', titel: 'Zuwachs', aus: true, breite: 80, rechts: true, hilfe: 'seit der vorigen geprüften Rechnung – eintippen fügt hinzu',
       wert: (q: Zeile) => { const d = (a.stand().get(q.id) ?? 0) - (a.vor().get(q.id) ?? 0); return Math.abs(d) < 1e-9 ? '' : `${d > 0 ? '+' : ''}${zahlText(d)}`; },
       roh: () => '+ ', setzen: (q: Zeile, t: string) => direkt(q, t.trim().startsWith('+') ? t : `+ ${t}`) }] : []),
     { id: 'pruef', titel: '', breite: 34, hilfe: '✓ stimmt mit der Firma · ✗ weicht ab · ○ noch nichts aufgemessen', wert: (q) => {
       const f = a.firma().get(q.id)?.werte.menge; if ((f == null || f === '') && a.stand().get(q.id) == null) return '';
       return { stimmt: '✓', abweichend: '✗', offen: '○' }[pruefung(f == null || f === '' ? null : zahl(f), a.stand().get(q.id))]; },
       klasse: (q) => { const f = a.firma().get(q.id)?.werte.menge; const p = pruefung(f == null || f === '' ? null : zahl(f), a.stand().get(q.id)); return `am-${p}`; } },
-    { id: 'gp_gepr', titel: 'GP geprüft', breite: 104, rechts: true, wert: (q) => { const s = a.stand().get(q.id), e = a.ep(q); return s == null || e == null || !zaehlt(q) ? '' : eur(gp(s, e)); },
+    { id: 'gp_gepr', titel: 'GP geprüft', breite: 96, rechts: true, wert: (q) => { const s = a.stand().get(q.id), e = a.ep(q); return s == null || e == null || !zaehlt(q) ? '' : eur(gp(s, e)); },
       summe: (pos) => pos.filter(zaehlt).reduce((x, q) => x + gp(a.stand().get(q.id) ?? 0, a.ep(q) ?? 0), 0) },
   ];
   const summeFirma = (pos: Zeile[]) => pos.filter(zaehlt).reduce((x, q) => { const f = a.firma().get(q.id)?.werte.menge; return x + (f == null || f === '' ? 0 : gp(f, a.ep(q) ?? 0)); }, 0);

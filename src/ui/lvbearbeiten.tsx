@@ -46,6 +46,8 @@ export interface BaumSpalte {
   klasse?: (pos: Zeile) => string | undefined;
   /** frei: nicht in der Spaltenwahl, immer hinten (z. B. je Bieter:in eine Spalte) */
   frei?: boolean;
+  /** ab Werk ausgeblendet (in der Spaltenwahl einschaltbar) – damit die Standardbreite ohne waagerechtes Rollen auskommt */
+  aus?: boolean;
   kopf?: () => JSX.Element;
 }
 /** Eine Zeile unter der Tabelle: links der Titel, je Spalte ein Wert (aus den Positionen des LV). */
@@ -136,7 +138,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   // erste Spalte „Bezeichnung“ gehört dem Baustein; die übrigen bringt die Ansicht mit
   const BEZ: BaumSpalte = { id: 'kurztext', titel: 'Bezeichnung', breite: 380, wert: (q) => String(q.werte.kurztext ?? '') };
   const alleSpalten = () => [BEZ, ...p.spalten()];
-  const spw = spaltenwahl(p.speicher, alleSpalten().filter((x) => !x.frei).map((x) => ({ ...x, name: x.id, inListe: true, fest: x.id === 'kurztext' })));
+  const spw = spaltenwahl(p.speicher, alleSpalten().filter((x) => !x.frei).map((x) => ({ ...x, name: x.id, inListe: !x.aus, fest: x.id === 'kurztext' })));
   // „Bezeichnung“ füllt den Platz, den die übrigen Spalten lassen – kein waagerechtes Rollen in der Standardbreite
   const [platz, setPlatz] = createSignal(0);
   const spalten = () => {

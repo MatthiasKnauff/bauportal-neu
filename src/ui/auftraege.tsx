@@ -45,19 +45,24 @@ export function Auftraege(m: Mitte): JSX.Element {
   // Ein beauftragter Nachtrag ist Vertragsinhalt wie der Hauptauftrag (wie bisher einzeln gesperrt) – erst den Stand zurücksetzen
   const ntBeauftragt = (q: Zeile) => sicht.nachtrag?.[String(q.werte.nachtrag ?? '')]?.werte.stand === 'beauftragt';
   const GESPERRT = 'Der Nachtrag ist beauftragt – Vertragsinhalt. Ändern erst, wenn sein Stand (rechts in der Karte) zurückgesetzt ist.';
+  const abgelehnt = (q: Zeile) => sicht.nachtrag?.[String(q.werte.nachtrag ?? '')]?.werte.stand === 'abgelehnt';
   const nt = (q: Zeile) => !!q.werte.nachtrag && !ntBeauftragt(q) && darf('lv_position', 'schreiben');
   const aendern = (q: Zeile, werte: Record<string, unknown>, titel: string) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: q.id, werte: werte as never }, titel);
   const nurNachtrag = (s: BaumSpalte): BaumSpalte => ({ ...s, setzen: (q, t) => (!q.werte.nachtrag ? 'Positionen des Auftrags sind Vertragsinhalt – Änderungen als Nachtrag.' : ntBeauftragt(q) ? GESPERRT : s.setzen!(q, t)) });
   const spalten = (): BaumSpalte[] => [
     nurNachtrag(LV_SPALTEN.find((s) => s.id === 'menge')!), nurNachtrag(LV_SPALTEN.find((s) => s.id === 'einheit')!), { ...LV_SPALTEN.find((s) => s.id === 'art')!, setzen: undefined },
-    nurNachtrag(LV_SPALTEN.find((s) => s.id === 'kg')!),
+    { ...nurNachtrag(LV_SPALTEN.find((s) => s.id === 'kg')!), aus: true },
     { id: 'ep_auftrag', titel: 'EP Auftrag', breite: 94, rechts: true, hilfe: 'Einheitspreis des Auftrags – bei Nachtragspositionen der Nachtragspreis (hier änderbar)',
       wert: (q) => { const e = epAuftrag(q); return e == null ? '' : eur(e); }, roh: (q) => zahlText(epAuftrag(q)),
       setzen: (q, t) => { if (q.werte.nachtrag && ntBeauftragt(q)) return GESPERRT; if (!nt(q)) return 'Der EP des Auftrags kommt aus dem beauftragten Angebot – Änderungen als Nachtrag.'; const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q, { ep: n }, 'Nachtragspreis'); } },
-    { id: 'ep_schaetz', titel: 'EP Schätz.', breite: 84, rechts: true, wert: (q) => (q.werte.nachtrag || q.werte.ep == null || q.werte.ep === '' ? '' : eur(zahl(q.werte.ep))) },
+    { id: 'ep_schaetz', titel: 'EP Schätz.', aus: true, breite: 84, rechts: true, wert: (q) => (q.werte.nachtrag || q.werte.ep == null || q.werte.ep === '' ? '' : eur(zahl(q.werte.ep))) },
     { id: 'gp_auftrag', titel: 'GP', breite: 98, rechts: true, wert: (q) => { const e = epAuftrag(q); return e == null || !zaehlt(q) ? '' : eur(gp(q.werte.menge, e)); },
       summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gp(q.werte.menge, epAuftrag(q) ?? 0), 0) },
-    { id: 'abgerechnet', titel: 'abgerechnet', breite: 98, rechts: true, hilfe: 'geprüfte Menge (Aufmaß) × EP Auftrag', wert: (q) => { const g = geprueft(q), e = epAuftrag(q); return g == null || e == null || !zaehlt(q) ? '' : eur(gp(g, e)); },
+    // Prognose wie bisher: was voraussichtlich kommt – Auftrag und Nachträge außer abgelehnten (vor Nachlass, je Zeile und als Summe)
+    { id: 'prognose', titel: 'Prognose', breite: 98, rechts: true, hilfe: 'Auftrag und Nachträge (beauftragt und offen), ohne abgelehnte',
+      wert: (q) => { const e = epAuftrag(q); return e == null || !zaehlt(q) || abgelehnt(q) ? '' : eur(gp(q.werte.menge, e)); },
+      summe: (pos) => pos.filter((q) => zaehlt(q) && !abgelehnt(q)).reduce((s, q) => s + gp(q.werte.menge, epAuftrag(q) ?? 0), 0) },
+    { id: 'abgerechnet', titel: 'abgerechnet', aus: true, breite: 98, rechts: true, hilfe: 'geprüfte Menge (Aufmaß) × EP Auftrag', wert: (q) => { const g = geprueft(q), e = epAuftrag(q); return g == null || e == null || !zaehlt(q) ? '' : eur(gp(g, e)); },
       summe: (pos) => pos.filter(zaehlt).reduce((s, q) => { const g = geprueft(q); return s + (g == null ? 0 : gp(g, epAuftrag(q) ?? 0)); }, 0) },
   ];
   const z = createMemo(() => (lv() ? lvZahlen(lv()!.id) : undefined));
