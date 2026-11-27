@@ -1,0 +1,195 @@
+// Aufmaßprüfung je Rechnung (wie im bisherigen Bauportal, Rechnung aus module/ava/aufmass.ts): oben die Rechnungen des Auftrags in
+// ihrer Reihenfolge, darunter der LV-Baum (Baustein in lvbearbeiten.tsx) mit Menge LV · EP Auftrag · „bis …“ (Stand der vorigen
+// geprüften Rechnung) · lt. Firma · aufgemessen (Stand) · Zuwachs · ✓/✗/○ · GP. „aufgemessen“ und „Zuwachs“ sind direkt eintippbar,
+// solange die Position höchstens eine Zeile in dieser Rechnung hat; mehr Zeilen (Datum, Ort, Rechenweg) rechts in der Karte.
+// Prüfung abschließen hält das Aufmaß fest (die laufenden Zeilen bekommen die Rechnung) und trägt den geprüften Leistungsstand ein.
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
+import type { Vorlage, Zeile } from '../kern/befehl';
+import { aktuelleRechnung, beitrag, geprueft as istGeprueft, ketteVon, pruefung, reihe, standAus, vorige, zeileAus, zeilenBis } from '../module/ava/aufmass';
+import { gp, zaehlt, zahl } from '../module/ava/rechnung';
+import { angeboteVon, preiseVon } from './ava';
+import { AufmassEinlesen } from './aufmasseinlesen';
+import { lvVon } from './avakopf';
+import type { Mitte } from './baukasten/anpassung';
+import { LV_SPALTEN, LvBaum, eur, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
+import { ausfuehren, ausfuehrenMehrere, lebende } from './unterbau/abgleich';
+import { darf, neueKennung } from './unterbau/api';
+import { hinweis } from './unterbau/meldungen';
+
+const RART: Record<string, string> = { abschlag: 'AR', schluss: 'SR', nachtrag: 'NT-Rg.', stundenlohn: 'Stundenlohn' };
+const heute = () => new Date().toLocaleDateString('de-DE');
+/** Gewählte Rechnung der Aufmaßprüfung (sonst die offene). */
+const [rechnungWahl, setRechnungWahl] = createSignal<string | null>(null);
+
+/** Alles, was Aufmaßprüfung und Karte gemeinsam brauchen – für ein LV. */
+function aufmassVon(lvId: () => string | undefined) {
+  const rechnungen = createMemo(() => (lvId() ? reihe(lebende('rechnung').filter((r) => r.werte.lv === lvId())) : []));
+  const r = createMemo(() => rechnungen().find((x) => x.id === rechnungWahl()) ?? aktuelleRechnung(rechnungen()));
+  const zeilen = createMemo(() => (lvId() ? lebende('aufmass').filter((a) => a.werte.lv === lvId()) : []));
+  const stand = createMemo(() => standAus(zeilenBis(zeilen(), rechnungen(), r())));
+  const vor = createMemo(() => { const v = vorige(rechnungen(), r()); return v ? standAus(zeilenBis(zeilen(), rechnungen(), v)) : new Map<string, number>(); });
+  const auftrag = createMemo(() => (lvId() ? angeboteVon(lvId()!).find((a) => a.werte.beauftragt === true) : undefined));
+  const preise = createMemo(() => (auftrag() ? preiseVon([auftrag()!]) : new Map<string, Zeile>()));
+  const ep = (q: Zeile): number | null => {
+    if (q.werte.nachtrag) return q.werte.ep != null && q.werte.ep !== '' ? zahl(q.werte.ep) : null;
+    const x = preise().get(`${auftrag()?.id}:${q.id}`); return x && x.werte.ep != null && x.werte.ep !== '' ? zahl(x.werte.ep) : null;
+  };
+  const firma = createMemo(() => new Map(lebende('rechnungsmenge').filter((m) => m.werte.rechnung === r()?.id).map((m) => [String(m.werte.position), m])));
+  const fest = () => !!r() && istGeprueft(r()!);
+  /** Zeilen dieser Rechnung für eine Position (laufend, bei Stundenlohn: ihre eigenen). */
+  const eigene = (pos: string) => zeilen().filter((z) => z.werte.position === pos && (r() && ketteVon(r()!) === null ? z.werte.rechnung === r()!.id : !z.werte.rechnung));
+  return { rechnungen, r, zeilen, stand, vor, ep, firma, fest, eigene, auftrag };
+}
+
+export function Aufmasspruefung(m: Mitte): JSX.Element {
+  const lv = () => lvVon(m);
+  const a = aufmassVon(() => lv()?.id);
+  const schreiben = () => darf('aufmass', 'schreiben') && !a.fest();
+  const kum = () => !a.r() || ketteVon(a.r()!) !== null;
+  const lvId = () => lv()!.id, projekt = () => lv()!.werte.projekt ?? null;
+  /** Stand oder Zuwachs direkt in der Zelle: keine oder genau eine Zeile dieser Rechnung – sie wird angelegt bzw. ersetzt. */
+  const direkt = (q: Zeile, eingabe: string): string | void => {
+    if (!schreiben()) return a.fest() ? 'Diese Rechnung ist geprüft – das Aufmaß steht fest.' : 'Keine Berechtigung.';
+    const Z = a.eigene(q.id);
+    if (Z.length > 1) return 'Diese Position hat mehrere Aufmaßzeilen – rechts in der Karte ändern.';
+    const ohne = (a.stand().get(q.id) ?? 0) - (Z[0] ? beitrag(Z[0]) ?? 0 : 0);
+    if (!eingabe.trim()) { if (Z[0]) ausfuehren({ objekt: 'aufmass', art: 'loeschen', objektId: Z[0].id }, 'Aufmaß entfernen'); return; }
+    const neu = zeileAus(eingabe, ohne); if (!neu) return 'Den Rechenweg verstehe ich nicht – z. B. „4,5*5 + 2*16,25“ (Stand) oder „+ 2*2,5“ (Zuwachs).';
+    const werte = { rechenweg: neu.rechenweg, basis: neu.basis };
+    if (Z[0]) ausfuehren({ objekt: 'aufmass', art: 'aendern', objektId: Z[0].id, werte }, 'Aufmaß');
+    else ausfuehren({ objekt: 'aufmass', art: 'anlegen', objektId: neueKennung(), werte: { projekt: projekt(), lv: lvId(), position: q.id, rechnung: a.r() && ketteVon(a.r()!) === null ? a.r()!.id : null, datum: heute(), quelle: 'eigen', ...werte } }, 'Aufmaß');
+  };
+  const vorTitel = () => { const v = vorige(a.rechnungen(), a.r()); return v ? `bis ${RART[String(v.werte.art)] ?? ''} ${String(v.werte.nummer ?? '')}`.trim() : 'bisher'; };
+  const spalten = (): BaumSpalte[] => [
+    { ...LV_SPALTEN.find((s) => s.id === 'menge')!, titel: 'Menge LV', setzen: undefined }, { ...LV_SPALTEN.find((s) => s.id === 'einheit')!, setzen: undefined },
+    { id: 'ep', titel: 'EP Auftrag', breite: 90, rechts: true, wert: (q) => { const e = a.ep(q); return e == null ? '' : eur(e); } },
+    ...(kum() ? [{ id: 'vor', titel: vorTitel(), breite: 84, rechts: true, hilfe: 'Stand der vorigen geprüften Rechnung', wert: (q: Zeile) => zahlText(a.vor().get(q.id) || null) }] : []),
+    { id: 'firma', titel: 'lt. Firma', breite: 84, rechts: true, hilfe: 'Menge (Stand) laut Rechnung der Firma',
+      klasse: (q) => { const f = a.firma().get(q.id)?.werte.menge; if (f == null || f === '') return undefined; return pruefung(zahl(f), a.stand().get(q.id)) === 'stimmt' ? 'gut' : 'warn'; },
+      wert: (q) => zahlText(a.firma().get(q.id)?.werte.menge),
+      ...(a.r() && darf('rechnungsmenge', 'schreiben') && !a.fest() ? { setzen: (q: Zeile, t: string) => {
+        const n = zahlAus(t); if (typeof n === 'string') return n; const alt = a.firma().get(q.id);
+        if (alt) ausfuehren(n == null ? { objekt: 'rechnungsmenge', art: 'loeschen', objektId: alt.id } : { objekt: 'rechnungsmenge', art: 'aendern', objektId: alt.id, werte: { menge: n } }, 'Menge laut Firma');
+        else if (n != null) ausfuehren({ objekt: 'rechnungsmenge', art: 'anlegen', objektId: neueKennung(), werte: { projekt: projekt(), rechnung: a.r()!.id, position: q.id, menge: n } }, 'Menge laut Firma');
+      } } : {}) },
+    { id: 'stand', titel: kum() ? 'aufgemessen' : 'Aufmaß', breite: 92, rechts: true, hilfe: 'Stand bis einschließlich dieser Rechnung – eintippen: Rechenweg (z. B. 4,5*5 + 2*16,25), mit „+“ davor ein Zuwachs',
+      wert: (q) => { const s = a.stand().get(q.id); const pct = zahl(q.werte.menge) ? Math.round((s ?? 0) / zahl(q.werte.menge) * 100) : null; return s == null ? '' : `${zahlText(s)}${pct != null && pct > 100 ? ` (${pct} %)` : ''}`; },
+      klasse: (q) => { const s = a.stand().get(q.id), mg = zahl(q.werte.menge); if (!s || !mg) return undefined; const p = s / mg * 100; return p > 110 ? 'ueber-rot' : p > 100 ? 'ueber-gelb' : undefined; },
+      roh: (q) => { const Z = a.eigene(q.id); return Z.length === 1 ? String(Z[0]!.werte.rechenweg ?? '') : zahlText(a.stand().get(q.id)); }, setzen: direkt },
+    ...(kum() ? [{ id: 'zuwachs', titel: 'Zuwachs', breite: 80, rechts: true, hilfe: 'seit der vorigen geprüften Rechnung – eintippen fügt hinzu',
+      wert: (q: Zeile) => { const d = (a.stand().get(q.id) ?? 0) - (a.vor().get(q.id) ?? 0); return Math.abs(d) < 1e-9 ? '' : `${d > 0 ? '+' : ''}${zahlText(d)}`; },
+      roh: () => '+ ', setzen: (q: Zeile, t: string) => direkt(q, t.trim().startsWith('+') ? t : `+ ${t}`) }] : []),
+    { id: 'pruef', titel: '', breite: 34, hilfe: '✓ stimmt mit der Firma · ✗ weicht ab · ○ noch nichts aufgemessen', wert: (q) => {
+      const f = a.firma().get(q.id)?.werte.menge; if ((f == null || f === '') && a.stand().get(q.id) == null) return '';
+      return { stimmt: '✓', abweichend: '✗', offen: '○' }[pruefung(f == null || f === '' ? null : zahl(f), a.stand().get(q.id))]; },
+      klasse: (q) => { const f = a.firma().get(q.id)?.werte.menge; const p = pruefung(f == null || f === '' ? null : zahl(f), a.stand().get(q.id)); return `am-${p}`; } },
+    { id: 'gp_gepr', titel: 'GP geprüft', breite: 104, rechts: true, wert: (q) => { const s = a.stand().get(q.id), e = a.ep(q); return s == null || e == null || !zaehlt(q) ? '' : eur(gp(s, e)); },
+      summe: (pos) => pos.filter(zaehlt).reduce((x, q) => x + gp(a.stand().get(q.id) ?? 0, a.ep(q) ?? 0), 0) },
+  ];
+  const summeFirma = (pos: Zeile[]) => pos.filter(zaehlt).reduce((x, q) => { const f = a.firma().get(q.id)?.werte.menge; return x + (f == null || f === '' ? 0 : gp(f, a.ep(q) ?? 0)); }, 0);
+  const fuss = (): FussZeile[] => [
+    { titel: 'Leistungsstand netto geprüft', wert: (s, pos) => (s.id === 'gp_gepr' ? eur(s.summe!(pos) ?? 0) : '') },
+    { titel: 'Leistungsstand netto laut Firma (Menge Firma × EP Auftrag)', wert: (s, pos) => (s.id === 'gp_gepr' ? eur(summeFirma(pos)) : '') },
+  ];
+  // ---------- Befehle ----------
+  const uebernehmen = () => {
+    const pos = lebende('lv_position').filter((q) => q.werte.lv === lvId() && q.werte.art !== 'titel' && q.werte.art !== 'hinweis');
+    const b: Vorlage[] = [];
+    for (const q of pos) {
+      const f = a.firma().get(q.id)?.werte.menge; if (f == null || f === '') continue;
+      const d = Math.round((zahl(f) - (a.stand().get(q.id) ?? 0)) * 10000) / 10000; if (d <= 0) continue;
+      b.push({ objekt: 'aufmass', art: 'anlegen', objektId: neueKennung(), werte: { projekt: projekt(), lv: lvId(), position: q.id, rechnung: a.r() && ketteVon(a.r()!) === null ? a.r()!.id : null, datum: heute(), ort: 'lt. Firma', rechenweg: `+ ${zahlText(d)}`, quelle: 'firma' } });
+    }
+    if (!b.length) { hinweis('Nirgends fordert die Firma mehr als aufgemessen.'); return; }
+    ausfuehrenMehrere(b, 'Mengen der Firma übernommen'); hinweis(`${b.length} ${b.length === 1 ? 'Position' : 'Positionen'}: Mehrmenge der Firma als Zeile „lt. Firma“ eingetragen – rückgängig mit Strg+Z.`);
+  };
+  const leistung = () => lebende('lv_position').filter((q) => q.werte.lv === lvId() && zaehlt(q)).reduce((x, q) => x + gp(a.stand().get(q.id) ?? 0, a.ep(q) ?? 0), 0);
+  const abschliessen = () => {
+    const r = a.r(); if (!r) return;
+    const laufend = ketteVon(r) === null ? [] : a.zeilen().filter((z) => !z.werte.rechnung);
+    ausfuehrenMehrere([...laufend.map((z) => ({ objekt: 'aufmass', art: 'aendern' as const, objektId: z.id, werte: { rechnung: r.id } })),
+      { objekt: 'rechnung', art: 'aendern', objektId: r.id, werte: { status: 'geprueft', geprueft: Math.round(leistung() * 100) / 100 } }], `Prüfung ${String(r.werte.nummer ?? '')} abgeschlossen`);
+    hinweis(`Geprüft: Leistungsstand netto ${eur(leistung())} € – das Aufmaß steht fest. Zahlbetrag und Freigabe unter „Rechnungen“.`);
+  };
+  /** Zurücknehmen nur bei der letzten geprüften Rechnung ihrer Kette (spätere bauen sonst darauf auf). */
+  const zuruecknehmbar = () => { const r = a.r(); if (!r || !istGeprueft(r)) return false; const k = ketteVon(r), R = a.rechnungen(); return !R.slice(R.findIndex((x) => x.id === r.id) + 1).some((x) => ketteVon(x) === k && istGeprueft(x)); };
+  const zuruecknehmen = () => {
+    const r = a.r(); if (!r) return;
+    const fest = ketteVon(r) === null ? [] : a.zeilen().filter((z) => z.werte.rechnung === r.id);
+    ausfuehrenMehrere([...fest.map((z) => ({ objekt: 'aufmass', art: 'aendern' as const, objektId: z.id, werte: { rechnung: null } })),
+      { objekt: 'rechnung', art: 'aendern', objektId: r.id, werte: { status: 'offen' } }], `Prüfung ${String(r.werte.nummer ?? '')} zurückgenommen`);
+  };
+  const knoepfe = () => [
+    ...(a.r() && darf('rechnung', 'schreiben') ? [a.fest() ? { titel: 'Prüfung zurücknehmen', zeichen: 'zurueck', gruppe: 'Prüfen', gesperrt: !zuruecknehmbar(), tun: zuruecknehmen }
+      : { titel: 'Prüfung abschließen', zeichen: 'haken', gruppe: 'Prüfen', tun: abschliessen }] : []),
+    ...(a.r() && schreiben() ? [{ titel: 'Mengen der Firma', zeichen: 'datei_runter', gruppe: 'Übernehmen', tun: uebernehmen }] : []),
+  ];
+  const positionen = () => lebende('lv_position').filter((q) => q.werte.lv === lv()?.id);
+  return (
+    <LvBaum m={m} spalten={spalten} speicher={`bp_spalten_aufmass_${kum() ? 'k' : 'e'}`} mitNachtraegen ohneHinweise knoepfe={knoepfe} fuss={fuss()}
+      oben={() => (<>
+        <div class="am-leiste" role="tablist" aria-label="Rechnungen">
+          <For each={a.rechnungen()} fallback={<span class="still-text">Noch keine Rechnung – unter „Rechnungen“ anlegen. Das Aufmaß lässt sich schon „laufend“ erfassen.</span>}>{(r, i) => (
+            <button type="button" role="tab" class="am-rechnung" classList={{ an: a.r()?.id === r.id, fest: istGeprueft(r), einzeln: ketteVon(r) === null }} aria-selected={a.r()?.id === r.id} onClick={() => setRechnungWahl(r.id)}>
+              <b>{i() + 1}. {RART[String(r.werte.art)] ?? ''} {String(r.werte.nummer ?? '')}</b><small>{istGeprueft(r) ? '🔒 geprüft' : 'offen'}</small></button>)}</For>
+          <Show when={a.r() && lv()}><span class="am-einlesen"><AufmassEinlesen lv={lv()!} rechnung={a.r()!} positionen={positionen()} mengen={a.firma()} /></span></Show>
+        </div>
+        <Show when={a.fest()}><p class="hinweis-kasten lvt-hinweis-oben">🔒 {String(a.r()!.werte.nummer ?? 'Diese Rechnung')} ist geprüft – das Aufmaß steht fest. Ändern erst nach „Prüfung zurücknehmen“ (nur bei der letzten).</p></Show>
+        <Show when={!a.auftrag()}><p class="hinweis-kasten lvt-hinweis-oben">Dieses LV ist noch nicht vergeben – ohne Auftrag gibt es keine EP für den Leistungsstand.</p></Show>
+      </>)} />
+  );
+}
+
+/** Rechts in der Aufmaßprüfung: die Rechenzeilen der markierten Position – Datum, Ort, Rechenweg – mit Stand und Anteil an der LV-Menge. */
+export function AufmassKarte(p: { position: Zeile; heftzwecke: JSX.Element }): JSX.Element {
+  const a = aufmassVon(() => String(p.position.werte.lv));
+  const q = () => p.position;
+  const alle = createMemo(() => a.zeilen().filter((z) => z.werte.position === q().id).sort((x, y) => String(x.werte.datum ?? '').localeCompare(String(y.werte.datum ?? ''))));
+  const schreiben = () => darf('aufmass', 'schreiben') && !a.fest();
+  const stand = () => a.stand().get(q().id) ?? 0, menge = () => zahl(q().werte.menge), pct = () => (menge() ? Math.round(stand() / menge() * 100) : null);
+  const R = (id: unknown) => a.rechnungen().find((r) => r.id === id);
+  const aendern = (z: Zeile, werte: Record<string, unknown>, titel: string) => ausfuehren({ objekt: 'aufmass', art: 'aendern', objektId: z.id, werte: werte as never }, titel);
+  const rechenwegAendern = (z: Zeile, t: string) => {
+    const ohne = stand() - (beitrag(z) ?? 0), neu = zeileAus(t, ohne);
+    if (!neu) { hinweis('Den Rechenweg verstehe ich nicht – z. B. „4,5*5 + 2*16,25“ (Stand) oder „+ 2*2,5“ (Zuwachs).', { art: 'fehler' }); return; }
+    aendern(z, { rechenweg: neu.rechenweg, basis: neu.basis }, 'Rechenweg');
+  };
+  const [neu, setNeu] = createSignal('');
+  const dazu = () => {
+    const t = neu().trim(); if (!t) return;
+    const z = zeileAus(t, stand()); if (!z) { hinweis('Den Rechenweg verstehe ich nicht.', { art: 'fehler' }); return; }
+    ausfuehren({ objekt: 'aufmass', art: 'anlegen', objektId: neueKennung(), werte: { projekt: q().werte.projekt ?? null, lv: q().werte.lv ?? null, position: q().id, rechnung: a.r() && ketteVon(a.r()!) === null ? a.r()!.id : null, datum: heute(), quelle: 'eigen', rechenweg: z.rechenweg, basis: z.basis } }, 'Aufmaßzeile');
+    setNeu('');
+  };
+  return (
+    <div class="karte am-karte">
+      <div class="karte-kopf"><h2>{String(q().werte.oz ?? '')} {String(q().werte.kurztext ?? '')}</h2>{p.heftzwecke}</div>
+      <p class="still-text">LV-Menge {zahlText(menge())} {String(q().werte.einheit ?? '')} · aufgemessen <b>{zahlText(stand())} {String(q().werte.einheit ?? '')}</b>{pct() != null ? ` (${pct()} %)` : ''}
+        {a.ep(q()) != null ? ` · ${eur(gp(stand(), a.ep(q())))} € zum EP ${eur(a.ep(q())!)}` : ''}</p>
+      <Show when={pct() != null && pct()! > 100}><div class="am-balken" classList={{ rot: pct()! > 110 }} title={pct()! > 110 ? 'über 10 % mehr als im LV: neuer Preis kann verlangt werden (VOB/B § 2 Abs. 3)' : 'mehr als im LV'}><i style={{ width: `${Math.min(100, pct()! - 100) }%` }} /></div></Show>
+      <table class="am-zeilen">
+        <thead><tr><th>Datum</th><th>Ort / Bauteil</th><th>Rechenweg</th><th class="zahl">Menge</th><th /></tr></thead>
+        <tbody>
+          <For each={alle()} fallback={<tr><td colSpan={5} class="still-text">Noch kein Aufmaß für diese Position.</td></tr>}>{(z) => {
+            const rz = () => R(z.werte.rechnung);
+            const frei = () => schreiben() && (!z.werte.rechnung || (!!rz() && ketteVon(rz()!) === null && !istGeprueft(rz()!)));
+            return (
+              <tr classList={{ fest: !!rz() && istGeprueft(rz()!) }}>
+                <td><input value={String(z.werte.datum ?? '')} disabled={!frei()} aria-label="Datum" onChange={(e) => aendern(z, { datum: e.currentTarget.value }, 'Datum')} /></td>
+                <td><input value={String(z.werte.ort ?? '')} disabled={!frei()} aria-label="Ort" onChange={(e) => aendern(z, { ort: e.currentTarget.value }, 'Ort')} /></td>
+                <td><input value={String(z.werte.rechenweg ?? '')} disabled={!frei()} aria-label="Rechenweg" onChange={(e) => rechenwegAendern(z, e.currentTarget.value)} /></td>
+                <td class="zahl">{beitrag(z) == null ? '?' : `${(beitrag(z) ?? 0) >= 0 ? '+' : ''}${zahlText(beitrag(z))}`}<Show when={z.werte.rechnung}><br /><small class="still-text">{String(R(z.werte.rechnung)?.werte.nummer ?? '')}</small></Show></td>
+                <td><Show when={frei()}><button type="button" class="knopf klein still" aria-label="Zeile löschen" onClick={() => ausfuehren({ objekt: 'aufmass', art: 'loeschen', objektId: z.id }, 'Aufmaßzeile löschen')}>✕</button></Show></td>
+              </tr>);
+          }}</For>
+        </tbody>
+      </table>
+      <Show when={schreiben()}>
+        <div class="am-neu"><input value={neu()} placeholder="Stand (z. B. 4,5*5 + 2*16,25) oder + Zuwachs" aria-label="Neue Aufmaßzeile" onInput={(e) => setNeu(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); dazu(); } }} />
+          <button type="button" class="knopf" onClick={dazu}>Hinzufügen</button></div>
+        <p class="still-text klein-text">Ohne Zeichen getippt ist es der Stand bis einschließlich dieser Rechnung, mit „+“ davor ein Zuwachs. Text vor einem Doppelpunkt ist Beschriftung („Wand Nord: 2,5*3“).</p>
+      </Show>
+    </div>
+  );
+}
+

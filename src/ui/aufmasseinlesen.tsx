@@ -1,5 +1,5 @@
 // Aufmaß der Firma einlesen (Excel/CSV): Datei wählen → Vorschau je Position (bisher → neu, abwählbar) → „Übernehmen“
-// schreibt „Menge laut Firma“, ein Rückgängig für alles. Gelesen wird im Gerät – die Datei geht nirgends hin.
+// schreibt „Menge laut Firma“ zur Rechnung, ein Rückgängig für alles. Gelesen wird im Gerät – die Datei geht nirgends hin.
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { tabelleLesen } from '../kern/tabellendatei';
 import type { Vorlage, Zeile } from '../kern/befehl';
@@ -11,7 +11,8 @@ import { hinweis } from './unterbau/meldungen';
 
 const zahlText = (n: unknown) => (n == null || n === '' ? '' : Number(n).toLocaleString('de-DE', { maximumFractionDigits: 3 }));
 
-export function AufmassEinlesen(p: { lv: Zeile; positionen: Zeile[]; aufmasse: Map<string, Zeile> }) {
+/** mengen: die Mengen laut Firma der Rechnung je Position (Einträge „rechnungsmenge“). */
+export function AufmassEinlesen(p: { lv: Zeile; rechnung: Zeile; positionen: Zeile[]; mengen: Map<string, Zeile> }) {
   const [offen, setOffen] = createSignal<{ name: string; l: AufmassLesung } | null>(null);
   const waehlen = () => {
     const wahl = document.createElement('input');
@@ -33,9 +34,9 @@ export function AufmassEinlesen(p: { lv: Zeile; positionen: Zeile[]; aufmasse: M
   );
 }
 
-function Fenster(p: { name: string; l: AufmassLesung; lv: Zeile; positionen: Zeile[]; aufmasse: Map<string, Zeile>; zu: () => void }) {
+function Fenster(p: { name: string; l: AufmassLesung; lv: Zeile; rechnung: Zeile; positionen: Zeile[]; mengen: Map<string, Zeile>; zu: () => void }) {
   const [aus, setAus] = createSignal<Set<string>>(new Set());
-  const befehle = createMemo(() => mengenBefehle(p.l.treffer.filter((t) => !aus().has(t.position)), p.lv, p.aufmasse));
+  const befehle = createMemo(() => mengenBefehle(p.l.treffer.filter((t) => !aus().has(t.position)), p.lv, p.rechnung.id, p.mengen));
   const uebernehmen = () => {
     if (befehle().length) ausfuehrenMehrere(befehle(), `Aufmaß ${p.name} eingelesen`);
     hinweis(`${befehle().length} ${befehle().length === 1 ? 'Menge' : 'Mengen'} übernommen – ein Rückgängig nimmt alles zurück.`);
@@ -47,25 +48,25 @@ function Fenster(p: { name: string; l: AufmassLesung; lv: Zeile; positionen: Zei
         <button class="knopf haupt" disabled={!befehle().length} onClick={uebernehmen}>Übernehmen ({befehle().length})</button></>}>
       <div class="einlesen">
         <p class="still-text">Gelesen: Spalte „{p.l.ozSpalte}“ als Ordnungszahl, „{p.l.mengeSpalte}“ als Menge. Mehrere Zeilen einer Position werden addiert.</p>
-        <MengenTabelle treffer={p.l.treffer} fremd={p.l.fremd} positionen={p.positionen} aufmasse={p.aufmasse} aus={aus()} setAus={setAus} />
+        <MengenTabelle treffer={p.l.treffer} fremd={p.l.fremd} positionen={p.positionen} mengen={p.mengen} aus={aus()} setAus={setAus} />
       </div>
     </Dialog>
   );
 }
 
-/** Befehle für „Menge laut Firma“: nur, wo sich etwas ändert; ohne Aufmaß-Eintrag wird einer angelegt. */
-export function mengenBefehle(treffer: AufmassTreffer[], lv: Zeile, aufmasse: Map<string, Zeile>): Vorlage[] {
-  return treffer.filter((t) => aufmasse.get(t.position)?.werte.menge_firma !== t.menge).map((t): Vorlage => {
-    const a = aufmasse.get(t.position);
-    return a ? { objekt: 'aufmass', art: 'aendern', objektId: a.id, werte: { menge_firma: t.menge } }
-      : { objekt: 'aufmass', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv.werte.projekt ?? null, lv: lv.id, position: t.position, menge_firma: t.menge } };
+/** Befehle für „Menge laut Firma“ einer Rechnung: nur, wo sich etwas ändert; fehlt der Eintrag, wird er angelegt. */
+export function mengenBefehle(treffer: AufmassTreffer[], lv: Zeile, rechnung: string, mengen: Map<string, Zeile>): Vorlage[] {
+  return treffer.filter((t) => mengen.get(t.position)?.werte.menge !== t.menge).map((t): Vorlage => {
+    const a = mengen.get(t.position);
+    return a ? { objekt: 'rechnungsmenge', art: 'aendern', objektId: a.id, werte: { menge: t.menge } }
+      : { objekt: 'rechnungsmenge', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv.werte.projekt ?? null, rechnung, position: t.position, menge: t.menge } };
   });
 }
 
 /** Vorschau je Position: bisher → neu, abwählbar; dazu die OZ ohne passende Position. */
-export function MengenTabelle(p: { treffer: AufmassTreffer[]; fremd: string[]; positionen: Zeile[]; aufmasse: Map<string, Zeile>; aus: Set<string>; setAus: (s: Set<string>) => void }) {
+export function MengenTabelle(p: { treffer: AufmassTreffer[]; fremd: string[]; positionen: Zeile[]; mengen: Map<string, Zeile>; aus: Set<string>; setAus: (s: Set<string>) => void }) {
   const kurz = (id: string) => String(p.positionen.find((q) => q.id === id)?.werte.kurztext ?? '');
-  const bisher = (id: string) => p.aufmasse.get(id)?.werte.menge_firma;
+  const bisher = (id: string) => p.mengen.get(id)?.werte.menge;
   return (
     <>
       <Show when={p.treffer.length} fallback={<p class="feld-fehler">Keine Ordnungszahl der Datei passt zu einer Position dieses LV.</p>}>

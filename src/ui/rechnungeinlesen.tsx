@@ -49,15 +49,15 @@ function Fenster(p: { name: string; projekt: string; r: ERechnung }) {
   const [aus, setAus] = createSignal<Set<string>>(new Set());
   const lvZeile = () => sicht.lv?.[lv()];
   const positionen = createMemo(() => (lv() ? nachOz(lebende('lv_position').filter((q) => q.werte.lv === lv())) : []));
-  const aufmasse = createMemo(() => new Map(lebende('aufmass').filter((a) => a.werte.lv === lv()).map((a) => [String(a.werte.position), a] as [string, Zeile])));
   const mengen = createMemo(() => mengenZuordnen(r.zeilen.filter((z) => z.oz).map((z) => ({ oz: z.oz, menge: z.menge })), positionen()));
   const doppelt = createMemo(() => lebende('rechnung').some((x) => x.werte.projekt === p.projekt && String(x.werte.nummer ?? '') === r.nummer && (!firma() || x.werte.firma === firma())));
   const eur = (n: number | null) => (n == null ? '–' : `${n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
   const einlesen = () => {
-    const befehle: Vorlage[] = [{ objekt: 'rechnung', art: 'anlegen', objektId: neueKennung(), werte: {
+    const rid = neueKennung();
+    const befehle: Vorlage[] = [{ objekt: 'rechnung', art: 'anlegen', objektId: rid, werte: {
       projekt: p.projekt, lv: lv() || null, firma: firma() || null, art: art(), nummer: r.nummer || null, datum: r.datum || null,
       eingang: new Date().toISOString().slice(0, 10), betrag: r.netto, status: 'offen' } }];
-    const m = lvZeile() ? mengenBefehle(mengen().treffer.filter((t) => !aus().has(t.position)), lvZeile()!, aufmasse()) : [];
+    const m = lvZeile() ? mengenBefehle(mengen().treffer.filter((t) => !aus().has(t.position)), lvZeile()!, rid, new Map()) : [];
     ausfuehrenMehrere([...befehle, ...m], `Rechnung ${r.nummer} eingelesen`);
     hinweis(`Rechnung ${r.nummer} angelegt${m.length ? `, ${m.length} ${m.length === 1 ? 'Menge' : 'Mengen'} ins Aufmaß` : ''} – ein Rückgängig nimmt alles zurück.`);
     setOffen(null);
@@ -86,7 +86,7 @@ function Fenster(p: { name: string; projekt: string; r: ERechnung }) {
         <Show when={doppelt()}><p class="feld-fehler">Die Rechnung {r.nummer} ist schon eingelesen.</p></Show>
         <Show when={lv() && r.zeilen.some((z) => z.oz)}>
           <h3>Mengen ins Aufmaß („Menge laut Firma“)</h3>
-          <MengenTabelle treffer={mengen().treffer} fremd={mengen().fremd} positionen={positionen()} aufmasse={aufmasse()} aus={aus()} setAus={setAus} />
+          <MengenTabelle treffer={mengen().treffer} fremd={mengen().fremd} positionen={positionen()} mengen={new Map()} aus={aus()} setAus={setAus} />
         </Show>
       </div>
     </Dialog>

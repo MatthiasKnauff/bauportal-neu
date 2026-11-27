@@ -1,11 +1,10 @@
 // Ausschreibung in der Oberfläche: Summen in den Karten (LV, Position) und der Preisspiegel – Positionen mit den Preisen
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
-import { AufmassEinlesen } from './aufmasseinlesen';
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis, strafeVorschlag, type Pruefstand } from '../module/ava/rechnung';
 import type { Werte } from '../kern/modell';
-import { rechenweg } from '../kern/rechenweg';
+import { standAus, zeilenBis } from '../module/ava/aufmass';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
 import { gaebSchreiben, type GaebPosten } from '../module/ava/gaeb';
 import { gaebEinlesen } from './uebernahme';
@@ -45,8 +44,8 @@ export function lvZahlen(lvId: string): LvZahlen {
   const letzte = rechnungen.at(-1);
   // Leistungsstand: geprüfte Mengen (Aufmaß) × EP des Auftrags (Nachtragspositionen: ihr eigener EP), nach Nachlass
   const preisAuftrag = (q: Zeile) => (q.werte.nachtrag ? zahl(q.werte.ep) : auftrag && pr.has(`${auftrag.id}:${q.id}`) ? zahl(pr.get(`${auftrag.id}:${q.id}`)!.werte.ep) : 0);
-  const aufmass = new Map(lebende('aufmass').filter((a) => a.werte.lv === lvId).map((a) => [String(a.werte.position), a]));
-  const leistung = auftrag ? allePositionenVon(lvId).filter(zaehlt).reduce((s, q) => { const g = rechenweg(aufmass.get(q.id)?.werte.rechenweg).summe; return s + (g == null ? 0 : gp(g, preisAuftrag(q))); }, 0) * (1 - nachlass / 100) : 0;
+  const stand = standAus(zeilenBis(lebende('aufmass').filter((a) => a.werte.lv === lvId), rechnungen, null));
+  const leistung = auftrag ? allePositionenVon(lvId).filter(zaehlt).reduce((s, q) => s + gp(stand.get(q.id) ?? 0, preisAuftrag(q)), 0) * (1 - nachlass / 100) : 0;
   return {
     leistung: Math.round(leistung * 100) / 100,
     schaetzung: summeGeschaetzt(pos), bestes: erster?.nachLass ?? null, besterBieter: name(ang.find((a) => a.id === erster?.angebot)?.werte.bieter),
@@ -158,103 +157,6 @@ export function RechnungLeiter(p: { rechnung: Zeile }): JSX.Element {
   );
 }
 
-/** Aufmaßprüfung (wie im bisherigen Bauportal): je Position Menge laut Firma ↔ eigener Rechenweg, mal EP des Auftrags. */
-export function Aufmasspruefung(p: Mitte): JSX.Element {
-  const lv = () => lvVon(p);
-  const pos = createMemo(() => (lv() ? allePositionenVon(lv()!.id) : []));
-  const auftrag = createMemo(() => (lv() ? angeboteVon(lv()!.id).find((a) => a.werte.beauftragt === true) : undefined));
-  const preise = createMemo(() => (auftrag() ? preiseVon([auftrag()!]) : new Map<string, Zeile>()));
-  // EP des Auftrags: bei Positionen der Ausschreibung der Preis aus dem beauftragten Angebot, bei Nachtragspositionen ihr eigener EP
-  const epAuftrag = (q: Zeile): number | null => {
-    if (q.werte.nachtrag) return q.werte.ep != null && q.werte.ep !== '' ? zahl(q.werte.ep) : null;
-    const x = preise().get(`${auftrag()?.id}:${q.id}`); return x && x.werte.ep != null && x.werte.ep !== '' ? zahl(x.werte.ep) : null;
-  };
-  const aufmasse = createMemo(() => new Map(lebende('aufmass').filter((a) => a.werte.lv === lv()?.id).map((a) => [String(a.werte.position), a])));
-  const schreiben = () => darf('aufmass', 'schreiben');
-  const setzen = (q: Zeile, werte: Werte, titel: string) => {
-    const alt = aufmasse().get(q.id);
-    if (alt) { if (Object.entries(werte).some(([k, v]) => (alt.werte[k] ?? null) !== v)) ausfuehren({ objekt: 'aufmass', art: 'aendern', objektId: alt.id, werte }, titel); }
-    else if (Object.values(werte).some((v) => v != null && v !== '')) ausfuehren({ objekt: 'aufmass', art: 'anlegen', objektId: neueKennung(), werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, position: q.id, ...werte } }, titel);
-  };
-  const naechste = (el: HTMLInputElement | HTMLTextAreaElement) => {
-    const td = el.closest('td')!, i = [...td.parentElement!.children].indexOf(td);
-    let tr = td.parentElement!.nextElementSibling;
-    while (tr && !tr.children[i]?.querySelector('input, textarea')) tr = tr.nextElementSibling;
-    (tr?.children[i]?.querySelector('input, textarea') as HTMLElement | null)?.focus() ?? el.blur();
-  };
-  const geprueft = (q: Zeile) => rechenweg(aufmasse().get(q.id)?.werte.rechenweg);
-  const summe = createMemo(() => {
-    let firma = 0, pruef = 0, offen = 0;
-    for (const q of pos()) {
-      if (!zaehlt(q)) continue;
-      const a = aufmasse().get(q.id), ep = epAuftrag(q) ?? 0, g = rechenweg(a?.werte.rechenweg).summe;
-      firma += gp(a?.werte.menge_firma, ep); pruef += g == null ? 0 : gp(g, ep);
-      if (a?.werte.menge_firma != null && a.werte.menge_firma !== '' && g == null) offen++;
-    }
-    const r2 = (x: number) => Math.round(x * 100) / 100;
-    return { firma: r2(firma), pruef: r2(pruef), offen };
-  });
-  const ZEICHEN: Record<Pruefstand, string> = { stimmt: '✓', abweichend: '✗', offen: '○' };
-  const TITEL: Record<Pruefstand, string> = { stimmt: 'stimmt', abweichend: 'weicht ab', offen: 'noch offen' };
-  return (
-    <div class="preisspiegel-flaeche">
-      <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – unter „Leistungsverzeichnisse“ anlegen.</p>}>
-        <div class="ps-kopf">
-          <h2>Aufmaß · {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' · ')}</h2>
-          <span class="still-text">{auftrag() ? `Auftrag: ${name(auftrag()!.werte.bieter)}` : 'noch nicht vergeben – Beträge erst mit Auftrag'}</span>
-          <Show when={schreiben() && pos().length}><AufmassEinlesen lv={lv()!} positionen={pos()} aufmasse={aufmasse()} /></Show>
-        </div>
-        <Show when={pos().length} fallback={<p class="still-text">Dieses LV hat noch keine Positionen.</p>}>
-          <div class="ps-rollen">
-            <table class="preisspiegel aufmass">
-              <thead><tr><th>OZ</th><th>Kurztext</th><th class="zahl">Menge LV</th><th>Einh.</th><th class="zahl">EP Auftrag</th>
-                <th class="zahl">Menge Firma</th><th class="am-weg">Rechenweg</th><th class="zahl">geprüft</th><th class="am-stand" /><th class="zahl">GP geprüft</th></tr></thead>
-              <tbody>
-                <For each={pos()}>{(q) => (
-                  <Show when={zaehlt(q)} fallback={<tr class={q.werte.art === 'titel' ? 'ps-titel' : 'ps-ohne'}><td>{String(q.werte.oz ?? '')}</td><td colSpan={9}>{String(q.werte.kurztext ?? '')}</td></tr>}>
-                    {(() => {
-                      // je Zeile eigene Memos: die Eingabefelder hängen nur an ihrem Aufmaß (sonst löscht Solid beim Tippen den Wert)
-                      const a = createMemo(() => aufmasse().get(q.id));
-                      const firma = createMemo(() => a()?.werte.menge_firma as number | null | undefined);
-                      const weg = createMemo(() => String(a()?.werte.rechenweg ?? ''));
-                      const r = createMemo(() => geprueft(q));
-                      const stand = () => pruefstand(firma(), r().summe);
-                      return (
-                        <tr>
-                          <td>{String(q.werte.oz ?? '')}</td><td class="ps-text" title={String(q.werte.langtext ?? '')}>{String(q.werte.kurztext ?? '')}</td>
-                          <td class="zahl">{q.werte.menge != null ? String(q.werte.menge).replace('.', ',') : ''}</td><td>{String(q.werte.einheit ?? '')}</td>
-                          <td class="zahl">{epAuftrag(q) != null ? eur(epAuftrag(q)!) : '–'}</td>
-                          <td class="zahl ps-ep"><Show when={schreiben()} fallback={firma() != null ? String(firma()).replace('.', ',') : ''}>
-                            <input inputmode="decimal" aria-label={`Menge Firma ${String(q.werte.oz ?? '')}`} value={firma() != null ? String(firma()).replace('.', ',') : ''} onFocus={(e) => e.currentTarget.select()}
-                              onChange={(e) => setzen(q, { menge_firma: e.currentTarget.value.trim() === '' ? null : zahl(e.currentTarget.value) }, 'Menge laut Firma')}
-                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); naechste(e.currentTarget); } }} /></Show></td>
-                          <td class="am-weg"><Show when={schreiben()} fallback={weg()}>
-                            <textarea rows={Math.max(1, weg().split('\n').length)} aria-label={`Rechenweg ${String(q.werte.oz ?? '')}`} value={weg()} classList={{ fehler: r().fehler }}
-                              title={r().fehler ? 'Nicht lesbar: ' + r().zeilen.filter((z) => z.wert == null).map((z) => z.text).join(' · ') : 'Je Zeile ein Ansatz, z. B. „Wand Nord: 2,5*3,1 - 0,8*2“ (Umschalt+Enter: neue Zeile)'}
-                              onChange={(e) => setzen(q, { rechenweg: e.currentTarget.value.trim() || null }, 'Rechenweg')}
-                              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); naechste(e.currentTarget); } }} />
-                            <Show when={firma() != null && !weg()}><button type="button" class="knopf klein" title="Menge der Firma als Rechenweg übernehmen" onClick={() => setzen(q, { rechenweg: String(firma()).replace('.', ',') }, 'Menge der Firma übernehmen')}>Übernehmen</button></Show>
-                          </Show></td>
-                          <td class="zahl">{r().summe != null ? r().summe!.toLocaleString('de-DE', { maximumFractionDigits: 3 }) : ''}</td>
-                          <td class={`am-stand am-${stand()}`} title={TITEL[stand()]} aria-label={TITEL[stand()]}>{firma() != null || r().summe != null ? ZEICHEN[stand()] : ''}</td>
-                          <td class="zahl">{r().summe != null && epAuftrag(q) != null ? eur(gp(r().summe, epAuftrag(q))) : ''}</td>
-                        </tr>
-                      );
-                    })()}
-                  </Show>
-                )}</For>
-              </tbody>
-              <tfoot>
-                <tr><td colSpan={9}>Leistungsstand netto laut Firma (Menge Firma × EP Auftrag)</td><td class="zahl">{eur(summe().firma)}</td></tr>
-                <tr class="ps-summe"><td colSpan={9}>Leistungsstand netto geprüft{summe().offen ? ` · ${summe().offen} ${summe().offen === 1 ? 'Position' : 'Positionen'} noch offen` : ''}</td><td class="zahl">{eur(summe().pruef)}</td></tr>
-              </tfoot>
-            </table>
-          </div>
-        </Show>
-      </Show>
-    </div>
-  );
-}
 
 /** Aufträge (wie im bisherigen Bauportal): Hauptauftrag und Nachträge mit Stand und Betrag, Prognose und abgerechnet. */
 /** Karte des Auftrags (rechts in „Aufträge“): Hauptauftrag, Nachträge mit Stand, Summen, Sicherheiten. */

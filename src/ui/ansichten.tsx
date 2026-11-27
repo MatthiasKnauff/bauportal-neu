@@ -35,6 +35,7 @@ import { handy } from './unterbau/geraet';
 import { ansehen } from './baukasten/ansehen';
 import { Preisspiegel, psAngebot, setPsAngebot } from './preisspiegel';
 import { Auftraege } from './auftraege';
+import { AufmassKarte, Aufmasspruefung } from './aufmasspruefung';
 import { LvBearbeiten, lvZeiger, setLvZeiger } from './lvbearbeiten';
 import { Updates } from './updates';
 import { AufbauAnsicht } from './aufbau';
@@ -43,7 +44,7 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
-import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, Aufmasspruefung, LvSummen, LvWahl, PositionSumme, RechnungLeiter } from './ava';
+import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvSummen, LvWahl, PositionSumme, RechnungLeiter } from './ava';
 import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
 import { GewerkeFirmen } from './gewerke';
@@ -474,11 +475,9 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
     detailsHinweis: 'Ein Leistungsverzeichnis in der Liste wählen. Bieter:innen oben mit „Bieter:in“ dazunehmen; Rückmeldung, Nachfassen und Eingang direkt in der Tabelle.' },
   'ava.nachverfolgen': { mitte: (m) => <Nachverfolgen {...m} />, detailsHinweis: 'Ein LV in der Tabelle anklicken – hier steht dann seine Karte.' },
   'ava.kostenkontrolle': { mitte: (m) => <Kostenkontrolle {...m} />, detailsHinweis: 'Eine Zeile anklicken – hier steht dann das Leistungsverzeichnis mit seinen Summen.' },
-  'ava.aufmass': { mitte: (m) => <Aufmasspruefung {...m} />, links: (m) => <LvWahl {...m} />, linksTitel: 'Leistungsverzeichnisse',
-    detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Menge laut Firma und Rechenweg direkt in der Tabelle eintragen; Enter springt eine Zeile tiefer.' },
-  // Einträge eines LV: nur die des oben gewählten LV (Kopf und Abfolge zeigen es), neue gehören zu ihm
-  ...Object.fromEntries(['angebote', 'besprechungen', 'bauvertraege', 'nachtraege', 'rechnungen', 'positionen'].map((a) => [`ava.${a}`, { fest: nurGewaehltesLv }])),
-  // Fenster- & Türliste: aus dem Gebäudemodell füllen, ins LV übernehmen, oben der Stand der LVs
+  'ava.aufmass': { mitte: (m) => <Aufmasspruefung {...m} />, ohneNeu: true,
+    detailsHinweis: 'Eine Position anklicken – hier stehen dann ihre Aufmaßzeilen (Datum, Ort, Rechenweg).',
+    details: (_, heftzwecke, standard) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return q && !q.geloescht && q.werte.art !== 'titel' ? <AufmassKarte position={q} heftzwecke={heftzwecke()} /> : standard(); } },
   'ava.tueren': { knoepfe: (z) => tuerKnoepfe(String(z.projekt)), oben: (z) => <TuerlisteOben projekt={String(z.projekt)} /> },
   'gebaeudemodell.modell3d': { mitte: (m) => <Gebaeude3d {...m} />, detailsHinweis: 'Ein Bauteil in der 3D-Ansicht anklicken – hier steht dann seine Karte, direkt änderbar.' },
 };

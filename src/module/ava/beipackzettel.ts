@@ -196,16 +196,33 @@ export const nachtrag: ObjektModell = {
 };
 
 /** Aufmaß je Position (kumuliert, wie im bisherigen Bauportal): Menge laut Firma und der eigene Rechenweg; geprüft ist die Summe des Rechenwegs. */
+// Aufmaß: je Eintrag eine Rechenzeile einer Position (module/ava/aufmass.ts) – ohne Rechnung „laufend“, beim Abschluss der Prüfung
+// bekommt sie die Rechnung und steht fest. Rechenweg ohne Zeichen = Stand (basis: Stand davor), mit „+“ = Zuwachs.
 export const aufmass: ObjektModell = {
-  name: 'aufmass', titel: 'Aufmaß', titelMehrzahl: 'Aufmaße', anzeigeFeld: 'menge_firma',
+  name: 'aufmass', titel: 'Aufmaßzeile', titelMehrzahl: 'Aufmaß', anzeigeFeld: 'rechenweg', sortierFeld: 'datum',
   projektFeld: 'projekt', rechte,
   felder: [
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
     { name: 'lv', titel: 'Leistungsverzeichnis', art: 'verweis', ziel: 'lv', pflicht: true },
-    { name: 'position', titel: 'Position', art: 'verweis', ziel: 'lv_position', pflicht: true },
-    { name: 'menge_firma', spalte: true, titel: 'Menge laut Firma', art: 'zahl' },
-    { name: 'rechenweg', titel: 'Rechenweg (geprüft)', art: 'langtext' },
-    { name: 'bemerkung', spalte: true, titel: 'Prüfvermerk', art: 'text' },
+    { name: 'position', titel: 'Position', art: 'verweis', ziel: 'lv_position', pflicht: true, inListe: true, breite: 220 },
+    { name: 'rechnung', titel: 'Rechnung (leer: laufend)', art: 'verweis', ziel: 'rechnung', inListe: true, breite: 160 },
+    { name: 'datum', titel: 'Datum', art: 'text', inListe: true, breite: 100, kartenBreite: 2 },
+    { name: 'ort', titel: 'Ort / Bauteil', art: 'text', inListe: true, breite: 160, kartenBreite: 4 },
+    { name: 'rechenweg', titel: 'Rechenweg (Stand, oder „+ …“ als Zuwachs)', art: 'text', pflicht: true, inListe: true, breite: 240 },
+    { name: 'basis', titel: 'Stand davor', art: 'zahl', verborgen: true },
+    { name: 'quelle', titel: 'Herkunft', art: 'auswahl', optionen: [{ wert: 'eigen', titel: 'eigenes Aufmaß' }, { wert: 'firma', titel: 'lt. Firma übernommen' }], spalte: true, breite: 130 },
+  ],
+};
+
+/** Menge laut Firma je Rechnung und Position (aus ihrer Rechnung, ihrem Aufmaß oder von Hand) – Vergleich in der Aufmaßprüfung. */
+export const rechnungsmenge: ObjektModell = {
+  name: 'rechnungsmenge', titel: 'Menge laut Firma', titelMehrzahl: 'Mengen laut Firma', anzeigeFeld: 'menge',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'rechnung', titel: 'Rechnung', art: 'verweis', ziel: 'rechnung', pflicht: true, inListe: true, breite: 160 },
+    { name: 'position', titel: 'Position', art: 'verweis', ziel: 'lv_position', pflicht: true, inListe: true, breite: 220 },
+    { name: 'menge', titel: 'Menge (Stand) laut Firma', art: 'zahl', inListe: true, breite: 120 },
   ],
 };
 
@@ -309,7 +326,7 @@ export const ava: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
-  objekte: [lv, lvPosition, tuerliste, tuer, angebot, angebotPreis, nachtrag, aufmass, rechnung, besprechung, bauvertrag],
+  objekte: [lv, lvPosition, tuerliste, tuer, angebot, angebotPreis, nachtrag, aufmass, rechnungsmenge, rechnung, besprechung, bauvertrag],
   // Ins Fenster ziehen (PDF, Scan, Foto): vorbelegt nach der Seite, auf der man steht – erkannt am Text
   dokumentarten: [
     { art: 'angebot', titel: 'Angebot', objekt: 'angebot', ansichten: ['angebote', 'preisspiegel', 'versand', 'nachverfolgen', 'besprechungen'], ordner: 'Ausschreibung/{lv}/Angebote',

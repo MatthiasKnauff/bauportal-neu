@@ -4,7 +4,7 @@
 // Oben: Nachtrag (Gliederungspunkt, Position), Vertrag (Bauvertrag, Vergabe aufheben). Rechts die Karte des Auftrags.
 import { createMemo, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { rechenweg } from '../kern/rechenweg';
+import { standAus, zeilenBis } from '../module/ava/aufmass';
 import { gp, naechsteOz, naechsterNachtrag, zaehlt, zahl } from '../module/ava/rechnung';
 import { angeboteVon, lvZahlen, preiseVon } from './ava';
 import { lvVon } from './avakopf';
@@ -26,8 +26,9 @@ export function Auftraege(m: Mitte): JSX.Element {
     if (q.werte.nachtrag) return q.werte.ep != null && q.werte.ep !== '' ? zahl(q.werte.ep) : null;
     const x = preise().get(`${auftrag()?.id}:${q.id}`); return x && x.werte.ep != null && x.werte.ep !== '' ? zahl(x.werte.ep) : null;
   };
-  const aufmass = createMemo(() => new Map(lebende('aufmass').filter((a) => a.werte.lv === lv()?.id).map((a) => [String(a.werte.position), a])));
-  const geprueft = (q: Zeile) => rechenweg(aufmass().get(q.id)?.werte.rechenweg).summe;
+  // abgerechnet: Stand des Aufmaßes (alle Rechnungen und das laufende) – wie die Kennzahl „Leistungsstand“
+  const stand = createMemo(() => standAus(zeilenBis(lebende('aufmass').filter((a) => a.werte.lv === lv()?.id), lebende('rechnung').filter((r) => r.werte.lv === lv()?.id), null)));
+  const geprueft = (q: Zeile) => stand().get(q.id) ?? null;
   const nt = (q: Zeile) => !!q.werte.nachtrag && darf('lv_position', 'schreiben');
   const aendern = (q: Zeile, werte: Record<string, unknown>, titel: string) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: q.id, werte: werte as never }, titel);
   const nurNachtrag = (s: BaumSpalte): BaumSpalte => ({ ...s, setzen: (q, t) => (q.werte.nachtrag ? s.setzen!(q, t) : 'Positionen des Auftrags sind Vertragsinhalt – Änderungen als Nachtrag.') });

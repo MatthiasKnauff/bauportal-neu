@@ -18,7 +18,7 @@ export const ketteVon = (r: E): Kette | null => (r.werte.art === 'stundenlohn' ?
 export const geprueft = (r: E) => r.werte.status === 'geprueft' || r.werte.status === 'bezahlt';
 
 /** Rechnungen eines LV in ihrer Reihenfolge (Rechnungsdatum, dann Nummer). */
-export function reihe(rechnungen: E[]): E[] {
+export function reihe<T extends E>(rechnungen: T[]): T[] {
   return [...rechnungen].sort((a, b) => String(a.werte.datum ?? '9999').localeCompare(String(b.werte.datum ?? '9999')) || String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true }));
 }
 
@@ -35,7 +35,7 @@ export const getippt = (z: E) => String(z.werte.rechenweg ?? '');
 
 /** Zeilen, die zu einer Rechnung zählen: für eine kumulierende alle der Kette bis zu ihr (und die laufenden, solange sie offen ist),
  *  für eine Stundenlohnrechnung nur ihre eigenen. Ohne Rechnung: alle laufenden und alle festen der Hauptkette. */
-export function zeilenBis(zeilen: E[], rechnungen: E[], r: E | null): E[] {
+export function zeilenBis<T extends E>(zeilen: T[], rechnungen: E[], r: E | null): T[] {
   const R = reihe(rechnungen), nach = new Map(R.map((x, i) => [x.id, i]));
   if (r && ketteVon(r) === null) return zeilen.filter((z) => z.werte.rechnung === r.id);
   const k = r ? ketteVon(r) : 'haupt', bis = r ? nach.get(r.id)! : Infinity;
@@ -53,14 +53,14 @@ export function standAus(zeilen: E[]): Map<string, number> {
   return m;
 }
 /** Stand bis zur vorigen geprüften Rechnung derselben Kette (Spalte „bis …“). */
-export function vorige(rechnungen: E[], r: E | null): E | null {
+export function vorige<T extends E>(rechnungen: T[], r: E | null): T | null {
   if (r && ketteVon(r) === null) return null;
   const R = reihe(rechnungen), k = r ? ketteVon(r) : 'haupt', bis = r ? R.findIndex((x) => x.id === r.id) : R.length;
   return R.slice(0, bis).filter((x) => ketteVon(x) === k && geprueft(x)).at(-1) ?? null;
 }
 
 /** Die Rechnung, um die es in der Aufmaßprüfung geht: die offene (älteste), sonst die letzte. */
-export function aktuelleRechnung(rechnungen: E[]): E | null {
+export function aktuelleRechnung<T extends E>(rechnungen: T[]): T | null {
   const R = reihe(rechnungen);
   return R.find((x) => !geprueft(x)) ?? R.at(-1) ?? null;
 }
