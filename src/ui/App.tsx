@@ -27,6 +27,7 @@ import { DokumentAblage } from './dokumentablage';
 import { KontaktAuswahlFenster } from './kontaktauswahl';
 import { FeldSetzen } from './baukasten/feldsetzen';
 import { ProjektLoeschen } from './projektloeschen';
+import { LvLoeschen } from './lvloeschen';
 import { Druck } from './druck';
 import { KiFenster } from './baukasten/ki';
 import { Auswahlliste } from './baukasten/auswahlliste';
@@ -76,6 +77,7 @@ export function App() {
       <KontaktAuswahlFenster />
       <FeldSetzen />
       <ProjektLoeschen />
+      <LvLoeschen />
       <Druck />
       <KiFenster />
       <Show when={wartetLange() > 0}><div class="warte" role="status">Einen Moment …</div></Show>

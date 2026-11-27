@@ -52,7 +52,7 @@ Zeichen:
 | L17 | Kontextmenü: Position/Gliederungspunkt darin bzw. darunter, Hinweistext darunter, Eigenschaften, Langtext, Kopieren/Ausschneiden/Einfügen, Art setzen, Bietertextergänzung, Nachtrag aus dieser Position, In der Aufmaßprüfung zeigen, Umbenennen, Löschen | ◐ | Ergänzen (höchstens 6 Punkte, Rest unter „Weitere“) |
 | L18 | Doppelklick auf das LV öffnet die LV- & Auftragsdaten. Diese haben drei Ebenen (Projekt → LV → Auftrag) mit Schildern für geerbte und eigene Werte. | ◐ | Doppelklick; Vererbung später |
 | L19 | Export GAEB X83/X86, Excel, PDF (Druck mit Layout). Import GAEB, Excel/Tabelle. | ✓ (Excel aus und ein, 27.11.) | Excel aus und ein |
-| L20 | LV löschen: Kette zeigen (Angebote, Auftrag, Rechnungen), zwei Warnungen, Papierkorb, wiederherstellen | ◐ | |
+| L20 | LV löschen: Kette zeigen (Angebote, Auftrag, Rechnungen), zwei Warnungen, Papierkorb, wiederherstellen | ✓ (Kette, zweite Bestätigung, ein Rückgängig – 27.11.) | |
 | L21 | Bietertextergänzung (GAEB), nur über das Kontextmenü | ✓ | |
 | L22 | ✨ Langtext vorschlagen (KI) | ⊘ | KI vorerst raus (Entscheidung 26.11.) |
 | L23 | Aus Baukosten | ⊘ | Kommt mit der App Baukosten |
