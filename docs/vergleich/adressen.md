@@ -17,7 +17,7 @@ Stand 27.11.2026 (Abhaken nach Codeabgleich). Grundlage: die Adressen-App im bis
 ## Fehlt
 1. **Filter links mit UND / ODER / NICHT** – je Art beliebig viele Werte; Klick auf das Wort tauscht UND/ODER, Klick auf einen Wert dreht ihn zu NICHT; ✕ je Wert/Filter; die ganze Bedingung als Satz
 2. **Suchfeld mit Vorschlägen nach Art** (Gewerk, Ort, Projekt, Stichwort, Tag, Funktion, Name, Amt) – ein Vorschlag wird Filter, freier Text bleibt Volltext
-3. **Projekte links**: alle Projekte mit Anzahl und Suche; Start mit den Beteiligten des zuletzt benutzten Projekts; „immer ohne Projekt beginnen“ (einmal gefragt, je Person gemerkt); Leertext „Für … noch keine Beteiligten – Alle Kontakte zeigen“
+3. ~~**Projekte links**~~ (erledigt: alle Projekte mit Anzahl, Suche ab 7): alle Projekte mit Anzahl und Suche; Start mit den Beteiligten des zuletzt benutzten Projekts; „immer ohne Projekt beginnen“ (einmal gefragt, je Person gemerkt); Leertext „Für … noch keine Beteiligten – Alle Kontakte zeigen“
 4. Lange Gruppen links kurz: nur Gewähltes und zuletzt Benutztes, darüber ein Suchfeld
 5. **Mehrfachauswahl**: Haken je Zeile/Karte, Strg+Klick dazu, Umschalt+Klick von–bis, Haken im Kopf = alle gefilterten (halb = einige), Strg+A, Esc; am Handy lange tippen; Auswahl bleibt beim Filterwechsel („x davon gerade ausgeblendet · nur sichtbare“)
 6. **Befehle für die Auswahl**: Mail an alle (einzeln, {anrede}) · ＋ Projekt · Ändern (Art setzen; Gewerk/Stichwort/Tag dazu oder entfernen; Projekt entfernen) · Zusammenführen (2–8) · Excel / Drucken / vCard nur die Auswahl · Papierkorb (nur unbenutzte) – je ein Rückgängig

@@ -1920,3 +1920,21 @@ test('Projekt nach Standort: Abstand in Metern', async () => {
   assert.ok(m > 950 && m < 1050, String(m));
   assert.equal(abstand(51, 7, 51, 7), 0);
 });
+
+test('LV als Excel: ausgeben und wieder einlesen, Titel ohne Menge, vorhandene OZ nicht doppelt', async () => {
+  const x = await import('../src/module/ava/lvexcel');
+  const E = (id: string, werte: Werte) => ({ id, werte });
+  const pos = [E('t', { oz: '01', art: 'titel', kurztext: 'Innenwände' }), E('a', { oz: '01.0010', art: 'normal', kurztext: 'Wände', langtext: 'zweimal', menge: 200, einheit: 'm²', ep: 8 }), E('b', { oz: '01.0020', art: 'bedarf', kurztext: 'Risse', menge: 10, einheit: 'm', ep: 20 })];
+  const t = x.lvAlsTabelle(pos);
+  assert.deepEqual(t[0], x.EXCEL_KOPF);
+  assert.deepEqual(t[2], ['01.0010', 'Normal', 'Wände', 'zweimal', 200, 'm²', 8, 1600]);
+  assert.equal(t[3]![7], null, 'Bedarfsposition ohne GP');
+  const s = t.map((z) => z.map((c) => (c == null ? '' : typeof c === 'number' ? String(c).replace('.', ',') : c)));
+  const e = x.lvAusTabelle([['Leistungsverzeichnis'], ...s]);
+  assert.equal(e.titel, 1); assert.equal(e.positionen, 2);
+  assert.deepEqual(e.zeilen[2], { oz: '01.0020', art: 'bedarf', kurztext: 'Risse', langtext: '', menge: 10, einheit: 'm', ep: 20 });
+  const ohneArt = x.lvAusTabelle([['Pos.', 'Bezeichnung', 'Menge', 'Einheit'], ['1', 'Rohbau', '', ''], ['1.10', 'Mauerwerk', '12,5', 'm³']], [E('v', { oz: '01.0010' })]);
+  assert.equal(ohneArt.zeilen[0]!.art, 'titel', 'ohne Menge und Einheit: Titel');
+  assert.deepEqual(ohneArt.doppelt, ['1.10'], '1.10 = 01.0010 schon da');
+  assert.throws(() => x.lvAusTabelle([['a', 'b']]), /Kopfzeile/);
+});

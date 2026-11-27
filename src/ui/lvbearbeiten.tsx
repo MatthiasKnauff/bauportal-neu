@@ -20,6 +20,7 @@ import { lvFolge, lvVon, lvWaehlen } from './avakopf';
 import { druckOeffnen } from './druck';
 import { gaebAusgeben } from './ava';
 import { gaebEinlesen } from './uebernahme';
+import { LvExcelFenster, lvExcelAusgeben, lvExcelEinlesen } from './lvexcel';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
 import { zeigeMenue, type Menuepunkt } from './baukasten/kontextmenue';
@@ -258,8 +259,10 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
     ...(p.struktur && lv() ? [{ titel: 'Vorbemerkungen', zeichen: 'bericht', gruppe: 'Ansicht', an: vorbem(), tun: () => setVorbem(!vorbem()) }] : []),
     ...(lv() ? [{ titel: 'Langtexte', zeichen: 'notiz', gruppe: 'Ansicht', an: lang().size > 0, tun: () => setLang(lang().size ? new Set<string>() : new Set(zeilen().filter((z) => !z.titel).map((z) => z.id))) }] : []),
     ...(p.struktur && lv() ? [
-      ...(darf('lv_position', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) }] : []),
-      { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, gesperrt: !zeilen().length, tun: () => gaebAusgeben(lv()!, '83') },
+      ...(darf('lv_position', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: (e: MouseEvent) => zeigeMenue(e, [
+        { titel: 'GAEB (X83, X84 Angebot, X86) …', tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) }, { titel: 'Excel / CSV …', tun: () => lvExcelEinlesen(lv()!) }]) }] : []),
+      { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, gesperrt: !zeilen().length, tun: (e: MouseEvent) => zeigeMenue(e, [
+        { titel: 'GAEB X83', tun: () => gaebAusgeben(lv()!, '83') }, { titel: 'Excel', tun: () => lvExcelAusgeben(lv()!) }]) },
       { titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => druckOeffnen('ava.lv', lv()!.id) }] : []),
     ...(p.struktur && vergeben() ? [{ titel: gesperrt() ? 'Gesperrt' : 'Freigeschaltet', zeichen: 'schluessel', gruppe: 'Vertrag', an: !gesperrt(), tun: freischalten }] : []),
   ]));
@@ -344,6 +347,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   const Art = (q: Zeile | undefined) => { const k = ART_KURZ[String(q?.werte.art ?? 'normal')] ?? 'N'; return <i class={`lvt-art a-${k}`} classList={{ nt: !!q?.werte.nachtrag }} aria-hidden="true">{k === 'N' || k === 'H' ? '' : k}</i>; };
   return (
     <div class="lvt" ref={flaeche} tabIndex={0} onKeyDown={taste} role="treegrid" aria-label="Leistungsverzeichnis">
+      <Show when={p.struktur}><LvExcelFenster /></Show>
       <Show when={p.struktur && neuFenster() && projektId()}><NeuesLv projekt={projektId()!} onZu={() => setNeuFenster(false)} onFertig={(id, weg) => { lvWaehlen(p.m, id); setLvZu(false); if (weg === 'modell') setModellFenster(true); }} /></Show>
       <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – oben unter Neu „LV“ anlegen.</p>}>
         <Show when={p.struktur && vorbem()}>
