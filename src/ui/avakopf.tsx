@@ -54,7 +54,10 @@ function AvaKopf(p: Mitte): JSX.Element {
   const m = () => modell('lv');
   const feld = (n: string) => m().felder.find((f) => f.name === n)!;
   const auftrag = () => (lv() ? lebende('angebot').find((a) => a.werte.lv === lv()!.id && a.werte.beauftragt === true) : undefined);
-  const angaben = () => (lv() ? ['gewerk', 'abgabe', 'bindefrist', 'ausfuehrung_beginn'].map((n) => [feld(n).titel.replace(/ (bis|nach VOB\/C)$/, ''), anzeige(feld(n), lv()!.werte[n])] as const).filter(([, w]) => w) : []);
+  // wie bisher: Gewerk · Vertrag · Strafe, dazu die Fristen
+  const strafe = () => { const w = lv()!.werte; return w.strafe_prozent ? `${anzeige(feld('strafe_prozent'), w.strafe_prozent)} % je ${anzeige(feld('strafe_tagart'), w.strafe_tagart ?? 'wt')}${w.strafe_max ? `, höchstens ${anzeige(feld('strafe_max'), w.strafe_max)} %` : ''}` : ''; };
+  const angaben = () => (lv() ? [...['gewerk', 'vertragsart', 'abgabe', 'bindefrist', 'ausfuehrung_beginn'].map((n) => [n === 'vertragsart' ? 'Vertrag' : feld(n).titel.replace(/ (bis|nach VOB\/C)$/, ''), anzeige(feld(n), lv()!.werte[n])] as const),
+    ['Strafe', strafe()] as const].filter(([, w]) => w) : []);
   return (
     <Show when={lv()}>{(z) => (
       <div class="ansicht-kopf" aria-label="Leistungsverzeichnis">

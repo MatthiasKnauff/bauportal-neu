@@ -17,7 +17,7 @@ Zeichen:
 | # | Bisher | Neu | Plan |
 |---|---|---|---|
 | R1 | Navigation links in vier Gruppen. **Ausschreibung**: Leistungsverzeichnis (mit Anzahl), Fenster- & Türliste. **Vergabe**: Versand & Rücklauf, Nachverfolgen, Angebote & Preisspiegel, Angebotsbesprechung. **Prüfung und Abrechnung**: Aufträge, Aufmaßprüfung, Rechnungen. **Kostenübersicht**. | ✓ | Gliederung wie bisher. Die Listen bleiben über Verweise erreichbar, stehen aber nicht mehr im Menü. |
-| R2 | Kopf: „‹Bereich›: LV ‹Nr› ‹Name›“, Stand als Auswahl, Feld „vergeben an …“ bzw. „noch nicht vergeben“, Gewerk · Vertrag · Strafe, Knöpfe Projektdaten und Ausschreibungsdaten | ◐ LV-Auswahl statt Titel | Kopf wie bisher. Das LV wird im Baum gewählt. |
+| R2 | Kopf: „‹Bereich›: LV ‹Nr› ‹Name›“, Stand als Auswahl, Feld „vergeben an …“ bzw. „noch nicht vergeben“, Gewerk · Vertrag · Strafe, Knöpfe Projektdaten und Ausschreibungsdaten | ✓ (LV-Auswahl statt Titel – gilt für alle Ansichten; 27.11.: Vertrag und Strafe im Kopf) | Kopf wie bisher. Das LV wird im Baum gewählt. |
 | R3 | Ablaufleiste mit 7 Stufen über die ganze Breite, Unterstrich als Fortschritt, Stufe ergibt sich aus dem Inhalt | ✓ | Optik angleichen |
 | R4 | Kennzahlen in der Menüleiste: Schätzung, bestes Angebot, Auftrag, Nachträge beauftragt, Leistungsstand, abgerechnet. Je Bereich passend, Reihenfolge ziehbar. | ✓ | Baustein „Kennzahl“ in der Menüleiste |
 | R5 | Volltextsuche links oben mit Bereich „dieses LV · Projekt · alle Projekte“. Sie durchsucht Kurz- und Langtext, OZ, Titel, Nachträge, Bieter:innen, Aufmaß, Rechnungen und Türliste. | ◐ (Suche im LV über OZ, Kurz- und Langtext in allen Baum-Ansichten – 27.11.; Projekt/alle Projekte: Suche oben) | Suchfeld links mit den drei Bereichen |
