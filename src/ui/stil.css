@@ -1498,3 +1498,33 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lvt-ki { margin-top: 4px; }
 .lvt { position: relative; } .lvt-ziel { position: absolute; left: 14px; right: 14px; height: 2px; background: var(--akzent); z-index: 3; pointer-events: none; }
 .lvt-baum { cursor: grab; }
+
+/* Rechnungen (wie im bisherigen Bauportal): Karte der Rechnung in der Mitte, „Schritt für Schritt“ im großen Fenster */
+.pille.rot { background: var(--gefahr-hell); color: var(--gefahr); }
+.re-auftrag { margin: 0 0 8px; font-size: 13px; color: var(--text-still); } .re-auftrag b { color: var(--text); }
+.re-karte { max-width: 980px; padding: 14px 16px; border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); background: var(--flaeche); }
+.re-karte h2 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 10px; font-size: 18px; } .re-karte h2 small { font-weight: 400; color: var(--text-still); font-size: 14px; }
+.re-karte h3, .re-schritt h3 { margin: 16px 0 8px; font-size: 14px; } .re-schritt h3:first-child { margin-top: 4px; }
+.re-kopf { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 12px; align-items: end; }
+.re-frist { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; margin: 0; }
+.re-wege { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.re-weg { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 10px 12px; border: 1px solid var(--rand-stark); border-radius: calc(9px * var(--rund)); background: var(--flaeche); font: inherit; text-align: left; cursor: pointer; }
+.re-weg .re-weg-ic { grid-row: span 2; font-size: 22px; } .re-weg small { color: var(--text-still); font-size: 12.5px; line-height: 1.35; }
+.re-weg.an { border-color: var(--akzent); background: var(--akzent-hell); box-shadow: inset 0 0 0 1px var(--akzent); } .re-weg:disabled { cursor: default; opacity: .75; }
+.re-leistung { margin: 10px 0 0; } .re-zahlen { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 8px; font-size: 13.5px; } .re-warn { color: var(--warn); font-weight: 600; }
+.re-zeilen { margin-top: 8px; } .re-zeilen table { width: 100%; } .re-zeilen td { padding: 2px 4px; } .re-zeilen td .feld { margin: 0; } .re-zeilen td label > span:first-child:empty { display: none; }
+.re-abzuege { margin-top: 12px; } .re-freigabe { display: flex; flex-direction: column; gap: 10px; }
+.re-hand { padding: 8px 10px; border-left: 3px solid var(--warn); background: var(--warn-hell); border-radius: calc(6px * var(--rund)); }
+.re-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .fehler-text { color: var(--gefahr); font-size: 12.5px; }
+.re-abgelegt { margin: 12px 0 0; font-size: 13px; } .re-abgelegt code { font-family: var(--schrift-mono); font-size: 12px; }
+.re-schritte { display: flex; gap: 0; margin: 0 0 12px; border-bottom: 1px solid var(--rand); overflow-x: auto; }
+.re-schritte button { flex: 1 0 auto; padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; background: none; font: inherit; font-size: 13.5px; color: var(--text-still); cursor: pointer; white-space: nowrap; }
+.re-schritte button.ok { color: var(--gut); } .re-schritte button.hier { color: var(--akzent); border-bottom-color: var(--akzent); font-weight: 600; }
+.re-schritt { min-height: 320px; } .re-summe { flex: 1; text-align: center; font-size: 13px; color: var(--text-still); } .re-summe b { color: var(--text); }
+.re-aufmass { display: flex; gap: 12px; min-height: 420px; } .re-aufmass-baum { flex: 1; min-width: 0; display: flex; flex-direction: column; } .re-aufmass-karte { flex: 0 0 340px; max-height: 60vh; overflow: auto; }
+.re-aufmass-knoepfe { display: flex; gap: 6px; margin: 0 0 6px; }
+@media (max-width: 760px) { .re-aufmass { flex-direction: column; } .re-aufmass-karte { flex-basis: auto; } }
+.re-fenster { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; padding-bottom: 12px; }
+.re-zwei { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); gap: 18px; align-items: start; } .re-zwei .ava-leiter-titel:first-child { margin-top: 0; }
+@media (max-width: 900px) { .re-zwei { grid-template-columns: 1fr; } }
+.ava-leiter tr.re-kuerzung td { color: var(--gefahr); }

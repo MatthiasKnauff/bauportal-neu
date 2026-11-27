@@ -91,17 +91,23 @@ const tageNach = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:
  * Freistellungsbescheinigung) = Auszahlung. Bisherige Zahlungen: die Zahlbeträge der früheren Rechnungen derselben Folge
  * (Abschlags- und Schlussrechnungen bzw. Nachträge; Stundenlohnrechnungen einzeln). Skonto steht als Hinweis darunter.
  */
-export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | number): Leiterzeile[] {
+/** Rechenleiter einer Rechnung. stand: Leistungsstand netto einer offenen Rechnung, wie ihn die Prüfung gerade ergibt (Aufmaß ×
+ *  EP, Zeilen von Hand) – ohne: geprüft, sonst angefordert. Ein frei festgesetzter Zahlbetrag (mit Begründung) ersetzt den
+ *  rechnerischen und zählt so auch als „bisher“ für die nächste Rechnung. */
+export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | number, stand?: (r: E) => number | null): Leiterzeile[] {
   const b: Bedingungen = typeof bedingungen === 'number' ? { nachlass: bedingungen } : bedingungen;
   const reihe = [...rechnungen].sort((x, y) => String(x.werte.datum ?? '').localeCompare(String(y.werte.datum ?? '')) || (x.id < y.id ? -1 : 1));
   const r2 = (x: number) => Math.round(x * 100) / 100;
   const vorher: Record<string, number> = {};
   for (const r of reihe) {
     const folge = r.werte.art === 'nachtrag' ? 'n' : r.werte.art === 'stundenlohn' ? '' : 'h';
-    const stand = zahl(r.werte.geprueft ?? r.werte.betrag);
-    const nachlass = r2(stand * b.nachlass / 100), netto = r2(stand - nachlass);
+    const live = stand && r.werte.status !== 'geprueft' && r.werte.status !== 'bezahlt' ? stand(r) : null;
+    const st = live ?? zahl(r.werte.geprueft ?? r.werte.betrag);
+    const nachlass = r2(st * b.nachlass / 100), netto = r2(st - nachlass);
     const si = sicherheit(r, b), einbehalt = r2(netto * si.satz / 100), anerkannt = r2(netto - einbehalt);
-    const bisher = folge ? (vorher[folge] ?? 0) : 0, zahlNetto = r2(anerkannt - bisher), ust = r2(zahlNetto * UST), brutto = r2(zahlNetto + ust);
+    const bisher = folge ? (vorher[folge] ?? 0) : 0, rechnerisch = r2(anerkannt - bisher);
+    const hand = r.werte.zahlbetrag_hand != null && r.werte.zahlbetrag_hand !== '' ? r2(zahl(r.werte.zahlbetrag_hand)) : null;
+    const zahlNetto = hand ?? rechnerisch, ust = r2(zahlNetto * UST), brutto = r2(zahlNetto + ust);
     const strafe = r.werte.art === 'schluss' ? zahl(r.werte.strafe) : 0;
     const nachStrafe = r2(brutto - strafe);
     const datum = String(r.werte.datum ?? r.werte.eingang ?? '');
@@ -117,11 +123,13 @@ export function leiter(rechnungen: E[], id: string, bedingungen: Bedingungen | n
       continue;
     }
     const z: Leiterzeile[] = [
-      { titel: `Leistungsstand netto${r.werte.geprueft != null && r.werte.geprueft !== '' ? ' (geprüft)' : ' (angefordert)'}`, betrag: stand },
+      { titel: `Leistungsstand netto${live != null ? ' (Prüfung)' : r.werte.geprueft != null && r.werte.geprueft !== '' ? ' (geprüft)' : ' (angefordert)'}`, betrag: st },
       ...(nachlass ? [{ titel: `− Nachlass ${prozent(b.nachlass)} %`, betrag: -nachlass }, { titel: 'netto nach Nachlass', betrag: netto, summe: true }] : []),
       ...(einbehalt ? [{ titel: `− ${si.titel} ${prozent(si.satz)} % (Einbehalt)`, betrag: -einbehalt }, { titel: 'anerkannt netto', betrag: anerkannt, summe: true }] : []),
       ...(bisher ? [{ titel: '− bisherige Zahlungen netto', betrag: -bisher }] : []),
-      { titel: 'Zahlbetrag netto', betrag: zahlNetto, summe: true },
+      ...(hand != null ? [{ titel: 'Zahlbetrag netto rechnerisch', betrag: rechnerisch, hinweis: true },
+        { titel: `Zahlbetrag netto frei festgesetzt${r.werte.hand_grund ? ` – ${String(r.werte.hand_grund)}` : ' (Begründung fehlt)'}`, betrag: hand, summe: true }]
+        : [{ titel: 'Zahlbetrag netto', betrag: zahlNetto, summe: true }]),
       { titel: `+ Umsatzsteuer ${UST * 100} %`, betrag: ust }, { titel: 'Zahlbetrag', betrag: brutto, summe: true },
       ...(strafe ? [{ titel: '− Vertragsstrafe', betrag: -strafe }] : []),
       ...(bau ? [{ titel: '− Bauabzugsteuer 15 % (ans Finanzamt)', betrag: -bau }] : []),
@@ -166,14 +174,6 @@ export function vertragsbedingungenText(lv: Werte = {}): Record<string, string> 
   if (lv.gewaehrleistung_jahre != null && lv.gewaehrleistung_jahre !== '') aus.gewaehrleistung = `${String(lv.gewaehrleistung_jahre)} Jahre ab Abnahme`;
   if (lv.ma_prozent != null && lv.ma_prozent !== '') aus.einbehalt = b.ma ? `${prozent(b.ma)} % der Bruttoabrechnungssumme${b.maForm === 'buergschaft' ? ' als Bürgschaft' : ', ablösbar gegen Bürgschaft'}` : 'keiner';
   return aus;
-}
-
-/** Aufmaßprüfung je Position: ✓ stimmt, ✗ weicht ab, ○ noch offen (kein Rechenweg). */
-export type Pruefstand = 'stimmt' | 'abweichend' | 'offen';
-export function pruefstand(mengeFirma: unknown, geprueft: number | null): Pruefstand {
-  if (geprueft == null) return 'offen';
-  if (mengeFirma == null || mengeFirma === '') return 'abweichend';
-  return Math.abs(zahl(mengeFirma) - geprueft) < 0.0005 ? 'stimmt' : 'abweichend';
 }
 
 // ---------- Aufträge und Nachträge ----------

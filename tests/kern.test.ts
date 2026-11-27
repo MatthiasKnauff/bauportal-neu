@@ -1286,10 +1286,10 @@ test('Aufmaß: Rechenweg ohne eval, je Zeile ein Ansatz mit Beschriftung; Prüfs
   assert.equal(w.summe, 18); assert.equal(w.fehler, false);
   assert.equal(r.rechenweg('2*3\nquatsch').fehler, true);
   assert.equal(r.rechenweg('').summe, null);
-  const a = await import('../src/module/ava/rechnung');
-  assert.equal(a.pruefstand(12, 12), 'stimmt');
-  assert.equal(a.pruefstand('12,5', 12), 'abweichend');
-  assert.equal(a.pruefstand(12, null), 'offen');
+  const a = await import('../src/module/ava/aufmass');
+  assert.equal(a.pruefung(12, 12), 'stimmt');
+  assert.equal(a.pruefung(12.5, 12), 'abweichend');
+  assert.equal(a.pruefung(12, undefined), 'offen');
 });
 
 test('Nachträge: Betrag aus Positionen oder Pauschale, Prognose mit offenen, abgelehnte zählen nicht', async () => {
@@ -1873,4 +1873,42 @@ test('Aufmaß je Rechnung: Stand und Zuwachs, kumulierende Kette, Stundenlohn f�
   assert.deepEqual(m.zeileAus('+ 2,5*2', 120), { rechenweg: '+ 2,5*2', basis: null, beitrag: 5 });
   assert.equal(m.zeileAus('10*', 0), null, 'unlesbar');
   assert.equal(m.pruefung(155, 155), 'stimmt'); assert.equal(m.pruefung(160, 155), 'abweichend'); assert.equal(m.pruefung(160, undefined), 'offen');
+});
+
+test('Rechnungen: Sperre der Kette, Namen, Prüffrist, freier Zahlbetrag, Freigabe-Tabellen', async () => {
+  const m = await import('../src/module/ava/aufmass');
+  const f = await import('../src/module/ava/freigabe');
+  const { leiter } = await import('../src/module/ava/rechnung');
+  const E = (id: string, werte: Werte) => ({ id, werte });
+  const r1 = E('r1', { lv: 'l', art: 'abschlag', nummer: 'A1', datum: '2026-05-01', status: 'geprueft', geprueft: 1000 });
+  const r2 = E('r2', { lv: 'l', art: 'abschlag', nummer: 'A2', datum: '2026-06-01', status: 'offen', betrag: 2000 });
+  const sl = E('s1', { lv: 'l', art: 'stundenlohn', nummer: 'S1', datum: '2026-06-02', status: 'offen' });
+  assert.match(m.neueGesperrt([r1, r2], 'abschlag')!, /2\. Abschlagsrechnung \(Nr\. A2\)/);
+  assert.match(m.neueGesperrt([r1, r2], 'schluss')!, /Erst/);
+  assert.equal(m.neueGesperrt([r1, r2], 'nachtrag'), null, 'eigene Kette');
+  assert.equal(m.neueGesperrt([r1, r2], 'stundenlohn'), null);
+  assert.match(m.neueGesperrt([r1, E('sr', { art: 'schluss', status: 'geprueft' })], 'abschlag')!, /Schlussrechnung/);
+  assert.equal(m.rechnungTitel(r2, [r1, r2, sl]), '2. Abschlagsrechnung'); assert.equal(m.rechnungTitel(sl, [r1, r2, sl]), '1. Stundenlohnrechnung');
+  assert.equal(m.pruefFrist('2026-06-01', 'abschlag'), '2026-06-22'); assert.equal(m.pruefFrist('2026-06-01', 'schluss'), '2026-07-01'); assert.equal(m.pruefFrist('', 'x'), '');
+  // freier Zahlbetrag ersetzt den rechnerischen – und zählt als „bisher“ für die nächste
+  const h = E('r2', { ...r2.werte, zahlbetrag_hand: 500, hand_grund: 'Mängel' });
+  const L = leiter([r1, h], 'r2', 0);
+  assert.equal(L.find((z) => z.titel === 'Zahlbetrag netto rechnerisch')!.betrag, 950, '2.000 − 5 % − bisher 950');
+  assert.equal(L.find((z) => z.titel.startsWith('Zahlbetrag netto frei festgesetzt – Mängel'))!.betrag, 500);
+  const r3 = E('r3', { lv: 'l', art: 'abschlag', datum: '2026-07-01', status: 'offen', betrag: 3000 });
+  assert.equal(leiter([r1, E('r2', { ...h.werte, status: 'geprueft', geprueft: 2000 }), r3], 'r3', 0).find((z) => z.titel === '− bisherige Zahlungen netto')!.betrag, -1450, 'bisher: 950 + frei 500');
+  // Leistung nach Aufmaß × EP des Auftrags (offene Rechnung: laufende Zeilen), ohne Aufmaß: Zeilen von Hand
+  const pos = [E('p1', { lv: 'l', oz: '01.0010', art: 'normal', kurztext: 'Wand', menge: 200, einheit: 'm²' }), E('p2', { lv: 'l', oz: '01.0020', art: 'normal', kurztext: 'Decke', menge: 80, einheit: 'm²' })];
+  const ang = [E('a', { lv: 'l', beauftragt: true })], pr = [E('x1', { angebot: 'a', position: 'p1', ep: 7.5 }), E('x2', { angebot: 'a', position: 'p2', ep: 9 })];
+  const am = [E('z1', { lv: 'l', position: 'p1', rechnung: 'r1', rechenweg: '100' }), E('z2', { lv: 'l', position: 'p1', rechenweg: '+ 50' }), E('z3', { lv: 'l', position: 'p2', rechenweg: '20', ort: 'Flur' })];
+  const d = { lv: E('l', {}), rechnungen: [r1, r2, sl], positionen: pos, angebote: ang, preise: pr, aufmass: am, zeilen: [E('k', { rechnung: 's1', text: 'Facharbeiter', menge: 4, einheit: 'h', ep: 55 })] };
+  const ep = f.epAus(ang, pr);
+  assert.equal(f.leistungAus(d, r2, ep), 150 * 7.5 + 20 * 9);
+  assert.equal(f.leistungAus(d, sl, ep), 220);
+  const t = f.freigabeTabellen(d, r2, [E('m1', { rechnung: 'r2', position: 'p1', menge: 160 })]);
+  const pb = t.pruefblatt[0]!.zeilen;
+  assert.deepEqual(pb[0]!.zellen.slice(0, 7), ['01.0010', 'Wand', 'm²', '200', '100', '160', '150']); assert.equal(pb[0]!.art, 'hinweis', 'weicht von der Firma ab');
+  assert.equal(pb.at(-1)!.zellen.at(-1), '1.305,00');
+  assert.deepEqual(t.massen[0]!.zeilen.map((z) => z.zellen[3]), ['+ 50', '20'], 'nur die laufenden Zeilen der offenen Rechnung');
+  assert.ok(t.zahlbetrag[0]!.zeilen.some((z) => /gefordert netto 2\.000,00 € – Kürzung/.test(z.zellen[0]!)));
 });

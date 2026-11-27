@@ -24,7 +24,18 @@ export type Druckblock =
   // ohne: Einträge, bei denen dieses Feld gesetzt ist, gehören nicht dazu (z. B. Nachtragspositionen).
   | { id: string; art: 'lv'; objekt: string; ueber: string; ohne?: string; titel: string }
   // Unterschriften (z. B. Bauvertrag): je Partei eine Linie mit „Ort, Datum“ und der Rolle darunter; {feld} wird ersetzt
-  | { id: string; art: 'unterschriften'; parteien: string[] };
+  | { id: string; art: 'unterschriften'; parteien: string[] }
+  // Berechnete Tabellen (z. B. Rechenleiter und Prüfblatt einer Rechnung): eine Druckquelle des Moduls rechnet sie aus den Daten,
+  // die sie braucht – im Browser aus der Sicht, auf dem Server aus der Datenbank, mit derselben Rechnung
+  | { id: string; art: 'berechnet'; quelle: string; titel: string };
+
+/** Eine berechnete Tabelle: Spalten und Zeilen als fertiger Text (summe fett mit Linie, hinweis kursiv, titel als Zwischenzeile). */
+export interface DruckTabelle { titel?: string; spalten: { titel: string; rechts?: boolean }[]; zeilen: { zellen: string[]; art?: 'summe' | 'hinweis' | 'titel' }[] }
+/** Einträge eines Objekts, deren Feld (oder „id“) den Wert hat. */
+export type Hole = (objekt: string, feld: string, wert: string) => { id: string; werte: Werte }[];
+/** Druckquelle eines Moduls: was sie braucht (Objekt, Feld, und welches Feld des gedruckten Eintrags den Wert liefert – „id“ für ihn
+ *  selbst) und wie sie daraus rechnet. */
+export interface Druckquelle { braucht: { objekt: string; feld: string; wert: string }[]; tabellen: (hole: Hole, eintrag: { id: string; werte: Werte }) => DruckTabelle[] }
 
 export interface Ausdruck {
   id: string;              // eindeutig, z. B. "bautagebuch.tagesbericht"
@@ -66,6 +77,7 @@ export interface Druckdaten {
   bild: (id: string) => string;                    // Adresse des Vorschaubilds (im Browser ein Verweis, im PDF das Bild selbst)
   modell: (objekt: string) => ObjektModell;        // Modell der Einträge
   extra?: Record<string, string>;                  // weitere Platzhalter (Verzeichnis: anzahl, filter, datum)
+  berechnet?: (blockId: string) => DruckTabelle[];  // die Tabellen eines berechneten Blocks
 }
 export const SCHRIFT: Record<string, { titel: string; pt: number }> = { klein: { titel: 'klein', pt: 9 }, normal: { titel: 'normal', pt: 10.5 }, gross: { titel: 'groß', pt: 12 } };
 /** Seitenränder in mm – in der Vorschau der Rand des Blatts, im PDF der Rand der Seite. */
@@ -162,6 +174,13 @@ export const CSS = (schrift: number) => `
   .lv .zusammen { margin-top: 6mm; break-inside: avoid; }
   .lv .zusammen td { border-bottom: .2mm solid #ccc; }
   .lv .zusammen .gesamt td { font-weight: 700; border-bottom: .4mm solid #111; }
+  .berechnet table { width: 100%; border-collapse: collapse; margin-bottom: 4mm; }
+  .berechnet th { text-align: left; font-weight: 600; border-bottom: .4mm solid #111; padding: .8mm 1.2mm; }
+  .berechnet td { border-bottom: .2mm solid #ccc; padding: .8mm 1.2mm; vertical-align: top; }
+  .berechnet .rechts { text-align: right; white-space: nowrap; }
+  .berechnet tr.summe td { font-weight: 700; border-bottom: .4mm solid #111; }
+  .berechnet tr.hinweis td { font-style: italic; color: #444; }
+  .berechnet tr.titel td { font-weight: 700; padding-top: 2mm; }
 `;
 
 /**
@@ -203,6 +222,12 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       return huelle(b.id, `liste${zeilen.length ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2><table><thead><tr>${kopf}</tr></thead><tbody>${rumpf || `<tr><td colspan="${spalten.length}">–</td></tr>`}</tbody></table>`);
     }
     if (b.art === 'lv') return huelle(b.id, 'lv', lvTabelle(b, d.kinder(b.id), e));
+    if (b.art === 'berechnet') {
+      const T = d.berechnet?.(b.id) ?? [];
+      if (!T.length && !bearbeiten) return '';
+      return huelle(b.id, `berechnet${T.length ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2>${T.map((t) => `${t.titel ? `<h3>${sicher(t.titel)}</h3>` : ''}<table>${t.spalten.some((x) => x.titel) ? `<thead><tr>${t.spalten.map((x) => `<th class="${x.rechts ? 'rechts' : ''}">${sicher(x.titel)}</th>`).join('')}</tr></thead>` : ''}<tbody>${
+        t.zeilen.map((z) => `<tr class="${z.art ?? ''}">${z.zellen.map((c, i) => `<td class="${t.spalten[i]?.rechts ? 'rechts' : ''}">${sicher(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`).join('') || '<p>–</p>'}`);
+    }
     if (b.art === 'bilder') {
       const bilder = d.kinder(b.id);
       if (!bilder.length && !bearbeiten) return '';

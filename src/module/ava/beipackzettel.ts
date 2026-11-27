@@ -244,7 +244,15 @@ export const rechnung: ObjektModell = {
     { name: 'einbehalt', titel: 'Sicherheitseinbehalt in % (leer: wie im LV vereinbart)', art: 'zahl', gruppe: 'Beträge' },
     { name: 'abnahme', titel: 'Abnahme am', art: 'datum', gruppe: 'Beträge', wenn: { art: ['schluss'] } },
     { name: 'strafe', titel: 'Vertragsstrafe in €', art: 'zahl', gruppe: 'Beträge', wenn: { art: ['schluss'] } },
+    // wie geprüft wird (bisher „Wie prüfen?“): nach Aufmaß (Mengen je Position, kumuliert) oder ohne – dann zählt der geprüfte Betrag
+    // bzw. die Zeilen von Hand („rechnungszeile“); Stundenlohnrechnungen immer mit Zeilen (Stundenzettel)
+    { name: 'pruefweg', titel: 'Prüfen', art: 'auswahl', optionen: [{ wert: 'aufmass', titel: 'nach Aufmaß' }, { wert: 'ohne', titel: 'ohne Aufmaß (Betrag oder Positionen von Hand)' }], spalte: true, breite: 130, gruppe: 'Prüfung', wenn: { art: ['abschlag', 'schluss', 'nachtrag'] } },
     { name: 'status', titel: 'Stand', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Prüfung', optionen: [{ wert: 'offen', titel: 'offen' }, { wert: 'geprueft', titel: 'geprüft' }, { wert: 'bezahlt', titel: 'bezahlt' }] },
+    { name: 'geprueft_am', spalte: true, titel: 'Geprüft am', art: 'datum', gruppe: 'Prüfung' },
+    // frei festgesetzter Zahlbetrag (bisher „abweichender Zahlbetrag mit Begründung“): steht in der Rechenleiter, im Prüfblatt und in der Freigabe
+    { name: 'zahlbetrag_hand', spalte: true, titel: 'Zahlbetrag netto, frei festgesetzt in €', art: 'zahl', gruppe: 'Prüfung' },
+    { name: 'hand_grund', titel: 'Begründung des freien Zahlbetrags', art: 'text', gruppe: 'Prüfung' },
+    { name: 'abgelegt', spalte: true, titel: 'Geprüft abgelegt (Pfad · Zeitpunkt)', art: 'text', verborgen: true },
     { name: 'faellig', spalte: true, titel: 'Zahlung fällig am', art: 'datum', gruppe: 'Prüfung' },
     // tatsächlich gezahlt (wie im bisherigen Bauportal): weniger als freigegeben → die nächste Rechnung holt den Rest nach; Skonto gilt als bezahlt
     { name: 'bezahlt_am', spalte: true, titel: 'Bezahlt am', art: 'datum', kartenBreite: 3, gruppe: 'Zahlung' },
@@ -253,6 +261,20 @@ export const rechnung: ObjektModell = {
   ],
 };
 
+
+/** Zeile einer Rechnung von Hand: Stundenzettel (Lohn, Gerät, Material) oder Positionen einer Rechnung ohne Aufmaß. */
+export const rechnungszeile: ObjektModell = {
+  name: 'rechnungszeile', titel: 'Rechnungszeile', titelMehrzahl: 'Rechnungszeilen', anzeigeFeld: 'text',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'rechnung', titel: 'Rechnung', art: 'verweis', ziel: 'rechnung', pflicht: true, inListe: true, breite: 160 },
+    { name: 'text', titel: 'Leistung', art: 'text', inListe: true, breite: 260 },
+    { name: 'menge', titel: 'Menge', art: 'zahl', inListe: true, breite: 90 },
+    { name: 'einheit', titel: 'EH', art: 'text', inListe: true, breite: 60 },
+    { name: 'ep', titel: 'EP / Satz in €', art: 'zahl', inListe: true, breite: 100 },
+  ],
+};
 
 // Angebotsbesprechung (Protokoll) je Angebot – die Felder kommen aus den Daten (besprechung.ts), bis jemand sie ändert
 export const besprechung: ObjektModell = {
@@ -326,7 +348,7 @@ export const ava: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
-  objekte: [lv, lvPosition, tuerliste, tuer, angebot, angebotPreis, nachtrag, aufmass, rechnungsmenge, rechnung, besprechung, bauvertrag],
+  objekte: [lv, lvPosition, tuerliste, tuer, angebot, angebotPreis, nachtrag, aufmass, rechnungsmenge, rechnung, rechnungszeile, besprechung, bauvertrag],
   // Ins Fenster ziehen (PDF, Scan, Foto): vorbelegt nach der Seite, auf der man steht – erkannt am Text
   dokumentarten: [
     { art: 'angebot', titel: 'Angebot', objekt: 'angebot', ansichten: ['angebote', 'preisspiegel', 'versand', 'nachverfolgen', 'besprechungen'], ordner: 'Ausschreibung/{lv}/Angebote',
@@ -346,6 +368,21 @@ export const ava: Beipackzettel = {
     { art: 'lv', titel: 'Leistungsverzeichnis', ordner: 'Ausschreibung/{lv}', ansichten: ['lvs', 'positionen'], merkmale: ['leistungsverzeichnis', 'leistungsbeschreibung', 'vorbemerkungen'] },
   ],
   ausdrucke: [{
+    // Rechnungsfreigabe (wie im bisherigen Bauportal): Freigabe mit Zahlbetrag, dazu wählbar Prüfblatt und Massenermittlung –
+    // „Im Projektordner ablegen“ legt die geprüfte Rechnung ab und vermerkt das an ihr
+    id: 'ava.freigabe', titel: 'Rechnungsfreigabe', objekt: 'rechnung', vermerk: 'abgelegt',
+    dateiname: '{datum} Rechnungsfreigabe {firma} Nr. {nummer} GEPRÜFT', fuss: '{buero} · Rechnungsfreigabe {nummer}', ordner: 'AVA/Rechnungen',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Rechnungsfreigabe', unter: '{firma} · Rechnung Nr. {nummer}' },
+      { id: 'angaben', art: 'felder', felder: ['lv', 'firma', 'art', 'nummer', 'datum', 'eingang', 'betrag', 'geprueft_am'] },
+      { id: 'zahlbetrag', art: 'berechnet', quelle: 'ava.zahlbetrag', titel: 'Zahlbetrag' },
+      { id: 'vermerk', art: 'text', feld: 'notiz' },
+      { id: 'unterschrift', art: 'unterschriften', parteien: ['Geprüft (Bauleitung)', 'Freigegeben (Bauherr:in)'] },
+      { id: 'pruefblatt', art: 'berechnet', quelle: 'ava.pruefblatt', titel: 'Prüfblatt' },
+      { id: 'massen', art: 'berechnet', quelle: 'ava.massen', titel: 'Massenermittlung' },
+    ],
+  }, {
     // Das LV zum Versand an die Bieter:innen: Angaben zur Ausschreibung, Vorbemerkungen, Positionen mit EP/GP zum Ausfüllen,
     // Zusammenstellung, Angebotssumme und Unterschrift (einstellbar: mit den geschätzten Preisen, nur Kurztexte)
     id: 'ava.lv', titel: 'Leistungsverzeichnis', objekt: 'lv',
@@ -403,7 +440,8 @@ export const ava: Beipackzettel = {
       hilfe: 'Links ein vergebenes LV wählen: Hauptauftrag und Nachträge mit Stand und Betrag, darunter Prognose (Auftrag + Nachträge) und abgerechnet. Nachtragspositionen mit EP direkt eintragen.' },
     { id: 'aufmass', titel: 'Aufmaßprüfung', abschnitt: 'Prüfung und Abrechnung', zeichen: 'aufmass', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: je Position Menge laut Firma und dein Rechenweg (z. B. „Wand Nord: 2,5*3,1 - 0,8*2“, je Zeile ein Ansatz). Daneben ✓ stimmt, ✗ weicht ab, ○ noch offen, und der Betrag mit dem EP des Auftrags. „Übernehmen“ setzt die Menge der Firma als Rechenweg.' },
-    { id: 'rechnungen', titel: 'Rechnungen', abschnitt: 'Prüfung und Abrechnung', zeichen: 'rechnung', objekt: 'rechnung', baum: ['lv', 'firma'], brauchtProjekt: true },
+    { id: 'rechnungen', titel: 'Rechnungen', abschnitt: 'Prüfung und Abrechnung', zeichen: 'rechnung', objekt: 'lv', brauchtProjekt: true,
+      hilfe: 'Links ein vergebenes LV wählen, oben eine Rechnung: Kopf mit Prüffrist, wie geprüft wird (nach Aufmaß oder ohne), Leistung, Abzüge mit Rechenleiter und Freigabe. „Rechnung“ legt eine neue an – eine offene derselben Kette erst fertig prüfen. „Schritt für Schritt“ führt durch die Prüfung.' },
     { id: 'kostenkontrolle', titel: 'Kostenkontrolle', abschnitt: 'Kostenübersicht', zeichen: 'kosten', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Alle Vergabeeinheiten des Projekts in einer Tabelle: Schätzung, bestes Angebot, Auftrag, beauftragte Nachträge, abgerechnet, noch offen und die Abweichung zur Schätzung.' },
     { id: 'lvs', imMenue: false, titel: 'Leistungsverzeichnisse', abschnitt: 'Ausschreibung', zeichen: 'liste_aufgaben', objekt: 'lv', baum: ['status'], brauchtProjekt: true,

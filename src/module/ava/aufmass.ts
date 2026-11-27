@@ -80,3 +80,39 @@ export function pruefung(firma: number | null | undefined, stand: number | undef
   if (firma == null) return 'abweichend';
   return Math.abs(firma - stand) < 0.0005 ? 'stimmt' : 'abweichend';
 }
+
+// ---------- Rechnungen eines Auftrags ----------
+const ARTNAME: Record<string, string> = { abschlag: 'Abschlagsrechnung', schluss: 'Schlussrechnung', nachtrag: 'Nachtragsrechnung', stundenlohn: 'Stundenlohnrechnung' };
+/** Name wie im bisherigen Bauportal: „2. Abschlagsrechnung“ (gezählt je Art), die Schlussrechnung ohne Nummer. */
+export function rechnungTitel(r: E, rechnungen: E[]): string {
+  const art = String(r.werte.art || 'abschlag');
+  if (art === 'schluss') return 'Schlussrechnung';
+  const n = reihe(rechnungen.filter((x) => String(x.werte.art || 'abschlag') === art)).findIndex((x) => x.id === r.id) + 1;
+  return `${n || ''}${n ? '. ' : ''}${ARTNAME[art] ?? 'Rechnung'}`;
+}
+/** Hält eine offene Rechnung derselben Kette eine neue dieser Art auf? (Kumulierte Rechnungen bauen aufeinander auf – erst die offene
+ *  prüfen. Eine zweite Schlussrechnung gibt es nicht. Stundenlohn steht für sich.) */
+export function neueGesperrt(rechnungen: E[], art: string): string | null {
+  if (art === 'stundenlohn') return null;
+  if (art === 'schluss' && rechnungen.some((r) => r.werte.art === 'schluss')) return 'Es gibt schon eine Schlussrechnung.';
+  if (art === 'abschlag' && rechnungen.some((r) => r.werte.art === 'schluss')) return 'Nach der Schlussrechnung gibt es keine Abschlagsrechnung mehr.';
+  const k = art === 'nachtrag' ? 'nachtrag' : 'haupt';
+  const offen = reihe(rechnungen).find((r) => ketteVon(r) === k && !geprueft(r));
+  return offen ? `Erst ${rechnungTitel(offen, rechnungen)}${offen.werte.nummer ? ` (Nr. ${String(offen.werte.nummer)})` : ''} fertig prüfen – die neue baut auf ihr auf.` : null;
+}
+/** Prüffrist (VOB/B § 16): Schlussrechnung 30 Tage, sonst 21 Tage nach Eingang. */
+export function pruefFrist(eingang: unknown, art: unknown): string {
+  const t = String(eingang ?? ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return '';
+  const d = new Date(`${t}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + (art === 'schluss' ? 30 : 21));
+  return d.toISOString().slice(0, 10);
+}
+/** Summe der Zeilen von Hand (Stundenzettel, Positionen ohne Aufmaß). */
+export const zeilenSumme = (zeilen: E[]) => Math.round(zeilen.reduce((s, z) => s + zahl(z.werte.menge) * zahl(z.werte.ep), 0) * 100) / 100;
+/** Wird diese Rechnung über das Aufmaß geprüft? Stundenlohn nie, sonst wie eingestellt (ab Werk: nach Aufmaß). */
+export const nachAufmass = (r: E) => r.werte.art !== 'stundenlohn' && r.werte.pruefweg !== 'ohne';
+/** Abgerechnet (netto, vor Nachlass): je Kette der Stand der letzten geprüften Rechnung, dazu alle geprüften Stundenlohnrechnungen. */
+export function abgerechnetAus(rechnungen: E[]): number {
+  const R = reihe(rechnungen).filter(geprueft), st = (r: E) => zahl(r.werte.geprueft ?? r.werte.betrag);
+  const letzte = (k: Kette) => R.filter((r) => ketteVon(r) === k).at(-1);
+  return Math.round(((letzte('haupt') ? st(letzte('haupt')!) : 0) + (letzte('nachtrag') ? st(letzte('nachtrag')!) : 0) + R.filter((r) => ketteVon(r) === null).reduce((s, r) => s + st(r), 0)) * 100) / 100;
+}

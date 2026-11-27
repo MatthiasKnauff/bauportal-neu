@@ -2,9 +2,10 @@
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, leiter, nachOz, pruefstand, summeGeschaetzt, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis, strafeVorschlag, type Pruefstand } from '../module/ava/rechnung';
+import { auftragsstand, ausgeschrieben, nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Auftragsstand, type Ruecklauf, gp, guenstigster, nachtragNetto, naechsterNachtrag, ozVergleich, nachOz, summeGeschaetzt, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
 import type { Werte } from '../kern/modell';
-import { standAus, zeilenBis } from '../module/ava/aufmass';
+import { abgerechnetAus, standAus, zeilenBis } from '../module/ava/aufmass';
+import { epAus } from '../module/ava/freigabe';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
 import { gaebSchreiben, type GaebPosten } from '../module/ava/gaeb';
 import { gaebEinlesen } from './uebernahme';
@@ -31,6 +32,8 @@ const allePositionenVon = (lv: string) => nachOz(lebende('lv_position').filter((
 export const angeboteVon = (lv: string) => lebende('angebot').filter((a) => a.werte.lv === lv).sort((a, b) => name(a.werte.bieter).localeCompare(name(b.werte.bieter), 'de'));
 /** Preise eines LV: „angebot:position“ → Eintrag. */
 export const preiseVon = (angebote: Zeile[]) => { const ids = new Set(angebote.map((a) => a.id)); return new Map(lebende('angebot_preis').filter((x) => ids.has(String(x.werte.angebot))).map((x) => [`${x.werte.angebot}:${x.werte.position}`, x])); };
+/** EP des Auftrags je Position (Nachtragspositionen: ihr eigener EP) – null: kein Preis. */
+export const epVon = (lvId: string) => { const ang = angeboteVon(lvId); return epAus(ang, [...preiseVon(ang).values()]); };
 
 /** Die Zahlen eines LV an einer Stelle (Karte, Aufträge, Kostenkontrolle): Schätzung, bestes Angebot, Auftrag, Nachträge, abgerechnet. */
 export interface LvZahlen { schaetzung: number; bestes: number | null; besterBieter: string; auftrag: Zeile | undefined; haupt: number; nachlass: number; stand: Auftragsstand; leistung: number; abgerechnet: number; rechnungen: number }
@@ -41,16 +44,15 @@ export function lvZahlen(lvId: string): LvZahlen {
   const nachlass = zahl(auftrag?.werte.nachlass), haupt = auftrag ? w.find((x) => x.angebot === auftrag.id)?.nachLass ?? 0 : 0;
   const nachtraege = lebende('nachtrag').filter((n) => n.werte.lv === lvId);
   const rechnungen = lebende('rechnung').filter((r) => r.werte.lv === lvId).sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')));
-  const letzte = rechnungen.at(-1);
   // Leistungsstand: geprüfte Mengen (Aufmaß) × EP des Auftrags (Nachtragspositionen: ihr eigener EP), nach Nachlass
-  const preisAuftrag = (q: Zeile) => (q.werte.nachtrag ? zahl(q.werte.ep) : auftrag && pr.has(`${auftrag.id}:${q.id}`) ? zahl(pr.get(`${auftrag.id}:${q.id}`)!.werte.ep) : 0);
+  const ep = epVon(lvId);
   const stand = standAus(zeilenBis(lebende('aufmass').filter((a) => a.werte.lv === lvId), rechnungen, null));
-  const leistung = auftrag ? allePositionenVon(lvId).filter(zaehlt).reduce((s, q) => s + gp(stand.get(q.id) ?? 0, preisAuftrag(q)), 0) * (1 - nachlass / 100) : 0;
+  const leistung = auftrag ? allePositionenVon(lvId).filter(zaehlt).reduce((s, q) => s + gp(stand.get(q.id) ?? 0, ep(q) ?? 0), 0) * (1 - nachlass / 100) : 0;
   return {
     leistung: Math.round(leistung * 100) / 100,
     schaetzung: summeGeschaetzt(pos), bestes: erster?.nachLass ?? null, besterBieter: name(ang.find((a) => a.id === erster?.angebot)?.werte.bieter),
     auftrag, haupt, nachlass, stand: auftragsstand(haupt, auftrag ? nachtraege : [], allePositionenVon(lvId), nachlass),
-    abgerechnet: letzte ? Math.round(zahl(letzte.werte.geprueft ?? letzte.werte.betrag) * (1 - nachlass / 100) * 100) / 100 : 0, rechnungen: rechnungen.length,
+    abgerechnet: Math.round(abgerechnetAus(rechnungen) * (1 - nachlass / 100) * 100) / 100, rechnungen: rechnungen.length,
   };
 }
 
@@ -131,33 +133,6 @@ export function AngebotSumme(p: { angebot: Zeile }): JSX.Element {
   return <Show when={w()}>{(x) => <p class="ava-gp">Summe netto <b>{eur(x().netto)} €</b>, nach Nachlass <b>{eur(x().nachLass)} €</b>{x().rang ? ` · Rang ${x().rang}` : ''}{x().fehlend ? ` · ${x().fehlend} Positionen ohne Preis` : ''}</p>}</Show>;
 }
 
-/** Karte einer Rechnung: die Rechenleiter bis zur Auszahlung – Nachlass und Skonto aus dem beauftragten Angebot, Sicherheiten,
- *  Bauabzugsteuer und Vertragsstrafe aus den Vertragsbedingungen des LV. */
-export function RechnungLeiter(p: { rechnung: Zeile }): JSX.Element {
-  const lvId = () => String(p.rechnung.werte.lv ?? '');
-  const bed = createMemo(() => bedingungenAus(sicht.lv?.[lvId()]?.werte, angeboteVon(lvId()).find((a) => a.werte.beauftragt === true)?.werte));
-  const zeilen = createMemo(() => (lvId() ? leiter(lebende('rechnung').filter((r) => r.werte.lv === lvId()), p.rechnung.id, bed()) : []));
-  // Schlussrechnung mit Abnahme: Vertragsstrafe vorschlagen (Verzug nach der vertraglichen Fertigstellung), solange keine eingetragen ist
-  const vorschlag = createMemo(() => {
-    const w = p.rechnung.werte;
-    const abnahme = String(w.abnahme || bed().abnahme || '');   // in der Rechnung eingetragen, sonst die Abnahme im LV
-    if (w.art !== 'schluss' || (w.strafe != null && w.strafe !== '') || !abnahme) return null;
-    const stand = zahl(w.geprueft ?? w.betrag);
-    return strafeVorschlag(bed(), Math.round(stand * (1 - bed().nachlass / 100) * 100) / 100, abnahme);
-  });
-  return (
-    <Show when={zeilen().length} fallback={<p class="still-text klein-text">Mit dem Auftrag (LV) rechnet die Karte die Auszahlung: Nachlass, Sicherheiten, bisherige Zahlungen, Umsatzsteuer, Bauabzugsteuer.</p>}>
-      <h3 class="ava-leiter-titel">Rechenleiter</h3>
-      <table class="ava-leiter"><tbody><For each={zeilen()}>{(z) => <tr classList={{ summe: !!z.summe, hinweis: !!z.hinweis }}><td>{z.titel}</td><td class="zahl">{eur(z.betrag)} €</td></tr>}</For></tbody></table>
-      <Show when={vorschlag()}>{(v) => (
-        <p class="still-text klein-text">Vertragsstrafe laut Vertragsbedingungen: {v().tage} Tage Verzug bis zur Abnahme → {eur(v().betrag)} €.{' '}
-          <Show when={darf('rechnung', 'schreiben')}><button type="button" class="knopf klein" onClick={() => ausfuehren({ objekt: 'rechnung', art: 'aendern', objektId: p.rechnung.id, werte: { strafe: v().betrag } }, 'Vertragsstrafe übernehmen')}>übernehmen</button></Show></p>)}
-      </Show>
-    </Show>
-  );
-}
-
-
 /** Aufträge (wie im bisherigen Bauportal): Hauptauftrag und Nachträge mit Stand und Betrag, Prognose und abgerechnet. */
 /** Karte des Auftrags (rechts in „Aufträge“): Hauptauftrag, Nachträge mit Stand, Summen, Sicherheiten. */
 export function AuftragKarte(p: { lv: Zeile }): JSX.Element {
@@ -195,7 +170,7 @@ export function AuftragKarte(p: { lv: Zeile }): JSX.Element {
                 <tr><td colSpan={3}>Auftrag aktuell (Hauptauftrag + beauftragte Nachträge)</td><td class="zahl">{eur(stand().aktuell)}</td></tr>
                 <tr><td colSpan={3}>offene Nachträge (angemeldet bis geprüft)</td><td class="zahl">{eur(stand().offen)}</td></tr>
                 <tr class="ps-summe"><td colSpan={3}>Prognose</td><td class="zahl">{eur(stand().prognose)}</td></tr>
-                <tr><td colSpan={3}>abgerechnet (letzte Rechnung, Leistungsstand nach Nachlass)</td><td class="zahl">{eur(abgerechnet())}</td></tr>
+                <tr><td colSpan={3}>abgerechnet (geprüfte Rechnungen, Leistungsstand nach Nachlass)</td><td class="zahl">{eur(abgerechnet())}</td></tr>
                 <tr><td colSpan={3}>noch abzurechnen laut Prognose</td><td class="zahl">{eur(Math.round((stand().prognose - abgerechnet()) * 100) / 100)}</td></tr>
                 <Show when={zahl(lv()!.werte.budget)}><tr><td colSpan={3}>Kostenansatz · Abweichung der Prognose</td><td class="zahl">{eur(zahl(lv()!.werte.budget))} · {stand().prognose - zahl(lv()!.werte.budget) >= 0 ? '+' : ''}{eur(Math.round((stand().prognose - zahl(lv()!.werte.budget)) * 100) / 100)}</td></tr></Show>
               </tfoot>

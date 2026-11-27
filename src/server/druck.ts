@@ -1,6 +1,7 @@
 // Druckwerk auf dem Server: baut die Seite aus denselben Bausteinen wie die Vorschau (kern/druck.ts) und lässt den
 // Druckdienst (Hilfscontainer mit Chromium) daraus das PDF machen. Gelesen wird als der Benutzer – wer ein Objekt
 // nicht sehen darf, bekommt auch keinen Ausdruck davon.
+import { DRUCKQUELLEN } from '../module/druckquellen';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
@@ -53,6 +54,14 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
         if (ids.length) for (const z of (await c.query(`select id, ${spalte(ziel.anzeigeFeld)} as name from ${tabelle(ziel.name)} where id = any($1)`, [ids])).rows) namen.set(`${ziel.name}:${z.id}`, String(z.name ?? ''));
       }
     }
+    // Berechnete Blöcke: was ihre Druckquellen brauchen, einmal lesen (als der Benutzer) – gerechnet wird wie im Browser
+    const geholt = new Map<string, { id: string; werte: Werte }[]>();
+    for (const b of a.bloecke) if (b.art === 'berechnet') for (const x of DRUCKQUELLEN[b.quelle]?.braucht ?? []) {
+      const wert = String(x.wert === 'id' ? objektId : werte[x.wert] ?? ''), k = `${x.objekt}|${x.feld}|${wert}`;
+      if (geholt.has(k) || !wert) continue;
+      const ziel = register.modell(x.objekt); if (!ziel) continue;
+      geholt.set(k, (await c.query(`select * from ${tabelle(ziel.name)} where ${x.feld === 'id' ? 'id' : spalte(x.feld)} = $1 and not geloescht`, [wert])).rows.map((z) => ({ id: z.id as string, werte: werteAus(ziel, z) })));
+    }
     const projekt = m.projektFeld && m.projektFeld !== 'id' ? namen.get(`projekt:${werte[m.projektFeld]}`) ?? '' : '';
     const buero = werteAus(register.modell('buero')!, (await c.query('select * from o_buero where id = $1', [BUERO_ID])).rows[0]);
     const e: Einstellungen = {};
@@ -60,12 +69,14 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
     for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
     const projektId = m.projektFeld && m.projektFeld !== 'id' ? (werte[m.projektFeld] as string | null) : null;
     const projektordner = projektId ? ((await c.query('select ordner from o_projekt where id = $1', [projektId])).rows[0]?.ordner as string | undefined) || null : null;
-    return { werte, buero, projekt, namen, kinder, e, bildIds, projektId, projektordner };
+    return { werte, buero, projekt, namen, kinder, e, bildIds, projektId, projektordner, geholt };
   });
   // Im PDF steckt das Vorschaubild selbst – der Druckdienst lädt nichts nach
   const bilder = new Map<string, string>();
   if (t.bildIds.length) for (const v of (await db.query('select id, bild from kern_vorschau where id = any($1)', [t.bildIds])).rows) bilder.set(v.id, `data:image/jpeg;base64,${(v.bild as Buffer).toString('base64')}`);
-  const d: Druckdaten = { werte: t.werte, buero: t.buero, logo: await logoDaten(db), projekt: t.projekt, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '' };
+  const d: Druckdaten = { werte: t.werte, buero: t.buero, logo: await logoDaten(db), projekt: t.projekt, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '',
+    berechnet: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); const q = b?.art === 'berechnet' ? DRUCKQUELLEN[b.quelle] : undefined;
+      return q ? q.tabellen((o, f, w) => t.geholt.get(`${o}|${f}|${w}`) ?? [], { id: objektId, werte: t.werte }) : []; } };
   return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d), projekt: t.projektId, projektordner: t.projektordner, ordner: (t.e['seite.ordner'] || a.ordner || '').trim(), d, e: t.e };
 }
 

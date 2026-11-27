@@ -2,10 +2,11 @@
 // Server zum PDF). Wer die Druckeinstellungen des Büros ändern darf, klickt in der Vorschau an, was er ändern will.
 // Die Vorschau entsteht auf dem Gerät aus den Daten, die schon da sind – sofort und auch ohne Netz.
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import { DRUCKQUELLEN } from '../module/druckquellen';
 import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, querformat, schriftgroesse, verzeichnisSpalten, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
 import type { Feld, ObjektModell, Wert } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
-import { ausfuehren, sicht, verweisname } from './unterbau/abgleich';
+import { ausfuehren, lebende, sicht, verweisname } from './unterbau/abgleich';
 import { darf, ladeDatei, druckeDatei, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
@@ -56,6 +57,8 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel }, zeigen(b.id),
     { name: 'preise', titel: 'Mit den geschätzten Preisen (sonst leer zum Ausfüllen)', art: 'ja_nein', stelle: `${b.id}.preise` },
     { name: 'kurz', titel: 'Nur Kurztexte (ohne Langtexte)', art: 'ja_nein', stelle: `${b.id}.kurz` }] };
+  if (b.art === 'berechnet') return { titel: b.titel, felder: [
+    { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel }, zeigen(b.id)] };
   if (b.art === 'liste' || b.art === 'verzeichnis') return { titel: b.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel }, zeigen(b.id),
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] };
@@ -86,7 +89,9 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
     return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: pid ? verweisname('projekt', pid) : '', verweis: verweisname, modell,
       kinder: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder' && b?.art !== 'lv') return [];
         return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && (b.art !== 'lv' || !b.ohne || k.werte[b.ohne] == null || k.werte[b.ohne] === '') && Object.entries(b.art === 'liste' ? b.filter ?? {} : {}).every(([n, w]) => k.werte[n] === w)).sort(listenfolge).map((k) => ({ id: k.id, werte: { ...k.werte } })); },
-      bild: (id) => `/api/foto/vorschau/${id}` };
+      bild: (id) => `/api/foto/vorschau/${id}`,
+      berechnet: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); const q = b?.art === 'berechnet' ? DRUCKQUELLEN[b.quelle] : undefined;
+        return q ? q.tabellen((o, f, w) => lebende(o).filter((k) => (f === 'id' ? k.id : String(k.werte[f] ?? '')) === w), { id: z.id, werte: { ...z.werte } }) : []; } };
   });
 
   // Die Vorschau lebt in einem abgeschirmten Kasten: Die Schrift des Ausdrucks und die der Oberfläche stören sich nicht.

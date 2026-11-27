@@ -44,7 +44,9 @@ import { KiEinrichten } from './baukasten/ki';
 import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
-import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvSummen, LvWahl, PositionSumme, RechnungLeiter } from './ava';
+import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvSummen, LvWahl, PositionSumme } from './ava';
+import { RechnungLeiter, Rechnungen } from './rechnungen';
+import { gewaehlteRechnung, setRechnungWahl } from './rechnungpruefen';
 import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
 import { GewerkeFirmen } from './gewerke';
@@ -471,6 +473,9 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, ohneNeu: true,
     detailsHinweis: 'Eine Position anklicken – hier steht dann ihre Karte. Ohne Auswahl: der Auftrag mit Nachträgen, Summen und Sicherheiten.',
     details: (z, heftzwecke) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : <div class="karte"><div class="karte-kopf">{heftzwecke()}</div><AuftragKarte lv={z} /></div>; } },
+  'ava.rechnungen': { mitte: (m) => <Rechnungen {...m} />, ohneNeu: true,
+    detailsHinweis: 'Links ein vergebenes LV wählen, oben eine Rechnung – hier stehen dann alle ihre Angaben (auch Zahlung und Prüfvermerk).',
+    details: (z, heftzwecke, standard) => { const r = z ? gewaehlteRechnung(z.id) : null; return r ? <Detailkarte modell={modell('rechnung')} zeile={r} heftzwecke={heftzwecke()} onZu={() => setRechnungWahl(null)} verborgen={['projekt', 'lv']} /> : standard(); } },
   'ava.versand': { mitte: (m) => <Versand {...m} />, ohneNeu: true,
     detailsHinweis: 'Ein Leistungsverzeichnis in der Liste wählen. Bieter:innen oben mit „Bieter:in“ dazunehmen; Rückmeldung, Nachfassen und Eingang direkt in der Tabelle.' },
   'ava.nachverfolgen': { mitte: (m) => <Nachverfolgen {...m} />, detailsHinweis: 'Ein LV in der Tabelle anklicken – hier steht dann seine Karte.' },
