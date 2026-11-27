@@ -2307,3 +2307,46 @@ test('Bauzeitenplan: Teil einer unterbrochenen Leistung einzeln ziehen – versc
   assert.equal(typeof teilAendern(ab, 1, 'schieben', 3), 'string', 'Teile würden sich berühren');
   assert.equal(typeof teilAendern(ab, 2, 'anfang', 2), 'string', 'kein Teil ohne Tag');
 });
+
+test('Türliste prüfen: doppelte Nummer, fehlende Maße, Absturzsicherung, Brandschutztür ohne Türschließer, 2. Rettungsweg – Maße in m oder mm', async () => {
+  const { tuerPruefen } = await import('../src/module/ava/tuerpruefung');
+  const zeilen: Werte[] = [
+    { nr: 'T01', art: 'Innentür', raumname: 'Flur', b: 885, h: 2135, din: 'DIN L' },
+    { nr: 'T01', art: 'Brandschutztür', raumname: 'Technik', b: 1.01, h: 2.135, din: 'DIN R', brand: 'T30', ausstattung: 'licht' },
+    { nr: 'F01', art: 'Fenster', geschoss: 'OG', raumname: 'Bad', b: 0.8, h: 1.0, bruestung: 0.6, bem: 'zweiter Rettungsweg' },
+    { nr: 'F02', art: 'Fenster', raumname: 'Küche', geschoss: 'EG', b: 1.26, h: 1.38, bruestung: 0.9 },
+  ];
+  const t = (i: number) => tuerPruefen(zeilen[i]!, zeilen).map((b) => `${b.stufe === 'warnung' ? '⚠' : 'ℹ'} ${b.text}`);
+  assert.ok(t(0).includes('⚠ Nr. T01 kommt mehrfach vor'));
+  assert.ok(t(1).some((x) => /T30: .*Obentürschließer fehlt/.test(x)) && t(1).some((x) => /Brandschutzverglasung/.test(x)));
+  assert.ok(t(2).some((x) => /Absturzsicherung prüfen/.test(x)) && t(2).some((x) => /2\. Rettungsweg: 0,80 × 1,00 m/.test(x)));
+  assert.deepEqual(t(3), [], 'ein vollständiges Fenster im EG ist plausibel');
+  assert.ok(tuerPruefen({ nr: 'T09', art: 'Innentür', raumname: 'WC' }, []).some((b) => b.text === 'Breite oder Höhe fehlt'));
+});
+
+test('Türliste ins LV wie bisher: Obertitel über den Gruppen, ausführlicher Langtext ohne Systembeschreibung, links/rechts zusammen', async () => {
+  const { tuerenInsLv, insLvArt } = await import('../src/module/ava/tueren');
+  const T = [{ id: '1', werte: { liste: 'L', nr: 'T01', art: 'Innentür', din: 'DIN L', b: 885, h: 2135 } as Werte }, { id: '2', werte: { liste: 'L', nr: 'T02', art: 'Innentür', din: 'DIN R', b: 885, h: 2135 } as Werte }];
+  const art = insLvArt({ lv_text: 'lang', obertitel: 'Türen Haus B', din_zusammen: true });
+  const p = tuerenInsLv(T, 'L', art);
+  assert.deepEqual(p.map((z) => [z.schluessel.split('|').length, z.art]), [[1, 'titel'], [2, 'titel'], [3, 'normal']], 'Obertitel (Schlüssel = Liste), darunter die Gruppe, eine Position für L und R');
+  assert.equal(p[0]!.kurztext, 'Türen Haus B');
+  assert.ok(!p.some((z) => z.art === 'hinweis') && /885 × 2135/.test(p[2]!.kurztext) && p[2]!.menge === 2, 'ausführlich: ohne Systembeschreibung, Maße im Kurztext');
+  assert.equal(tuerenInsLv(T, 'L', insLvArt({})).filter((z) => z.art === 'normal').length, 2, 'ab Werk: links und rechts getrennt');
+});
+
+test('Text ↔ Wert wie in Excel: Auswahl nach Titel, DIN L aus „L“, Ja/Nein aus „x“, Mehrfach aus Stichwörtern, Zahl mit Komma; Reihe zählt hoch; Zwischenablage mit Tabulatoren', async () => {
+  const { wertAusText, reiheFortsetzen, tabellenText, alsTabellenText } = await import('../src/kern/werttext');
+  const f = (name: string) => register.modell('tuer')!.felder.find((x) => x.name === name)!;
+  assert.equal(wertAusText(f('din'), 'l'), 'DIN L');
+  assert.equal(wertAusText(f('art'), 'innentür'), 'Innentür');
+  assert.equal(wertAusText(f('art'), 'Sonderbau'), 'Sonderbau', 'eigene Werte erlaubt');
+  assert.equal(wertAusText(f('b'), '1.260,5'), 1260.5);
+  assert.equal(wertAusText(f('b'), 'abc'), undefined, 'passt nicht');
+  assert.equal(wertAusText(f('ausstattung'), 'Lichtausschnitt, Obentür'), 'licht,otsch');
+  assert.deepEqual(reiheFortsetzen(['T 07'], 3), ['T 08', 'T 09', 'T 10']);
+  assert.deepEqual(reiheFortsetzen(['2', '4'], 2), ['6', '8']);
+  assert.deepEqual(reiheFortsetzen(['Flur'], 2), ['Flur', 'Flur']);
+  assert.deepEqual(tabellenText('a\tb\n"c\nd"\te\n'), [['a', 'b'], ['c\nd', 'e']]);
+  assert.equal(alsTabellenText([['a', 'x\ty']]), 'a\t"x\ty"');
+});

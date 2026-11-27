@@ -2,7 +2,7 @@
 // Hier nur der Auftrag; gezeigt wird das Fenster in ansichten.tsx (dort sitzen die Stellschrauben der Karten).
 import { createSignal } from 'solid-js';
 
-export interface KartenAuftrag { objekt: string; id: string; titel: string; ohneOben?: boolean }
+export interface KartenAuftrag { objekt: string; id: string; titel: string; ohneOben?: boolean; nurGruppen?: string[] /* nur diese Abschnitte der Karte (z. B. die Ausschreibungsdaten des Projekts) */ }
 const [karteImFenster, setKarteImFenster] = createSignal<KartenAuftrag | null>(null);
 export { karteImFenster, setKarteImFenster };
 /** Karte eines Eintrags im Fenster öffnen (ohneOben: ohne den Überblick über den Feldern, nur die Angaben). */

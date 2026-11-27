@@ -2,6 +2,7 @@
 // Ein Modul baut nichts über einen Baustein drüber – es stellt nur an diesen vorgesehenen Stellen.
 // Fehlt eine Stellschraube, kommt sie HIER dazu (und gilt dann für alle Module), nicht im Modul.
 import type { AuswahlBefehl } from './auswahl';
+import type { Spaltensatz } from './spalten';
 /** Was der Baustein für die Auswahl bereitstellt: Excel, Drucken (wo es ein Verzeichnis gibt), ein Feld für alle setzen. */
 export interface AuswahlHilfen { excel: (ids: string[]) => void; drucken?: (ids: string[]) => void; aendern: (ids: string[]) => void }
 import type { JSX } from 'solid-js';
@@ -59,6 +60,9 @@ export interface Anpassung {
   ohneNeu?: boolean;
   /** Die Einträge auch als Kacheln: was in einer Kachel steht. Die Ansicht bietet dann Tabelle oder Kacheln zum Umschalten (am Handy zuerst Kacheln). */
   kachel?: (z: Zeile) => JSX.Element;
+  /** Die Tabelle wie eine Liste zum Ausfüllen (z. B. die Türliste): Spaltensätze als Reiter über der Tabelle (der letzte ohne Spalten
+   *  = alle Felder in ihrer Reihenfolge), Gruppen über den Spaltenköpfen, Zeilennummern, feste Spalten, ohne Filterzeile, Hinweis darunter. */
+  tabelle?: { saetze?: Spaltensatz[]; excel?: boolean /* Bedienung wie in Excel */; gruppenKopf?: boolean; zeilenNummern?: boolean; festeSpalten?: string[]; ohneFilterzeile?: boolean; hinweis?: string };
   /** Eigene Darstellung einer Tabellenzelle; ohne Rückgabe gilt die übliche. */
   zelle?: (f: Feld, z: Zeile) => JSX.Element | undefined;
   /** Zusätzliche Punkte im Kontextmenü einer Zeile (insgesamt bleiben es höchstens 9). */

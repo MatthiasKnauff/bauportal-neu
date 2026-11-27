@@ -21,6 +21,7 @@ import { AppUmgebung } from './baukasten/rahmen';
 import { projektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
 import { Aufraeumen } from './aufraeumen';
+import { TabelleEinlesen } from './baukasten/tabelleeinlesen';
 import { AdressenEinlesen } from './adresseneinlesen';
 import { RechnungEinlesen } from './rechnungeinlesen';
 import { DokumentAblage } from './dokumentablage';
@@ -72,6 +73,7 @@ export function App() {
       <Uebernahmefenster />
       <Aufraeumen />
       <AdressenEinlesen />
+      <TabelleEinlesen />
       <RechnungEinlesen />
       <Ansehen />
       <KontaktAuswahlFenster />

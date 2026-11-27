@@ -7,7 +7,7 @@ import type { Werte } from '../kern/modell';
 import { lvZeilen, maskeLesen, nummerieren, type LvZeile } from '../module/ava/lvbaum';
 import { abgleichen, quelleVon, teilplan, type Abgleich, type LvZeilePlan } from '../module/ava/lvplan';
 import { MODELL, bauteileInsLv } from '../module/ava/modellplan';
-import { tuerenInsLv } from '../module/ava/tueren';
+import { insLvArt, tuerenInsLv } from '../module/ava/tueren';
 import { gewaehlteVersion } from './projekt';
 import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { darf, neueKennung } from './unterbau/api';
@@ -30,7 +30,7 @@ export const modellQuelle = (projekt: string): LvQuelle => ({
 });
 export const tuerQuelle = (liste: Zeile): LvQuelle => ({
   id: liste.id, titel: `der ${String(liste.werte.name ?? 'Türliste')}`,
-  plan: () => tuerenInsLv(lebende('tuer').filter((z) => z.werte.liste === liste.id), liste.id),
+  plan: () => tuerenInsLv(lebende('tuer').filter((z) => z.werte.liste === liste.id), liste.id, insLvArt(sicht.tuerliste?.[liste.id]?.werte ?? liste.werte)),
 });
 /** Alle Quellen, die ein LV des Projekts speisen können. */
 export const quellenVon = (projekt: string): LvQuelle[] => [modellQuelle(projekt), ...lebende('tuerliste').filter((l) => l.werte.projekt === projekt).map(tuerQuelle)];
@@ -51,9 +51,12 @@ function lvBefehle(lv: Zeile, a: Abgleich): Vorlage[] {
     const id = neueKennung();
     let nach = -1, bester = 2;   // mindestens Quelle und Titel gleich; bei Gleichstand die letzte Zeile
     ordnung.forEach((x, i) => { const g = gemeinsam(schluessel.get(x.id) ?? '', z.schluessel); if (g >= bester) { bester = g; nach = i; } });
-    const vor = z.art === 'titel' || nach < 0 ? null : ordnung[nach]!;
+    // ein Titel kommt unter den Titel, dessen Schlüssel vor seinem steht (z. B. Gruppe unter Obertitel), ans Ende von dessen Abschnitt
+    const oben = z.art === 'titel' ? [...ordnung].reverse().find((x) => x.titel && z.schluessel.startsWith(`${schluessel.get(x.id)}|`)) : undefined;
+    if (oben) { const unter = new Set([oben.id]); ordnung.forEach((x, i) => { if (x.eltern && unter.has(x.eltern)) { unter.add(x.id); nach = i; } }); if (nach < 0 || !unter.has(ordnung[nach]!.id)) nach = ordnung.indexOf(oben); }
+    const vor = oben ? ordnung[nach]! : z.art === 'titel' || nach < 0 ? null : ordnung[nach]!;
     // unter den Titel der Nachbarzeile – oder unter sie selbst, wenn sie der Titel dieser Zeile ist
-    const titel = vor ? (vor.titel && z.schluessel.startsWith(`${schluessel.get(vor.id)}|`) ? vor.id : vor.eltern) : null;
+    const titel = oben ? oben.id : vor ? (vor.titel && z.schluessel.startsWith(`${schluessel.get(vor.id)}|`) ? vor.id : vor.eltern) : null;
     const zeile: LvZeile = { id, ebene: titel ? (ordnung.find((x) => x.id === titel)?.ebene ?? 0) + 1 : 0, titel: z.art === 'titel', oz: '', eltern: titel };
     if (vor) ordnung.splice(nach + 1, 0, zeile); else ordnung.push(zeile);
     schluessel.set(id, z.schluessel);

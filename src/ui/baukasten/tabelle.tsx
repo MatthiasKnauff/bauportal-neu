@@ -6,10 +6,11 @@ import { datumAusText, datumText } from '../../kern/datum';
 import { For, Show, createEffect, createMemo, createSelector, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import { mengenSumme, type Feld, type ObjektModell, type Wert } from '../../kern/modell';
+import { alsTabellenText, reiheFortsetzen, tabellenText } from '../../kern/werttext';
 import { HERKUNFT, type Zeile } from '../../kern/befehl';
 import { anzeige, excelWert } from './feld';
 import { zeigeMenue, type Menuepunkt } from './kontextmenue';
-import { spaltenFuer, zusatzMessen } from './spalten';
+import { spaltenFuer, zusatzMessen, type Spaltensatz } from './spalten';
 import { Spaltenfeld } from './spaltenfeld';
 import { Haken, KopfHaken, auswahlKlick, langTippen, type Auswahl } from './auswahl';
 import { objektname } from '../unterbau/abgleich';
@@ -74,6 +75,15 @@ export function sortieren(zeilen: Zeile[], m: ObjektModell, s: Sortierung): Zeil
   const schluessel = new Map(zeilen.map((z) => { const r = unwrap(z); return [r.id, anzeige(f, r.werte[f.name])]; }));
   return [...zeilen].sort((a, b) => vergleich.compare(schluessel.get(a.id)!, schluessel.get(b.id)!) * (s.ab ? -1 : 1));
 }
+/** Stellschraube excel: was die Tabelle zum Schreiben braucht. onZellen bekommt die Texte je Zelle (ein Schritt, ein Rückgängig);
+ *  onNeueZeilen die Zeilen, die beim Einfügen über das Ende hinausgehen (Text je Feld); die übrigen für das Kontextmenü. */
+export interface ExcelBedienung {
+  onZellen: (a: { z: Zeile; f: Feld; text: string }[], titel: string) => void;
+  onNeueZeilen?: (zeilen: Record<string, string>[]) => void;
+  onZeileEinfuegen?: (nach: Zeile | undefined) => void;
+  onDuplizieren?: (ids: string[]) => void;
+  onZeilenLoeschen?: (ids: string[]) => void;
+}
 export interface TabellenSteuer { spaltenEinstellen: () => void; fokus: () => void; ersteWaehlen: () => void; alsZeilen: (ids?: Set<string>) => (string | number | Date | null)[][] }
 
 export function Tabelle(p: {
@@ -104,9 +114,89 @@ export function Tabelle(p: {
   zeilenKlasse?: (z: Zeile) => Record<string, boolean>;   // Zeile hervorheben (z. B. „Nachfassen fällig“, „gibt nicht ab“)
   summe?: (f: Feld, zeilen: Zeile[]) => string | undefined;   // Summenzeile je Spalte (der gezeigten Zeilen); in der ersten Spalte ohne Summe steht summeTitel
   summeTitel?: string;
+  spaltenSatz?: Spaltensatz;                    // ein benannter Satz Spalten (z. B. Reiter der Türliste) – eigene Auswahl, Reihenfolge, Breiten
+  gruppenKopf?: boolean;                        // über den Spaltenköpfen die Gruppen der Felder (Lage, Element, Maße …); Klick klappt eine Gruppe zu
+  zeilenNummern?: boolean;                      // vorn die laufende Nummer der Zeile (wie in Excel)
+  festeSpalten?: string[];                      // diese Spalten (vorn) bleiben beim waagerechten Rollen stehen
+  excel?: ExcelBedienung;                       // Bedienung wie in Excel: Bereiche markieren, kopieren/einfügen (auch aus Excel), ausfüllen, Kontextmenü
 }) {
   const m = p.modell;
-  const spalten = spaltenFuer(m);
+  const spalten = spaltenFuer(m, p.spaltenSatz);
+  // Gruppen zugeklappt (Stellschraube gruppenKopf): je Tabelle und Spaltensatz gemerkt; statt der Spalten steht ein schmaler Streifen
+  const zuSchluessel = `bp_gruppen_zu_${m.name}_${p.spaltenSatz?.id ?? ''}`;
+  const [zu, setZu] = createSignal<string[]>((() => { try { return JSON.parse(localStorage.getItem(zuSchluessel) ?? '[]') as string[]; } catch { return []; } })());
+  const gruppeSchalten = (g: string) => { const n = zu().includes(g) ? zu().filter((x) => x !== g) : [...zu(), g]; setZu(n); try { localStorage.setItem(zuSchluessel, JSON.stringify(n)); } catch { /* egal */ } };
+  const streifen = (g: string): Feld => ({ name: `__zu_${g}`, titel: '', art: 'text', gruppe: g, breite: 18 });
+  /** Was gezeigt wird: die sichtbaren Spalten, zugeklappte Gruppen als ein Streifen. */
+  const gezeigt = createMemo((): Feld[] => {
+    if (!p.gruppenKopf || !zu().length) return spalten.sichtbare();
+    const aus: Feld[] = [];
+    for (const f of spalten.sichtbare()) { const g = f.gruppe ?? ''; if (!zu().includes(g)) aus.push(f); else if (aus[aus.length - 1]?.name !== `__zu_${g}`) aus.push(streifen(g)); }
+    return aus;
+  });
+  const istStreifen = (f: Feld) => f.name.startsWith('__zu_');
+  /** Gruppen der gezeigten Spalten nacheinander (für die Kopfzeile darüber). */
+  const gruppenZeile = createMemo(() => { const aus: { titel: string; n: number; zu: boolean }[] = [];
+    for (const f of gezeigt()) { const g = f.gruppe ?? '', l = aus[aus.length - 1]; if (l && l.titel === g) l.n++; else aus.push({ titel: g, n: 1, zu: istStreifen(f) }); } return aus; });
+  // ---- Bedienung wie in Excel (Stellschraube excel): Bereich aus Zeile × Spalte, die Ecke „ende“ ist die aktive Zelle ----
+  const nutz = createMemo(() => gezeigt().filter((f) => !f.name.startsWith('__zu_')));   // markierbare Spalten
+  const [anker, setAnker] = createSignal<{ r: number; c: number } | null>(null);
+  const [ende, setEnde] = createSignal<{ r: number; c: number } | null>(null);
+  const bereich = () => { const a = anker(), e = ende(); return a && e ? { r1: Math.min(a.r, e.r), r2: Math.max(a.r, e.r), c1: Math.min(a.c, e.c), c2: Math.max(a.c, e.c) } : null; };
+  const imBereich = (r: number, c: number) => { const b = bereich(); return !!b && r >= b.r1 && r <= b.r2 && c >= b.c1 && c <= b.c2 && (b.r1 !== b.r2 || b.c1 !== b.c2); };
+  const [fuellZiel, setFuellZiel] = createSignal<number | null>(null);   // Ausfüllkästchen: bis zu welcher Zeile
+  let ziehen: 'markieren' | 'fuellen' | null = null;
+  const zellText = (z: Zeile, f: Feld) => { const w = z.werte[f.name]; return f.art === 'ja_nein' ? (w ? 'x' : '') : anzeige(f, w); };
+  const gehe = (r: number, c: number, erweitern = false) => {
+    const l = sortiert(); r = Math.max(0, Math.min(l.length - 1, r)); c = Math.max(0, Math.min(nutz().length - 1, c));
+    if (!erweitern || !anker()) setAnker({ r, c }); setEnde({ r, c });
+    const z = l[r], f = nutz()[c]; if (z && f) { setZelle({ id: z.id, feld: f.name }); if (p.gewaehlt !== z.id) waehle(z); }
+  };
+  const bereichZellen = () => { const b = bereich(), l = sortiert(), sp = nutz(); return b ? l.slice(b.r1, b.r2 + 1).map((z) => ({ z, felder: sp.slice(b.c1, b.c2 + 1) })) : []; };
+  const kopieren = () => alsTabellenText(bereichZellen().map(({ z, felder }) => felder.map((f) => zellText(z, f))));
+  const leeren = () => { const a = bereichZellen().flatMap(({ z, felder }) => felder.map((f) => ({ z, f, text: '' }))); if (a.length) p.excel!.onZellen(a, 'Inhalte löschen'); };
+  const einfuegen = (text: string) => {
+    const b = bereich(); if (!b) return;
+    const daten = tabellenText(text), l = sortiert(), sp = nutz();
+    // ein Wert in einen größeren Bereich: überall hinein (wie Excel)
+    const einer = daten.length === 1 && daten[0]!.length === 1;
+    const hoehe = einer ? b.r2 - b.r1 + 1 : daten.length, breite_ = einer ? b.c2 - b.c1 + 1 : Math.max(...daten.map((d) => d.length));
+    const a: { z: Zeile; f: Feld; text: string }[] = [], neu: Record<string, string>[] = [];
+    for (let i = 0; i < hoehe; i++) {
+      const z = l[b.r1 + i], werte: Record<string, string> = {};
+      for (let k = 0; k < breite_; k++) { const f = sp[b.c1 + k]; if (!f) continue; const t = einer ? daten[0]![0]! : daten[i]?.[k] ?? ''; if (z) a.push({ z, f, text: t }); else werte[f.name] = t; }
+      if (!z && Object.values(werte).some(Boolean)) neu.push(werte);
+    }
+    if (a.length) p.excel!.onZellen(a, 'Einfügen');
+    if (neu.length) p.excel!.onNeueZeilen?.(neu);
+    setAnker({ r: b.r1, c: b.c1 }); setEnde({ r: Math.min(l.length + neu.length, b.r1 + hoehe) - 1, c: Math.min(sp.length, b.c1 + breite_) - 1 });
+  };
+  /** Ausfüllen: nach unten (oberste Zeile des Bereichs) oder rechts (linke Spalte); mit Reihe (Ausfüllkästchen) zählt es hoch. */
+  const ausfuellen = (richtung: 'unten' | 'rechts', reihe = false, bisZeile?: number) => {
+    const b = bereich(); if (!b) return; const l = sortiert(), sp = nutz(), a: { z: Zeile; f: Feld; text: string }[] = [];
+    if (richtung === 'unten') {
+      const quelle = reihe ? l.slice(b.r1, b.r2 + 1) : [l[b.r1]!], ziel = reihe ? l.slice(b.r2 + 1, (bisZeile ?? b.r2) + 1) : l.slice(b.r1 + 1, b.r2 + 1);
+      for (const f of sp.slice(b.c1, b.c2 + 1)) { const werte = reihe ? reiheFortsetzen(quelle.map((z) => zellText(z, f)), ziel.length) : ziel.map(() => zellText(quelle[0]!, f)); ziel.forEach((z, i) => a.push({ z, f, text: werte[i]! })); }
+      if (reihe && bisZeile !== undefined) setEnde({ r: bisZeile, c: b.c2 });
+    } else for (const z of l.slice(b.r1, b.r2 + 1)) { const t = zellText(z, sp[b.c1]!); for (const f of sp.slice(b.c1 + 1, b.c2 + 1)) a.push({ z, f, text: t }); }
+    if (a.length) p.excel!.onZellen(a, richtung === 'unten' ? 'Nach unten ausfüllen' : 'Nach rechts ausfüllen');
+  };
+  const zwischenablage = (t: string) => { void navigator.clipboard?.writeText(t).catch(() => undefined); };
+  const excelMenue = (z: Zeile): Menuepunkt[] => { const b = bereich()!, ids = sortiert().slice(b.r1, b.r2 + 1).map((x) => x.id); return [
+    { titel: 'Ausschneiden (Strg+X)', tun: () => { zwischenablage(kopieren()); leeren(); } },
+    { titel: 'Kopieren (Strg+C)', tun: () => zwischenablage(kopieren()) },
+    { titel: 'Einfügen (Strg+V)', tun: () => { void navigator.clipboard?.readText().then(einfuegen).catch(() => undefined); } },
+    { titel: 'Nach unten ausfüllen (Strg+D)', gesperrt: b.r1 === b.r2, tun: () => ausfuellen('unten') },
+    { titel: 'Nach rechts ausfüllen (Strg+R)', gesperrt: b.c1 === b.c2, tun: () => ausfuellen('rechts') },
+    { titel: 'Inhalte löschen (Entf)', tun: leeren },
+    ...(p.excel!.onZeileEinfuegen ? [{ titel: 'Zeile einfügen', tun: () => p.excel!.onZeileEinfuegen!(z) }] : []),
+    ...(p.excel!.onDuplizieren ? [{ titel: ids.length > 1 ? `${ids.length} Zeilen duplizieren` : 'Zeile duplizieren', tun: () => p.excel!.onDuplizieren!(ids) }] : []),
+    ...(p.excel!.onZeilenLoeschen ? [{ titel: ids.length > 1 ? `${ids.length} Zeilen löschen` : 'Zeile löschen', gefahr: true, tun: () => p.excel!.onZeilenLoeschen!(ids) }] : []),
+  ]; };
+  onMount(() => { const los = () => { if (ziehen === 'fuellen' && fuellZiel() !== null) ausfuellen('unten', true, fuellZiel()!); ziehen = null; setFuellZiel(null); };
+    document.addEventListener('pointerup', los); onCleanup(() => document.removeEventListener('pointerup', los)); });
+  const NUMMER = 38;   // Spalte mit der Zeilennummer
+  const nummer = () => (p.zeilenNummern ? NUMMER : 0);
   // Sortierung: eigene, oder von außen geführt (Stellschraube sort/onSort – z. B. gemeinsam mit den Kacheln derselben Ansicht)
   const [eigen, setEigen] = createSignal<Sortierung>({ feld: m.sortierFeld ?? m.anzeigeFeld, ab: false });
   const sort = () => p.sort?.() ?? eigen();
@@ -119,7 +209,7 @@ export function Tabelle(p: {
   const istGewaehlt = createSelector(() => p.gewaehlt);
   const [inArbeit, setInArbeit] = createSignal<{ id: string; feld: string; fehler?: string; start?: string } | null>(null);
   const [zelle, setZelle] = createSignal<{ id: string; feld: string } | null>(null);   // zuletzt angeklickte Zelle – Tippen schreibt hinein
-  const kopfHoehe = () => (p.onFilter ? 71 : 35);
+  const kopfHoehe = () => (p.onFilter ? 71 : 35) + (p.gruppenKopf ? 24 : 0);
   let kasten!: HTMLDivElement;
 
   const sortiert = createMemo(() => (p.reihenfolgeFest ? p.zeilen : sortieren(p.zeilen, m, sort())));
@@ -133,12 +223,17 @@ export function Tabelle(p: {
   const reihe = () => sortiert().map((z) => z.id);
   const HAKEN = 34;   // Spalte für die Haken der Auswahl
   const haken = () => (p.auswahl ? HAKEN : 0);   // feste Breite – schmaler werden nur die Spalten
-  const summe = createMemo(() => spalten.sichtbare().reduce((s, f) => s + spalten.breite(f), 0));
+  const summe = createMemo(() => gezeigt().reduce((s, f) => s + (istStreifen(f) ? 18 : spalten.breite(f)), 0));
   // Voreingestellt passen die Spalten in den Platz: zu breite werden alle im selben Verhältnis schmaler – kein waagerechtes Rollen.
   // Hat der Benutzer Breiten gezogen, gelten sie genau wie in Excel; wird die Tabelle breiter als der Platz, rollt sie waagerecht.
-  const faktor = () => (!spalten.eigeneBreiten() && platz() && summe() + haken() > platz() ? (platz() - haken()) / summe() : 1);
-  const breite = () => summe() * faktor() + haken();
-  const spaltenbreite = (f: Feld) => spalten.breite(f) * faktor();
+  const faktor = () => (!spalten.eigeneBreiten() && platz() && summe() + haken() + nummer() > platz() && !p.festeSpalten?.length ? (platz() - haken() - nummer()) / summe() : 1);
+  const breite = () => summe() * faktor() + haken() + nummer();
+  const spaltenbreite = (f: Feld) => (istStreifen(f) ? 18 : spalten.breite(f) * faktor());
+  // feste Spalten (Stellschraube festeSpalten): bleiben beim waagerechten Rollen stehen – Abstand von links
+  const links = createMemo(() => { const aus: Record<string, number> = {}; let x = haken() + nummer();
+    for (const f of gezeigt()) { if (!p.festeSpalten?.includes(f.name)) break; aus[f.name] = x; x += spaltenbreite(f); } return aus; });
+  const letzteFeste = () => Object.keys(links()).pop();
+  const fest = (f: Feld) => (links()[f.name] !== undefined ? { position: 'sticky' as const, left: `${links()[f.name]}px`, 'z-index': 1 } : undefined);
 
   const waehle = (z: Zeile | undefined) => {
     if (!z) return;
@@ -161,6 +256,15 @@ export function Tabelle(p: {
   });
 
   const tasten = (e: KeyboardEvent) => {
+    if (p.excel && ende() && !inArbeit()) {
+      const en = ende()!, strg = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+      const schritt: Record<string, [number, number]> = { ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1], Enter: [e.shiftKey ? -1 : 1, 0], Tab: [0, e.shiftKey ? -1 : 1] };
+      if (e.key in schritt && !strg) { e.preventDefault(); const [dr, dc] = schritt[e.key]!; gehe(en.r + dr, en.c + dc, e.shiftKey && e.key.startsWith('Arrow')); return; }
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); leeren(); return; }
+      if (strg && k === 'd') { e.preventDefault(); ausfuellen('unten'); return; }
+      if (strg && k === 'r') { e.preventDefault(); ausfuellen('rechts'); return; }
+      if (e.key === 'Escape' && bereich() && (bereich()!.r1 !== bereich()!.r2 || bereich()!.c1 !== bereich()!.c2)) { e.preventDefault(); setAnker(en); return; }
+    }
     const l = sortiert();
     const i = l.findIndex((z) => z.id === p.gewaehlt);
     const seite = Math.max(1, Math.floor(kasten.clientHeight / ZEILENHOEHE) - 2);
@@ -210,8 +314,8 @@ export function Tabelle(p: {
   const summenSpalten = createMemo(() => spalten.sichtbare().filter((f) => f.art === 'zahl' && f.einheit));
   const einheitText = (f: Feld, e: string) => { const ef = m.felder.find((x) => x.name === f.einheit); return ef ? anzeige(ef, e) || e : e; };
   // Summe je Spalte (Stellschraube summe): eine Zeile unter den gezeigten Zeilen, in der Reihenfolge der gewählten Spalten
-  const spaltenSumme = () => <tr class="summenzeile spaltensumme"><Show when={p.auswahl}><td /></Show>
-    <For each={spalten.sichtbare()}>{(f, i) => { const w = () => p.summe!(f, sortiert()); return <td classList={{ zahl: f.art === 'zahl' }}>{w() ?? (i() === 0 ? p.summeTitel ?? 'Summe' : '')}</td>; }}</For></tr>;
+  const spaltenSumme = () => <tr class="summenzeile spaltensumme"><Show when={p.auswahl}><td /></Show><Show when={p.zeilenNummern}><td /></Show>
+    <For each={gezeigt()}>{(f, i) => { const w = () => p.summe!(f, sortiert()); return <td classList={{ zahl: f.art === 'zahl' }}>{w() ?? (i() === 0 ? p.summeTitel ?? 'Summe' : '')}</td>; }}</For></tr>;
   const summenZeile = () => {
     const werte = sortiert().map((z) => unwrap(z).werte);
     // über die ganze Breite: eine schmale Mengenspalte schneidet die Zahl sonst ab
@@ -222,7 +326,7 @@ export function Tabelle(p: {
     }).filter(Boolean);
     return (
       <tr class="summenzeile">
-        <td colSpan={spalten.sichtbare().length + (p.auswahl ? 1 : 0)}><span>Summe ({werte.length})</span><For each={teile()}>{(t) => <b>{t}</b>}</For></td>
+        <td colSpan={gezeigt().length + (p.auswahl ? 1 : 0) + (p.zeilenNummern ? 1 : 0)}><span>Summe ({werte.length})</span><For each={teile()}>{(t) => <b>{t}</b>}</For></td>
       </tr>
     );
   };
@@ -241,15 +345,27 @@ export function Tabelle(p: {
 
   return (
     <>
-      <div class="tabelle-rollen" tabindex="0" ref={kasten} onKeyDown={tasten} onScroll={() => setRollen({ oben: kasten.scrollTop, hoehe: kasten.clientHeight })}>
-        <table class="tabelle" style={{ width: `${breite()}px` }}>
-          <colgroup><Show when={p.auswahl}><col style={{ width: `${HAKEN}px` }} /></Show><For each={spalten.sichtbare()}>{(f) => <col style={{ width: `${spaltenbreite(f)}px` }} />}</For></colgroup>
-          <thead><tr onContextMenu={(e) => { e.preventDefault(); spaltenAuf(e); }}>
+      <div class="tabelle-rollen" classList={{ excel: !!p.excel }} tabindex="0" ref={kasten} onKeyDown={tasten}
+        onCopy={(e) => { if (!p.excel || !bereich() || inArbeit()) return; e.preventDefault(); e.clipboardData?.setData('text/plain', kopieren()); }}
+        onCut={(e) => { if (!p.excel || !bereich() || inArbeit()) return; e.preventDefault(); e.clipboardData?.setData('text/plain', kopieren()); leeren(); }}
+        onPaste={(e) => { if (!p.excel || !bereich() || inArbeit()) return; e.preventDefault(); einfuegen(e.clipboardData?.getData('text/plain') ?? ''); }} onScroll={() => setRollen({ oben: kasten.scrollTop, hoehe: kasten.clientHeight })}>
+        <table class="tabelle" classList={{ "mit-gruppen": !!p.gruppenKopf }} style={{ width: `${breite()}px` }}>
+          <colgroup><Show when={p.auswahl}><col style={{ width: `${HAKEN}px` }} /></Show><Show when={p.zeilenNummern}><col style={{ width: `${NUMMER}px` }} /></Show><For each={gezeigt()}>{(f) => <col style={{ width: `${spaltenbreite(f)}px` }} />}</For></colgroup>
+          <thead>
+          <Show when={p.gruppenKopf}>
+            <tr class="gruppenkopf">
+              <Show when={p.auswahl}><th class="haken-zelle" /></Show><Show when={p.zeilenNummern}><th class="nummer-zelle" /></Show>
+              <For each={gruppenZeile()}>{(g) => <th colSpan={g.n} classList={{ zu: g.zu }} title={g.zu ? `${g.titel} wieder aufklappen` : `${g.titel} – Klick klappt die Gruppe zu`}>
+                <button type="button" onClick={() => gruppeSchalten(g.titel)} aria-expanded={!g.zu}>{g.zu ? '▸' : g.titel}</button></th>}</For>
+            </tr>
+          </Show>
+          <tr onContextMenu={(e) => { e.preventDefault(); spaltenAuf(e); }}>
             <Show when={p.auswahl}>{(a) => <th class="haken-zelle" rowSpan={p.onFilter ? 2 : 1}><KopfHaken auswahl={a()} reihe={reihe} /></th>}</Show>
-            <For each={spalten.sichtbare()}>{(f) => (
-              <th aria-sort={!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} {...spalten.ziehbar(f.name)}>
+            <Show when={p.zeilenNummern}><th class="nummer-zelle" rowSpan={p.onFilter ? 2 : 1} /></Show>
+            <For each={gezeigt()}>{(f) => istStreifen(f) ? <th class="streifen" /> : (
+              <th style={fest(f)} classList={{ 'feste-spalte': links()[f.name] !== undefined, 'feste-letzte': f.name === letzteFeste() }} aria-sort={!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? 'descending' : 'ascending') : 'none'} {...spalten.ziehbar(f.name)}>
                 <button onClick={() => { if (!p.reihenfolgeFest) setSort((s) => ({ feld: f.name, ab: s.feld === f.name ? !s.ab : false })); }}>
-                  <span>{f.titel}</span><span class="pfeil">{!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? '▼' : '▲') : ''}</span>
+                  <span title={f.kurz ? f.titel : undefined}>{f.kurz ?? f.titel}</span><span class="pfeil">{!p.reihenfolgeFest && sort().feld === f.name ? (sort().ab ? '▼' : '▲') : ''}</span>
                 </button>
                 <i class="griff" aria-hidden="true" title="Ziehen: Breite ändern · Doppelklick: alle Spalten passend zum Inhalt" onPointerDown={(e) => spalten.breiteZiehen(e, f.name, festhalten)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => { e.stopPropagation(); passend(); }} />
               </th>
@@ -257,8 +373,8 @@ export function Tabelle(p: {
           </tr>
           <Show when={p.onFilter}>
             <tr class="filterzeile">
-              <For each={spalten.sichtbare()}>{(f) => (
-                <th><FilterFeld f={f} text={p.filter?.[f.name] ?? ''} werte={() => p.filterWerte?.(f) ?? []} onText={(t) => p.onFilter!(f.name, t)} onFest={p.onFilterFest ? (t) => p.onFilterFest!(f.name, t) : undefined}
+              <For each={gezeigt()}>{(f) => istStreifen(f) ? <th class="streifen" /> : (
+                <th style={fest(f)} classList={{ 'feste-spalte': links()[f.name] !== undefined }}><FilterFeld f={f} text={p.filter?.[f.name] ?? ''} werte={() => p.filterWerte?.(f) ?? []} onText={(t) => p.onFilter!(f.name, t)} onFest={p.onFilterFest ? (t) => p.onFilterFest!(f.name, t) : undefined}
                   onWeiter={() => { kasten.focus(); if (!sortiert().some((z) => z.id === p.gewaehlt)) waehle(sortiert()[0]); }} /></th>
               )}</For>
             </tr>
@@ -266,16 +382,24 @@ export function Tabelle(p: {
           </thead>
           <tbody>
             <tr aria-hidden="true" style={{ height: `${fenster().von * ZEILENHOEHE}px` }} />
-            <For each={fenster().teil}>{(z) => { const lang = langTippen(p.auswahl, z.id); return (
+            <For each={fenster().teil}>{(z, i) => { const lang = langTippen(p.auswahl, z.id); return (
               <tr classList={{ ...p.zeilenKlasse?.(z), gewaehlt: istGewaehlt(z.id), markiert: !!p.auswahl?.hat(z.id) }}
-                onClick={(e) => { if (lang.schlucken(e) || auswahlKlick(p.auswahl, e, z.id, reihe)) return; p.onWahl(z.id); }}
+                onClick={(e) => { if (lang.schlucken(e)) return; if ((!p.excel || (e.target as Element).closest('.haken-zelle')) && auswahlKlick(p.auswahl, e, z.id, reihe)) return; p.onWahl(z.id); }}
                 onPointerDown={lang.onPointerDown} onPointerMove={lang.onPointerMove} onPointerUp={lang.onPointerUp} onPointerCancel={lang.onPointerCancel}
-                onContextMenu={(e) => { lang.onContextMenu(e); if (e.defaultPrevented) return; if (p.auswahl?.hat(z.id) && p.auswahlMenue) { e.preventDefault(); p.auswahlMenue(e); return; } if (!p.zeilenMenue) return; p.onWahl(z.id); zeigeMenue(e, p.zeilenMenue(z)); }}>
+                onContextMenu={(e) => { lang.onContextMenu(e); if (e.defaultPrevented) return; if (p.excel && bereich()) { e.preventDefault(); zeigeMenue(e, excelMenue(z)); return; } if (p.auswahl?.hat(z.id) && p.auswahlMenue) { e.preventDefault(); p.auswahlMenue(e); return; } if (!p.zeilenMenue) return; p.onWahl(z.id); zeigeMenue(e, p.zeilenMenue(z)); }}>
                 <Show when={p.auswahl}>{(a) => <td class="haken-zelle"><Haken auswahl={a()} id={z.id} name={objektname(m, z.werte)} reihe={reihe} /></td>}</Show>
-                <For each={spalten.sichtbare()}>{(f) => (
-                  <td class={z.herkunft?.[f.name] ? `herkunft-${z.herkunft[f.name]}` : undefined} classList={{ 'in-arbeit': inArbeit()?.id === z.id && inArbeit()?.feld === f.name, 'aktiv-zelle': zelle()?.id === z.id && zelle()?.feld === f.name && istGewaehlt(z.id) && !inArbeit() }}
+                <Show when={p.zeilenNummern}><td class="nummer-zelle" onPointerDown={(e) => { if (!p.excel || e.button !== 0) return; const r = fenster().von + i(); if (e.shiftKey && anker()) setEnde({ r, c: nutz().length - 1 }); else { setAnker({ r, c: 0 }); setEnde({ r, c: nutz().length - 1 }); } ziehen = 'markieren'; }}
+                  onPointerEnter={(e) => { if (ziehen === 'markieren' && e.buttons & 1) setEnde({ r: fenster().von + i(), c: nutz().length - 1 }); }}>{fenster().von + i() + 1}</td></Show>
+                <For each={gezeigt()}>{(f) => istStreifen(f) ? <td class="streifen" /> : (
+                  <td style={fest(f)} class={z.herkunft?.[f.name] ? `herkunft-${z.herkunft[f.name]}` : undefined} classList={{ 'feste-spalte': links()[f.name] !== undefined, 'feste-letzte': f.name === letzteFeste(), 'in-arbeit': inArbeit()?.id === z.id && inArbeit()?.feld === f.name, 'aktiv-zelle': zelle()?.id === z.id && zelle()?.feld === f.name && istGewaehlt(z.id) && !inArbeit(),
+                      'im-bereich': !!p.excel && imBereich(fenster().von + i(), nutz().indexOf(f)), 'fuell-ziel': fuellZiel() !== null && !!bereich() && fenster().von + i() > bereich()!.r2 && fenster().von + i() <= fuellZiel()! && nutz().indexOf(f) >= bereich()!.c1 && nutz().indexOf(f) <= bereich()!.c2 }}
                     title={z.herkunft?.[f.name] ? HERKUNFT[z.herkunft[f.name]!] : undefined}
-                    onClick={() => setZelle({ id: z.id, feld: f.name })} onDblClick={() => doppelklick(z)}>
+                    onPointerDown={(e) => { if (!p.excel || e.button !== 0 || inArbeit()) return; const r = fenster().von + i(), c = nutz().indexOf(f); if (e.shiftKey && anker()) { e.preventDefault(); setEnde({ r, c }); } else { setAnker({ r, c }); setEnde({ r, c }); } ziehen = 'markieren'; }}
+                    onPointerEnter={(e) => { if (!p.excel || !(e.buttons & 1)) return; const r = fenster().von + i(); if (ziehen === 'markieren') setEnde({ r, c: nutz().indexOf(f) }); else if (ziehen === 'fuellen' && bereich()) setFuellZiel(r > bereich()!.r2 ? r : null); }}
+                    onClick={() => setZelle({ id: z.id, feld: f.name })} onDblClick={() => { if (p.excel && p.onZelle && IN_ZELLE.includes(f.art)) setInArbeit({ id: z.id, feld: f.name }); else doppelklick(z); }}>
+                    <Show when={p.excel && bereich() && fenster().von + i() === bereich()!.r2 && nutz().indexOf(f) === bereich()!.c2 && !inArbeit()}>
+                      <i class="fuellgriff" title="Ziehen: nach unten ausfüllen (Zahlen und Nummern zählen hoch)" onPointerDown={(e) => { e.stopPropagation(); e.preventDefault(); ziehen = 'fuellen'; }} />
+                    </Show>
                     <Show when={inArbeit()?.id === z.id && inArbeit()?.feld === f.name} fallback={p.zelle?.(f, z) ?? <><Verbinden f={f} w={z.werte[f.name]} />{anzeige(f, z.werte[f.name])}</>}>
                       <input ref={(el) => queueMicrotask(() => { el.focus(); if (inArbeit()?.start === undefined) el.select?.(); })} type="text" placeholder={f.art === 'datum' ? 'TT.MM.JJJJ' : undefined} inputMode={f.art === 'zahl' ? 'decimal' : undefined} value={inArbeit()?.start ?? zeigen(f, z.werte[f.name])}
                         aria-label={f.titel} aria-invalid={!!inArbeit()?.fehler} title={inArbeit()?.fehler} classList={{ falsch: !!inArbeit()?.fehler }}

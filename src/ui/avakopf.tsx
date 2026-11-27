@@ -90,6 +90,30 @@ function abfolge(p: Mitte, ansicht: string) {
 }
 
 /** Für jede Ansicht der AVA: oben der Kopf des LV und der Ablauf. */
+/** Kopf der Ansichten, die für das ganze Projekt gelten (Fenster- & Türliste): wie bisher „Ansicht: Projekt“, rechts Vertrag und Strafe
+ *  der Ausschreibungsdaten des Projekts (gelten für alle LVs) und die Knöpfe Projektdaten und Ausschreibungsdaten. */
+export function AvaProjektKopf(): JSX.Element {
+  const app = useContext(AppUmgebung);
+  const ansichtTitel = () => app?.reiter().find((r) => r.id === app.aktiv())?.titel ?? 'Ausschreibung';
+  const projekt = () => { const id = projektId(); const z = id ? sicht.projekt?.[id] : undefined; return z && !z.geloescht ? z : undefined; };
+  const feld = (n: string) => modell('projekt').felder.find((f) => f.name === n);
+  const wert = (n: string) => { const f = feld(n); return f ? anzeige(f, wirksameWerte(modell('projekt'), projekt()!.werte)[n]) : ''; };
+  const strafe = () => (wert('lv_strafe_prozent') ? `${wert('lv_strafe_prozent')} % je ${wert('lv_strafe_tagart') || 'Werktag'}` : 'keine');
+  return (
+    <Show when={projekt()}>{(z) => (
+      <div class="ansicht-kopf" aria-label="Projekt">
+        <div class="kopf-titel"><span class="kopf-ansicht">{ansichtTitel()}:</span><span class="kopf-lv kopf-projekt">{String(z().werte.name ?? '')}</span></div>
+        <span class="kopf-rechts">
+          <Show when={wert('lv_vertragsart')}><span class="kopf-angabe"><small>Vertrag</small>{wert('lv_vertragsart')}</span></Show>
+          <span class="kopf-angabe"><small>Strafe</small>{strafe()}</span>
+          <button type="button" class="knopf klein" title="Projektdaten: Bauherr:in, Baustelle, Beteiligte, Termine – gelten für alle Apps des Projekts" onClick={() => karteOeffnen({ objekt: 'projekt', id: z().id, titel: 'Projektdaten' })}><Zeichen name="bearbeiten" groesse={14} /> Projektdaten</button>
+          <button type="button" class="knopf klein" title="Ausschreibungsdaten des Projekts – gelten für alle LVs, solange ein LV nichts Eigenes einträgt" onClick={() => karteOeffnen({ objekt: 'projekt', id: z().id, titel: 'Ausschreibungsdaten (alle LVs)', nurGruppen: ['Ausschreibung (alle LVs)'] })}><Zeichen name="bearbeiten" groesse={14} /> Ausschreibungsdaten</button>
+        </span>
+      </div>
+    )}</Show>
+  );
+}
+
 export const AVA_OBEN: Anpassung = { kopf: (p) => <AvaKopf {...p} />, abfolge, menueMitte: (p) => <Kennzahlen {...p} />, linksTitel: 'Bereiche' };
 function Kennzahlen(p: Mitte) { const app = useContext(AppUmgebung); return <AvaKennzahlen lv={lvVon(p)} ansicht={(app?.aktiv() ?? '').replace(/^ava\./, '')} />; }
 

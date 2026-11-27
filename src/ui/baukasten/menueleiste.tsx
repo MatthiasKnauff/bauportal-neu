@@ -18,10 +18,11 @@ export interface Knopf {
   inhalt?: () => JSX.Element;  // statt eines Knopfs ein eigenes Element in der Gruppe (z. B. die Fortschrittsstufen im Bauzeitenplan); tun bleibt dann ungenutzt
 }
 
-/** Knöpfe zu Gruppen zusammenfassen – aufeinanderfolgende mit derselben Überschrift bilden eine Gruppe. */
+/** Knöpfe zu Gruppen zusammenfassen – alle mit derselben Überschrift bilden eine Gruppe, an der Stelle ihres ersten Knopfs
+ *  (z. B. „Datei“: Import vom Modul, Excel und Drucken von der Ansicht). Ohne Überschrift nur aufeinanderfolgende. */
 function gruppen(k: Knopf[]): { titel: string; knoepfe: Knopf[] }[] {
   const aus: { titel: string; knoepfe: Knopf[] }[] = [];
-  for (const x of k) { const t = x.gruppe ?? ''; const l = aus[aus.length - 1]; if (l && l.titel === t) l.knoepfe.push(x); else aus.push({ titel: t, knoepfe: [x] }); }
+  for (const x of k) { const t = x.gruppe ?? ''; const g = t ? aus.find((y) => y.titel === t) : aus[aus.length - 1]?.titel === '' ? aus[aus.length - 1] : undefined; if (g) g.knoepfe.push(x); else aus.push({ titel: t, knoepfe: [x] }); }
   return aus;
 }
 

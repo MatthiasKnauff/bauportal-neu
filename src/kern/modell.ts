@@ -28,6 +28,7 @@ export interface Feld {
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)
   verborgen?: boolean;     // führt das Programm selbst (z. B. die Reihenfolge) – steht in keiner Karte
   einheit?: string;        // bei art = zahl: Feld mit der Einheit dieser Menge – die Tabelle zeigt dann unten die Summe der gezeigten Zeilen
+  kurz?: string;           // kurzer Titel für den Spaltenkopf (z. B. „Anz.“ statt „Anzahl“); der volle Titel steht als Hinweis daran
   alsListe?: boolean;      // bei art = auswahl: immer als Pulldown (Auswahlliste), auch bei wenigen Werten
   datumVorschlaege?: DatumVorschlag[];   // bei art = datum: drei Vorschläge zum Antippen im Kalender (ab Werk +1 Woche · +2 Wochen · +1 Monat ab heute)
   erbt?: boolean;          // leer gilt der Wert der Ebene darüber (Modell „erben“, z. B. LV ← Projekt ← Büro) – kern/erben.ts

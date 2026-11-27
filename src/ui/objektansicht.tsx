@@ -1,17 +1,17 @@
 // Die übliche Ansicht eines Objekts: Sie baut nichts selbst, sondern setzt die fertigen Bausteine
 // in den Rahmen – Baum links, Tabelle in die Mitte, Detailkarte rechts – und verbindet sie.
 import { herunterladen } from './baukasten/herunterladen';
-import { Show, createEffect, createMemo, createSignal, onCleanup, untrack, useContext, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, untrack, useContext, type JSX } from 'solid-js';
 import { sprungAbholen } from './sprung';
 import { unwrap } from 'solid-js/store';
-import { leerwert, type ObjektModell, type Werte } from '../kern/modell';
+import { Eingabefehler, leerwert, pruefeWerte, type ObjektModell, type Werte } from '../kern/modell';
 import { enthaeltDazu, satz, werteIn } from '../kern/filterbedingung';
 import { objektFilter } from './baukasten/objektfilter';
 import { projektId } from './projekt';
 import { Filterkaesten, Filtersuche } from './baukasten/filterkaesten';
-import type { Zeile } from '../kern/befehl';
+import type { Vorlage, Zeile } from '../kern/befehl';
 import { ausfuehrenMehrere, geaendert, lebende, objektname, rueckgaengig, sicht } from './unterbau/abgleich';
-import { ausdrucke, darf, zustand } from './unterbau/api';
+import { ausdrucke, darf, neueKennung, zustand } from './unterbau/api';
 import { druckOeffnen, verzeichnisDrucken } from './druck';
 import type { Anpassung } from './baukasten/anpassung';
 import type { Knopf } from './baukasten/menueleiste';
@@ -22,7 +22,8 @@ import { Schwebefenster } from './baukasten/schwebefenster';
 import { Detailkarte, NeuFenster, inEigenemFenster, loesche, feldAendern } from './baukasten/detailkarte';
 import { anzeige, excelWert } from './baukasten/feld';
 import { AppUmgebung, Rahmen, type RahmenSteuer } from './baukasten/rahmen';
-import { Tabelle, sortieren, type Sortierung, type TabellenSteuer } from './baukasten/tabelle';
+import { Tabelle, sortieren, type ExcelBedienung, type Sortierung, type TabellenSteuer } from './baukasten/tabelle';
+import { wertAusText } from '../kern/werttext';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Kacheln } from './baukasten/kacheln';
 import { Auswahlleiste, auswahlAnlegen, auswahlMenue, type AuswahlBefehl } from './baukasten/auswahl';
@@ -46,6 +47,11 @@ export function ObjektAnsicht(p: {
 }) {
   const m = p.modell;
   const a = p.anpassung ?? {};
+  // Spaltensätze der Tabelle (Stellschraube tabelle.saetze): der gewählte Reiter, je Ansicht gemerkt
+  const satzSchluessel = `bp_spaltensatz_${p.schluessel}`;
+  const [satzId, setSatzId] = createSignal<string>((() => { try { return localStorage.getItem(satzSchluessel) ?? ''; } catch { return ''; } })());
+  const spSatz = () => (a.tabelle?.saetze?.length ? a.tabelle.saetze.find((x) => x.id === satzId()) ?? a.tabelle.saetze[0] : undefined);
+  const satzWaehlen = (id: string) => { setSatzId(id); try { localStorage.setItem(satzSchluessel, id); } catch { /* egal */ } };
   const app = useContext(AppUmgebung);
   const baumFelder = (p.baum ?? []).map((n) => m.felder.find((f) => f.name === n)!);
   // Sammelfilter links: die Filter der Ansicht – oder, wo sie keine nennt, je Auswahl-/Verweisfeld der Liste einer (UND, ODER, NICHT)
@@ -123,6 +129,45 @@ export function ObjektAnsicht(p: {
     werte[m.anzeigeFeld] = `${z.werte[m.anzeigeFeld]} (Kopie)`;
     neuStart(werte);
   };
+  // ---------- Bedienung wie in Excel (Stellschraube tabelle.excel): Zellen schreiben, einfügen, ausfüllen – je Aktion ein Schritt ----------
+  const ausTexten = (texte: Record<string, string>): { werte: Werte; falsch: string[] } => {
+    const werte: Werte = {}, falsch: string[] = [];
+    for (const [n, t] of Object.entries(texte)) { const f = m.felder.find((x) => x.name === n); if (!f) continue; const w = wertAusText(f, t); if (w === undefined) falsch.push(f.titel); else werte[n] = w; }
+    return { werte, falsch };
+  };
+  const excelBedienung = (): ExcelBedienung | undefined => (!a.tabelle?.excel || !darf(m.name, 'schreiben') ? undefined : {
+    onZellen: (aenderungen, titel) => {
+      const je = new Map<string, { z: Zeile; texte: Record<string, string> }>();
+      for (const x of aenderungen) { const e = je.get(x.z.id) ?? { z: x.z, texte: {} }; e.texte[x.f.name] = x.text; je.set(x.z.id, e); }
+      const befehle: Vorlage[] = [], falsch = new Set<string>();
+      for (const { z, texte } of je.values()) {
+        const r = ausTexten(texte); r.falsch.forEach((f) => falsch.add(f));
+        try {
+          const sauber = pruefeWerte(m, r.werte, false);
+          const anders = Object.fromEntries(Object.entries(sauber).filter(([n, w]) => (w ?? '') !== (z.werte[n] ?? '')));
+          if (Object.keys(anders).length) befehle.push({ objekt: m.name, art: 'aendern', objektId: z.id, werte: anders });
+        } catch (e) { if (e instanceof Eingabefehler) Object.keys(e.felder).forEach((n) => falsch.add(m.felder.find((f) => f.name === n)?.titel ?? n)); else throw e; }
+      }
+      if (befehle.length) ausfuehrenMehrere(befehle, `${titel} (${befehle.length} ${befehle.length === 1 ? 'Zeile' : 'Zeilen'})`);
+      if (falsch.size) hinweis(`Nicht übernommen, weil der Wert nicht passt: ${[...falsch].join(', ')}.`, { art: 'fehler' });
+    },
+    onNeueZeilen: (zeilen) => {
+      const befehle: Vorlage[] = [];
+      for (const texte of zeilen) { const r = ausTexten(texte); befehle.push({ objekt: m.name, art: 'anlegen', objektId: neueKennung(), werte: { ...r.werte, ...fest() } }); }
+      ausfuehrenMehrere(befehle, `${befehle.length} ${befehle.length === 1 ? 'Zeile' : 'Zeilen'} eingefügt`);
+    },
+    onZeileEinfuegen: (nach) => {
+      const id = neueKennung(), da = { ...fest() };
+      ausfuehrenMehrere([{ objekt: m.name, art: 'anlegen', objektId: id, werte: { ...(a.neuVorgabe?.(nach ? [nach] : lebend(), da) ?? {}), ...da } }], `${m.titel} einfügen`);
+      setGewaehlt(id);
+    },
+    onDuplizieren: (ids) => {
+      const befehle: Vorlage[] = ids.map((id) => { const w = { ...roh(lebend().find((z) => z.id === id)!).werte }; for (const f of m.felder) if (f.eindeutig) w[f.name] = leerwert(f); return { objekt: m.name, art: 'anlegen' as const, objektId: neueKennung(), werte: w }; });
+      ausfuehrenMehrere(befehle, `${ids.length} ${ids.length === 1 ? 'Zeile' : 'Zeilen'} duplizieren`);
+    },
+    onZeilenLoeschen: darfLoeschen() ? (ids) => { ausfuehrenMehrere(ids.map((id) => ({ objekt: m.name, art: 'loeschen' as const, objektId: id })), `${ids.length} ${ids.length === 1 ? 'Zeile' : 'Zeilen'} löschen`);
+      hinweis(`${ids.length} ${ids.length === 1 ? 'Zeile' : 'Zeilen'} gelöscht.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } }); } : undefined,
+  });
   let mitteNeu: (() => void) | undefined;   // wie die eigene Mitte neu anlegt, falls sie das selbst regelt
   const mitteP = { alle: lebend, zeilen, fest, gewaehlt, onWahl: setGewaehlt, onOeffnen: insErsteFeld, setReihe, setKnoepfe: setMitteKnoepfe, setNeu: (f: () => void) => { mitteNeu = f; } };
   // Blättern in der Karte: in der Reihenfolge, die die Mitte gerade zeigt
@@ -240,8 +285,17 @@ export function ObjektAnsicht(p: {
             <Kacheln zeilen={kachelZeilen()} gewaehlt={gewaehlt()} leer={leer()} inhalt={a.kachel} breite={a.kachelBreite} onWahl={setGewaehlt} onOeffnen={() => rahmen.detailsZeigen()}
               auswahl={auswahl} auswahlMenue={auswahl ? (e) => auswahlMenue(auswahl, auswahlBefehle(), e) : undefined} name={(z) => objektname(m, z.werte)} />
           </div> :
+          <div class="tabelle-mit-reitern">
+          <Show when={a.tabelle?.saetze?.length}>
+            <div class="spaltensaetze" role="tablist" aria-label="Ansichten der Tabelle">
+              <For each={a.tabelle!.saetze}>{(st) => <button type="button" role="tab" aria-selected={spSatz()?.id === st.id} classList={{ aktiv: spSatz()?.id === st.id }} onClick={() => satzWaehlen(st.id)}>
+                {st.titel}<Show when={st !== a.tabelle!.saetze!.at(-1)}> <small>{st.spalten.length}</small></Show></button>}</For>
+            </div>
+          </Show>
+          <Show when={spSatz()?.id ?? '-'} keyed>{(_satz) =>
           <Tabelle modell={m} zeilen={zeilen()} sort={sort} onSort={setSort} onReihe={setReihe} gewaehlt={gewaehlt()} leer={leer()} steuer={(s) => (tabelle = s)} zelle={a.zelle}
-            filter={entwurf()} onFilter={(feld, text) => setEntwurf({ ...entwurf(), [feld]: text })} onFilterFest={spalteFest} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
+            spaltenSatz={spSatz()} excel={excelBedienung()} gruppenKopf={a.tabelle?.gruppenKopf} zeilenNummern={a.tabelle?.zeilenNummern} festeSpalten={a.tabelle?.festeSpalten}
+            filter={a.tabelle?.ohneFilterzeile ? undefined : entwurf()} onFilter={a.tabelle?.ohneFilterzeile ? undefined : (feld, text) => setEntwurf({ ...entwurf(), [feld]: text })} onFilterFest={spalteFest} filterWerte={(f) => lebend().map((z) => anzeige(f, roh(z).werte[f.name]))}
             onZelle={darf(m.name, 'schreiben') ? (z, f, w) => feldAendern(m, z, f, w) : undefined}
             onWahl={setGewaehlt} onOeffnen={insErsteFeld} onDoppelklick={a.details ? undefined : (z) => setSchwebend(z.id)} onSuche={() => suchfeld.focus()}
             onLoeschen={darfLoeschen() ? (z) => loesche(m, z) : undefined}
@@ -252,7 +306,9 @@ export function ObjektAnsicht(p: {
               ...(a.zeilenMenue?.(z) ?? []),
               ...(darf(m.name, 'schreiben') ? [{ titel: 'Duplizieren …', tun: () => duplizieren(z) }] : []),
               ...(darfLoeschen() ? [{ titel: 'Löschen', gefahr: true, tun: () => loesche(m, z) }] : []),
-            ]} />
+            ]} />}</Show>
+          <Show when={a.tabelle?.hinweis}><p class="tabelle-hinweis still-text klein-text">{a.tabelle!.hinweis}</p></Show>
+          </div>
         }
         detailsTitel={(karte() && objektname(m, karte()!.werte)) || m.titel}
         detailsHinweis={a.detailsHinweis ?? `${a.mitte ? 'Einen Eintrag' : 'Eine Zeile'} anklicken – hier stehen dann alle Angaben, direkt änderbar.`}

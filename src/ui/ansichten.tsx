@@ -22,9 +22,10 @@ import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { hinweis } from './unterbau/meldungen';
 import type { Anpassung } from './baukasten/anpassung';
-import { AVA_OBEN } from './avakopf';
+import { AVA_OBEN, AvaProjektKopf } from './avakopf';
 import { KatasterHolen } from './kataster';
-import { TuerlisteOben, tuerKnoepfe } from './tuerliste';
+import { TUER_SAETZE, TuerlisteOben, gewaehlteListe, neueZeileVorgabe, tuerKnoepfe } from './tuerliste';
+import { AUSSTATTUNG } from '../module/ava/tueren';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
@@ -534,7 +535,7 @@ export function KarteImFensterZeigen() {
     return <Dialog titel={k.titel} breit onAbbrechen={verwerfen} geaendert={() => schritte() > 0}
       knoepfe={<><button type="button" class="knopf" data-abbrechen onClick={verwerfen}>Abbrechen</button><button type="button" class="knopf haupt" onClick={zu}>OK</button></>}>
       <Show when={zeile()} fallback={<p class="still-text">Nicht (mehr) vorhanden.</p>}>{(z) =>
-        <Detailkarte modell={m} zeile={z()} ohneKopf ohneRahmen zusatz={a.kartenZusatz} oben={k.ohneOben ? undefined : a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} />}</Show>
+        <Detailkarte modell={m} zeile={z()} ohneKopf ohneRahmen zusatz={k.nurGruppen ? undefined : a.kartenZusatz} oben={k.ohneOben || k.nurGruppen ? undefined : a.kartenOben} einschub={a.kartenEinschub} reiter={k.nurGruppen ? undefined : a.kartenReiter} nurGruppen={k.nurGruppen} />}</Show>
     </Dialog>;
   }}</Show>;
 }
@@ -562,7 +563,15 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'ava.aufmass': { mitte: (m) => <Aufmasspruefung {...m} />, ohneNeu: true,
     detailsHinweis: 'Eine Position anklicken – hier stehen dann ihre Aufmaßzeilen (Datum, Ort, Rechenweg).',
     details: (_, heftzwecke, standard) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return q && !q.geloescht && q.werte.art !== 'titel' ? <AufmassKarte position={q} heftzwecke={heftzwecke()} /> : standard(); } },
-  'ava.tueren': { knoepfe: (z) => tuerKnoepfe(String(z.projekt)), oben: (z) => <TuerlisteOben projekt={String(z.projekt)} /> },
+  // Fenster- & Türliste wie bisher: Kopf fürs ganze Projekt, Listen als Reiter, Spaltensätze als Reiter über der Tabelle (Übersicht,
+  // Maße & Fenster …), Gruppen über den Spaltenköpfen, Zeilennummern, Nr./Geschoss/Raum bleiben stehen, Ausstattung als Marken
+  'ava.tueren': { kopf: () => <AvaProjektKopf />, menueMitte: undefined, neuTitel: 'Tür / Fenster', knoepfe: (z) => tuerKnoepfe(String(z.projekt)), oben: (z) => <TuerlisteOben projekt={String(z.projekt)} />,
+    fest: (): Record<string, string> => { const l = projektId() ? gewaehlteListe(projektId()!) : undefined; return l ? { liste: l } : {}; },
+    neuVorgabe: (vorhandene) => neueZeileVorgabe(vorhandene),
+    zelle: (f, z) => (f.name === 'ausstattung' ? <span class="marken">{String(z.werte.ausstattung ?? '').split(',').filter(Boolean).map((w) => <span class="marke">{AUSSTATTUNG.find((o) => o.wert === w)?.titel ?? w}</span>)}</span> : undefined),
+    tabelle: { saetze: TUER_SAETZE, excel: true, gruppenKopf: true, zeilenNummern: true, festeSpalten: ['nr', 'geschoss', 'raum'],
+      hinweis: 'Wie in Excel: klicken/ziehen markiert (Umschalt erweitert, Zeilennummer markiert ganze Zeilen), Tippen oder Doppelklick schreibt, Entf löscht, Strg+C / Strg+X / Strg+V kopiert und fügt ein – auch aus Excel –, Strg+D füllt nach unten, Strg+R nach rechts, das Kästchen unten rechts an der Markierung zieht eine Reihe (Nummern zählen hoch), Strg+Z macht rückgängig. Rechtsklick: Menü wie in Excel. Spalten wählen: Rechtsklick auf den Tabellenkopf; Klick auf eine Gruppe über den Spalten klappt sie zu.' },
+    detailsHinweis: 'Zeile anklicken – hier stehen dann alle ihre Felder. Mehrere Zeilen markieren: Änderungen gelten für alle.' },
   'gebaeudemodell.modell3d': { mitte: (m) => <Gebaeude3d {...m} />, detailsHinweis: 'Ein Bauteil in der 3D-Ansicht anklicken – hier steht dann seine Karte, direkt änderbar.' },
 };
 /** Unter der Karte: was das Modul dort ergänzt, und – für alles, was sich drucken lässt – der Weg zum Ausdruck. */
@@ -630,7 +639,7 @@ function ProjektAnsicht(p: { modul: Beipackzettel; ansicht: Ansicht }) {
     </div>
   );
   // Listen ohne Versionen und ohne eigene Seite: auch über alle Projekte (Schalter über der Liste, gemerkt je Ansicht)
-  const umfangMoeglich = !bereich && !anpassung(m.name, schluessel).mitte;
+  const umfangMoeglich = !bereich && !anpassung(m.name, schluessel).mitte && !anpassung(m.name, schluessel).fest;   // mit festem Zusammenhang (z. B. eine Türliste) nur im Projekt
   const [alle, setAlle] = createSignal(umfangMoeglich && (() => { try { return localStorage.getItem(`bp.umfang.${schluessel}`) === 'alle'; } catch { return false; } })());
   const umfang = (a: boolean) => { setAlle(a); try { localStorage.setItem(`bp.umfang.${schluessel}`, a ? 'alle' : 'projekt'); } catch { /* gesperrt */ } };
   const umfangLeiste = () => (

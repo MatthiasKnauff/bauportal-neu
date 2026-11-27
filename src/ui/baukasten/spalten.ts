@@ -135,4 +135,13 @@ export function zusatzMessen(zellen: { spalte: string; el: Element; text: string
 export type Spaltenwahl = Pick<ReturnType<typeof spaltenwahl<Spaltenart>>, 'alle' | 'istAn' | 'istFest' | 'schalten' | 'schieben' | 'schritt' | 'zuruecksetzen'>;
 
 /** Die Spalten einer Tabelle aus dem Datenmodell: jedes Feld außer langen Texten und verborgenen Feldern. */
-export const spaltenFuer = (m: ObjektModell) => spaltenwahl<Feld>(`bp_spalten_${m.name}`, m.felder.filter((f) => (f.inListe || f.spalte) && f.art !== 'langtext' && !f.verborgen));
+export const spaltenFuer = (m: ObjektModell, satz?: Spaltensatz) => {
+  if (!satz) return spaltenwahl<Feld>(`bp_spalten_${m.name}`, m.felder.filter((f) => (f.inListe || f.spalte) && f.art !== 'langtext' && !f.verborgen));
+  // Spaltensatz (z. B. ein Reiter der Türliste): seine Spalten ab Werk an, in seiner Reihenfolge; die übrigen Felder wählbar dahinter
+  const feld = (n: string) => m.felder.find((f) => f.name === n);
+  const an = satz.spalten.map(feld).filter((f): f is Feld => !!f);
+  const rest = m.felder.filter((f) => !satz.spalten.includes(f.name) && (f.inListe || f.spalte) && f.art !== 'langtext' && !f.verborgen);
+  return spaltenwahl<Feld>(`bp_spalten_${m.name}_${satz.id}`, [...an.map((f) => ({ ...f, inListe: true })), ...rest.map((f) => ({ ...f, inListe: false }))]);
+};
+/** Ein benannter Satz Spalten einer Tabelle (Reiter über der Tabelle) – je Satz merkt sich die Tabelle Auswahl, Reihenfolge und Breiten. */
+export interface Spaltensatz { id: string; titel: string; spalten: string[] }

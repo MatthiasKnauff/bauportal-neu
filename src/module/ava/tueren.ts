@@ -83,8 +83,14 @@ function positionsText(liste: E[], gemeinsam: Werte, gruppe: string): string {
 }
 
 /** Türen → Zeilen fürs LV, je Gruppe: Titel, Systembeschreibung (Hinweistext), Positionen „… gemäß vorangegangener Systembeschreibung“. */
-export function tuerenInsLv(tueren: E[], listeId: string, dinTrennen = true): LvZeilePlan[] {
+/** Wie die Liste ins LV geht (Felder der Türliste, Gruppe „Ins LV“): links/rechts getrennt, Textform, Obertitel über den Gruppen. */
+export interface InsLvArt { dinTrennen?: boolean; lang?: boolean; obertitel?: string }
+export const insLvArt = (liste: Werte): InsLvArt => ({ dinTrennen: !liste.din_zusammen, lang: liste.lv_text === 'lang', obertitel: String(liste.obertitel ?? '').trim() || undefined });
+export function tuerenInsLv(tueren: E[], listeId: string, art: InsLvArt | boolean = true): LvZeilePlan[] {
+  const { dinTrennen = true, lang = false, obertitel } = typeof art === 'boolean' ? { dinTrennen: art } : art;
   const aus: LvZeilePlan[] = [];
+  // Obertitel: Schlüssel = die Liste selbst – die Gruppen-Titel („Liste|Fenster“) stehen dann darunter
+  if (obertitel && tueren.length) aus.push({ schluessel: listeId, art: 'titel', kurztext: obertitel, langtext: '', menge: null, einheit: '', herkunft: [] });
   for (const gruppe of GRUPPEN) {
     const T = tueren.filter((x) => tuerGruppe(x.werte) === gruppe);
     if (!T.length) continue;
@@ -92,7 +98,7 @@ export function tuerenInsLv(tueren: E[], listeId: string, dinTrennen = true): Lv
     for (const x of T) { const k = ausfuehrung(x.werte, dinTrennen); (je.get(k) ?? je.set(k, []).get(k)!).push(x); }
     // gemeinsam: was alle Türen der Gruppe gleich haben (ohne Typ, Maße, Anschlag) – nur, wenn es mehrere Ausführungen gibt
     const gemeinsam: Werte = {};
-    if (je.size > 1) {
+    if (je.size > 1 && !lang) {
       const schluessel = new Set(T.flatMap((x) => Object.keys(x.werte)).filter((k) => !ORT.has(k) && !['din', 'b', 'h', 'art', 'typ'].includes(k)));
       for (const k of schluessel) {
         const w0 = k === 'ausstattung' ? null : t(T[0]!.werte, k);
@@ -101,12 +107,13 @@ export function tuerenInsLv(tueren: E[], listeId: string, dinTrennen = true): Lv
       }
     }
     aus.push({ schluessel: `${listeId}|${gruppe}`, art: 'titel', kurztext: gruppe, langtext: '', menge: null, einheit: '', herkunft: [] });
-    aus.push({ schluessel: `${listeId}|${gruppe}|system`, art: 'hinweis', kurztext: `Systembeschreibung ${gruppe}`, langtext: systemText(gruppe, gemeinsam), menge: null, einheit: '', herkunft: [] });
+    if (!lang) aus.push({ schluessel: `${listeId}|${gruppe}|system`, art: 'hinweis', kurztext: `Systembeschreibung ${gruppe}`, langtext: systemText(gruppe, gemeinsam), menge: null, einheit: '', herkunft: [] });
     for (const [k, zeilen] of je) {
       const w = zeilen[0]!.werte;
       aus.push({
         schluessel: `${listeId}|${gruppe}|${abdruck(k)}`, art: 'normal',
-        kurztext: `${t(w, 'art') || (gruppe === 'Fenster' ? 'Fenster' : 'Tür')} gemäß vorangegangener Systembeschreibung`,
+        // Textform „ausführlich“: jede Position mit allen Merkmalen, ohne Systembeschreibung
+        kurztext: lang ? `${t(w, 'art') || (gruppe === 'Fenster' ? 'Fenster' : 'Tür')}${t(w, 'b') && t(w, 'h') ? ` ${t(w, 'b')} × ${t(w, 'h')}` : ''}` : `${t(w, 'art') || (gruppe === 'Fenster' ? 'Fenster' : 'Tür')} gemäß vorangegangener Systembeschreibung`,
         langtext: positionsText(zeilen, gemeinsam, gruppe), menge: zeilen.reduce((s, x) => s + Math.max(1, Math.round(Number(x.werte.anzahl ?? 1)) || 1), 0), einheit: 'St',
         herkunft: zeilen.map((x) => x.id),
       });
