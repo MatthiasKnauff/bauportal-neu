@@ -2008,7 +2008,7 @@ test('Angebotsbesprechung abschließen: Firmenangaben und Ausführungszeit zurü
 test('Abrechnung: welche Nachträge als Leistung zählen; Mehrmenge gelb/rot nach Einstellung', async () => {
   const f = await import('../src/module/ava/freigabe'), m = await import('../src/module/ava/aufmass');
   const N = [{ id: 'n1', werte: { stand: 'angemeldet' } }, { id: 'n2', werte: { stand: 'beauftragt' } }, { id: 'n3', werte: { stand: 'abgelehnt' } }];
-  const P = [{ id: 'a', werte: {} }, { id: 'b', werte: { nachtrag: 'n1' } }, { id: 'c', werte: { nachtrag: 'n2' } }, { id: 'd', werte: { nachtrag: 'n3' } }];
+  const P: { id: string; werte: Record<string, string> }[] = [{ id: 'a', werte: {} }, { id: 'b', werte: { nachtrag: 'n1' } }, { id: 'c', werte: { nachtrag: 'n2' } }, { id: 'd', werte: { nachtrag: 'n3' } }];
   assert.deepEqual(f.abrechenbar(P, N, false).map((x) => x.id), ['a', 'b', 'c']);
   assert.deepEqual(f.abrechenbar(P, N, true).map((x) => x.id), ['a', 'c']);
   assert.equal(m.mehrmenge(105, 100), 'gelb'); assert.equal(m.mehrmenge(111, 100), 'rot'); assert.equal(m.mehrmenge(100, 100), undefined);
