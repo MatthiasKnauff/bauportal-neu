@@ -372,6 +372,15 @@ export const ava: Beipackzettel = {
     { art: 'lv', titel: 'Leistungsverzeichnis', ordner: 'Ausschreibung/{lv}', ansichten: ['lvs', 'positionen'], merkmale: ['leistungsverzeichnis', 'leistungsbeschreibung', 'vorbemerkungen'] },
   ],
   ausdrucke: [{
+    // Fenster- & Türliste wie bisher: die gefilterte Liste (z. B. eine Liste, ein Geschoss) als Tabelle quer – auch als Anlage zum LV
+    id: 'ava.tuerliste', titel: 'Fenster- & Türliste', objekt: 'tuer', verzeichnis: true, format: 'quer',
+    dateiname: 'Fenster- und Türliste {datum}', fuss: '{buero} · Fenster- & Türliste vom {datum}', ordner: 'AVA/Ausschreibung',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Fenster- & Türliste', unter: '{anzahl} · {filter}' },
+      { id: 'liste', art: 'verzeichnis', titel: 'Türen und Fenster', spalten: ['nr', 'geschoss', 'raum', 'raumname', 'zu', 'typ', 'anzahl', 'b', 'h', 'wand', 'bruestung', 'farbe', 'ausstattung', 'bem'] },
+    ],
+  }, {
     // Rechnungsfreigabe (wie im bisherigen Bauportal): Freigabe mit Zahlbetrag, dazu wählbar Prüfblatt und Massenermittlung –
     // „Im Projektordner ablegen“ legt die geprüfte Rechnung ab und vermerkt das an ihr
     id: 'ava.freigabe', titel: 'Rechnungsfreigabe', objekt: 'rechnung', vermerk: 'abgelegt',
