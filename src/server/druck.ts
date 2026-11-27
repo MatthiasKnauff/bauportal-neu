@@ -57,7 +57,7 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Benutzer,
     // Berechnete Blöcke: was ihre Druckquellen brauchen, einmal lesen (als der Benutzer) – gerechnet wird wie im Browser
     const geholt = new Map<string, { id: string; werte: Werte }[]>();
     for (const b of a.bloecke) if (b.art === 'berechnet') for (const x of DRUCKQUELLEN[b.quelle]?.braucht ?? []) {
-      const wert = String(x.wert === 'id' ? objektId : werte[x.wert] ?? ''), k = `${x.objekt}|${x.feld}|${wert}`;
+      const wert = x.fest ?? String(x.wert === 'id' ? objektId : werte[x.wert] ?? ''), k = `${x.objekt}|${x.feld}|${wert}`;
       if (geholt.has(k) || !wert) continue;
       const ziel = register.modell(x.objekt); if (!ziel) continue;
       geholt.set(k, (await c.query(`select * from ${tabelle(ziel.name)} where ${x.feld === 'id' ? 'id' : spalte(x.feld)} = $1 and not geloescht`, [wert])).rows.map((z) => ({ id: z.id as string, werte: werteAus(ziel, z) })));

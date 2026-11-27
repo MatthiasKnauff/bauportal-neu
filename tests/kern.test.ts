@@ -2004,3 +2004,13 @@ test('Angebotsbesprechung abschließen: Firmenangaben und Ausführungszeit zurü
   assert.deepEqual(z.map((x) => `${x.id}=${x.wert}`), ['kontakt.sitz=Essen', 'kontakt.mitarbeiter=12', 'lv.ausfuehrung_beginn=2027-03-08']);
   assert.equal(b.rueckweg({ beginn: 'KW 10/2027' }, undefined, { id: 'l', werte: {} }, false).length, 0);   // vor der Vergabe nichts ins LV
 });
+
+test('Abrechnung: welche Nachträge als Leistung zählen; Mehrmenge gelb/rot nach Einstellung', async () => {
+  const f = await import('../src/module/ava/freigabe'), m = await import('../src/module/ava/aufmass');
+  const N = [{ id: 'n1', werte: { stand: 'angemeldet' } }, { id: 'n2', werte: { stand: 'beauftragt' } }, { id: 'n3', werte: { stand: 'abgelehnt' } }];
+  const P = [{ id: 'a', werte: {} }, { id: 'b', werte: { nachtrag: 'n1' } }, { id: 'c', werte: { nachtrag: 'n2' } }, { id: 'd', werte: { nachtrag: 'n3' } }];
+  assert.deepEqual(f.abrechenbar(P, N, false).map((x) => x.id), ['a', 'b', 'c']);
+  assert.deepEqual(f.abrechenbar(P, N, true).map((x) => x.id), ['a', 'c']);
+  assert.equal(m.mehrmenge(105, 100), 'gelb'); assert.equal(m.mehrmenge(111, 100), 'rot'); assert.equal(m.mehrmenge(100, 100), undefined);
+  assert.equal(m.mehrmenge(105, 100, { aufmass_gelb_ab: 5 }), undefined); assert.equal(m.mehrmenge(121, 100, { aufmass_rot_ab: 25 }), 'gelb');
+});

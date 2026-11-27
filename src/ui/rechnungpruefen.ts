@@ -5,10 +5,11 @@ import { createMemo, createSignal } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { aktuelleRechnung, geprueft as istGeprueft, ketteVon, nachAufmass, reihe, standAus, vorige, zeilenBis } from '../module/ava/aufmass';
-import { leistungAus } from '../module/ava/freigabe';
+import { NUR_BEAUFTRAGTE, abrechenbar, leistungAus } from '../module/ava/freigabe';
+import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { angeboteVon, epVon } from './ava';
 export { epVon };
-import { ausfuehrenMehrere, lebende } from './unterbau/abgleich';
+import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { hinweis } from './unterbau/meldungen';
 
 /** Gewählte Rechnung (Aufmaßprüfung, Rechnungen) – sonst die offene. */
@@ -21,7 +22,7 @@ export const zeilenDer = (r: E) => lebende('rechnungszeile').filter((z) => z.wer
 /** Leistungsstand netto, wie die Prüfung ihn gerade ergibt (Rechnung in module/ava/freigabe.ts). */
 export function leistungJetzt(r: E, ep = epVon(String(r.werte.lv ?? ''))): number {
   const lvId = String(r.werte.lv ?? '');
-  return leistungAus({ rechnungen: rechnungenVon(lvId), positionen: lebende('lv_position').filter((q) => q.werte.lv === lvId), aufmass: lebende('aufmass').filter((a) => a.werte.lv === lvId), zeilen: zeilenDer(r) }, r, ep);
+  return leistungAus({ rechnungen: rechnungenVon(lvId), positionen: abrechenbar(lebende('lv_position').filter((q) => q.werte.lv === lvId), lebende('nachtrag').filter((n) => n.werte.lv === lvId), NUR_BEAUFTRAGTE(sicht.buero?.[BUERO_ID]?.werte)), aufmass: lebende('aufmass').filter((a) => a.werte.lv === lvId), zeilen: zeilenDer(r) }, r, ep);
 }
 
 /** Zurücknehmen nur bei der letzten geprüften Rechnung ihrer Kette (spätere bauen sonst darauf auf). */

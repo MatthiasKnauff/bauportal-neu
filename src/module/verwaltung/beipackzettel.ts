@@ -59,6 +59,11 @@ export const buero: ObjektModell = {
     // Debugging-Modus (Entscheidung 25.11.2026): nur diese Rollen sehen in Verwaltung → Aufbau den Quelltext eines Bausteins
     // Ausschreibung (bisher AVA → Einstellungen → Vergabe- und Auftragsnummern): Vorschlag an der LV-Karte
     { name: 'vergabenummer_schema', titel: 'Schema der Vergabenummer ({projekt} {lv} {jahr} {gewerk}; leer: {projekt}-{lv}-{jahr})', art: 'text', gruppe: 'Ausschreibung' },
+    // Abrechnung (bisher AVA → Einstellungen → Abrechnung): gilt für alle Rechnungsprüfungen und das Aufmaß
+    { name: 'nachtraege_leistung', titel: 'Nachträge in der Rechnungsprüfung', art: 'auswahl', gruppe: 'Abrechnung', optionen: [
+      { wert: 'alle', titel: 'Angemeldete und beauftragte zählen als Leistung' }, { wert: 'beauftragt', titel: 'Nur beauftragte zählen als Leistung' }] },
+    { name: 'aufmass_gelb_ab', titel: 'Aufmaß: Hinweis (gelb) ab % über der LV-Menge', art: 'zahl', kartenBreite: 3, gruppe: 'Abrechnung' },
+    { name: 'aufmass_rot_ab', titel: 'rot ab % (VOB/B § 2 Abs. 3: 10)', art: 'zahl', kartenBreite: 3, gruppe: 'Abrechnung' },
     { name: 'debugging', titel: 'Debugging-Modus: Quelltext im Aufbau sehen dürfen', art: 'mehrfach', optionen: ROLLEN_OPTIONEN, gruppe: 'Entwicklung' },
   ],
 };

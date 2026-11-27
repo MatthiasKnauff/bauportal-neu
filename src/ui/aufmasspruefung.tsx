@@ -5,7 +5,7 @@
 // Prüfung abschließen hält das Aufmaß fest (die laufenden Zeilen bekommen die Rechnung) und trägt den geprüften Leistungsstand ein.
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
-import { beitrag, geprueft as istGeprueft, ketteVon, nachAufmass, pruefung, rechnungTitel, vorige, zeileAus } from '../module/ava/aufmass';
+import { beitrag, geprueft as istGeprueft, ketteVon, mehrmenge, nachAufmass, pruefung, rechnungTitel, vorige, zeileAus } from '../module/ava/aufmass';
 import { abschliessen, aufmassVon, setRechnungWahl, zuruecknehmbar, zuruecknehmen } from './rechnungpruefen';
 import { gp, zaehlt, zahl } from '../module/ava/rechnung';
 import { AufmassEinlesen } from './aufmasseinlesen';
@@ -17,6 +17,9 @@ import { nachtragAnlegen } from './auftraege';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import { istText } from '../kern/lvarten';
+import { BUERO_ID } from '../module/verwaltung/beipackzettel';
+
+const buero = () => sicht.buero?.[BUERO_ID]?.werte;
 
 const RART: Record<string, string> = { abschlag: 'AR', schluss: 'SR', nachtrag: 'NT-Rg.', stundenlohn: 'Stundenlohn' };
 const heute = () => new Date().toLocaleDateString('de-DE');
@@ -53,7 +56,7 @@ export function Aufmasspruefung(m: Mitte): JSX.Element {
       } } : {}) },
     { id: 'stand', titel: kum() ? 'aufgemessen' : 'Aufmaß', breite: 92, rechts: true, hilfe: 'Stand bis einschließlich dieser Rechnung – eintippen: Rechenweg (z. B. 4,5*5 + 2*16,25), mit „+“ davor ein Zuwachs',
       wert: (q) => { const s = a.stand().get(q.id); const pct = zahl(q.werte.menge) ? Math.round((s ?? 0) / zahl(q.werte.menge) * 100) : null; return s == null ? '' : `${zahlText(s)}${pct != null && pct > 100 ? ` (${pct} %)` : ''}`; },
-      klasse: (q) => { const s = a.stand().get(q.id), mg = zahl(q.werte.menge); if (!s || !mg) return undefined; const p = s / mg * 100; return p > 110 ? 'ueber-rot' : p > 100 ? 'ueber-gelb' : undefined; },
+      klasse: (q) => { const m = mehrmenge(a.stand().get(q.id) ?? 0, zahl(q.werte.menge), buero()); return m ? `ueber-${m}` : undefined; },
       roh: (q) => { const Z = a.eigene(q.id); return Z.length === 1 ? String(Z[0]!.werte.rechenweg ?? '') : zahlText(a.stand().get(q.id)); }, setzen: direkt },
     ...(kum() ? [{ id: 'zuwachs', titel: 'Zuwachs', aus: true, breite: 80, rechts: true, hilfe: 'seit der vorigen geprüften Rechnung – eintippen fügt hinzu',
       wert: (q: Zeile) => { const d = (a.stand().get(q.id) ?? 0) - (a.vor().get(q.id) ?? 0); return Math.abs(d) < 1e-9 ? '' : `${d > 0 ? '+' : ''}${zahlText(d)}`; },
@@ -120,6 +123,7 @@ export function AufmassKarte(p: { position: Zeile; heftzwecke: JSX.Element }): J
   const alle = createMemo(() => a.zeilen().filter((z) => z.werte.position === q().id).sort((x, y) => String(x.werte.datum ?? '').localeCompare(String(y.werte.datum ?? ''))));
   const schreiben = () => darf('aufmass', 'schreiben') && !a.fest();
   const stand = () => a.stand().get(q().id) ?? 0, menge = () => zahl(q().werte.menge), pct = () => (menge() ? Math.round(stand() / menge() * 100) : null);
+  const mehr = () => mehrmenge(stand(), menge(), buero());
   const R = (id: unknown) => a.rechnungen().find((r) => r.id === id);
   const aendern = (z: Zeile, werte: Record<string, unknown>, titel: string) => ausfuehren({ objekt: 'aufmass', art: 'aendern', objektId: z.id, werte: werte as never }, titel);
   const rechenwegAendern = (z: Zeile, t: string) => {
@@ -139,7 +143,7 @@ export function AufmassKarte(p: { position: Zeile; heftzwecke: JSX.Element }): J
       <div class="karte-kopf"><h2>{String(q().werte.oz ?? '')} {String(q().werte.kurztext ?? '')}</h2>{p.heftzwecke}</div>
       <p class="still-text">LV-Menge {zahlText(menge())} {String(q().werte.einheit ?? '')} · aufgemessen <b>{zahlText(stand())} {String(q().werte.einheit ?? '')}</b>{pct() != null ? ` (${pct()} %)` : ''}
         {a.ep(q()) != null ? ` · ${eur(gp(stand(), a.ep(q())))} € zum EP ${eur(a.ep(q())!)}` : ''}</p>
-      <Show when={pct() != null && pct()! > 100}><div class="am-balken" classList={{ rot: pct()! > 110 }} title={pct()! > 110 ? 'über 10 % mehr als im LV: neuer Preis kann verlangt werden (VOB/B § 2 Abs. 3)' : 'mehr als im LV'}><i style={{ width: `${Math.min(100, pct()! - 100) }%` }} /></div></Show>
+      <Show when={mehr()}><div class="am-balken" classList={{ rot: mehr() === 'rot' }} title={mehr() === 'rot' ? 'deutlich mehr als im LV: neuer Preis kann verlangt werden (VOB/B § 2 Abs. 3)' : 'mehr als im LV'}><i style={{ width: `${Math.min(100, pct()! - 100) }%` }} /></div></Show>
       <Show when={!q().werte.nachtrag && stand() > menge() && menge() > 0 && darf('nachtrag', 'schreiben') && sicht.lv?.[String(q().werte.lv)]}>
         <p class="still-text klein-text">Mehrmenge {zahlText(stand() - menge())} {String(q().werte.einheit ?? '')} über der LV-Menge.{' '}
           <button type="button" class="knopf klein" onClick={() => { const n = nachtragAnlegen(sicht.lv![String(q().werte.lv)]!, `Mehrmenge ${String(q().werte.oz ?? '')} ${String(q().werte.kurztext ?? '')}`.trim(), {

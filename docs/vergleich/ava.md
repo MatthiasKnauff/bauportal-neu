@@ -110,7 +110,7 @@ Zeichen:
 | # | Bisher | Neu | Plan |
 |---|---|---|---|
 | E1 | Schema für Vergabe- und Auftragsnummern | ✓ (Büro → Ausschreibung, Vorschlag an der LV-Karte – 27.11.) | Verwaltung |
-| E2 | Abrechnung: welche Nachträge als Leistung zählen | ✗ | Verwaltung |
+| E2 | Abrechnung: welche Nachträge als Leistung zählen | ✓ (27.11.: Verwaltung → Büro → Abrechnung: angemeldete und beauftragte oder nur beauftragte Nachträge; abgelehnte zählen nie – vorher zählten sie mit; Mehrmenge gelb/rot ab einstellbarem %) | Verwaltung |
 | E3 | Nachtragsabwicklung einfach oder mit Prüfablauf | ✗ | Später |
 
 ## Reihenfolge

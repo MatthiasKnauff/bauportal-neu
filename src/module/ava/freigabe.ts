@@ -2,6 +2,7 @@
 // Massenermittlung): EP des Auftrags, Leistungsstand einer Rechnung, wie die Prüfung ihn gerade ergibt, und die Tabellen der Freigabe.
 // Reine Rechnung: im Browser, auf dem Server und in den Tests gleich.
 import type { Werte } from '../../kern/modell';
+import { BUERO_ID } from '../verwaltung/beipackzettel';
 import type { Druckquelle, DruckTabelle, Hole } from '../../kern/druck';
 import { beitrag, geprueft, ketteVon, nachAufmass, rechnungTitel, reihe, standAus, vorige, zeilenBis, zeilenSumme } from './aufmass';
 import { bedingungenAus, gp, leiter, nachOz, zaehlt, zahl } from './rechnung';
@@ -9,6 +10,15 @@ import { bedingungenAus, gp, leiter, nachOz, zaehlt, zahl } from './rechnung';
 type E = { id: string; werte: Werte };
 /** Was zur Abrechnung eines LV gehört. */
 export interface Abrechnung { lv?: E; rechnungen: E[]; positionen: E[]; angebote: E[]; preise: E[]; aufmass: E[]; zeilen: E[] }
+
+/** Welche Positionen als Leistung zählen (wie bisher, Einstellung des Büros): Nachtragspositionen nur, wenn ihr Nachtrag
+ *  angemeldet bis beauftragt ist – abgelehnte nie; mit „nur beauftragte“ erst, wenn er beauftragt ist. */
+export function abrechenbar(positionen: E[], nachtraege: E[], nurBeauftragte: boolean): E[] {
+  const stand = new Map(nachtraege.map((n) => [n.id, String(n.werte.stand ?? '')]));
+  return positionen.filter((q) => { const n = q.werte.nachtrag; if (!n) return true; const s = stand.get(String(n)) ?? '';
+    return nurBeauftragte ? s === 'beauftragt' : s !== 'abgelehnt'; });
+}
+export const NUR_BEAUFTRAGTE = (buero: Werte | undefined) => buero?.nachtraege_leistung === 'beauftragt';
 
 /** EP des Auftrags je Position (Nachtragspositionen: ihr eigener EP) – null: kein Preis. */
 export function epAus(angebote: E[], preise: E[]): (q: E) => number | null {
@@ -78,12 +88,14 @@ export function freigabeTabellen(d: Abrechnung, r: E, mengen: E[]): { zahlbetrag
 /** Die Daten aus dem, was der Ausdruck geholt hat (Browser: die Sicht, Server: die Datenbank). */
 function abrechnungAus(hole: Hole, r: E): Abrechnung {
   const lv = String(r.werte.lv ?? ''), angebote = hole('angebot', 'lv', lv), ids = new Set(angebote.map((a) => a.id));
-  return { lv: hole('lv', 'id', lv)[0], rechnungen: reihe(hole('rechnung', 'lv', lv)), positionen: hole('lv_position', 'lv', lv), angebote,
+  const positionen = abrechenbar(hole('lv_position', 'lv', lv), hole('nachtrag', 'lv', lv), NUR_BEAUFTRAGTE(hole('buero', 'id', BUERO_ID)[0]?.werte));
+  return { lv: hole('lv', 'id', lv)[0], rechnungen: reihe(hole('rechnung', 'lv', lv)), positionen, angebote,
     preise: hole('angebot_preis', 'projekt', String(r.werte.projekt ?? '')).filter((x) => ids.has(String(x.werte.angebot))), aufmass: hole('aufmass', 'lv', lv), zeilen: hole('rechnungszeile', 'projekt', String(r.werte.projekt ?? '')) };
 }
 const BRAUCHT: Druckquelle['braucht'] = [{ objekt: 'lv', feld: 'id', wert: 'lv' }, { objekt: 'rechnung', feld: 'lv', wert: 'lv' }, { objekt: 'lv_position', feld: 'lv', wert: 'lv' },
   { objekt: 'angebot', feld: 'lv', wert: 'lv' }, { objekt: 'angebot_preis', feld: 'projekt', wert: 'projekt' }, { objekt: 'aufmass', feld: 'lv', wert: 'lv' },
-  { objekt: 'rechnungszeile', feld: 'projekt', wert: 'projekt' }, { objekt: 'rechnungsmenge', feld: 'rechnung', wert: 'id' }];
+  { objekt: 'rechnungszeile', feld: 'projekt', wert: 'projekt' }, { objekt: 'rechnungsmenge', feld: 'rechnung', wert: 'id' },
+  { objekt: 'nachtrag', feld: 'lv', wert: 'lv' }, { objekt: 'buero', feld: 'id', fest: BUERO_ID }];
 const quelle = (teil: 'zahlbetrag' | 'pruefblatt' | 'massen'): Druckquelle => ({ braucht: BRAUCHT,
   tabellen: (hole, r) => freigabeTabellen(abrechnungAus(hole, r), r, hole('rechnungsmenge', 'rechnung', r.id))[teil] });
 export const DRUCKQUELLEN: Record<string, Druckquelle> = { 'ava.zahlbetrag': quelle('zahlbetrag'), 'ava.pruefblatt': quelle('pruefblatt'), 'ava.massen': quelle('massen') };

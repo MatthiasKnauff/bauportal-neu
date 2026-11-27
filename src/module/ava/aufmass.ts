@@ -116,3 +116,11 @@ export function abgerechnetAus(rechnungen: E[]): number {
   const letzte = (k: Kette) => R.filter((r) => ketteVon(r) === k).at(-1);
   return Math.round(((letzte('haupt') ? st(letzte('haupt')!) : 0) + (letzte('nachtrag') ? st(letzte('nachtrag')!) : 0) + R.filter((r) => ketteVon(r) === null).reduce((s, r) => s + st(r), 0)) * 100) / 100;
 }
+
+/** Mehrmenge im Aufmaß (Einstellung des Büros, wie bisher): gelb ab „aufmass_gelb_ab“ % über der LV-Menge (ab Werk gleich die
+ *  erste Mehrmenge), rot ab „aufmass_rot_ab“ % (ab Werk 10 % – VOB/B § 2 Abs. 3). */
+export function mehrmenge(stand: number, lvMenge: number, buero?: Werte): 'gelb' | 'rot' | undefined {
+  if (!stand || !lvMenge) return undefined;
+  const ueber = Math.round((stand / lvMenge - 1) * 1e8) / 1e6, z = (w: unknown, v: number) => (w == null || w === '' ? v : Number(w));
+  return ueber > z(buero?.aufmass_rot_ab, 10) ? 'rot' : ueber > z(buero?.aufmass_gelb_ab, 0) ? 'gelb' : undefined;
+}

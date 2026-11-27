@@ -36,8 +36,8 @@ export interface DruckTabelle { titel?: string; spalten: { titel: string; rechts
 /** Einträge eines Objekts, deren Feld (oder „id“) den Wert hat. */
 export type Hole = (objekt: string, feld: string, wert: string) => { id: string; werte: Werte }[];
 /** Druckquelle eines Moduls: was sie braucht (Objekt, Feld, und welches Feld des gedruckten Eintrags den Wert liefert – „id“ für ihn
- *  selbst) und wie sie daraus rechnet. */
-export interface Druckquelle { braucht: { objekt: string; feld: string; wert: string }[]; tabellen: (hole: Hole, eintrag: { id: string; werte: Werte }) => DruckTabelle[] }
+ *  selbst; „fest“: ein fester Wert, z. B. die Kennung des Büros) und wie sie daraus rechnet. */
+export interface Druckquelle { braucht: ({ objekt: string; feld: string; wert: string; fest?: never } | { objekt: string; feld: string; fest: string; wert?: never })[]; tabellen: (hole: Hole, eintrag: { id: string; werte: Werte }) => DruckTabelle[] }
 
 export interface Ausdruck {
   id: string;              // eindeutig, z. B. "bautagebuch.tagesbericht"
