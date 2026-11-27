@@ -51,7 +51,8 @@ import { planDerVersion } from './plandaten';
 import { vorgaengerLesen } from '../module/bauzeitenplan/schreibweise';
 import { vorgaengerSetzen } from '../module/bauzeitenplan/bearbeiten';
 import { gewaehlteRechnung, setRechnungWahl } from './rechnungpruefen';
-import { naechsteOz } from '../module/ava/rechnung';
+import { naechsteOz, vergabenummer } from '../module/ava/rechnung';
+import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { Balkenplan } from './balkenplan';
 import { GewerkeFirmen } from './gewerke';
 import { springeZu } from './sprung';
@@ -163,6 +164,20 @@ function AufbauSchichten(p: { aufbau: Zeile }) {
       <p class="still-text">
         Gesamtdicke {zahl(gesamtdicke(schichten()))} cm · U-Wert {u() == null ? '– (dafür braucht jede Schicht ein λ)' : `≈ ${zahl(u()!, 2)} W/(m²K)`} · verwendet von {bauteile()} {bauteile() === 1 ? 'Bauteil' : 'Bauteilen'}
       </p>
+    </Show>
+  );
+}
+
+// ---------- AVA: Vergabenummer nach dem Schema des Büros vorschlagen (wie bisher in „LV- & Auftragsdaten“) ----------
+function VergabenummerVorschlag(p: { lv: Zeile }) {
+  const v = () => {
+    const pr = sicht.projekt?.[String(p.lv.werte.projekt ?? '')]?.werte;
+    return vergabenummer(String(sicht.buero?.[BUERO_ID]?.werte.vergabenummer_schema ?? ''), { projektnummer: String(pr?.nummer ?? ''), projektname: String(pr?.name ?? ''), lv: String(p.lv.werte.nummer ?? ''),
+      gewerk: String(sicht.gewerk?.[String(p.lv.werte.gewerk ?? '')]?.werte.name ?? ''), jahr: new Date().getFullYear() });
+  };
+  return (
+    <Show when={!p.lv.werte.vergabenummer && v() && darf('lv', 'schreiben')}>
+      <p class="still-text klein-text">Vorschlag: <b>{v()}</b>{' '}<button type="button" class="knopf klein still" onClick={() => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: p.lv.id, werte: { vergabenummer: v() } }, 'Vergabenummer')}>übernehmen</button></p>
     </Show>
   );
 }
@@ -459,7 +474,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   // Ausschreibung: Summen in den Karten
-  lv: { kartenZusatz: (z) => <LvSummen lv={z} /> },
+  lv: { kartenZusatz: (z) => <LvSummen lv={z} />, kartenEinschub: { vergabenummer: (z) => <VergabenummerVorschlag lv={z} /> } },
   lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), neuVorgabe: (vorh, schon) => {
     // im Nachtrag: dessen Nummer vorne (N1.0010, N1.0020 …), sonst hinter der letzten Position der Ausschreibung
     const nt = schon.nachtrag ? sicht.nachtrag?.[String(schon.nachtrag)] : undefined;

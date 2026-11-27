@@ -212,3 +212,13 @@ export function ruecklaufZaehlen(angebote: E[]): Record<Ruecklauf, number> & { a
 }
 /** Nachfassen fällig: Anruf geplant bis heute, noch nichts abgegeben und nicht abgesagt. */
 export const nachfassenFaellig = (a: E, heute: string) => !!a.werte.nachfassen && String(a.werte.nachfassen) <= heute && ['offen', 'will_abgeben'].includes(ruecklaufVon(a));
+
+// ---------- Vergabenummer ----------
+export const VERGABE_SCHEMA = '{projekt}-{lv}-{jahr}';
+/** Vergabenummer nach dem Schema des Büros (wie bisher): {projekt} = Projektnummer (sonst der Anfang des Projektnamens, z. B. „A534“),
+ *  {lv} = LV-Nummer, {jahr}, {gewerk}; doppelte und überzählige Trennzeichen fallen weg. */
+export function vergabenummer(schema: string, w: { projektnummer?: string; projektname?: string; lv?: string; gewerk?: string; jahr?: number }): string {
+  const pr = String(w.projektnummer ?? '').trim() || (/^\s*([A-Za-z]{0,3}\d[\w.]*)/.exec(w.projektname ?? '')?.[1] ?? '');
+  const t = (schema.trim() || VERGABE_SCHEMA).replace(/\{(\w+)\}/g, (_, k: string) => ({ projekt: pr, lv: String(w.lv ?? '').trim(), jahr: String(w.jahr ?? new Date().getFullYear()), gewerk: String(w.gewerk ?? '').trim() } as Record<string, string>)[k] ?? '');
+  return t.replace(/([-_/ .])[-_/ .]+/g, '$1').replace(/^[-_/ .]+|[-_/ .]+$/g, '');
+}

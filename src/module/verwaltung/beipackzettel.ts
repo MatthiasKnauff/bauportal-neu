@@ -57,6 +57,8 @@ export const buero: ObjektModell = {
     { name: 'email', titel: 'E-Mail', art: 'email', gruppe: 'Anschrift' },
     { name: 'logo', titel: 'Logo', art: 'text', verborgen: true },   // Stand des Logos (Zeit) – das Bild selbst: Verwaltung → Büro, /api/logo
     // Debugging-Modus (Entscheidung 25.11.2026): nur diese Rollen sehen in Verwaltung → Aufbau den Quelltext eines Bausteins
+    // Ausschreibung (bisher AVA → Einstellungen → Vergabe- und Auftragsnummern): Vorschlag an der LV-Karte
+    { name: 'vergabenummer_schema', titel: 'Schema der Vergabenummer ({projekt} {lv} {jahr} {gewerk}; leer: {projekt}-{lv}-{jahr})', art: 'text', gruppe: 'Ausschreibung' },
     { name: 'debugging', titel: 'Debugging-Modus: Quelltext im Aufbau sehen dürfen', art: 'mehrfach', optionen: ROLLEN_OPTIONEN, gruppe: 'Entwicklung' },
   ],
 };

@@ -1960,3 +1960,10 @@ test('Angebotsbesprechung: Klärungspunkte aus dem Preisspiegel', async () => {
   assert.match(t, /Ohne Preis: 01\.0030/);
   assert.equal(ausDenDaten({ klaerung: t }).klaerung, t);
 });
+
+test('Vergabenummer nach Schema', async () => {
+  const { vergabenummer } = await import('../src/module/ava/rechnung');
+  assert.equal(vergabenummer('', { projektnummer: 'A534', lv: '01', jahr: 2026 }), 'A534-01-2026');
+  assert.equal(vergabenummer('{projekt}/{gewerk}-{lv}', { projektname: 'A534 Erweiterung Tierheim', lv: '01', gewerk: 'Rohbau' }), 'A534/Rohbau-01');
+  assert.equal(vergabenummer('{projekt}-{gewerk}-{lv}', { projektnummer: 'M-001', lv: '034' }), 'M-001-034', 'leerer Platzhalter: kein doppelter Strich');
+});
