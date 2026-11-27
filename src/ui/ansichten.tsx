@@ -46,6 +46,7 @@ import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
 import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvSummen, LvWahl, PositionSumme } from './ava';
 import { RechnungLeiter, Rechnungen } from './rechnungen';
+import { AvaHandy } from './avahandy';
 import { gewaehlteRechnung, setRechnungWahl } from './rechnungpruefen';
 import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
@@ -579,3 +580,6 @@ export function AnsichtZeigen(p: { modul: Beipackzettel; ansicht: Ansicht }) {
   if (p.ansicht.nachschlag) return <Nachschlagen schluessel={`${p.modul.id}.${p.ansicht.id}`} nachschlag={p.modul.nachschlagen!.find((n) => n.name === p.ansicht.nachschlag)!} />;
   return <ObjektAnsicht schluessel={`${p.modul.id}.${p.ansicht.id}`} modell={modell(p.ansicht.objekt!)} baum={p.ansicht.baum} linksFilter={p.ansicht.linksFilter} suchArten={p.ansicht.suchArten} anpassung={anpassung(p.ansicht.objekt!, `${p.modul.id}.${p.ansicht.id}`)} fest={p.ansicht.filter ? () => p.ansicht.filter! : undefined} />;
 }
+
+/** Apps mit eigener Handyansicht (Beipackzettel handy: 'eigen'): am Handy steht sie statt der Ansichten. */
+export const HANDY_APPS: Record<string, () => JSX.Element> = { ava: () => <AvaHandy /> };

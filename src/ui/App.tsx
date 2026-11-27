@@ -2,13 +2,13 @@
 import { Ansehen } from './baukasten/ansehen';
 import { AppSymbol } from './baukasten/zeichen';
 import { designBeobachten, meineWahl } from './unterbau/design';
-import { ERSATZ, handyPlus, handyleistePlaetze, setHandystufe } from './unterbau/geraet';
+import { ERSATZ, handy, handyPlus, handyleistePlaetze, setHandystufe } from './unterbau/geraet';
 import { Projektwahl } from './projektwahl';
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { MERKER, Netzfehler, Serverfehler, darf, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
 import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
-import { AnsichtZeigen, karteVon, kartenZusatz, sichtbar } from './ansichten';
+import { AnsichtZeigen, HANDY_APPS, karteVon, kartenZusatz, sichtbar } from './ansichten';
 import { Kontextmenue } from './baukasten/kontextmenue';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Abfolgeleiste } from './baukasten/abfolgeleiste';
@@ -295,7 +295,7 @@ function Portal() {
             </div>
             <p class="start-version still-text klein-text">{zustand()!.umgebung === 'test' ? `Testserver · wird ${zustand()!.version}` : `Version ${zustand()!.version}`}</p>
             </div>}>
-            {(_s: string) => <AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}
+            {(_s: string) => <Show when={handy() && HANDY_APPS[modul()!.modul.id]} fallback={<AnsichtZeigen modul={modul()!.modul} ansicht={ansicht()!} />}>{(eigen) => eigen()()}</Show>}
           </Show>
         </AppUmgebung.Provider>
       </main>

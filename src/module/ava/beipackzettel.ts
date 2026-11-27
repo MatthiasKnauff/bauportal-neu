@@ -341,7 +341,7 @@ export const bauvertrag: ObjektModell = {
 
 export const ava: Beipackzettel = {
   id: 'ava',
-  handy: 'ansicht',
+  handy: 'eigen',   // eigene Handyansicht (nur ansehen): LVs, Aufträge, Aufmaß, Rechnungen
   zeichen: 'ausschreibung',
   farbe: '#f08c00',
   name: 'Ausschreibung',

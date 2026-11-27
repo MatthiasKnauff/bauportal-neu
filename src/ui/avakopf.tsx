@@ -16,11 +16,12 @@ import { ausfuehren, lebende, sicht } from './unterbau/abgleich';
 import { darf, modell } from './unterbau/api';
 
 const [aktivesLv, setAktivesLv] = createSignal<string | null>(null);
+export { setAktivesLv };
 
 /** Reihenfolge der LVs: nach Nummer, archivierte am Ende. */
 export const lvFolge = (a: Zeile, b: Zeile) => Number(!!a.werte.archiviert) - Number(!!b.werte.archiviert) || String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true });
 /** Das gewählte LV des Projekts – sonst sein erstes (nach Nummer). */
-function gewaehltesLv(): Zeile | undefined {
+export function gewaehltesLv(): Zeile | undefined {
   const pr = projektId(), imProjekt = (z: Zeile | undefined) => (z && !z.geloescht && z.werte.projekt === pr ? z : undefined);
   return imProjekt(sicht.lv?.[aktivesLv() ?? ''])
     ?? lebende('lv').filter((z) => z.werte.projekt === pr).sort(lvFolge)[0];

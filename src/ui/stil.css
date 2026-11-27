@@ -1528,3 +1528,32 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .re-zwei { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); gap: 18px; align-items: start; } .re-zwei .ava-leiter-titel:first-child { margin-top: 0; }
 @media (max-width: 900px) { .re-zwei { grid-template-columns: 1fr; } }
 .ava-leiter tr.re-kuerzung td { color: var(--gefahr); }
+
+/* AVA auf dem Handy (wie bisher: nur ansehen) – Karten zum Lesen mit dem Daumen */
+.mv { padding: 0 10px 90px; max-width: 720px; margin: 0 auto; }
+.mv-oben { position: sticky; top: 0; z-index: 2; background: var(--grund); padding: 8px 0 2px; display: flex; flex-direction: column; gap: 6px; }
+.mv-oben .ph-umschalter { margin: 2px 0 4px; }
+.mv-suche { width: 100%; min-height: 40px; padding: 0 12px; border: 1px solid var(--rand-stark); border-radius: calc(10px * var(--rund)); background: var(--flaeche); font: inherit; }
+.mv-liste { display: flex; flex-direction: column; gap: 8px; }
+.mv-karte { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 10px 12px; border: 1px solid var(--rand); border-left: 4px solid var(--rand-stark); border-radius: calc(10px * var(--rund)); background: var(--flaeche); font: inherit; text-align: left; color: inherit; }
+.mv-karte.gut { border-left-color: var(--gut); } .mv-karte.warn { border-left-color: var(--warn); }
+.mv-karte small, .mv-pos small { color: var(--text-still); font-size: 12.5px; }
+.mv-kopf { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.mv-zeile { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; } .mv-zeile > span:first-child { color: var(--text-still); }
+.mv-offen { color: var(--warn); }
+.mv-kz { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 4px 0 10px; }
+.mv-kz > div { padding: 8px 10px; border-radius: calc(9px * var(--rund)); background: var(--flaeche); border: 1px solid var(--rand); display: flex; flex-direction: column; }
+.mv-kz small { color: var(--text-still); font-size: 12px; } .mv-kz b { font-size: 16px; } .mv-kz span { color: var(--text-still); font-size: 12px; }
+.mv-balken { position: relative; height: 6px; margin-top: 4px; border-radius: 3px; background: var(--still); overflow: hidden; }
+.mv-balken u, .mv-balken i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; text-decoration: none; }
+.mv-balken u { background: color-mix(in srgb, var(--akzent) 35%, var(--flaeche)); } .mv-balken i { background: var(--akzent); }
+.mv-zurueck { margin: 2px 0 8px; padding: 6px 0; border: 0; background: none; color: var(--akzent); font: inherit; font-weight: 600; }
+.mv-titel { font-size: 16px; margin: 6px 0; }
+.mv-gliederung { display: flex; align-items: center; gap: 4px; margin: 10px 0 4px; font-size: 14px; cursor: pointer; } .mv-summe { margin-left: auto; color: var(--text-still); font-weight: 600; }
+.mv-pos { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; margin: 0 0 6px; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: var(--flaeche); }
+.mv-pos.still { opacity: .65; } .mv-pos.hinweis .mv-text { font-style: italic; }
+.mv-text { font-size: 14px; } .mv-nt { color: var(--warn); }
+.mv-lang { margin: 4px 0 0; white-space: pre-wrap; font-size: 13px; color: var(--text-still); }
+.mv-gesamt { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--rand-stark); }
+.mv-gruppe { margin: 12px 0 6px; font-weight: 600; font-size: 13px; color: var(--text-still); }
+.mv-ueber { color: var(--warn); } .mv-leer { padding: 16px 4px; } .mv-fuss { text-align: center; margin: 16px 0 0; font-size: 12.5px; }
