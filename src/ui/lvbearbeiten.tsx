@@ -8,7 +8,7 @@
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
-import { gliederungEinfuegen, lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
+import { gaebPruefung, gliederungEinfuegen, lvZeilen, maskeLesen, maskeSchreiben, neueOz, nummerieren, verschieben, type LvZeile, type OzMaske } from '../module/ava/lvbaum';
 import { gp, summeGeschaetzt, zaehlt, zahl } from '../module/ava/rechnung';
 import { Dialog } from './baukasten/dialog';
 import { langtextMenue, ErgaenzungFenster } from './textergaenzung';
@@ -52,6 +52,7 @@ export interface FussZeile { titel: string; wert: (s: BaumSpalte, positionen: Ze
 
 /** Kurzzeichen der Art wie im bisherigen Bauportal: N Normal · E Bedarf · A Wahl · P Pauschal · S Stundenlohn · H Hinweistext. */
 export const ART_KURZ: Record<string, string> = { normal: 'N', bedarf: 'E', alternativ: 'A', pauschal: 'P', stundenlohn: 'S', hinweis: 'H', titel: '' };
+const ARTEN_MENUE: [string, string][] = [['normal', 'Normal'], ['bedarf', 'Bedarf'], ['alternativ', 'Wahl'], ['pauschal', 'Pauschal'], ['stundenlohn', 'Stundenlohn'], ['hinweis', 'Hinweistext']];
 const ART_AUS = Object.fromEntries(Object.entries(ART_KURZ).filter(([, k]) => k).map(([w, k]) => [k, w]));
 export const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const zahlText = (w: unknown) => (w === null || w === undefined || w === '' ? '' : zahl(w).toLocaleString('de-DE', { maximumFractionDigits: 3 }));
@@ -107,6 +108,8 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   const zeilen = createMemo(() => lvZeilen(positionen()));
   const nachZeile = createMemo(() => new Map(zeilen().map((z) => [z.id, z])));   // Zeilen über ihre Kennung – die Darstellung hängt an der Kennung, nicht am Objekt (sonst ginge ein offenes Feld bei jedem Abgleich verloren)
   const nachId = (id: string) => sicht.lv_position?.[id];
+  // GAEB-Prüfhinweis (wie bisher in der Leiste): gleiche Tiefe der Positionen, höchstens 4 Ebenen, keine übersprungene Ebene
+  const gaeb = createMemo(() => gaebPruefung(zeilen(), (id) => nachId(id)?.werte.art === 'hinweis'));
   const [zu, setZu] = createSignal<Set<string>>(new Set());
   const [lvZu, setLvZu] = createSignal(false);
   const [lang, setLang] = createSignal<Set<string>>(new Set());
@@ -253,6 +256,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
     ...(p.struktur && darf('lv_position', 'schreiben') && lv() ? [{ titel: 'Gliederung', zeichen: 'gruppe_neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: gliederung },
       { titel: 'Position', zeichen: 'neu', gruppe: 'Neu', gesperrt: gesperrt(), tun: () => neu(false) },
       { titel: 'Aus dem Gebäudemodell …', zeichen: 'modell3d', gruppe: 'Neu', gesperrt: String(lv()!.werte.status ?? 'bearbeitung') !== 'bearbeitung', tun: () => setModellFenster(true) },
+      { titel: 'Art', zeichen: 'bearbeiten', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !artZeilen().length, tun: (e: MouseEvent) => zeigeMenue(e, ARTEN_MENUE.map(([w, t]) => ({ titel: `${t} (${ART_KURZ[w]})`, tun: () => artSetzen(w, t) }))) },
       { titel: 'Nummerieren …', zeichen: 'liste', gruppe: 'Bearbeiten', gesperrt: gesperrt() || !zeilen().length, tun: () => setNumFenster(true) },
       { titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bearbeiten', gesperrt: gesperrt() || !wahl.markiert(), tun: loeschen }] : []),
     ...(p.knoepfe?.() ?? []),
@@ -302,6 +306,12 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
       const sp = bearbeitbareSpalten(z), k = sp[(sp.indexOf(s) + (e.shiftKey ? -1 : 1) + sp.length) % sp.length];
       if (k) bearbeiten(z.id, k);
     }
+  };
+  // Art für alle markierten Positionen auf einmal (wie bisher „Als Normal / Bedarf / Wahl …“) – Titel bleiben Titel
+  const artZeilen = () => wahl.gewaehlt().map((id) => nachId(id)).filter((q): q is Zeile => !!q && q.werte.art !== 'titel');
+  const artSetzen = (art: string, titel: string) => {
+    const Z = artZeilen().filter((q) => q.werte.art !== art); if (!Z.length) return;
+    ausfuehrenMehrere(Z.map((q) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: q.id, werte: { art } })), `${Z.length === 1 ? 'Position' : `${Z.length} Positionen`} als ${titel}`);
   };
   const menue = (e: MouseEvent, z: LvZeile) => {
     e.preventDefault(); if (!wahl.istGewaehlt(z.id)) wahl.setMarkiert(z.id);
@@ -356,6 +366,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
               onChange={(e) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { vorbemerkungen: e.currentTarget.value } }, 'Vorbemerkungen')} /></div>
         </Show>
         <Show when={p.struktur}><LvQuellenLeiste lv={lv()!} /></Show>
+        <Show when={p.struktur && gaeb().length}><div class="hinweis-kasten lvt-hinweis-oben lvt-gaeb" role="note"><b>GAEB-Prüfung:</b> <For each={gaeb()}>{(t) => <span>{t} </span>}</For></div></Show>
         {p.oben?.(lv()!)}
         <Show when={modellFenster()}><ModellInsLv lv={lv()!} onZu={() => setModellFenster(false)} /></Show>
         <Show when={numFenster()}><NummerierenFenster maske={maske()} beispiel={zeilen()} onZu={() => setNumFenster(false)} onFertig={(m) => { setNumFenster(false); neuNummerieren(m); }} /></Show>

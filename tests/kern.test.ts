@@ -1938,3 +1938,13 @@ test('LV als Excel: ausgeben und wieder einlesen, Titel ohne Menge, vorhandene O
   assert.deepEqual(ohneArt.doppelt, ['1.10'], '1.10 = 01.0010 schon da');
   assert.throws(() => x.lvAusTabelle([['a', 'b']]), /Kopfzeile/);
 });
+
+test('GAEB-Prüfhinweis: Tiefe der Positionen, höchstens 4 Ebenen, übersprungene Ebene', async () => {
+  const { lvZeilen, gaebPruefung } = await import('../src/module/ava/lvbaum');
+  const E = (id: string, oz: string, art = 'normal') => ({ id, werte: { oz, art } as Werte });
+  assert.deepEqual(gaebPruefung(lvZeilen([E('t', '01', 'titel'), E('a', '01.0010'), E('b', '01.0020')])), []);
+  const L = gaebPruefung(lvZeilen([E('t', '01', 'titel'), E('a', '01.0010'), E('b', '01.0020'), E('c', '0030')]));
+  assert.equal(L.length, 1); assert.match(L[0]!, /1 Position steht auf einer anderen Gliederungstiefe als die übrigen \(0030\)/);
+  assert.match(gaebPruefung(lvZeilen([E('t', '01', 'titel'), E('a', '01.02.0010')])).join(' '), /Übersprungene Gliederungsebene bei 01\.02\.0010/);
+  assert.match(gaebPruefung(lvZeilen([E('1', '1', 'titel'), E('2', '1.1', 'titel'), E('3', '1.1.1', 'titel'), E('4', '1.1.1.1', 'titel'), E('5', '1.1.1.1.1', 'titel'), E('p', '1.1.1.1.1.10')])).join(' '), /Mehr als 4/);
+});

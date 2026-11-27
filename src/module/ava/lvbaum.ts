@@ -138,3 +138,19 @@ export function gliederungEinfuegen(zeilen: LvZeile[], id: string, markiert: str
   nach(new Set(drin.map((z) => z.id)), id); for (const z of drin) z.ebene = ebene + 1;
   I.splice(n + 1, 0, neu); return I;
 }
+
+/** GAEB-Prüfhinweis (wie bisher): alle Positionen auf derselben Gliederungstiefe, höchstens 4 Titelebenen, keine übersprungene
+ *  Ebene in der OZ. Leer: das LV lässt sich so als GAEB ausgeben. Hinweistexte zählen nicht. */
+export function gaebPruefung(zeilen: LvZeile[], hinweis: (id: string) => boolean = () => false): string[] {
+  const aus: string[] = [], pos = zeilen.filter((z) => !z.titel && !hinweis(z.id));
+  if (pos.length) {
+    const n = new Map<number, number>(); for (const z of pos) n.set(z.ebene, (n.get(z.ebene) ?? 0) + 1);
+    const ueblich = [...n.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]![0];
+    const anders = pos.filter((z) => z.ebene !== ueblich);
+    if (anders.length) aus.push(`${anders.length} ${anders.length === 1 ? 'Position steht' : 'Positionen stehen'} auf einer anderen Gliederungstiefe als die übrigen (${anders.slice(0, 3).map((z) => z.oz || 'ohne OZ').join(', ')}${anders.length > 3 ? ' …' : ''}) – GAEB verlangt für alle Positionen dieselbe Tiefe.`);
+  }
+  if (zeilen.some((z) => z.titel && z.ebene >= 4)) aus.push('Mehr als 4 Gliederungsebenen – GAEB erlaubt höchstens 4.');
+  const sprung = zeilen.filter((z) => z.oz && teile(z.oz).length - 1 > z.ebene);
+  if (sprung.length) aus.push(`Übersprungene Gliederungsebene bei ${sprung.slice(0, 3).map((z) => z.oz).join(', ')}${sprung.length > 3 ? ' …' : ''} – fehlt ein Titel? „Nummerieren“ ordnet die OZ neu.`);
+  return aus;
+}
