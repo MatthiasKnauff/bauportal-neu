@@ -68,6 +68,14 @@ def main() -> None:
         assert c.post("/schreiben", json={**ziel, "name": "../x.jpg"}, headers=k).status_code == 400
         assert c.post("/schreiben", json={**ziel, "pfad": "../raus"}, headers=k).status_code == 400
         assert c.post("/schreiben", json={**ziel, "inhalt": "kein base64 !"}, headers=k).status_code == 400
+        # Ersetzen (geprüfte Fassung): die alte wandert in den Papierkorb, die neue trägt den Namen; ohne alte einfach ablegen
+        neu_inhalt = base64.b64encode(b"neu").decode()
+        r = c.post("/schreiben", json={**ziel, "inhalt": neu_inhalt, "papierkorb": "2026-01 Haus A/_Papierkorb"}, headers=k)
+        assert r.json()["name"] == "Sohle.jpg", r.text
+        assert open(f"{ordner}/2026-01 Haus A/Bautagebuch/Fotos/2026-11-24 Bericht 7/Sohle.jpg", "rb").read() == b"neu"
+        assert os.listdir(f"{ordner}/2026-01 Haus A/_Papierkorb") == ["Sohle.jpg"]
+        assert c.post("/schreiben", json={**ziel, "name": "GEPRÜFT.pdf", "papierkorb": "2026-01 Haus A/_Papierkorb"}, headers=k).json()["name"] == "GEPRÜFT.pdf"
+        assert c.post("/schreiben", json={**ziel, "papierkorb": "../raus"}, headers=k).status_code == 400
         # Vorschaubilder: ein echtes Bild und ein echtes PDF (erste Seite), kaputtes PDF, fremde Art
         import io
         from PIL import Image

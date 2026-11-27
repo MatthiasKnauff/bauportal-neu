@@ -6,6 +6,7 @@
 import { dateiZeigen } from './baukasten/ansehen';
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
+import { HERKUNFT_TEXT, ablageordner, ordnerEinsetzen, wahlBezug, type Ablagerolle } from '../kern/ablageordner';
 import { dokumentErkennen, type Erkennung } from '../kern/dokumenterkennung';
 import type { Feld, ObjektModell, Wert, Werte } from '../kern/modell';
 import type { Ansicht, Beipackzettel, Dokumentart } from '../kern/modul';
@@ -14,6 +15,7 @@ import { base64 } from './baukasten/bilder';
 import { reiterFuerAlle } from './baukasten/detailkarte';
 import { Dialog } from './baukasten/dialog';
 import { Auswahlliste } from './baukasten/auswahlliste';
+import { OrdnerFenster } from './dateien';
 import { FeldEingabe } from './baukasten/feld';
 import { projektId } from './projekt';
 import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
@@ -71,7 +73,7 @@ export function DokumentAblage(p: { module: Beipackzettel[]; modul?: Beipackzett
   return (
     <>
       <Show when={zieht()}><div class="ablage-ziel" aria-hidden="true"><div>Loslassen zum Ablegen<small>{vorbelegt()?.titel} · PDF, Scan oder Foto</small></div></div></Show>
-      <Show when={warteschlange()[0]} keyed>{(o) => <Ablegen o={o} arten={arten()} vor={o.woher.ohneSeite ? arten().find((a) => !a.objekt)! : vorbelegt()} rest={warteschlange().length - 1} />}</Show>
+      <Show when={warteschlange()[0]} keyed>{(o) => <Ablegen o={o} arten={arten()} rollen={p.module.flatMap((m) => m.ablagerollen ?? [])} vor={o.woher.ohneSeite ? arten().find((a) => !a.objekt)! : vorbelegt()} rest={warteschlange().length - 1} />}</Show>
     </>
   );
 }
@@ -79,7 +81,7 @@ export function DokumentAblage(p: { module: Beipackzettel[]; modul?: Beipackzett
 const heute = () => new Date().toISOString().slice(0, 10);
 const lvName = (lv: Zeile | undefined) => (lv ? [lv.werte.nummer, lv.werte.name].filter(Boolean).join(' ') : '');
 
-function Ablegen(p: { o: Offen; arten: Art[]; vor: Art; rest: number }) {
+function Ablegen(p: { o: Offen; arten: Art[]; rollen: Ablagerolle[]; vor: Art; rest: number }) {
   const g = () => p.o.stand().gelesen;
   const kontakte = createMemo(() => lebende('kontakt').sort((a, b) => String(a.werte.name ?? '').localeCompare(String(b.werte.name ?? ''), 'de')));
   const projekte = createMemo(() => lebende('projekt'));
@@ -122,7 +124,34 @@ function Ablegen(p: { o: Offen; arten: Art[]; vor: Art; rest: number }) {
     const w = werte(), d = typeof w.datum === 'string' && w.datum ? w.datum : heute();
     return `${[d, a().titel, firmaName(), w.nummer ? `Nr. ${String(w.nummer)}` : ''].filter(Boolean).join(' ')}.${endung()}`.replace(/[\\/:*?"<>|]+/g, '-');
   };
-  const ordner = () => a().ordner.replace('{lv}', lvName(lv()) || 'ohne LV').replace(/\/+$/, '');
+  // Ablageordner (kern/ablageordner): immer nur ein Vorschlag – fest in der Verwaltung, sonst wie zuletzt im Projekt, Büro, ab Werk
+  const rolle = () => p.rollen.find((r) => r.id === a().rolle)!;
+  const regel = () => { const r = lebende('ablageregel').find((x) => x.werte.rolle === a().rolle); return r ? { ordner: String(r.werte.ordner ?? ''), fest: r.werte.fest === true } : undefined; };
+  const lvGewerk = () => { const g = lv()?.werte.gewerk; return g ? String(sicht.gewerk?.[String(g)]?.werte[modelle().find((m) => m.name === 'gewerk')?.anzeigeFeld ?? 'name'] ?? '') : ''; };
+  const gewerk = () => lvGewerk() || String(sicht.kontakt?.[String(werte().firma ?? '')]?.werte.gewerk ?? '');
+  const muster = () => (regel()?.ordner.trim() ? regel()!.ordner : rolle().ordner);
+  const bezug = () => wahlBezug(muster(), { firma: (werte().firma as string | null) ?? null, gewerk: gewerk() || null });
+  const gemerkt = () => lebende('ablagewahl').find((x) => x.werte.projekt === projekt() && x.werte.art === art() && String(x.werte.bezug ?? '') === bezug());
+  const platz = () => ({ projekt: String(sicht.projekt?.[projekt()]?.werte.nummer ?? ''), lv: lvName(lv()), firma: firmaName(), gewerk: gewerk(), datum: heute() });
+  const vorschlag = createMemo(() => ablageordner(rolle(), { regel: regel(), wahl: gemerkt() ? String(gemerkt()!.werte.ordner ?? '') : undefined }, platz()));
+  const [eigenerOrdner, setEigenerOrdner] = createSignal<string | null>(null);
+  const ordnerText = () => (vorschlag().herkunft === 'fest' ? vorschlag().ordner : eigenerOrdner() ?? vorschlag().ordner);
+  const ordner = () => ordnerEinsetzen(ordnerText(), {});   // erst beim Ablegen bereinigt – beim Tippen springt nichts
+  const projektordner = () => String(sicht.projekt?.[projekt()]?.werte.ordner ?? '').split(/[\\/]+/).filter(Boolean).join('/');
+  const [ordnerWahl, setOrdnerWahl] = createSignal(false);
+  const ordnerGewaehlt = (pfad: string) => {
+    setOrdnerWahl(false);
+    const wurzel = projektordner();
+    if (pfad !== wurzel && !pfad.startsWith(`${wurzel}/`)) { hinweis(`Bitte einen Ordner innerhalb des Projektordners „${wurzel}“ wählen.`, { art: 'fehler' }); return; }
+    setEigenerOrdner(pfad.slice(wurzel.length + 1));
+  };
+  /** Eine andere Wahl merkt sich das Projekt (je Dokumentart und Firma/Gewerk) – als Befehl, mit dem Ablegen rückgängig zu machen. */
+  const wahlMerken = (): Vorlage[] => {
+    if (vorschlag().herkunft === 'fest' || ordner() === vorschlag().ordner) return [];
+    const g = gemerkt();
+    return [g ? { objekt: 'ablagewahl', art: 'aendern', objektId: g.id, werte: { ordner: ordner() } }
+      : { objekt: 'ablagewahl', art: 'anlegen', objektId: neueKennung(), werte: { projekt: projekt(), art: art(), bezug: bezug(), ordner: ordner() } }];
+  };
   const fehlt = () => !projekt() ? 'Projekt wählen' : feld('lv')?.pflicht && !werte().lv ? 'LV wählen' : feld('firma')?.pflicht && !werte().firma ? 'Firma wählen' : '';
   const [laeuft, setLaeuft] = createSignal(false);
   const ablegen = async () => {
@@ -142,8 +171,8 @@ function Ablegen(p: { o: Offen; arten: Art[]; vor: Art; rest: number }) {
         ? [{ objekt: m.name, art: 'aendern', objektId: vorhanden.id, werte: Object.fromEntries(Object.entries({ ...basis, ...handFelder }).filter(([k]) => !a().vorhanden!.includes(k) && k !== 'projekt')) }]
         : [{ objekt: m.name, art: 'anlegen', objektId: ziel, werte: { ...basis, ...handFelder } }];
       if (Object.keys(erkannteFelder).length) befehle.push({ objekt: m.name, art: 'aendern', objektId: bezug, werte: erkannteFelder, herkunft: 'dokument' });
-      ausfuehrenMehrere(befehle, `${a().titel} abgelegt`);
-    }
+      ausfuehrenMehrere([...befehle, ...wahlMerken()], `${a().titel} abgelegt`);
+    } else if (wahlMerken().length) ausfuehrenMehrere(wahlMerken(), `Ablageordner für „${a().titel}“ gemerkt`);
     setLaeuft(true);
     try {
       const r = await ruf<{ ort: string; name: string }>('/api/dokument/ablegen', { id: neueKennung(), projekt: projekt(), art: a().titel, name: name() ?? vorschlagName(), unterordner: ordner(),
@@ -169,14 +198,19 @@ function Ablegen(p: { o: Offen; arten: Art[]; vor: Art; rest: number }) {
               {blink('art', <div class="feld"><label>Art</label><Auswahlliste titel="Art" wert={art()} optionen={p.arten.map((x) => ({ wert: x.art, titel: x.titel }))} onWert={(w) => { setArt(w); setRot(new Set([...rot()].filter((x) => x !== 'art'))); }} /></div>)}
               {blink('projekt', <div class="feld"><label>Projekt</label><Auswahlliste titel="Projekt" wert={projekt()} optionen={projekte().map((z) => ({ wert: z.id, titel: [z.werte.nummer, z.werte.name].filter(Boolean).join(' · ') }))}
                 onWert={(w) => { setProjekt(w); setRot(new Set([...rot()].filter((x) => x !== 'projekt'))); setWerte({ ...werte(), lv: null }); }} /></div>)}
-              <Show when={a().felder?.firma}><div class="feld"><label>{feld('firma')?.titel ?? 'Firma'}</label><Auswahlliste titel="Firma" wert={(werte().firma as string) ?? ''} optionen={[{ wert: '', titel: '– keine –' }, ...kontakte().map((k) => ({ wert: k.id, titel: String(k.werte.name ?? '') }))]}
+              <Show when={a().felder?.firma || muster().includes('{firma}')}><div class="feld"><label>{feld('firma')?.titel ?? 'Firma'}</label><Auswahlliste titel="Firma" wert={(werte().firma as string) ?? ''} optionen={[{ wert: '', titel: '– keine –' }, ...kontakte().map((k) => ({ wert: k.id, titel: String(k.werte.name ?? '') }))]}
                 onWert={(w) => { setze('firma', w || null); if (!werte().lv) setWerte({ ...werte(), lv: lvVorschlag(w || null) }); }} /></div></Show>
-              <Show when={a().felder?.lv || a().ordner.includes('{lv}')}><div class="feld"><label>Leistungsverzeichnis</label><Auswahlliste titel="Leistungsverzeichnis" wert={(werte().lv as string) ?? ''} optionen={[{ wert: '', titel: '– keins –' }, ...lvs().map((l) => ({ wert: l.id, titel: lvName(l) }))]} onWert={(w) => setze('lv', w || null)} /></div></Show>
+              <Show when={a().felder?.lv || /\{(lv|gewerk)\}/.test(muster())}><div class="feld"><label>Leistungsverzeichnis</label><Auswahlliste titel="Leistungsverzeichnis" wert={(werte().lv as string) ?? ''} optionen={[{ wert: '', titel: '– keins –' }, ...lvs().map((l) => ({ wert: l.id, titel: lvName(l) }))]} onWert={(w) => setze('lv', w || null)} /></div></Show>
               <For each={(['nummer', 'datum', 'betrag'] as const).filter((k) => feld(k))}>{(k) => (
                 <FeldEingabe feld={feld(k)!} wert={werte()[k] ?? null} onWert={(w) => setze(k, w)} herkunft={vonHand().has(k) || werte()[k] == null ? undefined : 'dokument'} zusammenhang={zusammenhang()} />
               )}</For>
               <div class="feld"><label>Dateiname im Projektordner</label><input value={name() ?? vorschlagName()} onInput={(e) => setName(e.currentTarget.value)} aria-label="Dateiname im Projektordner" /></div>
-              <p class="still-text klein-text">Ordner: {ordner()}{g()!.ocr ? ' · Text per Texterkennung gelesen' : ''}{a().objekt ? ` · daraus wird: ${modell()?.titel}` : ' · wird nur abgelegt'}</p>
+              <div class="feld"><label>Ordner im Projektordner</label>
+                <div class="reihe"><input value={ordnerText()} disabled={vorschlag().herkunft === 'fest'} onInput={(e) => setEigenerOrdner(e.currentTarget.value)} aria-label="Ordner im Projektordner" />
+                  <Show when={projektordner() && vorschlag().herkunft !== 'fest'}><button type="button" class="knopf" onClick={() => setOrdnerWahl(true)}>Ordner wählen …</button></Show></div>
+                <small class="still-text">{eigenerOrdner() != null && ordner() !== vorschlag().ordner ? 'eigene Wahl – das Projekt merkt sie sich' : HERKUNFT_TEXT[vorschlag().herkunft]}</small></div>
+              <p class="still-text klein-text">{g()!.ocr ? 'Text per Texterkennung gelesen · ' : ''}{a().objekt ? `daraus wird: ${modell()?.titel}` : 'wird nur abgelegt'}</p>
+              <Show when={ordnerWahl()}><OrdnerFenster start={[projektordner(), ordner()].filter(Boolean).join('/')} onZu={() => setOrdnerWahl(false)} onWahl={ordnerGewaehlt} /></Show>
             </div>
           </div>
         </Show>

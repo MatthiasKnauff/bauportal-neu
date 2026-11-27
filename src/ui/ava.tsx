@@ -1,5 +1,6 @@
 // Ausschreibung in der Oberfläche: Summen in den Karten (LV, Position) und der Preisspiegel – Positionen mit den Preisen
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
+import { gewerkPasst } from '../module/ava/gewerkpasst';
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Ruecklauf, nachtragNetto, ozVergleich, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
@@ -343,16 +344,18 @@ export function Versand(p: Mitte): JSX.Element {
 function BieterWahl(p: { lv: Zeile; onZu: () => void }): JSX.Element {
   const ansicht = () => zustand()!.module.flatMap((x) => x.ansichten).find((a) => a.id === 'kontakte' && a.objekt === 'kontakt');
   const da = new Set(angeboteVon(p.lv.id).map((a) => String(a.werte.bieter)));
-  const gewerk = String(p.lv.werte.gewerk ?? ''), gewerkName = gewerk ? String(sicht.gewerk?.[gewerk]?.werte.name ?? '').toLowerCase() : '';
-  const passt = (z: Zeile) => !!gewerkName && String(z.werte.gewerk ?? '').toLowerCase().split(/\s*[,;]\s*/).some((g) => g && (gewerkName.includes(g.toLowerCase()) || g.toLowerCase().includes(gewerkName)));
+  // Gewerk des LV (VOB/C) als Filter zu Beginn: die Gewerke der Firmen, die dazu passen (Wortstämme, module/ava/gewerkpasst)
+  const gewerk = String(p.lv.werte.gewerk ?? ''), gewerkName = gewerk ? String(sicht.gewerk?.[gewerk]?.werte.name ?? '') : '';
+  const passt = (z: Zeile) => !!gewerkName && gewerkPasst(String(z.werte.gewerk ?? ''), gewerkName);
+  const gewerke = [...new Set(lebende('kontakt').filter((z) => z.werte.art !== 'person' && passt(z)).map((z) => String(z.werte.gewerk)))];
   const uebernehmen = (ids: string[]) => {
     ausfuehrenMehrere(ids.map((id) => ({ objekt: 'angebot', art: 'anlegen' as const, objektId: neueKennung(), werte: { projekt: p.lv.werte.projekt ?? null, lv: p.lv.id, bieter: id } })),
       ids.length === 1 ? 'Bieter:in hinzufügen' : `${ids.length} Bieter:innen hinzufügen`);
     p.onZu();
   };
-  return <Wahltabelle schluessel="ava.bieterwahl" modell={modell('kontakt')} projektId={() => String(p.lv.werte.projekt ?? '')} start={[{ feld: 'art', werte: ['firma'] }]} linksFilter={ansicht()?.linksFilter} suchArten={ansicht()?.suchArten} titel="Bieter:innen aus den Adressen wählen"
-    nur={(z) => !da.has(z.id) && z.werte.art !== 'person'} zuerst={passt} knopf={(n) => (n ? `${n} ${n === 1 ? 'Bieter:in' : 'Bieter:innen'} übernehmen` : 'Übernehmen')}
-    hinweis={gewerkName ? 'Firmen mit passendem Gewerk stehen oben.' : undefined} onUebernehmen={uebernehmen} onAbbrechen={p.onZu} />;
+  return <Wahltabelle schluessel="ava.bieterwahl" modell={modell('kontakt')} projektId={() => String(p.lv.werte.projekt ?? '')} start={[{ feld: 'art', werte: ['firma'] }, ...(gewerke.length ? [{ feld: 'gewerk', werte: gewerke }] : [])]} linksFilter={ansicht()?.linksFilter} suchArten={ansicht()?.suchArten} titel="Bieter:innen aus den Adressen wählen"
+    nur={(z) => !da.has(z.id) && z.werte.art !== 'person'} knopf={(n) => (n ? `${n} ${n === 1 ? 'Bieter:in' : 'Bieter:innen'} übernehmen` : 'Übernehmen')}
+    hinweis={gewerke.length ? `Gefiltert auf das Gewerk des LV (${gewerkName}) – den Filter entfernen für alle Firmen.` : gewerkName ? `Keine Firma mit passendem Gewerk zu „${gewerkName}“ – alle Firmen.` : undefined} onUebernehmen={uebernehmen} onAbbrechen={p.onZu} />;
 }
 
 /** Nachverfolgen (wie im bisherigen Bauportal): dieselben Daten wie im Versand, über alle LVs des Projekts, die noch nicht vergeben sind. */

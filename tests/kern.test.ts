@@ -2350,3 +2350,32 @@ test('Text ↔ Wert wie in Excel: Auswahl nach Titel, DIN L aus „L“, Ja/Nein
   assert.deepEqual(tabellenText('a\tb\n"c\nd"\te\n'), [['a', 'b'], ['c\nd', 'e']]);
   assert.equal(alsTabellenText([['a', 'x\ty']]), 'a\t"x\ty"');
 });
+
+test('Ablageordner: immer nur ein Vorschlag – fest in der Verwaltung vor gemerkter Wahl im Projekt vor Büro vor ab Werk (wie A481); Platzhalter', async () => {
+  const { ablageordner, ordnerEinsetzen, wahlBezug } = await import('../src/kern/ablageordner');
+  const rolle = register.ablagerolle('rechnungspruefung')!;
+  const p = { projekt: 'A481', firma: 'Müller/Söhne GmbH', datum: '2026-11-27' };
+  assert.deepEqual(ablageordner(rolle, {}, p), { ordner: 'A481 4. Durchführung/Rechnungsprüfung/Müller-Söhne GmbH', herkunft: 'werk', muster: rolle.ordner }, 'ab Werk wie A481, „/“ im Namen wird „-“');
+  assert.equal(ablageordner(rolle, { regel: { ordner: 'Rechnungen/{firma}', fest: false } }, p).herkunft, 'buero');
+  assert.deepEqual(ablageordner(rolle, { regel: { ordner: 'Rechnungen/{firma}', fest: false }, wahl: 'Sonder/Müller' }, p).ordner, 'Sonder/Müller', 'gemerkte Wahl des Projekts schlägt die Vorgabe des Büros');
+  assert.deepEqual(ablageordner(rolle, { regel: { ordner: 'Rechnungen/{firma}', fest: true }, wahl: 'Sonder/Müller' }, p).herkunft, 'fest', 'fest in der Verwaltung schlägt alles');
+  assert.equal(ablageordner(rolle, { regel: { ordner: '  ', fest: true } }, p).herkunft, 'werk', 'leer eingestellt: ab Werk');
+  assert.equal(ordnerEinsetzen('{projekt} 2. Ausschreibung/Angebote/Angebote {gewerk}', { projekt: 'A481' }), 'A481 2. Ausschreibung/Angebote/Angebote', 'fehlender Platzhalter fällt samt Leerzeichen weg');
+  assert.equal(wahlBezug(rolle.ordner, { firma: 'k1', gewerk: 'Maler' }), 'k1', 'gemerkt je Firma');
+  assert.equal(wahlBezug(register.ablagerolle('angebote')!.ordner, { firma: 'k1', gewerk: 'Maler' }), 'Maler', 'gemerkt je Gewerk');
+  // jede Dokumentart und jeder ablegende Ausdruck nennt eine Rolle; die geprüfte Rechnung ersetzt ihre ältere Fassung
+  for (const d of register.module.flatMap((m) => m.dokumentarten ?? [])) assert.ok(register.ablagerolle(d.rolle), d.art);
+  const freigabe = register.ausdrucke.find((a) => a.id === 'ava.freigabe')!;
+  assert.ok(freigabe.rolle === 'rechnungspruefung' && freigabe.ersetzen);
+  assert.deepEqual(['stundenlohn', 'abnahme', 'fachunternehmer', 'pruefbericht', 'bescheid', 'protokoll', 'bauvertrag', 'honorar', 'kva', 'lieferschein', 'skizze']
+    .filter((a) => !register.module.some((m) => m.dokumentarten?.some((d) => d.art === a))), [], 'die elf neuen Arten aus A481 (E2)');
+});
+
+test('Bieter-Wahl: Gewerk der Firma passt zum VOB/C-Namen über Wortstämme (Dachdecker ↔ Dachdeckungsarbeiten, Sanitär ↔ Wasser)', async () => {
+  const { gewerkPasst } = await import('../src/module/ava/gewerkpasst');
+  assert.ok(gewerkPasst('Dachdecker', 'Dachdeckungs- und Dachabdichtungsarbeiten'));
+  assert.ok(gewerkPasst('Fliesenleger', 'Fliesen- und Plattenarbeiten'));
+  assert.ok(gewerkPasst('Heizung/Sanitär', 'Gas-, Wasser- und Entwässerungsanlagen innerhalb von Gebäuden'));
+  assert.ok(gewerkPasst('Rohbau', 'Mauerarbeiten') && gewerkPasst('Schreiner', 'Tischlerarbeiten'));
+  assert.ok(!gewerkPasst('Maler', 'Dachdeckungs- und Dachabdichtungsarbeiten') && !gewerkPasst('Tischler', 'Metallbauarbeiten') && !gewerkPasst('', 'Mauerarbeiten'));
+});

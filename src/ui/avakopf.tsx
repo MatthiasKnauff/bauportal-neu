@@ -1,6 +1,6 @@
 // AVA: ein gewähltes LV für alle Ansichten der App (LV bearbeiten, Versand, Preisspiegel, Aufträge, Aufmaß …) und oben sein Kopf –
 // Bezeichnung, Stand, an wen vergeben, Eckdaten; darunter der Ablauf (Abfolge-Leiste), wie weit das LV ist. Wie im bisherigen Bauportal.
-import { For, Show, createEffect, createMemo, createSignal, useContext, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, useContext, type JSX } from 'solid-js';
 import { angeboteVon, lvZahlen, positionenVon } from './avadaten';
 import { istZuschlag, zaehlt } from '../module/ava/rechnung';
 import { AppUmgebung } from './baukasten/rahmen';
@@ -146,9 +146,15 @@ export function AvaKennzahlen(p: { lv: Zeile | undefined; ansicht: string }): JS
     }
   };
   let gezogen: Kz | null = null;
-  return <div class="kennzahlen" role="group" aria-label="Kennzahlen"><For each={kzReihe()}>{(k) => { const i = () => inhalt(k); return (
+  // wird die Menüleiste eng (Stufe „nur Symbole“), steht wie bisher nur die erste Kennzahl da; ▾ klappt alle untereinander auf
+  const [auf, setAuf] = createSignal(false);
+  let kasten!: HTMLDivElement;
+  createEffect(() => { if (!auf()) return; const zu = (e: Event) => { if (!kasten.contains(e.target as Node)) setAuf(false); }; document.addEventListener('pointerdown', zu); onCleanup(() => document.removeEventListener('pointerdown', zu)); });
+  return <div class="kennzahlen" classList={{ auf: auf() }} ref={kasten} role="group" aria-label="Kennzahlen">
+    <button type="button" class="kz-auf" aria-expanded={auf()} aria-label="Alle Kennzahlen" title="Alle Kennzahlen – zum Umsortieren ziehen" onClick={() => setAuf(!auf())}>▾</button>
+    <div class="kz-liste"><For each={kzReihe()}>{(k) => { const i = () => inhalt(k); return (
     <span class="kennzahl" draggable="true" title={`${KZ_TITEL[k]}: ${i().wert}${i().zusatz ? ` · ${i().zusatz}` : ''} – zum Umsortieren ziehen`}
       onDragStart={(e) => { gezogen = k; e.dataTransfer!.effectAllowed = 'move'; e.dataTransfer!.setData('text/plain', k); }} onDragOver={(e) => { if (gezogen) e.preventDefault(); }}
       onDrop={(e) => { e.preventDefault(); if (gezogen) kzSchieben(gezogen, k); gezogen = null; }} onDragEnd={() => { gezogen = null; }}>
-      <small>{KZ_TITEL[k]}</small><b>{i().wert}</b><Show when={i().zusatz}><span class="kz-zusatz">{i().zusatz}</span></Show></span>); }}</For></div>;
+      <small>{KZ_TITEL[k]}</small><b>{i().wert}</b><Show when={i().zusatz}><span class="kz-zusatz">{i().zusatz}</span></Show></span>); }}</For></div></div>;
 }

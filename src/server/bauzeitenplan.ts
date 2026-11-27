@@ -10,7 +10,7 @@ import { alsBenutzer, tabelle, type Db } from './db';
 import { Ablehnung, ALLES_GESEHEN } from './protokoll';
 import type { Benutzer } from './anmeldung';
 import { pdfAus, werteAus } from './druck';
-import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
+import { Dienstfehler, ablageHindernis, ablegen, ordnerZurRolle } from './ablage';
 import { ortSuchen } from './wetter';
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
@@ -19,7 +19,7 @@ import { altplanLesen, type Altplan } from '../module/bauzeitenplan/austausch';
 import { assistent, katalogAus, type Angaben } from '../module/bauzeitenplan/assistent';
 import { abgleicher, merken, type Vorschau, type Zahl } from './uebernahme';
 
-export async function planLaden(db: Db, register: Modulregister, wer: Benutzer, version: string): Promise<{ plan: Plan; projekt: string; projektName: string; versionName: string; buero: string; ordner: string | null }> {
+export async function planLaden(db: Db, register: Modulregister, wer: Benutzer, version: string): Promise<{ plan: Plan; projekt: string; projektName: string; versionName: string; buero: string; ordner: string | null; nummer: string }> {
   if (!KENNUNG.test(version)) throw new Ablehnung('Version fehlt');
   const d = await alsBenutzer(db, wer, async (c) => {
     const v = (await c.query("select id, projekt, name from o_version where id = $1 and bereich = 'bauzeitenplan' and not geloescht", [version])).rows[0];
@@ -32,7 +32,7 @@ export async function planLaden(db: Db, register: Modulregister, wer: Benutzer, 
   let land = '';
   if (!d.zeitplan?.bundesland && (d.p.ort || d.p.plz)) { try { land = (await ortSuchen([d.p.strasse, [d.p.plz, d.p.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '))).land; } catch { /* ohne Land: bundesweite Feiertage */ } }
   const plan = planAus({ vorgaenge: d.vorgaenge, links: d.links, zeitplan: d.zeitplan, frei: d.frei, land, heute: new Date().toLocaleDateString('sv') });
-  return { plan, projekt: d.v.projekt, projektName: [d.p.nummer, d.p.name].filter(Boolean).join(' · '), versionName: d.v.name, buero: d.buero, ordner: d.p.ordner || null };
+  return { plan, projekt: d.v.projekt, projektName: [d.p.nummer, d.p.name].filter(Boolean).join(' · '), versionName: d.v.name, buero: d.buero, ordner: d.p.ordner || null, nummer: String(d.p.nummer ?? '') };
 }
 
 export const plandaten = (l: Awaited<ReturnType<typeof planLaden>>): Plandaten => ({
@@ -56,7 +56,9 @@ export function bauzeitenplanRouten(app: FastifyInstance, e: { db: Db; register:
     const hindernis = await ablageHindernis(e.db, e.umgebung, l.ordner);
     if (hindernis) throw new Ablehnung(hindernis);
     try {
-      const wo = await ablegen(e.db, { umgebung: e.umgebung, projekt: l.projekt, projektordner: l.ordner, unterordner: 'Bauzeitenplan', name: dateiname(l), daten: await pdfAus(planDruck(plandaten(l), optionen(b.optionen)).html) });
+      const rolle = e.register.ablagerolle('bauzeitenplan')!;
+      const unterordner = await alsBenutzer(e.db, req.benutzer!, (c) => ordnerZurRolle(c, rolle, { projekt: l.projekt }, { projekt: l.nummer, datum: new Date().toISOString().slice(0, 10) }));
+      const wo = await ablegen(e.db, { umgebung: e.umgebung, projekt: l.projekt, projektordner: l.ordner, unterordner, name: dateiname(l), daten: await pdfAus(planDruck(plandaten(l), optionen(b.optionen)).html) });
       return { pfad: wo.pfad };
     } catch (err) { if (err instanceof Dienstfehler) return reply.code(err.status).send({ fehler: err.message }); throw err; }
   });

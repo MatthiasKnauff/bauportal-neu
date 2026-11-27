@@ -5,9 +5,11 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { ablageordner, wahlBezug, type Ablagerolle, type Platzhalter } from '../kern/ablageordner';
 import { Eingabefehler } from '../kern/modell';
 import { ABLAGE_ID } from '../module/verwaltung/beipackzettel';
-import { alsBenutzer, type Db } from './db';
+import type { Modulregister } from '../kern/modul';
+import { alsBenutzer, spalte, tabelle, type Db, type Verbindung } from './db';
 import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
@@ -65,10 +67,12 @@ async function dienst(pfad: string, body: unknown, zeit = 60000): Promise<Respon
  * dieser Server darf dort schreiben (der Testserver nie). Sonst bleibt die Datei im Speicher des Bauportals.
  * Liefert, wo das Original jetzt liegt.
  */
-export async function ablegen(db: Db, e: { umgebung: string; projekt: string; projektordner: string | null; unterordner: string; name: string; daten: Buffer }): Promise<{ ort: 'ablage' | 'bauportal'; pfad: string }> {
+export async function ablegen(db: Db, e: { umgebung: string; projekt: string; projektordner: string | null; unterordner: string; name: string; daten: Buffer; ersetzen?: boolean }): Promise<{ ort: 'ablage' | 'bauportal'; pfad: string }> {
   const z = (await db.query('select freigabe from o_ablage where id = $1', [ABLAGE_ID])).rows[0];
   if (e.umgebung !== 'test' && z?.freigabe && e.projektordner) {
-    const r = (await (await dienst('/schreiben', { zugang: await zugang(db), pfad: sauber(e.projektordner, e.unterordner), name: e.name, inhalt: e.daten.toString('base64') }, 300000)).json()) as { name: string };
+    // ersetzen (Entscheidung E3, 27.11.2026): eine gleichnamige ältere Fassung wandert in den Papierkorb des Projektordners
+    const r = (await (await dienst('/schreiben', { zugang: await zugang(db), pfad: sauber(e.projektordner, e.unterordner), name: e.name, inhalt: e.daten.toString('base64'),
+      ...(e.ersetzen ? { papierkorb: sauber(e.projektordner, PAPIERKORB) } : {}) }, 300000)).json()) as { name: string };
     return { ort: 'ablage', pfad: sauber(e.unterordner, r.name) };
   }
   const ordner = path.join(process.env.DATEN_PFAD ?? '/data', 'originale', e.projekt);
@@ -76,6 +80,31 @@ export async function ablegen(db: Db, e: { umgebung: string; projekt: string; pr
   const datei = `${randomBytes(8).toString('hex')}-${e.name}`;
   writeFileSync(path.join(ordner, datei), e.daten, { flag: 'wx' });
   return { ort: 'bauportal', pfad: datei };
+}
+
+/** Ordner im Projektordner, in den ersetzte Fassungen wandern */
+export const PAPIERKORB = '_Papierkorb';
+
+/** Der Ordner zu einer Rolle für dieses Projekt (kern/ablageordner): Verwaltung, gemerkte Wahl des Projekts, ab Werk.
+ *  Gelesen als der Benutzer (c) – was er nicht sehen darf, zählt nicht. */
+export async function ordnerZurRolle(c: Verbindung, rolle: Ablagerolle, q: { projekt: string | null; art?: string; firma?: string | null; gewerk?: string | null }, p: Platzhalter): Promise<string> {
+  const r = (await c.query('select ordner, fest from o_ablageregel where rolle = $1 and not geloescht order by id limit 1', [rolle.id])).rows[0] as { ordner: string | null; fest: boolean | null } | undefined;
+  const bezug = wahlBezug(r?.ordner?.trim() ? r.ordner : rolle.ordner, q);
+  const wahl = q.projekt && q.art ? (await c.query('select ordner from o_ablagewahl where projekt = $1 and art = $2 and coalesce(bezug, \'\') = $3 and not geloescht order by id limit 1', [q.projekt, q.art, bezug])).rows[0]?.ordner as string | undefined : undefined;
+  return ablageordner(rolle, { regel: r ? { ordner: r.ordner ?? '', fest: !!r.fest } : undefined, wahl }, p).ordner;
+}
+
+/** Platzhalter des Ablageordners aus einem Eintrag: Projektnummer, LV (Nummer Name) mit seinem Gewerk, Firma (Feld firma oder bieter). */
+export async function platzhalterAus(c: Verbindung, register: Modulregister, objekt: string, id: string, werte: Record<string, unknown>, projektnummer: string): Promise<Platzhalter & { firmaId: string | null }> {
+  const name = async (ziel: string, wert: unknown) => {
+    const m = register.modell(ziel);
+    return m && typeof wert === 'string' && wert ? String((await c.query(`select ${spalte(m.anzeigeFeld)} as n from ${tabelle(m.name)} where id = $1`, [wert])).rows[0]?.n ?? '') : '';
+  };
+  const lvId = objekt === 'lv' ? id : (werte.lv as string | undefined);
+  const lv = lvId ? (await c.query('select nummer, name, gewerk from o_lv where id = $1', [lvId])).rows[0] as { nummer: string | null; name: string | null; gewerk: string | null } | undefined : undefined;
+  const firmaId = ((werte.firma ?? werte.bieter) as string | undefined) || null;
+  return { projekt: projektnummer, lv: lv ? [lv.nummer, lv.name].filter(Boolean).join(' ') : '', gewerk: lv ? await name('gewerk', lv.gewerk) : '',
+    firma: await name('kontakt', firmaId), datum: new Date().toISOString().slice(0, 10), firmaId };
 }
 
 /** Text (je Seite, Scans über die Texterkennung) und Vorschaubild einer hochgeladenen Datei – der Dateidienst speichert dabei nichts. */

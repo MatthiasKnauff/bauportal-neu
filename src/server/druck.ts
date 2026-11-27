@@ -12,7 +12,7 @@ import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, spalte, tabelle, type Absender, type Db } from './db';
 import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { logoDaten } from './logo';
-import { Dienstfehler, ablageHindernis, ablegen } from './ablage';
+import { Dienstfehler, ablageHindernis, ablegen, ordnerZurRolle, platzhalterAus } from './ablage';
 import type { Benutzer } from './anmeldung';
 
 /** Zeile aus der Datenbank -> Werte des Modells (Zahlen kommen als Text an). */
@@ -89,7 +89,10 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
       const z = (await c.query(`select ${spalte(ziel.anzeigeFeld)} as name from ${tabelle(ziel.name)} where id = $1`, [projektwerte[f.name]])).rows[0];
       namen.set(`${ziel.name}:${projektwerte[f.name]}`, String(z?.name ?? ''));
     }
-    return { werte, buero, projekt, namen, kinder, e, bildIds, projektId, projektordner, projektwerte, geholt };
+    // wohin „Im Projektordner ablegen“ das PDF legt: die Rolle des Ausdrucks (kern/ablageordner)
+    const rolle = a.rolle ? register.ablagerolle(a.rolle) : undefined;
+    const ordner = rolle && projektId ? await ordnerZurRolle(c, rolle, { projekt: projektId }, await platzhalterAus(c, register, m.name, objektId, werte, String(pz?.nummer ?? ''))) : '';
+    return { werte, buero, projekt, namen, kinder, e, bildIds, projektId, projektordner, projektwerte, geholt, ordner };
   });
   // Im PDF steckt das Vorschaubild selbst – der Druckdienst lädt nichts nach
   const bilder = new Map<string, string>();
@@ -97,7 +100,7 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
   const d: Druckdaten = { werte: t.werte, buero: t.buero, logo: await logoDaten(db), projekt: t.projekt, projektwerte: t.projektwerte, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '',
     berechnet: (blockId) => { const b = alleBloecke(a).find((x) => x.id === blockId); const q = b?.art === 'berechnet' ? DRUCKQUELLEN[b.quelle] : undefined;
       return q ? q.tabellen((o, f, w) => t.geholt.get(`${o}|${f}|${w}`) ?? [], { id: objektId, werte: t.werte }) : []; } };
-  return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d), projekt: t.projektId, projektordner: t.projektordner, ordner: (t.e['seite.ordner'] || a.ordner || '').trim(), d, e: t.e };
+  return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d), projekt: t.projektId, projektordner: t.projektordner, ordner: t.ordner, d, e: t.e };
 }
 
 /** Mehrere Einträge in einem PDF (z. B. ausgewählte Tagesberichte) – jeder wie einzeln gedruckt, nacheinander. */
@@ -182,7 +185,7 @@ export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulre
     return reply.header('content-type', 'application/pdf').header('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name)}`).send(pdf);
   });
 
-  // Das PDF in den Projektordner legen – als neue Datei, nie über eine vorhandene
+  // Das PDF in den Projektordner legen – als neue Datei; nur Ausdrucke mit „ersetzen“ (GEPRÜFT) ersetzen eine ältere Fassung
   app.post('/api/druck/ablegen', { preHandler: e.nurAngemeldet }, async (req, reply) => {
     const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string };
     if (!KENNUNG.test(b.objekt ?? '')) throw new Ablehnung('Was gedruckt werden soll, fehlt');
@@ -191,7 +194,8 @@ export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulre
     const hindernis = await ablageHindernis(e.db, e.umgebung, s.projektordner);
     if (hindernis) throw new Ablehnung(hindernis);
     try {
-      const wo = await ablegen(e.db, { umgebung: e.umgebung, projekt: s.projekt, projektordner: s.projektordner, unterordner: s.ordner, name: s.name, daten: await pdfAus(s.html) });
+      const wo = await ablegen(e.db, { umgebung: e.umgebung, projekt: s.projekt, projektordner: s.projektordner, unterordner: s.ordner, name: s.name, daten: await pdfAus(s.html),
+        ersetzen: !!e.register.ausdrucke.find((x) => x.id === b.ausdruck)?.ersetzen });
       await vermerken(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!, s.name, true);
       e.nachBefehlen();
       return { pfad: wo.pfad };

@@ -38,8 +38,7 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   if (blockId === 'seite') return { titel: 'Seite', felder: [
     ...(a.vorlagen?.length ? [{ name: 'vorlage', titel: 'Layout', art: 'auswahl' as const, alsListe: true, stelle: 'seite.vorlage', vorgabe: '',
       optionen: [{ wert: '', titel: a.vorlageTitel ?? 'Standard' }, ...a.vorlagen.map((v) => ({ wert: v.id, titel: v.titel }))] }] : []),
-    { name: 'schrift', titel: 'Schriftgröße', art: 'auswahl', optionen: Object.entries(SCHRIFT).map(([wert, s]) => ({ wert, titel: s.titel })), stelle: 'seite.schrift', vorgabe: 'normal' },
-    ...(a.ordner ? [{ name: 'ordner', titel: 'Ablegen im Projektordner unter', art: 'text' as const, stelle: 'seite.ordner', vorgabe: a.ordner }] : [])] };
+    { name: 'schrift', titel: 'Schriftgröße', art: 'auswahl', optionen: Object.entries(SCHRIFT).map(([wert, s]) => ({ wert, titel: s.titel })), stelle: 'seite.schrift', vorgabe: 'normal' }] };
   const b = alleBloecke(a).find((x) => x.id === blockId)!;
   if (b.art === 'formularkopf') return { titel: 'Überschrift', felder: [{ name: 'text', titel: 'Überschrift', art: 'text', stelle: `${b.id}.text`, vorgabe: b.text }, zeigen(b.id)] };
   if (b.art === 'kasten') return { titel: b.titel, felder: [
@@ -164,7 +163,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   const verzeichnisBlock = () => { const b = alleBloecke(a).find((x) => x.id === stelle().split('.')[0]); return b?.art === 'verzeichnis' ? b : undefined; };
   return (
     <Dialog titel={`${a.titel}${p.mehrere ? ` – ${p.mehrere.length} in einem PDF, Vorschau des ersten` : ' – Druckvorschau'}`} gross onAbbrechen={() => setOffen(null)}
-      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.ordner && !p.mehrere}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf" disabled={laeuft() || !daten()} onClick={pdf}>PDF herunterladen</button><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={drucken}>{laeuft() ? 'PDF wird erzeugt …' : 'Drucken'}</button></>}>
+      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.rolle && !p.mehrere}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf" disabled={laeuft() || !daten()} onClick={pdf}>PDF herunterladen</button><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={drucken}>{laeuft() ? 'PDF wird erzeugt …' : 'Drucken'}</button></>}>
       <div class="druck">
         <div class="druck-blatt" onClick={klick}><div ref={blatt} /></div>
         <Show when={einstellen() || (p.umfaenge?.length ?? 0) > 1}>

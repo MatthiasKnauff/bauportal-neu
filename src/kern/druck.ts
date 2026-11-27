@@ -66,7 +66,8 @@ export interface Ausdruck {
   objekt: string;          // was gedruckt wird
   dateiname: string;       // Vorschlag für die PDF-Datei; {feld} wird ersetzt
   fuss: string;            // Fußzeile links; {feld} wird ersetzt. Rechts steht immer „Seite x von y“.
-  ordner?: string;         // Unterordner im Projektordner, in dem das PDF abgelegt wird (einstellbar: Stelle „seite.ordner“)
+  rolle?: string;          // Ablagerolle (kern/ablageordner): wohin „Im Projektordner ablegen“ das PDF legt – ohne Rolle wird nicht abgelegt
+  ersetzen?: boolean;      // gleichnamige ältere Fassung ersetzen (die alte wandert in den Papierkorb), statt „ (2)“ anzuhängen – z. B. GEPRÜFT
   vermerk?: string;        // Feld des Objekts, in das nach dem PDF „Datei · Zeitpunkt“ geschrieben wird (z. B. „Als PDF exportiert“)
   bloecke: Druckblock[];
   /** Verzeichnis statt eines einzelnen Eintrags: gedruckt werden viele Einträge (die gefilterte Liste oder die Auswahl).

@@ -3,6 +3,7 @@
 
 import { pruefeModell, type Erben, type Feld, type ObjektModell, type Werte } from './modell';
 import { alleBloecke, spaltenFeld, type Ausdruck } from './druck';
+import type { Ablagerolle } from './ablageordner';
 
 export interface Beipackzettel {
   id: string;
@@ -22,6 +23,7 @@ export interface Beipackzettel {
   ausdrucke?: Ausdruck[];     // was das Modul drucken kann (Druckwerk)
   versionen?: Versionsbereich[];   // Bereiche mit benannten Versionen (z. B. der Bauzeitenplan eines Projekts)
   dokumentarten?: Dokumentart[];   // was sich als PDF, Scan oder Foto in diese App ziehen lässt (Ablegen mit Erkennung)
+  ablagerollen?: Ablagerolle[];    // Rollen im Projektordner (kern/ablageordner) – Dokumentarten und Ausdrucke aller Apps nennen sie
   abgesetzt?: string[];       // Abschnitte links, die farbig abgesetzt sind und den Namen der angemeldeten Person tragen (z. B. „Für mich“ in der Verwaltung)
   /** Was die App am Handy kann (wie im bisherigen Bauportal): voll – alles · eigen – eigene Handyansicht, alles ·
    *  ansicht – ansehen und kleine Handgriffe, nichts Neues anlegen · lesen – nur ansehen · keine – am Handy nur ein Hinweis. Ohne Angabe: lesen. */
@@ -37,8 +39,8 @@ export interface Dokumentart {
   nummerWort?: string;
   /** In diesen Ansichten der App ist sie vorbelegt */
   ansichten?: string[];
-  /** Unterordner im Projektordner; „{lv}“ wird zum Namen des LV */
-  ordner: string;
+  /** Rolle im Projektordner (kern/ablageordner): sie sagt, wohin das Original kommt – immer nur als Vorschlag */
+  rolle: string;
   /** Daraus wird ein Eintrag dieses Objekts (sonst wird das Dokument nur abgelegt) */
   objekt?: string;
   /** Erkannte Angaben → Felder des Objekts */
@@ -153,12 +155,19 @@ export class Modulregister {
       for (const f of felder) if (!m?.felder.some((x) => x.name === f)) throw new Error(`Ansicht „${a.id}“: Feld „${f}“ für den Filter fehlt`);
       if (a.einstellungen && !this.modelle.has(a.einstellungen)) throw new Error(`Ansicht „${a.id}“: Objekt „${a.einstellungen}“ für die Einstellungen fehlt`);
     }
+    // Verweise mit „imProjekt“: die genannten Objekte gehören zu einem Projekt und haben das Feld
+    for (const m of this.modelle.values()) for (const f of m.felder) for (const q of f.imProjekt ?? []) {
+      const o = this.modelle.get(q.objekt);
+      if (!o || !o.felder.some((x) => x.name === q.feld) || !o.felder.some((x) => x.name === 'projekt')) throw new Error(`„${m.name}.${f.name}“: imProjekt „${q.objekt}.${q.feld}“ fehlt oder gehört zu keinem Projekt`);
+    }
     for (const z of module) if (z.farbe && !/^#[0-9a-f]{6}$/i.test(z.farbe)) throw new Error(`Modul „${z.id}“: App-Farbe „${z.farbe}“ ist kein #rrggbb`);
     // Dokumentarten: Objekt, Felder und Ansichten müssen es geben; Merkmale müssen gültige Ausdrücke sein
-    const arten = new Set<string>();
+    const arten = new Set<string>(), rollen = new Set<string>();
+    for (const z of module) for (const r of z.ablagerollen ?? []) { if (rollen.has(r.id)) throw new Error(`Ablagerolle doppelt: ${r.id}`); rollen.add(r.id); }
     for (const z of module) for (const d of z.dokumentarten ?? []) {
       if (arten.has(d.art)) throw new Error(`Dokumentart doppelt: ${d.art}`);
       arten.add(d.art);
+      if (!rollen.has(d.rolle)) throw new Error(`Dokumentart „${d.art}“: Ablagerolle „${d.rolle}“ fehlt`);
       for (const m of d.merkmale) new RegExp(m, 'i');
       for (const a of d.ansichten ?? []) if (!z.ansichten.some((x) => x.id === a)) throw new Error(`Dokumentart „${d.art}“: Ansicht „${a}“ fehlt`);
       if (!d.objekt) { if (d.felder || d.vorgaben || d.vorhanden) throw new Error(`Dokumentart „${d.art}“: Felder ohne Objekt`); continue; }
@@ -173,6 +182,7 @@ export class Modulregister {
     for (const a of this.ausdrucke) {
       const m = this.modelle.get(a.objekt);
       if (!m) throw new Error(`Ausdruck „${a.id}“: Objekt „${a.objekt}“ fehlt`);
+      if (a.rolle && !rollen.has(a.rolle)) throw new Error(`Ausdruck „${a.id}“: Ablagerolle „${a.rolle}“ fehlt`);
       const bloecke = alleBloecke(a);
       if (new Set(bloecke.map((b) => b.id)).size !== bloecke.length) throw new Error(`Ausdruck „${a.id}“: Kennungen der Blöcke doppelt (sie gelten über alle Vorlagen)`);
       for (const n of bloecke.flatMap((b) => (b.art === 'felder' || b.art === 'haken' ? b.felder : b.art === 'text' ? [b.feld] : []))) {
@@ -192,6 +202,8 @@ export class Modulregister {
   get alleModelle(): ObjektModell[] { return [...this.modelle.values()]; }
   get kataloge(): Katalog[] { return this.module.flatMap((m) => m.kataloge ?? []); }
   get ausdrucke(): Ausdruck[] { return this.module.flatMap((m) => m.ausdrucke ?? []); }
+  get ablagerollen(): Ablagerolle[] { return this.module.flatMap((m) => m.ablagerollen ?? []); }
+  ablagerolle(id: string): Ablagerolle | undefined { return this.ablagerollen.find((r) => r.id === id); }
   get versionsbereiche(): Versionsbereich[] { return this.module.flatMap((m) => m.versionen ?? []); }
   modell(name: string): ObjektModell | undefined { return this.modelle.get(name); }
   nachschlag(name: string): Nachschlag | undefined { return this.nachschlaege.get(name); }

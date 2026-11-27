@@ -24,6 +24,10 @@ export interface Feld {
   kartenBreite?: number;   // Breite in der Karte in Sechsteln (ab Werk 3 = halbe Breite; 6 = ganze), z. B. Anrede 1, Name 3
   ziel?: string;           // nur bei art = verweis: Name des Objekts, auf das verwiesen wird
   zuerst?: { feld: string; ziel: string };   // bei Verweis: oben die Ziele, deren Feld „ziel“ den Wert des eigenen Felds „feld“ enthält (z. B. Firmen des Gewerks)
+  /** bei Verweis: oben die Ziele, die im Projekt schon vorkommen – in diesem Feld früherer Einträge und in den genannten Objekten (z. B. Beteiligte) */
+  imProjekt?: { objekt: string; feld: string }[];
+  /** bei Verweis: Getipptes, das es noch nicht gibt, als neues Ziel anlegen (Anzeigefeld = der Text, dazu diese Werte) – wie bisher „＋ als neuen Kontakt anlegen“ */
+  neuAnlegen?: Werte;
   eindeutig?: boolean;     // Wert darf nur einmal vorkommen
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)
   verborgen?: boolean;     // führt das Programm selbst (z. B. die Reihenfolge) – steht in keiner Karte

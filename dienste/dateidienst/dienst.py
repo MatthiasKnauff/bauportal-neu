@@ -35,9 +35,11 @@ class Anfrage(BaseModel):
 
 
 class Ablegen(Anfrage):
-    """pfad = Ordner innerhalb der Freigabe, name = Dateiname, inhalt = Datei als Base64."""
+    """pfad = Ordner innerhalb der Freigabe, name = Dateiname, inhalt = Datei als Base64.
+    papierkorb = Ordner innerhalb der Freigabe: gibt es den Namen schon, wandert die alte Datei dorthin und die neue ersetzt sie."""
     name: str
     inhalt: str
+    papierkorb: str | None = None
 
 
 class Fehler(Exception):
@@ -330,45 +332,56 @@ class Verschieben(Anfrage):
     nach: str
 
 
+def _ordner_anlegen(v: dict, wurzel: str, pfad: str) -> None:
+    """Ordner Stufe für Stufe anlegen; was es schon gibt, bleibt."""
+    stufe = wurzel
+    for teil in [t for t in re.split(r"[\\/]+", pfad) if t]:
+        stufe = f"{stufe}\\{teil}"
+        try:
+            smbclient.mkdir(stufe, **v)
+        except SMBOSError as e:
+            if e.errno != 17 and "NAME_COLLISION" not in str(e):
+                raise
+
+
+def _neu_schreiben(v: dict, ordner: str, name: str, daten: bytes) -> str:
+    """Schreibt die Datei unter einem freien Namen – gibt es den Namen schon, „ (2)“, „ (3)“ … angehängt; überschrieben wird nie."""
+    stamm, punkt, endung = name.rpartition(".")
+    if not punkt:
+        stamm, endung = name, ""
+    for n in range(1, 1000):
+        neu = name if n == 1 else f"{stamm} ({n}){punkt}{endung}"
+        try:
+            with smbclient.open_file(_pfad(ordner, neu), mode="xb", **v) as f:   # x = nur anlegen, nie überschreiben
+                f.write(daten)
+            return neu
+        except SMBOSError as e:
+            if e.errno != 17 and "NAME_COLLISION" not in str(e):
+                raise
+    raise Fehler("Für diese Datei ließ sich kein freier Name finden", 409)
+
+
+def _verschiebe(v: dict, wurzel: str, quelle: str, nach: str) -> str:
+    """Datei (voller Pfad) in einen Ordner der Freigabe verschieben, höchstens 40 MB: kopieren und dann löschen statt
+    Umbenennen – geht auf jedem Dateiserver, auch über Freigabe-Grenzen. Gibt den Namen am Ziel zurück."""
+    _ordner_anlegen(v, wurzel, nach)
+    if smbclient.stat(quelle, **v).st_size > LESEN_GRENZE:
+        raise Fehler("Die Datei ist größer als 40 MB", 413)
+    with smbclient.open_file(quelle, mode="rb", share_access="r", **v) as f:
+        daten = f.read()
+    neu = _neu_schreiben(v, _pfad(wurzel, nach), re.split(r"[\\/]+", quelle)[-1], daten)
+    smbclient.remove(quelle, **v)
+    return neu
+
+
 @app.post("/verschieben")
 def verschieben(a: Verschieben, x_schluessel: str | None = Header(default=None)):
-    """Verschiebt eine Datei in einen Ordner (Eingangsordner → „verarbeitet“), höchstens 40 MB. Gibt es den Namen dort schon,
+    """Verschiebt eine Datei in einen Ordner (Eingangsordner → „verarbeitet“). Gibt es den Namen dort schon,
     bekommt die Datei „ (2)“, „ (3)“ … angehängt – überschrieben wird nie."""
     _pruefe(x_schluessel)
     try:
         v, wurzel = _ziel(a.zugang)
-        quelle = _pfad(wurzel, a.pfad)
-        ziel = _pfad(wurzel, a.nach)
-        stufe = wurzel
-        for teil in [t for t in re.split(r"[\\/]+", a.nach) if t]:
-            stufe = f"{stufe}\\{teil}"
-            try:
-                smbclient.mkdir(stufe, **v)
-            except SMBOSError as e:
-                if e.errno != 17 and "NAME_COLLISION" not in str(e):
-                    raise
-        name = re.split(r"[\\/]+", a.pfad)[-1]
-        stamm, punkt, endung = name.rpartition(".")
-        if not punkt:
-            stamm, endung = name, ""
-        # Kopieren und dann löschen statt Umbenennen: geht auf jedem Dateiserver, auch über Freigabe-Grenzen;
-        # x = nur anlegen, nie überschreiben
-        if smbclient.stat(quelle, **v).st_size > LESEN_GRENZE:
-            raise Fehler("Die Datei ist größer als 40 MB", 413)
-        with smbclient.open_file(quelle, mode="rb", share_access="r", **v) as f:
-            daten = f.read()
-        for n in range(1, 1000):
-            neu = name if n == 1 else f"{stamm} ({n}){punkt}{endung}"
-            try:
-                with smbclient.open_file(_pfad(ziel, neu), mode="xb", **v) as f:
-                    f.write(daten)
-            except SMBOSError as e:
-                if e.errno != 17 and "NAME_COLLISION" not in str(e):
-                    raise
-                continue
-            smbclient.remove(quelle, **v)
-            return {"name": neu}
-        raise Fehler("Für diese Datei ließ sich kein freier Name finden", 409)
+        return {"name": _verschiebe(v, wurzel, _pfad(wurzel, a.pfad), a.nach)}
     except Fehler:
         raise
     except Exception as e:  # noqa: BLE001
@@ -378,7 +391,8 @@ def verschieben(a: Verschieben, x_schluessel: str | None = Header(default=None))
 @app.post("/schreiben")
 def schreiben(a: Ablegen, x_schluessel: str | None = Header(default=None)):
     """Legt eine neue Datei ab. Fehlende Ordner entstehen; eine vorhandene Datei wird nie überschrieben –
-    gibt es den Namen schon, bekommt die neue Datei „ (2)“, „ (3)“ … angehängt."""
+    gibt es den Namen schon, bekommt die neue Datei „ (2)“, „ (3)“ … angehängt. Mit „papierkorb“ wandert stattdessen
+    die alte Datei dorthin, und die neue bekommt ihren Namen (geprüfte Fassung ersetzen)."""
     _pruefe(x_schluessel)
     try:
         daten = base64.b64decode(a.inhalt, validate=True)
@@ -389,29 +403,17 @@ def schreiben(a: Ablegen, x_schluessel: str | None = Header(default=None)):
     try:
         v, wurzel = _ziel(a.zugang)
         ordner = _pfad(wurzel, a.pfad)
-        _pfad(ordner, a.name)   # prüft den Namen
-        # Ordner Stufe für Stufe anlegen; was es schon gibt, bleibt
-        stufe = wurzel
-        for teil in [t for t in re.split(r"[\\/]+", a.pfad) if t]:
-            stufe = f"{stufe}\\{teil}"
+        alt = _pfad(ordner, a.name)   # prüft den Namen
+        if a.papierkorb is not None:
+            _pfad(wurzel, a.papierkorb)   # prüft den Papierkorb
+        _ordner_anlegen(v, wurzel, a.pfad)
+        if a.papierkorb is not None:
             try:
-                smbclient.mkdir(stufe, **v)
+                _verschiebe(v, wurzel, alt, a.papierkorb)
             except SMBOSError as e:
-                if e.errno != 17 and "NAME_COLLISION" not in str(e):
+                if e.errno != 2 and "NO_SUCH_FILE" not in str(e) and "OBJECT_NAME_NOT_FOUND" not in str(e):
                     raise
-        stamm, punkt, endung = a.name.rpartition(".")
-        if not punkt:
-            stamm, endung = a.name, ""
-        for n in range(1, 1000):
-            name = a.name if n == 1 else f"{stamm} ({n}){punkt}{endung}"
-            try:
-                with smbclient.open_file(_pfad(ordner, name), mode="xb", **v) as f:   # x = nur anlegen, nie überschreiben
-                    f.write(daten)
-                return {"name": name, "groesse": len(daten)}
-            except SMBOSError as e:
-                if e.errno != 17 and "NAME_COLLISION" not in str(e):
-                    raise
-        raise Fehler("Für diese Datei ließ sich kein freier Name finden", 409)
+        return {"name": _neu_schreiben(v, ordner, a.name, daten), "groesse": len(daten)}
     except Fehler:
         raise
     except Exception as e:  # noqa: BLE001

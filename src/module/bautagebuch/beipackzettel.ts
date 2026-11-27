@@ -66,7 +66,9 @@ export const berichtEintrag: ObjektModell = {
     { name: 'bericht', titel: 'Tagesbericht', art: 'verweis', ziel: 'tagesbericht', pflicht: true, inListe: true, breite: 220, gruppe: 'Eintrag' },
     { name: 'art', titel: 'Art', art: 'auswahl', optionen: EINTRAGSARTEN.map(({ wert, titel }) => ({ wert, titel })), gruppe: 'Eintrag' },
     { name: 'text', titel: 'Text', art: 'langtext', inListe: true, breite: 380, gruppe: 'Eintrag' },
-    { name: 'firma', titel: 'Firma', art: 'verweis', ziel: 'kontakt', inListe: true, breite: 220, gruppe: 'Eintrag', wenn: { art: ['anwesend', 'mangel', 'weisung'] } },
+    // beim Tippen: Firmen des Projekts zuerst (frühere Einträge, Beteiligte); was es nicht gibt, wird wie bisher als Kontakt angelegt
+    { name: 'firma', titel: 'Firma', art: 'verweis', ziel: 'kontakt', inListe: true, breite: 220, gruppe: 'Eintrag', wenn: { art: ['anwesend', 'mangel', 'weisung'] },
+      imProjekt: [{ objekt: 'projekt_kontakt', feld: 'kontakt' }], neuAnlegen: { art: 'firma' } },
     { name: 'personen', titel: 'Personen', art: 'zahl', gruppe: 'Eintrag', wenn: { art: ['anwesend'] } },
     // erwartet laut Bauzeitenplan, aber nicht gekommen – der Text ist dann die Begründung; zählt für die Terminrüge
     { name: 'nicht_da', titel: 'Nicht da', art: 'ja_nein', gruppe: 'Eintrag', wenn: { art: ['anwesend'] } },
@@ -121,7 +123,7 @@ export const bautagebuch: Beipackzettel = {
   ],
   ausdrucke: [{
     id: 'bautagebuch.tagesbericht', titel: 'Tagesbericht', objekt: 'tagesbericht',
-    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', ordner: 'Bautagebuch/Berichte', vermerk: 'pdf',
+    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', rolle: 'bautagebuch', vermerk: 'pdf',
     // Ab Werk das Formular des bisherigen Bauportals (Entscheidung 27.11.2026): Kästen, 25 mm Heftrand, Fotos auf eigener Seite
     vorlageTitel: 'Wie bisher (Formular)', stil: 'formular', rand: { oben: 14, links: 25, rechts: 12, unten: 18 },
     fuss: `{projekt} · Bautagebuch Nr. {nummer} · {datum}\n{buero}[ · {buero.strasse}][ · {buero.plz} {buero.ort}][ · Tel. {buero.telefon}][ · {buero.email}][ · {buero.web}]`,

@@ -334,7 +334,40 @@ function AblageVerbindung() {
           </Show>
         </fieldset>
       )} />
-    )}</Show></section>} />
+    )}</Show><AblageRollen /></section>} />
+  );
+}
+
+// ---------- Verwaltung: Ablageordner je Rolle (kern/ablageordner) – Vorgabe des Büros oder fest ----------
+function AblageRollen() {
+  const rollen = () => zustand()!.module.flatMap((m) => m.ablagerollen ?? []);
+  const arten = (rolle: string) => zustand()!.module.flatMap((m) => [...(m.dokumentarten ?? []).filter((d) => d.rolle === rolle).map((d) => d.titel), ...(m.ausdrucke ?? []).filter((a) => a.rolle === rolle).map((a) => `${a.titel} (Ausdruck)`)]);
+  const regel = (rolle: string) => lebende('ablageregel').find((x) => x.werte.rolle === rolle);
+  const setze = (rolle: string, werte: { ordner?: string; fest?: boolean }) => {
+    const r = regel(rolle);
+    if (r) ausfuehren({ objekt: 'ablageregel', art: 'aendern', objektId: r.id, werte }, 'Ablageordner einstellen');
+    else ausfuehren({ objekt: 'ablageregel', art: 'anlegen', objektId: neueKennung(), werte: { rolle, ordner: '', fest: false, ...werte } }, 'Ablageordner einstellen');
+  };
+  const schreiben = () => darf('ablageregel', 'schreiben');
+  return (
+    <fieldset>
+      <legend>Ablage je Dokumentart</legend>
+      <p class="still-text klein-text">Beim Ablegen wird der Ordner nur vorgeschlagen; eine andere Wahl merkt sich das Projekt. Leer: Vorschlag wie im Projektordner A481. „fest“: Es wird immer dieser Ordner genommen. Platzhalter: {'{projekt} {lv} {gewerk} {firma} {datum}'}.</p>
+      <table class="ablagerollen">
+        <thead><tr><th>Rolle</th><th>Ordner im Projektordner</th><th>fest</th></tr></thead>
+        <tbody>
+          <For each={rollen()}>{(r) => (
+            <tr>
+              <td>{r.titel}<small class="still-text">{arten(r.id).join(' · ')}</small></td>
+              <td><input value={String(regel(r.id)?.werte.ordner ?? '')} placeholder={r.ordner} disabled={!schreiben()} aria-label={`Ordner für ${r.titel}`}
+                onChange={(e) => setze(r.id, { ordner: e.currentTarget.value.trim() })} /></td>
+              <td><input type="checkbox" checked={regel(r.id)?.werte.fest === true} disabled={!schreiben()} aria-label={`${r.titel} fest`}
+                onChange={(e) => setze(r.id, { fest: e.currentTarget.checked })} /></td>
+            </tr>
+          )}</For>
+        </tbody>
+      </table>
+    </fieldset>
   );
 }
 

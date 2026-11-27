@@ -395,26 +395,35 @@ export const ava: Beipackzettel = {
   ],
   // Ins Fenster ziehen (PDF, Scan, Foto): vorbelegt nach der Seite, auf der man steht – erkannt am Text
   dokumentarten: [
-    { art: 'angebot', titel: 'Angebot', objekt: 'angebot', ansichten: ['angebote', 'preisspiegel', 'versand', 'nachverfolgen', 'besprechungen'], ordner: 'Ausschreibung/{lv}/Angebote',
+    { art: 'angebot', titel: 'Angebot', objekt: 'angebot', ansichten: ['angebote', 'preisspiegel', 'versand', 'nachverfolgen', 'besprechungen'], rolle: 'angebote',
       merkmale: ['\\bangebot\\b', 'angebotsnummer', 'angebot\\s*nr', 'unser angebot', 'bindefrist', 'angebotssumme'], nummerWort: 'angebot',
       felder: { lv: 'lv', firma: 'bieter', eingang: 'eingang' }, vorhanden: ['lv', 'bieter'], vorgaben: { rueckmeldung: 'angebot' } },
-    { art: 'rechnung', titel: 'Abschlagsrechnung', objekt: 'rechnung', ansichten: ['rechnungen', 'aufmass', 'auftraege'], ordner: 'Ausschreibung/{lv}/Rechnungen',
+    { art: 'rechnung', titel: 'Abschlagsrechnung', objekt: 'rechnung', ansichten: ['rechnungen', 'aufmass', 'auftraege'], rolle: 'rechnungspruefung',
       merkmale: ['abschlagsrechnung', 'teilrechnung', '\\brechnung\\b', 'rechnungsnummer', 'rechnung\\s*nr', 'rechnungsdatum', 'zahlbar bis'], nummerWort: 'rechnung',
       felder: { lv: 'lv', firma: 'firma', nummer: 'nummer', datum: 'datum', betrag: 'betrag', eingang: 'eingang' }, vorgaben: { art: 'abschlag', status: 'offen' } },
-    { art: 'schlussrechnung', titel: 'Schlussrechnung', objekt: 'rechnung', ordner: 'Ausschreibung/{lv}/Rechnungen',
+    { art: 'schlussrechnung', titel: 'Schlussrechnung', objekt: 'rechnung', rolle: 'rechnungspruefung',
       merkmale: ['schlussrechnung', 'rechnungsnummer', 'rechnung\\s*nr', 'rechnungsdatum', 'zahlbar bis', 'schlusszahlung'], nummerWort: 'rechnung',
       felder: { lv: 'lv', firma: 'firma', nummer: 'nummer', datum: 'datum', betrag: 'betrag', eingang: 'eingang' }, vorgaben: { art: 'schluss', status: 'offen' } },
-    { art: 'nachtragsangebot', titel: 'Nachtragsangebot', objekt: 'nachtrag', ansichten: ['nachtraege'], ordner: 'Ausschreibung/{lv}/Nachträge',
+    { art: 'nachtragsangebot', titel: 'Nachtragsangebot', objekt: 'nachtrag', ansichten: ['nachtraege'], rolle: 'nachtraege',
       merkmale: ['nachtragsangebot', 'nachtrag\\s*nr', 'nachtragsnummer', 'mehrkosten', 'zusätzliche leistung'], nummerWort: 'nachtrag',
       felder: { lv: 'lv', nummer: 'nummer', datum: 'angebot_vom', betrag: 'betrag' }, vorgaben: { stand: 'angeboten', name: 'Nachtragsangebot' } },
-    { art: 'aufmass', titel: 'Aufmaß der Firma', ordner: 'Ausschreibung/{lv}/Aufmaß', merkmale: ['aufmaß', 'aufmass', 'massenermittlung', 'mengenermittlung'] },
-    { art: 'buergschaft', titel: 'Bürgschaft', ordner: 'Ausschreibung/{lv}/Bürgschaften', merkmale: ['bürgschaft', 'bürgin', 'bürge\\b', 'gewährleistungsbürgschaft', 'vertragserfüllungsbürgschaft'] },
-    { art: 'lv', titel: 'Leistungsverzeichnis', ordner: 'Ausschreibung/{lv}', ansichten: ['lvs', 'positionen'], merkmale: ['leistungsverzeichnis', 'leistungsbeschreibung', 'vorbemerkungen'] },
+    { art: 'aufmass', titel: 'Aufmaß der Firma', rolle: 'rechnungspruefung', merkmale: ['aufmaß', 'aufmass', 'massenermittlung', 'mengenermittlung'] },
+    { art: 'buergschaft', titel: 'Bürgschaft', rolle: 'vertraege', merkmale: ['bürgschaft', 'bürgin', 'bürge\\b', 'gewährleistungsbürgschaft', 'vertragserfüllungsbürgschaft'] },
+    // neu aus dem Projektordner A481 (Entscheidung E2, 27.11.2026) – nur ablegen, die Rolle sagt wohin
+    { art: 'stundenlohn', titel: 'Stundenlohnbericht', rolle: 'rechnungspruefung', ansichten: ['aufmass'], merkmale: ['stundenlohn', 'tagelohn', 'regiearbeit', 'regiestunden', 'stundenzettel'] },
+    { art: 'lieferschein', titel: 'Lieferschein', rolle: 'rechnungspruefung', merkmale: ['lieferschein', 'lieferscheinnummer', 'warenempfang', 'geliefert'] },
+    { art: 'honorar', titel: 'Honorarrechnung Fachplaner', rolle: 'rechnungspruefung', merkmale: ['honorarrechnung', '\\bhonorar', '\\bhoai\\b', 'leistungsphase'] },
+    { art: 'abnahme', titel: 'Abnahmeniederschrift', rolle: 'abnahmen', merkmale: ['abnahme', 'abnahmeniederschrift', 'technische abnahme', 'abnahmeprotokoll', 'gewährleistung'] },
+    { art: 'fachunternehmer', titel: 'Fachunternehmer- / Brandschutzbescheinigung', rolle: 'brandschutz',
+      merkmale: ['fachunternehmerbescheinigung', 'übereinstimmungserklärung', 'übereinstimmungsbestätigung', 'brandschutz', 'feuerschutz', 'rauchschutz'] },
+    { art: 'bauvertrag', titel: 'Auftrag / Bauvertrag (unterschrieben)', rolle: 'vertraege', merkmale: ['auftragsbestätigung', 'bauvertrag', 'auftragsschreiben', 'unterschrift', 'vertragsbestandteil'] },
+    { art: 'kva', titel: 'Kostenvoranschlag', rolle: 'angebote', merkmale: ['kostenvoranschlag', '\\bkva\\b', 'unverbindlich'] },
+    { art: 'lv', titel: 'Leistungsverzeichnis', rolle: 'lv', ansichten: ['lvs', 'positionen'], merkmale: ['leistungsverzeichnis', 'leistungsbeschreibung', 'vorbemerkungen'] },
   ],
   ausdrucke: [{
     // Bieterliste wie bisher (Versand & Rücklauf): die Bieter:innen eines LV, Spalten frei wählbar – auch Telefon, E-Mail der Firma
     id: 'ava.bieterliste', titel: 'Bieterliste', objekt: 'angebot', verzeichnis: true, format: 'quer',
-    dateiname: 'Bieterliste {filter} {datum}', fuss: '{buero} · Bieterliste vom {datum}', ordner: 'AVA/Ausschreibung',
+    dateiname: 'Bieterliste {filter} {datum}', fuss: '{buero} · Bieterliste vom {datum}', rolle: 'ausschreibung',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Bieterliste', unter: '{filter} · {anzahl}' },
@@ -423,7 +432,7 @@ export const ava: Beipackzettel = {
   }, {
     // Fenster- & Türliste wie bisher: die gefilterte Liste (z. B. eine Liste, ein Geschoss) als Tabelle quer – auch als Anlage zum LV
     id: 'ava.tuerliste', titel: 'Fenster- & Türliste', objekt: 'tuer', verzeichnis: true, format: 'quer',
-    dateiname: 'Fenster- und Türliste {datum}', fuss: '{buero} · Fenster- & Türliste vom {datum}', ordner: 'AVA/Ausschreibung',
+    dateiname: 'Fenster- und Türliste {datum}', fuss: '{buero} · Fenster- & Türliste vom {datum}', rolle: 'ausschreibung',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Fenster- & Türliste', unter: '{anzahl} · {filter}' },
@@ -433,7 +442,7 @@ export const ava: Beipackzettel = {
     // Rechnungsfreigabe (wie im bisherigen Bauportal): Freigabe mit Zahlbetrag, dazu wählbar Prüfblatt und Massenermittlung –
     // „Im Projektordner ablegen“ legt die geprüfte Rechnung ab und vermerkt das an ihr
     id: 'ava.freigabe', titel: 'Rechnungsfreigabe', objekt: 'rechnung', vermerk: 'abgelegt',
-    dateiname: '{datum} Rechnungsfreigabe {firma} Nr. {nummer} GEPRÜFT', fuss: '{buero} · Rechnungsfreigabe {nummer}', ordner: 'AVA/Rechnungen',
+    dateiname: '{datum} Rechnungsfreigabe {firma} Nr. {nummer} GEPRÜFT', fuss: '{buero} · Rechnungsfreigabe {nummer}', rolle: 'rechnungspruefung', ersetzen: true,
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Rechnungsfreigabe', unter: '{firma} · Rechnung Nr. {nummer}' },
@@ -448,7 +457,7 @@ export const ava: Beipackzettel = {
     // Das LV zum Versand an die Bieter:innen: Angaben zur Ausschreibung, Vorbemerkungen, Positionen mit EP/GP zum Ausfüllen,
     // Zusammenstellung, Angebotssumme und Unterschrift (einstellbar: mit den geschätzten Preisen, nur Kurztexte)
     id: 'ava.lv', titel: 'Leistungsverzeichnis', objekt: 'lv',
-    dateiname: 'LV {nummer} {name}', fuss: '{buero} · Leistungsverzeichnis {nummer} {name}', ordner: 'AVA/Ausschreibung',
+    dateiname: 'LV {nummer} {name}', fuss: '{buero} · Leistungsverzeichnis {nummer} {name}', rolle: 'lv',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Leistungsverzeichnis', unter: '{nummer} {name}' },
@@ -464,7 +473,7 @@ export const ava: Beipackzettel = {
     ],
   }, {
     id: 'ava.bauvertrag', titel: 'Bauvertrag', objekt: 'bauvertrag',
-    dateiname: 'Bauvertrag {lv} {datum}', fuss: '{buero} · Bauvertrag {lv}', ordner: 'AVA/Vergabe',
+    dateiname: 'Bauvertrag {lv} {datum}', fuss: '{buero} · Bauvertrag {lv}', rolle: 'vertraege',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Bauvertrag', unter: '{gegenstand}' },
@@ -476,7 +485,7 @@ export const ava: Beipackzettel = {
   }, {
     // Auftragsschreiben (wie bisher): derselbe Vertrag als kurzer Brief an die Firma – Anrede, die Regelungen ohne §, Bitte um Bestätigung
     id: 'ava.auftragsschreiben', titel: 'Auftragsschreiben', objekt: 'bauvertrag',
-    dateiname: 'Auftragsschreiben {lv} {datum}', fuss: '{buero} · Auftragsschreiben {lv}', ordner: 'AVA/Vergabe',
+    dateiname: 'Auftragsschreiben {lv} {datum}', fuss: '{buero} · Auftragsschreiben {lv}', rolle: 'vertraege',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'an', art: 'felder', felder: ['an'] },
@@ -489,7 +498,7 @@ export const ava: Beipackzettel = {
     ],
   }, {
     id: 'ava.besprechung', titel: 'Protokoll Angebotsbesprechung', objekt: 'besprechung',
-    dateiname: 'Angebotsbesprechung {lv} {datum}', fuss: '{buero} · Angebotsbesprechung {lv} vom {datum}', ordner: 'AVA/Vergabe',
+    dateiname: 'Angebotsbesprechung {lv} {datum}', fuss: '{buero} · Angebotsbesprechung {lv} vom {datum}', rolle: 'protokolle',
     bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Protokoll Angebotsbesprechung', unter: '{lv} · {datum}' },

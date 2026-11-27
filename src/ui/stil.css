@@ -335,7 +335,7 @@ main { flex: 1; min-height: 0; display: flex; }
 /* nur Symbole – so dicht wie im bisherigen Bauportal: Knöpfe 30 × 27, Symbol 18, Leiste 46 hoch */
 .menueleiste.band-kompakt { min-height: 46px; padding-top: 2px; } .band-kompakt .band-knopf { min-width: 30px; min-height: 27px; padding: 4px 6px; } .band-kompakt .band-knopf svg { width: 18px; height: 18px; } .band-kompakt .band-titel { font-size: 8.5px; }
 /* eng (auch am Handy): die Suche wird zur Lupe und klappt beim Antippen über die Zeile auf – wie im bisherigen Bautagebuch */
-.menueleiste.band-kompakt { position: relative; } .band-kompakt .band-mitte, .band-kompakt .menue-mitte, .band-kompakt .filtersuche { flex: none; min-width: 0; } .band-kompakt .menue-mitte .zaehler { display: none; }
+.menueleiste.band-kompakt { position: relative; } .band-kompakt .band-mitte, .band-kompakt .menue-mitte, .band-kompakt .filtersuche { flex: none; min-width: 0; } .band-kompakt .band-mitte { overflow: visible; } .band-kompakt .band-mitte .menue-mitte { width: auto; } .band-kompakt .menue-mitte .zaehler { display: none; }   /* nur so breit wie der Inhalt (Lupe, erste Kennzahl) – nichts schneidet ab */
 .menueleiste.band-kompakt input.suche { flex: none; width: 38px; max-width: 38px; padding: 0; color: transparent; cursor: pointer;
   background: var(--flaeche) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") center / 18px no-repeat; }
 .menueleiste.band-kompakt input.suche::placeholder { color: transparent; }
@@ -1457,7 +1457,15 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lvt-still { margin-left: 8px; color: var(--text-still); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
 .lvt-zahl { margin-left: 6px; padding: 0 6px; border-radius: 9px; font-size: 11px; line-height: 16px; background: var(--warn-hell); color: var(--warn); font-weight: 600; }
 /* sechs Kennzahlen wie bisher – in zwei Reihen, damit alle neben die Befehle passen (Zusatz im Hinweis und als zweite Zeile, wo Platz ist) */
-.kennzahlen { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); gap: 3px 4px; align-items: stretch; }
+.kennzahlen { position: relative; display: flex; align-items: stretch; }
+.kz-liste { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); gap: 3px 4px; align-items: stretch; }
+.kz-auf { display: none; }
+/* eng (Menüleiste nur mit Symbolen): die erste Kennzahl mit ▾, aufgeklappt alle untereinander – wie bisher */
+.band-kompakt .kz-auf { display: block; order: 2; border: 1px solid var(--rand); border-left: 0; border-radius: 0 calc(7px * var(--rund)) calc(7px * var(--rund)) 0; background: var(--flaeche); padding: 0 6px; cursor: pointer; color: var(--text-still); }
+.band-kompakt .kz-liste { grid-auto-flow: row; grid-template-rows: none; }
+.band-kompakt .kennzahlen:not(.auf) .kennzahl:not(:first-child) { display: none; }
+.band-kompakt .kennzahlen.auf .kz-liste { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 190px; padding: 6px; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); box-shadow: 0 10px 28px rgba(0,0,0,.16); gap: 6px; }
+.band-kompakt .kennzahlen.auf .kennzahl { flex-direction: column; align-items: flex-start; gap: 0; }
 .kennzahl { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 2px 8px; border: 1px solid var(--rand); border-radius: calc(7px * var(--rund)); background: var(--flaeche); line-height: 1.2; }
 .kennzahl small { font-size: 11px; color: var(--text-still); white-space: nowrap; } .kennzahl b { font-size: 13px; white-space: nowrap; }
 .lvt-zelle.guenstig { background: var(--gut-hell); color: var(--gut); font-weight: 700; } .lvt-zelle.abweichend { background: var(--warn-hell); color: var(--warn); }
@@ -1718,3 +1726,10 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .tl-befund { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rand); background: none; color: inherit; padding: 8px 10px; cursor: pointer; font: inherit; }
 .tl-befund:hover { background: var(--still); } .tl-befund span.warnung, .tl-befund span.hinweis { display: block; font-size: 12.5px; } .tl-befund span.warnung { color: var(--gefahr); } .tl-befund span.hinweis { color: var(--text-still); }
 .tl-raeume { max-height: 50vh; overflow: auto; display: grid; gap: 2px; margin-top: 6px; } .haken-zeile { display: flex; gap: 8px; align-items: center; padding: 3px 2px; cursor: pointer; }
+/* Verwaltung → Ablage: Ordner je Rolle */
+.ablagerollen { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ablagerollen th, .ablagerollen td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--rand); vertical-align: top; }
+.ablagerollen th:first-child { width: 38%; }
+.ablagerollen th:last-child { width: 48px; }
+.ablagerollen td small { display: block; font-size: 11px; line-height: 1.3; }
+.ablagerollen td input:not([type]) { width: 100%; }

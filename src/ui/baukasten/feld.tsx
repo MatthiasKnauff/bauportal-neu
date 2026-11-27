@@ -4,8 +4,8 @@ import { For, Match, Show, Switch, createMemo, createSignal, createUniqueId } fr
 import type { Feld, Wert, Werte } from '../../kern/modell';
 import { HERKUNFT } from '../../kern/befehl';
 import { feldtext } from '../../kern/druck';
-import { feldWerte, gemerkt, lebende, objektname, sicht, verweisname } from '../unterbau/abgleich';
-import { modell } from '../unterbau/api';
+import { ausfuehren, feldWerte, gemerkt, lebende, objektname, sicht, verweisname } from '../unterbau/abgleich';
+import { darf, modell, neueKennung } from '../unterbau/api';
 import { Auswahlliste } from './auswahlliste';
 import { Datumsfeld } from './datum';
 import { hinweis } from '../unterbau/meldungen';
@@ -182,7 +182,8 @@ export function FeldEingabe(p: {
         </Match>
         <Match when={p.feld.art === 'verweis'}>
           <Auswahlliste id={id} titel={p.feld.titel} platzhalter="wählen …" blass={geerbt()} wert={wert() === null ? null : String(wert())} gesperrt={p.gesperrt} onWert={(w) => p.onWert(w || null)}
-            optionen={[...(p.feld.pflicht ? [] : [{ wert: '', titel: '(keins)' }]), ...verweisziele(p.feld, p.zusammenhang)]} />
+            optionen={[...(p.feld.pflicht ? [] : [{ wert: '', titel: '(keins)' }]), ...verweisziele(p.feld, p.zusammenhang, p.objekt)]}
+            neu={verweisNeu(p.feld, (id) => p.onWert(id))} />
         </Match>
       </Switch>
       <Show when={p.fehler}><div class="feld-fehler">{p.fehler}</div></Show>
@@ -190,13 +191,33 @@ export function FeldEingabe(p: {
   );
 }
 
+/** Stellschraube „neuAnlegen“ für die Auswahlliste: „＋ … anlegen“ unter den Treffern, wenn man darf – danach gewählt. */
+export function verweisNeu(f: Feld, onId: (id: string) => void): { titel: string; tun: (text: string) => void } | undefined {
+  return f.neuAnlegen && darf(f.ziel!, 'schreiben') ? { titel: `als ${modell(f.ziel!).titel} anlegen`, tun: (text) => onId(zielAnlegen(f, text)) } : undefined;
+}
+
+/** Stellschraube „neuAnlegen“: das Getippte als neues Ziel anlegen (ein Befehl, rückgängig zu machen) – gibt seine Kennung. */
+function zielAnlegen(f: Feld, text: string): string {
+  const m = modell(f.ziel!), id = neueKennung();
+  ausfuehren({ objekt: m.name, art: 'anlegen', objektId: id, werte: { ...f.neuAnlegen, [m.anzeigeFeld]: text } }, `„${text}“ als ${m.titel} anlegen`);
+  hinweis(`„${text}“ wurde ${m.titelMehrzahl === 'Kontakte' ? 'zu den Kontakten' : `als ${m.titel}`} hinzugefügt.`);
+  return id;
+}
+
 /** Was ein Verweis zur Wahl stellt: die Einträge des Ziels aus demselben Projekt und derselben Version. */
-function verweisziele(f: Feld, zusammenhang?: Werte): { wert: string; titel: string }[] {
+export function verweisziele(f: Feld, zusammenhang?: Werte, objekt?: string): { wert: string; titel: string }[] {
   const m = modell(f.ziel!);
   const gleich = ['projekt', 'version'].filter((k) => zusammenhang?.[k] && m.felder.some((x) => x.name === k));
   const alle = gemerkt(f.ziel!, `ziele:${gleich.map((k) => String(zusammenhang![k])).join(':')}`, () => lebende(f.ziel!).filter((z) => gleich.every((k) => z.werte[k] === zusammenhang![k]))
     .map((z) => ({ wert: z.id, titel: objektname(m, z.werte) })).sort((a, b) => a.titel.localeCompare(b.titel, 'de', { numeric: true })));
   // Stellschraube „zuerst“: die passenden oben (z. B. Firmen, deren Gewerk zum Gewerk der Leistung passt), sonst wie gehabt
+  // Stellschraube „imProjekt“: oben, was im Projekt schon vorkommt – in früheren Einträgen und z. B. bei den Beteiligten
+  const projekt = zusammenhang?.projekt;
+  if (f.imProjekt && projekt) {
+    const quellen = [...(objekt ? [{ objekt, feld: f.name }] : []), ...f.imProjekt];
+    const da = new Set(quellen.flatMap((q) => lebende(q.objekt).filter((z) => z.werte.projekt === projekt).map((z) => String(z.werte[q.feld] ?? ''))));
+    return [...alle.filter((o) => da.has(o.wert)), ...alle.filter((o) => !da.has(o.wert))];
+  }
   const such = f.zuerst ? String(zusammenhang?.[f.zuerst.feld] ?? '').trim().toLowerCase() : '';
   if (!such) return alle;
   const passt = (id: string) => String(sicht[f.ziel!]?.[id]?.werte[f.zuerst!.ziel] ?? '').toLowerCase().includes(such);
