@@ -47,6 +47,9 @@ import { Gebaeude3d } from './gebaeude3d';
 import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvSummen, LvWahl, PositionSumme } from './ava';
 import { RechnungLeiter, Rechnungen } from './rechnungen';
 import { AvaHandy } from './avahandy';
+import { planDerVersion } from './plandaten';
+import { vorgaengerLesen } from '../module/bauzeitenplan/schreibweise';
+import { vorgaengerSetzen } from '../module/bauzeitenplan/bearbeiten';
 import { gewaehlteRechnung, setRechnungWahl } from './rechnungpruefen';
 import { naechsteOz } from '../module/ava/rechnung';
 import { Balkenplan } from './balkenplan';
@@ -164,11 +167,37 @@ function AufbauSchichten(p: { aufbau: Zeile }) {
   );
 }
 
-// ---------- Bauzeitenplan: Nachfolger einer Leistung in der Karte ----------
-function Nachfolger(p: { vorgang: Zeile }) {
-  const namen = () => lebende('verknuepfung').filter((l) => l.werte.von === p.vorgang.id)
-    .map((l) => String(sicht.vorgang?.[String(l.werte.nach)]?.werte.name ?? '')).filter(Boolean).sort((a, b) => a.localeCompare(b, 'de'));
-  return <p class="still-text klein-text">Nachfolger: {namen().join(', ') || 'keine'}</p>;
+// ---------- Bauzeitenplan: Termin und Abhängigkeiten in der Karte (wie bisher: Anfang/Ende, Vorgänger wie in der Tabelle, Nachfolger) ----------
+function Abhaengigkeiten(p: { vorgang: Zeile }) {
+  const version = () => String(p.vorgang.werte.version ?? '');
+  const plan = createMemo(() => (version() ? planDerVersion(version()) : undefined));
+  const zeile = () => plan()?.zeilen.find((z) => z.id === p.vorgang.id);
+  const nrVon = (id: string) => plan()?.zeilen.find((z) => z.id === id)?.nr;
+  const nach = () => lebende('verknuepfung').filter((l) => l.werte.von === p.vorgang.id)
+    .map((l) => { const id = String(l.werte.nach); return `${nrVon(id) ?? ''} ${String(sicht.vorgang?.[id]?.werte.name ?? '')}`.trim(); }).filter(Boolean).sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+  const [fehler, setFehler] = createSignal('');
+  const setzen = (text: string) => {
+    setFehler('');
+    const pl = plan(); if (!pl) return;
+    const l = vorgaengerLesen(text.trim(), pl.kal.woche);
+    if (!l) { setFehler('Zeilennummern mit ; getrennt, z. B. 3;4AA+2t;5EE-1t'); return; }
+    const V = lebende('vorgang').filter((v) => v.werte.version === version()).sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0)).map((v) => ({ id: v.id, reihe: Number(v.werte.reihe ?? 0), ebene: Number(v.werte.ebene ?? 0), master: v.werte.master === true, kopieVon: (v.werte.kopie_von as string | null) || null }));
+    const L = lebende('verknuepfung').filter((x) => x.werte.version === version()).map((x) => ({ id: x.id, von: String(x.werte.von), nach: String(x.werte.nach), art: String(x.werte.art || 'ea') as never, abstand: Number(x.werte.abstand ?? 0),
+      vonAbschnitt: x.werte.von_abschnitt == null ? null : Number(x.werte.von_abschnitt), nachAbschnitt: x.werte.nach_abschnitt == null ? null : Number(x.werte.nach_abschnitt) }));
+    try { ausfuehrenMehrere(vorgaengerSetzen(V, L, p.vorgang.id, l, { projekt: p.vorgang.werte.projekt ?? null, version: version() }, neueKennung), `Vorgänger von „${String(p.vorgang.werte.name ?? '')}“ ändern`); }
+    catch (x) { setFehler((x as Error).message); }
+  };
+  const tag = (iso?: string) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' }) : '');
+  return (
+    <fieldset class="bzp-abhaengig">
+      <legend>Termin und Abhängigkeiten</legend>
+      <Show when={zeile()}>{(z) => <p class="bzp-termin">Zeile <b>{z().nr}</b> · {z().termin.anfang === z().termin.ende && !z().dauer ? `Meilenstein am ${tag(z().termin.anfang)}` : `${tag(z().termin.anfang)} – ${tag(z().termin.ende)}`}{z().termin.kritisch ? ' · kritischer Weg' : ''}</p>}</Show>
+      <div class="feld"><label for={`vorg-${p.vorgang.id}`}>Vorgänger (Zeilen, z. B. 3; 5EA+2)</label>
+        <input id={`vorg-${p.vorgang.id}`} value={zeile()?.vorg ?? ''} readOnly={!darf('verknuepfung', 'schreiben')} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} onChange={(e) => setzen(e.currentTarget.value)} />
+        <Show when={fehler()}><span class="feld-fehler">{fehler()}</span></Show></div>
+      <p class="still-text klein-text">Nachfolger: {nach().join(', ') || 'keine'}</p>
+    </fieldset>
+  );
 }
 
 // ---------- Adressen: ein Kontakt als Kachel ----------
@@ -458,7 +487,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
     knoepfe: () => [...(darf('kontakt', 'schreiben') ? [{ titel: 'Einlesen …', zeichen: 'datei_hoch', gruppe: 'Liste', tun: () => adressenEinlesen() }] : []), ...(darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: () => aufraeumenOeffnen() }] : [])],
     auswahl: kontaktAuswahl,   // mehrere wählen: Projekt, Ändern, Ausgeben, Zusammenführen
   },
-  vorgang: { mitte: (m) => <Balkenplan {...m} />, kartenZusatz: (z) => <Nachfolger vorgang={z} /> },
+  vorgang: { mitte: (m) => <Balkenplan {...m} />, kartenEinschub: { Termine: (z) => <Abhaengigkeiten vorgang={z} /> } },
   ki_anbindung: { kartenZusatz: (z) => <KiEinrichten anbindung={z} /> },
   freier_tag: { oben: (z) => <Arbeitszeit zusammenhang={z} /> },
   pruefzugang: { kartenZusatz: (z) => <PruefSchluessel zugang={z} /> },
