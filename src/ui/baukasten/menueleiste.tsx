@@ -15,6 +15,7 @@ export interface Knopf {
   rot?: boolean;               // in Rot (Löschen) – wie im bisherigen Bauportal
   handyPlus?: boolean;         // am Handy das ＋ unten in der Leiste (sonst der Hauptknopf)
   nurHandy?: boolean;          // nur am Handy (dort ohnehin unten als ＋) – nicht in der Menüleiste
+  inhalt?: () => JSX.Element;  // statt eines Knopfs ein eigenes Element in der Gruppe (z. B. die Fortschrittsstufen im Bauzeitenplan); tun bleibt dann ungenutzt
 }
 
 /** Knöpfe zu Gruppen zusammenfassen – aufeinanderfolgende mit derselben Überschrift bilden eine Gruppe. */
@@ -27,6 +28,7 @@ function gruppen(k: Knopf[]): { titel: string; knoepfe: Knopf[] }[] {
 /** In der Gruppe „Neu“ trägt jedes Symbol ein kleines ＋ (außer es ist selbst eins) – wie im bisherigen Bauportal. */
 const NEU = /^Neu\b/;
 function Bandknopf(p: { k: Knopf; neu?: boolean }) {
+  if (p.k.inhalt) return <div class="band-eigen" title={p.k.titel}>{p.k.inhalt()}</div>;
   return (
     <button type="button" class="band-knopf" classList={{ haupt: p.k.haupt, an: p.k.an, rot: p.k.rot, 'band-neu': p.neu && p.k.zeichen !== 'neu' }} disabled={p.k.gesperrt} aria-label={p.k.titel} aria-pressed={p.k.an === undefined ? undefined : p.k.an}
       title={p.k.titel} onClick={(e) => p.k.tun(e)}>
@@ -41,26 +43,43 @@ function Gruppe(p: { titel: string; children: JSX.Element; class?: string }) {
 
 export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[]; aktiv?: string; onReiter?: (id: string) => void; knoepfe?: Knopf[]; children?: JSX.Element; mitteTitel?: string; ende?: JSX.Element }) {   // ende: ganz rechts (Heftzwecke); mitteTitel: Name der Mitte (ab Werk „Finden“)
   const links = () => (p.knoepfe ?? []).filter((k) => !k.rechts), rechts = () => (p.knoepfe ?? []).filter((k) => k.rechts);
-  // Reicht der Platz nicht: erst nur Symbole (Text bleibt als Hinweis), dann eine zweite Zeile – nie waagerecht rollen.
-  // Gemerkt wird, wie breit die Leiste in der größeren Form war; erst wenn wieder so viel Platz ist, kehrt sie zurück.
+  // Reicht der Platz nicht – wie im bisherigen Bauportal: erst kleiner Text unter den Symbolen, dann nur Symbole (Text als Hinweis),
+  // dann wandern die hinteren Gruppen links in „»“ (aufklappen). Nie waagerecht rollen. Gemerkt wird, wie breit die Leiste in der
+  // größeren Form war; erst wenn wieder so viel Platz ist, kehrt sie zurück. Stufe 3 + n: n Gruppen in „»“.
   const [stufe, setStufe] = createSignal(0);
+  const [mehrAuf, setMehrAuf] = createSignal<{ x: number; y: number } | null>(null);
   const bedarf: number[] = [];
   let leiste!: HTMLDivElement;
+  const linkeGruppen = () => gruppen(links().filter((k) => !k.nurHandy));
+  const weg = () => Math.max(0, Math.min(stufe() - 2, linkeGruppen().length - 1));
+  const hoechste = () => 2 + Math.max(0, linkeGruppen().length - 1);
   const pruefen = () => {
     const frei = leiste.clientWidth;
-    if (stufe() < 2 && leiste.scrollWidth > frei + 1) { bedarf[stufe()] = leiste.scrollWidth; setStufe(stufe() + 1); queueMicrotask(pruefen); }
+    if (stufe() < hoechste() && leiste.scrollWidth > frei + 1) { bedarf[stufe()] = leiste.scrollWidth; setStufe(stufe() + 1); queueMicrotask(pruefen); }
     else if (stufe() > 0 && frei >= (bedarf[stufe() - 1] ?? Infinity)) { setStufe(stufe() - 1); queueMicrotask(pruefen); }
   };
+  const sichtbar = () => linkeGruppen().slice(0, linkeGruppen().length - weg()), imMehr = () => linkeGruppen().slice(linkeGruppen().length - weg());
   onMount(() => { const ro = new ResizeObserver(pruefen); ro.observe(leiste); const mo = new MutationObserver(() => requestAnimationFrame(pruefen)); mo.observe(leiste, { childList: true, subtree: true }); onCleanup(() => { ro.disconnect(); mo.disconnect(); }); });
   return (
-    <div class="menueleiste" ref={leiste} classList={{ 'band-kompakt': stufe() >= 1, 'band-umbruch': stufe() >= 2 }} role="toolbar" aria-label="Menüleiste">
+    <div class="menueleiste" ref={leiste} classList={{ 'band-klein': stufe() === 1, 'band-kompakt': stufe() >= 2 }} role="toolbar" aria-label="Menüleiste">
       <Show when={p.rueckgaengig}>{(r) => (
         <Gruppe titel="Rückgängig" class="band-verlauf">
           <Bandknopf k={{ titel: 'Zurück', zeichen: 'zurueck', gesperrt: !r().zurueck(), tun: r().onZurueck }} />
           <Bandknopf k={{ titel: 'Wieder', zeichen: 'wieder', gesperrt: !r().vor(), tun: r().onVor }} />
         </Gruppe>
       )}</Show>
-      <For each={gruppen(links())}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} neu={NEU.test(g.titel)} />}</For></Gruppe>}</For>
+      <For each={sichtbar()}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} neu={NEU.test(g.titel)} />}</For></Gruppe>}</For>
+      <Show when={weg() > 0}>
+        <button type="button" class="band-mehr" aria-label="Weitere Befehle" title="Weitere Befehle" aria-expanded={!!mehrAuf()} aria-haspopup="true"
+          onClick={(e) => { if (mehrAuf()) { setMehrAuf(null); return; } const r = e.currentTarget.getBoundingClientRect(); setMehrAuf({ x: Math.max(8, Math.min(r.left, innerWidth - 568)), y: r.bottom + 4 }); }}>»</button>
+        <Show when={mehrAuf()}>{(o) => (
+          <div class="band-mehr-fenster" role="group" aria-label="Weitere Befehle" style={{ left: `${o().x}px`, top: `${o().y}px` }}
+            ref={(el) => { const zu = (ev: Event) => { if (!el.contains(ev.target as Node) && !(ev.target as Element).closest?.('.band-mehr')) setMehrAuf(null); }; queueMicrotask(() => document.addEventListener('pointerdown', zu)); onCleanup(() => document.removeEventListener('pointerdown', zu)); }}
+            onClick={(e) => { if ((e.target as Element).closest('.band-knopf')) setMehrAuf(null); }}>
+            <For each={imMehr()}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} neu={NEU.test(g.titel)} />}</For></Gruppe>}</For>
+          </div>
+        )}</Show>
+      </Show>
       <Show when={p.children}><Gruppe titel={p.mitteTitel ?? 'Finden'} class="band-mitte"><div class="menue-mitte">{p.children}</div></Gruppe></Show>
       <For each={gruppen(rechts())}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} />}</For></Gruppe>}</For>
       <Show when={(p.reiter?.length ?? 0) > 1}>

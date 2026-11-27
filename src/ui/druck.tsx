@@ -32,14 +32,13 @@ function eintraege(ausdruck: string) {
 }
 
 /** Was sich an einer angeklickten Stelle einstellen lässt – beschrieben als Felder, gezeigt mit dem Baustein „Feld“. */
-function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string, e: Einstellungen): { titel: string; felder: (Feld & { stelle: string; vorgabe?: string })[] } {
+function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: string; felder: (Feld & { stelle: string; vorgabe?: string })[] } {
   const zeigen = (s: string): Feld & { stelle: string } => ({ name: 'zeigen', titel: 'Im Ausdruck zeigen', art: 'ja_nein', stelle: `${s}.aus` });
   const [blockId, rest] = stelle.split('.') as [string, string | undefined];
   if (blockId === 'seite') return { titel: 'Seite', felder: [
-    ...(a.vorlagen?.length ? [{ name: 'vorlage', titel: 'Vorlage', art: 'auswahl' as const, stelle: 'seite.vorlage', vorgabe: '',
+    ...(a.vorlagen?.length ? [{ name: 'vorlage', titel: 'Layout', art: 'auswahl' as const, alsListe: true, stelle: 'seite.vorlage', vorgabe: '',
       optionen: [{ wert: '', titel: a.vorlageTitel ?? 'Standard' }, ...a.vorlagen.map((v) => ({ wert: v.id, titel: v.titel }))] }] : []),
     { name: 'schrift', titel: 'Schriftgröße', art: 'auswahl', optionen: Object.entries(SCHRIFT).map(([wert, s]) => ({ wert, titel: s.titel })), stelle: 'seite.schrift', vorgabe: 'normal' },
-    { name: 'fuss', titel: 'Fußzeile links', art: 'langtext', stelle: 'seite.fuss', vorgabe: vorlageVon(a, e).fuss }, zeigen('seite.fuss'),
     ...(a.ordner ? [{ name: 'ordner', titel: 'Ablegen im Projektordner unter', art: 'text' as const, stelle: 'seite.ordner', vorgabe: a.ordner }] : [])] };
   const b = alleBloecke(a).find((x) => x.id === blockId)!;
   if (b.art === 'formularkopf') return { titel: 'Überschrift', felder: [{ name: 'text', titel: 'Überschrift', art: 'text', stelle: `${b.id}.text`, vorgabe: b.text }, zeigen(b.id)] };
@@ -120,7 +119,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
       .aus { opacity: .3; text-decoration: line-through; }
       .leer { opacity: .45; }
       ${einstellen() ? '[data-stelle] { cursor: pointer; border-radius: 2px; } [data-stelle]:hover { outline: 1.5px dashed #2a5bd7; outline-offset: 2px; } [data-stelle].gewaehlt { outline: 2px solid #2a5bd7; outline-offset: 2px; }' : ''}
-    </style><div class="bogen"><div class="seite${vorlage().stil ? ` ${vorlage().stil}` : ''}">${druckInhalt(a, m, d, e(), einstellen())}</div><div class="fuss${e()['seite.fuss.aus'] === 'ja' ? ' aus' : ''}" data-stelle="seite">${fusszeile(a, m, d, { ...e(), 'seite.fuss.aus': '' }).replace(/[&<>]/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[x]!)}&nbsp;</div></div>`;
+    </style><div class="bogen"><div class="seite${vorlage().stil ? ` ${vorlage().stil}` : ''}">${druckInhalt(a, m, d, e(), einstellen())}</div><div class="fuss" data-stelle="seite">${fusszeile(a, m, d, e()).replace(/[&<>]/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[x]!)}&nbsp;</div></div>`;
     wurzel.querySelector(`[data-stelle="${stelle()}"]`)?.classList.add('gewaehlt');
   });
   const klick = (ev: MouseEvent) => {
@@ -160,7 +159,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
     catch (err) { hinweis((err as Error).message, { art: 'fehler' }); }
     finally { setLaeuft(false); }
   };
-  const schrauben = createMemo(() => stellschrauben(a, m, stelle(), e()));
+  const schrauben = createMemo(() => stellschrauben(a, m, stelle()));
   // Angeklickt ist ein Verzeichnis (Überschrift oder Spalte): dann lassen sich die Spalten frei wählen und ordnen
   const verzeichnisBlock = () => { const b = alleBloecke(a).find((x) => x.id === stelle().split('.')[0]); return b?.art === 'verzeichnis' ? b : undefined; };
   return (

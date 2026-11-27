@@ -329,9 +329,23 @@ main { flex: 1; min-height: 0; display: flex; }
 .band-knopf.an { background: var(--akzent-hell); } .band-knopf.an .zeichen { color: var(--akzent); }
 .band-knopf.haupt .zeichen { color: var(--akzent); }
 .band-knopf.haupt .band-text { color: var(--akzent); font-weight: 600; }
-.band-mitte { flex: 1; min-width: 160px; } .band-mitte .menue-mitte { width: 100%; }
-.band-kompakt .band-knopf .band-text { display: none; } .band-kompakt .band-knopf { min-width: 38px; } .band-kompakt .band-gruppe { padding: 0 3px; }
-.band-umbruch { flex-wrap: wrap; row-gap: 2px; }
+.band-mitte { flex: 1; min-width: 160px; overflow: hidden; } .band-mitte .menue-mitte { width: 100%; min-width: 0; }   /* gibt als Erstes Platz ab, schneidet ab statt zu überlappen (wie bisher) */
+.band-klein .band-knopf { min-width: 34px; padding: 3px 3px; } .band-klein .band-knopf .band-text { font-size: 10px; letter-spacing: -.01em; } .band-klein .band-titel { font-size: 9px; } .band-klein .band-gruppe { padding: 0 4px; }   /* eng: Symbol groß, Text klein (wie bisher) */
+.band-kompakt .band-knopf .band-text { display: none; } .band-kompakt .band-gruppe { padding: 0 3px; }
+/* nur Symbole – so dicht wie im bisherigen Bauportal: Knöpfe 30 × 27, Symbol 18, Leiste 46 hoch */
+.menueleiste.band-kompakt { min-height: 46px; padding-top: 2px; } .band-kompakt .band-knopf { min-width: 30px; min-height: 27px; padding: 4px 6px; } .band-kompakt .band-knopf svg { width: 18px; height: 18px; } .band-kompakt .band-titel { font-size: 8.5px; }
+/* eng: die Suche wird zur Lupe und klappt beim Antippen über die Zeile auf (wie bisher, am Handy ebenso) */
+.menueleiste.band-kompakt { position: relative; } .band-kompakt .band-mitte, .band-kompakt .menue-mitte, .band-kompakt .filtersuche { flex: none; min-width: 0; } .band-kompakt .menue-mitte .zaehler { display: none; }
+.menueleiste.band-kompakt input.suche { flex: none; width: 38px; max-width: 38px; padding: 0; color: transparent; cursor: pointer;
+  background: var(--flaeche) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") center / 18px no-repeat; }
+.menueleiste.band-kompakt input.suche::placeholder { color: transparent; }
+.menueleiste.band-kompakt input.suche:is(:focus, :not(:placeholder-shown)) { position: absolute; left: 8px; right: 8px; top: 6px; width: auto; max-width: none; z-index: 5; color: var(--text); padding: 0 12px 0 34px; background-position: 10px center; cursor: text; }
+.menueleiste.band-kompakt input.suche:focus::placeholder { color: var(--text-still); }
+.band-mehr { flex: none; align-self: center; padding: 4px 8px; border: 0; border-radius: calc(7px * var(--rund)); background: transparent; color: var(--akzent); font: inherit; font-weight: 700; font-size: 16px; cursor: pointer; }
+.band-mehr:hover { background: var(--still); }
+.band-mehr-fenster { position: fixed; z-index: 80; display: flex; flex-wrap: wrap; gap: 4px; max-width: min(560px, 92vw); padding: 6px; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); box-shadow: 0 12px 34px rgba(0, 0, 0, .18); }
+.band-mehr-fenster .band-gruppe { border-right: 0; } .band-mehr-fenster .band-knopf .band-text { display: inline; }
+.band-eigen { align-self: center; padding: 0 2px; }
 .nur-schmal-flex { display: none !important; }
 /* Die Reiter machen die Seite nie breiter als den Bildschirm: Reicht der Platz nicht, lässt sich die Reihe schieben. */
 .menue-reiter { display: flex; gap: 2px; align-self: stretch; margin: -6px 8px -6px 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -1065,11 +1079,19 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .fs-balken i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--gut); }
 .fs-balken i.knapp { background: var(--warn); } .fs-balken i.hinten { background: var(--gefahr); }
 .fs-balken em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); opacity: .55; }
-.fs-prozent { display: flex; gap: 2px; }
-.fs-prozent button { min-width: 36px; height: 28px; border: 1px solid var(--rand-stark); background: var(--flaeche); border-radius: calc(6px * var(--rund)); cursor: pointer; font: inherit; font-size: 12.5px; color: var(--text); }
-.fs-prozent button.laut-plan { border-style: dashed; border-color: var(--akzent); }
-.fs-prozent button.aktiv { background: var(--akzent); border-color: var(--akzent); color: #fff; font-weight: 700; }
-.fs-prozent button:disabled { cursor: default; opacity: .7; }
+/* Baustein Prozent: Stufen als zusammenhängende Leiste, die gewählte in der Farbe des Werts (wie bisher), Schieber darunter */
+.prozent { display: grid; gap: 4px; }
+.prozent-stufen { display: flex; }
+.prozent-stufen button { flex: 1; min-width: 36px; height: 28px; margin-left: -1px; border: 1px solid var(--rand-stark); border-radius: 0; background: var(--flaeche); cursor: pointer; font: inherit; font-size: 12.5px; color: var(--text); font-variant-numeric: tabular-nums; }
+.prozent-stufen button:first-child { margin-left: 0; border-radius: calc(14px * var(--rund)) 0 0 calc(14px * var(--rund)); }
+.prozent-stufen button:last-child { border-radius: 0 calc(14px * var(--rund)) calc(14px * var(--rund)) 0; }
+.prozent-stufen button:hover:not(:disabled) { background: var(--still); }
+.prozent-stufen button.markiert { border-style: dashed; border-color: var(--akzent); position: relative; z-index: 1; }
+.prozent-stufen button.aktiv { background: var(--pz); border-color: var(--pz); color: #fff; font-weight: 700; position: relative; z-index: 2; }
+.prozent-stufen button.aktiv[aria-checked="true"]:nth-child(3) { color: #222; }
+.prozent-stufen button:disabled { cursor: default; opacity: .7; }
+.prozent-schieber { display: flex; align-items: center; gap: 6px; } .prozent-schieber input { flex: 1; min-width: 0; accent-color: var(--pz); } .prozent-schieber output { min-width: 3.2em; text-align: right; color: var(--text-still); font-variant-numeric: tabular-nums; font-size: 12px; }
+.prozent.klein { gap: 1px; } .prozent.klein .prozent-stufen button { min-width: 26px; height: 22px; font-size: 11px; } .prozent.klein .prozent-schieber { height: 14px; } .prozent.klein .prozent-schieber output { font-size: 10.5px; }
 
 /* 3D-Ansicht (Baustein ansicht3d) */
 .mitte-3d { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px; }

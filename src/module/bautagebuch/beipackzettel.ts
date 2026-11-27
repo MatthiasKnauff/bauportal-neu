@@ -127,13 +127,13 @@ export const bautagebuch: Beipackzettel = {
     fuss: `{projekt} · Bautagebuch Nr. {nummer} · {datum}\n{buero}[ · {buero.strasse}][ · {buero.plz} {buero.ort}][ · Tel. {buero.telefon}][ · {buero.email}][ · {buero.web}]`,
     bloecke: [
       { id: 'a_kopf', art: 'formularkopf', text: 'BAUTAGEBUCH' },
-      { id: 'a_vorhaben', art: 'raster', zeilen: [[{ titel: 'Bauvorhaben', text: '{projekt}', unter: ['[{projekt.strasse}, ][{projekt.plz} ]{projekt.ort}'], gross: true, grau: true }]] },
+      { id: 'a_vorhaben', art: 'raster', zeilen: [{ zellen: [{ titel: 'Bauvorhaben', text: '{projekt}', unter: ['[{projekt.strasse}, ][{projekt.plz} ]{projekt.ort}'], gross: true, grau: true }] }] },
       { id: 'a_angaben', art: 'raster', zeilen: [
-        [{ titel: 'Bauherrschaft', text: '{projekt.bauherrschaft}' }],
-        [{ titel: 'Datum', text: '{datum}', breite: 22 }, { titel: 'Uhrzeit', text: '{uhrzeit}', breite: 16 },
-          { titel: 'Wetter (°C / Bewölkung / Regen)', text: '[{temperatur} °C / ]{wetter}[ / {niederschlag} mm]', unter: ['[Luftfeuchte {luftfeuchte} %]', '[Wind {wind} km/h]'], breite: 35 },
-          { titel: 'Bauleitung vor Ort', text: '{bauleitung}', breite: 27 }]] },
-      { id: 'a_kontrollen', art: 'haken', felder: ['aufgeraeumt', 'masskontrolle', 'fotodoku', 'firmen_angesprochen'] },
+        { kopf: 'links', zellen: [{ titel: 'Bauherrschaft', text: '{projekt.bauherrschaft}' }] },
+        { kopf: 'zeile', zellen: [{ titel: 'Datum', text: '{datum}', breite: 22 }, { titel: 'Uhrzeit', text: '{uhrzeit}', breite: 16.4, mitte: true },
+          { titel: 'Wetter (°C / Bewölkung / Regen)', text: '[{temperatur} °C ]{wetter}[ / {niederschlag} mm]', unter: ['[Luftfeuchtigkeit {luftfeuchte} %]', '[Wind {wind} km/h]'], breite: 34.9 },
+          { titel: 'Bauleitung vor Ort', text: '{bauleitung}', breite: 26.7 }] }] },
+      { id: 'a_kontrollen', art: 'haken', gross: true, felder: ['aufgeraeumt', 'masskontrolle', 'fotodoku', 'firmen_angesprochen'] },
       { id: 'a_bemerkungen', art: 'kasten', objekt: 'bericht_eintrag', ueber: 'bericht', titel: 'Bemerkungen / Anweisungen', immer: true, erledigt: 'erledigt', quellen: [
         { wenn: { art: 'notiz' }, text: '{text}[ (bis {frist})]' },
         { wenn: { art: 'weisung' }, vorne: 'Anweisung[ an {firma}]:', text: '{text}[ (bis {frist})]' }] },
@@ -143,7 +143,7 @@ export const bautagebuch: Beipackzettel = {
         { wenn: { art: 'mangel' }, vorne: '[{firma}:]', text: '{text}[ (bis {frist})]' }] },
       { id: 'a_anwesend', art: 'liste', objekt: 'bericht_eintrag', ueber: 'bericht', filter: { art: 'anwesend' }, titel: '', spalten: ['firma', 'text', 'personen'], leerzeile: true,
         spaltenTitel: { firma: 'Anwesende Firmen', text: 'Art der Tätigkeit', personen: 'Anz. Mitarb.' } },
-      { id: 'a_fotos', art: 'bilder', objekt: 'foto', ueber: 'bericht', titel: 'Fotodokumentation', unter: '{projekt} · Bautagebuch Nr. {nummer} · {datum}', beschriftung: 'beschriftung', spalten: 3, neueSeite: true },
+      { id: 'a_fotos', art: 'bilder', objekt: 'foto', ueber: 'bericht', titel: 'Fotodokumentation', unter: '{projekt} · Bautagebuch Nr. {nummer} · {datum}', beschriftung: 'beschriftung', spalten: 3, neueSeite: true, nummern: true },
     ],
     vorlagen: [{
       // Tagesblatt nach den üblichen Vorlagen (Entscheidung 27.11.2026): nummerierte Abschnitte, Unterschriften von Bauleitung und Bauherrschaft
@@ -152,9 +152,9 @@ export const bautagebuch: Beipackzettel = {
       bloecke: [
         { id: 'c_kopf', art: 'formularkopf', text: 'Bautagebuch – Tagesblatt' },
         { id: 'c_angaben', art: 'raster', zeilen: [
-          [{ titel: 'Bauvorhaben', text: '{projekt}', unter: ['[{projekt.strasse}, ][{projekt.plz} ]{projekt.ort}'], breite: 45 }, { titel: 'Bauherrschaft', text: '{projekt.bauherrschaft}', breite: 35 }, { titel: 'Blatt-Nr.', text: '{nummer}', breite: 20 }],
-          [{ titel: 'Bauleitung', text: '{bauleitung}', breite: 45 }, { titel: 'Datum', text: '{datum}[, {uhrzeit} Uhr]', breite: 35 }, { titel: 'Wochentag', text: '{datum:wochentag}', breite: 20 }]] },
-        { id: 'c_wetter', art: 'raster', zeilen: [[{ titel: '1 · Witterung', text: '{wetter}[ · {temperatur} °C][ · Niederschlag {niederschlag} mm][ · Wind {wind} km/h][ · Luftfeuchte {luftfeuchte} %]' }]] },
+          { zellen: [{ titel: 'Bauvorhaben', text: '{projekt}', unter: ['[{projekt.strasse}, ][{projekt.plz} ]{projekt.ort}'], breite: 45 }, { titel: 'Bauherrschaft', text: '{projekt.bauherrschaft}', breite: 35 }, { titel: 'Blatt-Nr.', text: '{nummer}', breite: 20 }] },
+          { zellen: [{ titel: 'Bauleitung', text: '{bauleitung}', breite: 45 }, { titel: 'Datum', text: '{datum}[, {uhrzeit} Uhr]', breite: 35 }, { titel: 'Wochentag', text: '{datum:wochentag}', breite: 20 }] }] },
+        { id: 'c_wetter', art: 'raster', zeilen: [{ zellen: [{ titel: '1 · Witterung', text: '{wetter}[ · {temperatur} °C][ · Niederschlag {niederschlag} mm][ · Wind {wind} km/h][ · Luftfeuchte {luftfeuchte} %]' }] }] },
         { id: 'c_anwesend', art: 'liste', objekt: 'bericht_eintrag', ueber: 'bericht', filter: { art: 'anwesend' }, titel: '2 · Anwesende Firmen und ausgeführte Arbeiten', spalten: ['firma', 'personen', 'text'], leerzeile: true,
           spaltenTitel: { firma: 'Firma / Gewerk', personen: 'Personal', text: 'Ausgeführte Arbeiten / Bauteil' } },
         { id: 'c_anordnungen', art: 'kasten', objekt: 'bericht_eintrag', ueber: 'bericht', titel: '3 · Anordnungen und Absprachen', immer: true, erledigt: 'erledigt', quellen: [

@@ -3,6 +3,7 @@
 // bearbeitet mit bearbeiten.ts; jede Handlung ist ein Schritt für Strg+Z.
 // Bedienung wie gewohnt: Zelle anklicken und lostippen, F2, Enter/Tab/Esc; Einfg, Entf; Alt+Umschalt+Pfeile gliedern und
 // verschieben; Balken ziehen (verschieben), rechte Kante ziehen (Dauer), Punkt am Balkenende auf einen anderen ziehen (verknüpfen).
+import { Prozent } from './baukasten/prozent';
 import { zeilenZiehen } from './baukasten/zeilenzug';
 import { Zeichen } from './baukasten/zeichen';
 import { spaltenwahl, zusatzMessen } from './baukasten/spalten';
@@ -47,7 +48,6 @@ const SPALTEN: Spalte[] = [
 ];
 const BEARBEITBAR = new Set(['name', 'dauer', 'anfang', 'vorg', 'gewerk', 'pct']);
 const ZOOM = [3, 6, 12, 24, 40];   // Bildpunkte je Kalendertag
-const STUFEN: [number, string][] = [[0, '0'], [25, '25'], [50, '50'], [75, '75'], [100, '100']];   // Fortschritt in Stufen (Menüleiste; Zahl als Symbol)
 const naechsterMontag = () => montag(new Date().toLocaleDateString('sv'));
 const merken = (k: string, w: unknown) => { try { localStorage.setItem(k, JSON.stringify(w)); } catch { /* ohne Speicher geht es auch */ } };
 const holen = <T,>(k: string, d: T): T => { try { const x = localStorage.getItem(k); return x ? (JSON.parse(x) as T) : d; } catch { return d; } };
@@ -112,14 +112,18 @@ export function Balkenplan(p: Mitte) {
     // Neu wie bisher: nach „Leistung“ auch Gruppe (um die gewählten Zeilen) und Meilenstein
     ...(schreiben() ? [{ titel: 'Gruppe', zeichen: 'gruppe_neu', gruppe: 'Neu', tun: neueGruppe },
       { titel: 'Meilenstein', zeichen: 'meilenstein', gruppe: 'Neu', tun: () => neuDarunter({ name: 'Neuer Meilenstein', dauer: 0 }) }] : []),
+    // Knöpfe und Reihenfolge wie im bisherigen Bauportal (rahmen.js, 27.11.2026); wird es eng, regelt die Menüleiste das wie bisher
+    // (kleiner Text, dann nur Symbole, dann „»“)
     ...(schreiben() ? [
-      // Wie in der Ausschreibung: wenige Knöpfe mit Text – Kopieren, Ausschneiden, Einfügen und Zeilen hoch/runter gehen über
-      // Strg+C/X/V, das Kontextmenü und Ziehen
+      { titel: 'Kopieren', zeichen: 'kopieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: kopieren },
+      { titel: 'Ausschneiden', zeichen: 'ausschneiden', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: ausschneiden },
+      { titel: 'Einfügen', zeichen: 'einfuegen', gruppe: 'Bearbeiten', gesperrt: !ablage(), tun: ablageEinfuegenHier },
       { titel: 'Duplizieren …', zeichen: 'duplizieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: duplizieren },
       { titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: () => entfernen() },
       { titel: 'Höher', zeichen: 'ausruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('aus') },
       { titel: 'Tiefer', zeichen: 'einruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('ein') },
-      { titel: 'Gruppieren …', zeichen: 'baum', gruppe: 'Gliederung', gesperrt: !vorgaenge().length, tun: () => setGrp(true) },
+      { titel: 'Hoch', zeichen: 'nach_oben', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('hoch') },
+      { titel: 'Runter', zeichen: 'nach_unten', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('runter') },
     ] : []),
     ...(schreiben() ? [{ titel: 'Verknüpfen', zeichen: 'verknuepfen', gruppe: 'Planen', gesperrt: !markiert() || vorgaenge()[0]?.id === markiert(), tun: mitVorigerVerknuepfen },
       { titel: 'Lösen', zeichen: 'entkoppeln', gruppe: 'Planen', gesperrt: !links().some((l) => l.werte.von === markiert() || l.werte.nach === markiert()), tun: verknuepfungenLoesen },
@@ -127,18 +131,21 @@ export function Balkenplan(p: Mitte) {
       { titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Planen', gesperrt: !links().length, tun: aufraeumen },
       { titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
-    // Fortschritt der gewählten Leistungen in Stufen wie bisher (bei einer Gruppe: alle Leistungen darunter)
-    ...(schreiben() ? [{ titel: fortschrittIds().length ? `Fortschritt ${fortschrittJetzt()} %` : 'Fortschritt', zeichen: STUFEN.find(([w]) => w === fortschrittJetzt())?.[1] ?? STUFEN[0]![1], gruppe: 'Fortschritt', gesperrt: !fortschrittIds().length,
-      tun: (e: MouseEvent) => zeigeMenue(e, STUFEN.map(([w]) => ({ titel: `${fortschrittJetzt() === w ? '✓ ' : ''}${w} %`, tun: () => fortschrittSetzen(w) }))) }] : []),
+    // Fortschritt der gewählten Leistungen: Stufen und Schieber (Baustein Prozent) wie bisher (bei einer Gruppe: alle Leistungen darunter)
+    ...(schreiben() ? [{ titel: fortschrittIds().length ? `Fortschritt ${fortschrittJetzt()} %` : 'Fortschritt – erst eine Leistung markieren', gruppe: 'Fortschritt', tun: () => {},
+      inhalt: () => <Prozent klein schieber titel="Fortschritt" wert={fortschrittIds().length ? fortschrittJetzt() : null} gesperrt={!fortschrittIds().length} onWert={fortschrittSetzen} /> }] : []),
     ...(darf('soll', 'schreiben') && vorgaenge().length ? [{ titel: sollJetzt() ? 'Soll neu …' : 'Scharf schalten …', zeichen: 'anheften', gruppe: 'Fortschritt', tun: () => setSollFenster('fest') },
       ...(sollJetzt() ? [{ titel: 'Soll zurück …', zeichen: 'zurueck', gruppe: 'Fortschritt', tun: () => setSollFenster('zurueck') }] : [])] : []),
+    ...(schreiben() ? [{ titel: 'Gruppieren …', zeichen: 'baum', gruppe: 'Gruppieren', gesperrt: !vorgaenge().length, tun: () => setGrp(true) }] : []),
     ...(gruppenIds().length ? (['grob', 'mittel', 'fein'] as const).map((d) => ({ titel: d[0]!.toUpperCase() + d.slice(1), zeichen: 'liste', gruppe: 'Detail', an: detailJetzt() === d, tun: () => detail(d) })) : []),
-    ...(sollJetzt() ? [{ titel: 'Soll', zeichen: 'version', gruppe: 'Ansicht', an: !sollAus(), tun: () => setSollAus(!sollAus()) }] : []),
-    { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
-    { titel: `Pfeile: ${PFEILE.find((x) => x.wert === pfeile())?.titel ?? ''}`, zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
+    { titel: 'Größer', zeichen: 'groesser', gruppe: 'Ansicht', gesperrt: zoom() === ZOOM.length - 1, tun: () => setZoom(zoom() + 1) },
+    { titel: 'Kleiner', zeichen: 'kleiner', gruppe: 'Ansicht', gesperrt: zoom() === 0, tun: () => setZoom(zoom() - 1) },
     { titel: 'Ganzer Plan', zeichen: 'einpassen', gruppe: 'Ansicht', gesperrt: !vorgaenge().length, tun: ganzerPlan },
     { titel: 'Heute', zeichen: 'kalender', gruppe: 'Ansicht', tun: () => zumTag(tagAus(new Date().toLocaleDateString('sv')), 0.3) },
     { titel: 'Zur Leistung', zeichen: 'zielen', gruppe: 'Ansicht', gesperrt: !markiert(), tun: zurLeistung },
+    { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
+    ...(sollJetzt() ? [{ titel: 'Soll', zeichen: 'version', gruppe: 'Ansicht', an: !sollAus(), tun: () => setSollAus(!sollAus()) }] : []),
+    { titel: 'Darstellung', zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
     { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: (e) => austauschMenue(e) },
     ...(schreiben() ? [{ titel: 'Einlesen', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => einlesen() }] : []),
     { titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => setDrucken(true) },

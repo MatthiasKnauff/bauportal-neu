@@ -480,9 +480,9 @@ test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man seh
     const A = 'bautagebuch.tagesbericht';
     // Ab Werk das Formular des bisherigen Bauportals: Kästen, Häkchen, 25 mm Heftrand, Fußzeile mit Anschrift des Büros
     let s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
-    for (const t of ['>BAUTAGEBUCH</span>', 'Haus &lt;A&gt; &amp; Söhne', '<span>4,5 °C / Regen</span>', '<small>Bauleitung vor Ort</small><span>leitung</span>', '<i class="kaestchen an"></i>Baustelle aufgeräumt',
-      '<i class="kaestchen"></i>Maßkontrolle', '>Bemerkungen / Anweisungen</h2>', '>Zu erledigen von GK3:</h2>', '<b>Rohbau Schmitz GmbH:</b> Riss in der Sohle', '(bis 01.12.2026)', '<s>Abstandhalter fehlen</s> (erledigt)',
-      '>Anwesende Firmen</th>', '<tr class="frei">', 'class="seite formular"', 'margin: 14mm 12mm 18mm 25mm', 'Bautagebuch Nr. 7 · 24.11.2026\\A GK3 · 45127 Essen']) assert.ok(s.html.includes(t), t);
+    for (const t of ['>BAUTAGEBUCH</span>', 'Haus &lt;A&gt; &amp; Söhne', '<span>4,5 °C Regen</span>', '>Bauleitung vor Ort</div>', '<small>Baustelle aufgeräumt</small><i class="kaestchen an">✓</i>',
+      '<small>Maßkontrolle</small><i class="kaestchen"></i>', '>Bemerkungen / Anweisungen</h2>', '>Zu erledigen von GK3:</h2>', '<b>Rohbau Schmitz GmbH:</b> Riss in der Sohle', '(bis 01.12.2026)', '<s>Abstandhalter fehlen</s> (erledigt)',
+      '>Anwesende Firmen</th>', 'class="seite formular"', 'margin: 14mm 12mm 18mm 25mm', 'Bautagebuch Nr. 7 · 24.11.2026\\A GK3 · 45127 Essen']) assert.ok(s.html.includes(t), t);
     assert.ok(!s.html.includes('Luftfeuchte') && !s.html.includes('<h2>Weisungen</h2>'), 'leere Teile fallen weg');
     // Vorlage „Tagesblatt“: nummerierte Abschnitte, Wochentag, Unterschriften
     const vorlage = randomUUID();

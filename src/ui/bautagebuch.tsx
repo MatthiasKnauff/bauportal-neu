@@ -1,6 +1,7 @@
 // Bautagebuch wie gewohnt: links Kalender (oder Liste) und die Abschnitte des Berichts, in der Mitte der Bericht als
 // Seite – Kopf mit Datum, Wetter und Kontrollen, darunter je Abschnitt eine Karte –, rechts das Detail des angeklickten
 // Eintrags. Die Abschnitte sind dieselben Bausteine wie in „Schritt für Schritt“ (Unterliste, Bilder, Feld).
+import { Prozent } from './baukasten/prozent';
 import { Kartenrahmen } from './baukasten/kartenrahmen';
 import { Seitenliste } from './baukasten/seitenliste';
 import { appOeffnen, springeZu } from './sprung';
@@ -163,12 +164,7 @@ function Fortschritt(p: { leistungen: Laufend[] }) {
           <span class="fs-balken" title={`gemeldet ${l.ist} %`}><i style={{ width: `${l.ist}%` }} classList={{ hinten: l.verzug >= RUEGE_AB, knapp: l.verzug >= 1 && l.verzug < RUEGE_AB }} /><em style={{ left: `${l.soll}%` }} title={`laut Plan ${l.soll} %`} /></span>
           <small>laut Plan {l.soll} % · Ende {kurzDatum(l.ende)}{l.verzug >= RUEGE_AB ? <span class="fs-verzug"> · ≈ {atText(l.verzug)} im Verzug – Terminrüge möglich</span> : l.verzug >= 1 ? ` · ≈ ${atText(l.verzug)} hinterher` : ''}</small>
         </div>
-        <div class="fs-prozent" role="radiogroup" aria-label={`Fortschritt ${l.name}`}>
-          <For each={[0, 25, 50, 75, 100]}>{(w) => (
-            <button type="button" role="radio" aria-checked={l.ist === w} classList={{ aktiv: l.ist === w, 'laut-plan': Math.round(l.soll / 25) * 25 === w }} disabled={!schreiben()}
-              title={Math.round(l.soll / 25) * 25 === w ? `${w} % – etwa laut Plan` : `${w} %`} onClick={() => setzen(l, w)}>{w}</button>
-          )}</For>
-        </div>
+        <Prozent wert={l.ist} onWert={(w) => setzen(l, w)} titel={`Fortschritt ${l.name}`} gesperrt={!schreiben()} markiert={Math.round(l.soll / 25) * 25} hinweis="etwa laut Plan" />
       </div>
     )}</For>
   );

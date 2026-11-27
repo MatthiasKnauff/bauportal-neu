@@ -18,13 +18,14 @@ export type Druckblock =
   // spaltenTitel: eigene Beschriftung je Spalte ab Werk; leerzeile: eine freie Zeile zum Nachtragen; titel '' – ohne Überschrift
   | { id: string; art: 'liste'; objekt: string; ueber: string; filter?: Werte; titel: string; spalten: string[]; spaltenTitel?: Record<string, string>; leerzeile?: boolean }
   // Bilder, die am Objekt hängen – ab Werk zwei nebeneinander (spalten), nie beschnitten, mit Beschriftung; neueSeite: beginnt auf einer neuen Seite
-  | { id: string; art: 'bilder'; objekt: string; ueber: string; titel: string; beschriftung: string; spalten?: 1 | 2 | 3; neueSeite?: boolean; unter?: string }
+  | { id: string; art: 'bilder'; objekt: string; ueber: string; titel: string; beschriftung: string; spalten?: 1 | 2 | 3; neueSeite?: boolean; unter?: string; nummern?: boolean /* „Foto 1“, „Foto 2“ … vor der Beschriftung */ }
   // Formularkopf: großer Titel links, rechts das Logo (sonst der Name des Büros), darunter eine kräftige Linie
   | { id: string; art: 'formularkopf'; text: string }
-  // Raster aus beschrifteten Zellen (Zeilen × Zellen, breite in %): kleine Beschriftung oben, Wert darunter; Text mit Platzhaltern
-  | { id: string; art: 'raster'; zeilen: RasterZelle[][] }
-  // Häkchen in einer Reihe (ja/nein-Felder), wahlweise mit Beschriftung davor
-  | { id: string; art: 'haken'; felder: string[]; titel?: string }
+  // Raster aus beschrifteten Zellen (Zeilen × Zellen, breite in %), Text mit Platzhaltern; je Zeile die Art der Beschriftung (RasterZeile)
+  | { id: string; art: 'raster'; zeilen: RasterZeile[] }
+  // Häkchen (ja/nein-Felder): in einer Reihe, wahlweise mit Beschriftung davor; gross: je Feld eine gleich breite Spalte,
+  // Beschriftung oben, darunter ein großes Kästchen mit ✓ (Formular wie bisher)
+  | { id: string; art: 'haken'; felder: string[]; titel?: string; gross?: boolean }
   // Beschrifteter Kasten mit den Einträgen, die am Objekt hängen, als Text: je Quelle (welche Einträge, wenn) ein fetter Vorspann und der Text;
   // erledigt: Feld, mit dem ein Eintrag durchgestrichen und „(erledigt)“ dasteht. Unten eine freie Zeile zum Nachtragen. Ohne Einträge
   // steht der Kasten nur da, wenn immer gesetzt ist.
@@ -43,7 +44,10 @@ export type Druckblock =
   | { id: string; art: 'berechnet'; quelle: string; titel: string };
 
 /** Zelle eines Rasters: Beschriftung, Text, kleine Zeile darunter, Breite in %, groß (z. B. das Bauvorhaben), grau hinterlegt. */
-export interface RasterZelle { titel: string; text: string; unter?: string[] /* Teile, leere fallen weg, verbunden mit „ · “ */; breite?: number; gross?: boolean; grau?: boolean }
+export interface RasterZelle { titel: string; text: string; unter?: string[] /* Teile, leere fallen weg, verbunden mit „ · “ */; breite?: number; gross?: boolean; grau?: boolean; mitte?: boolean }
+/** Zeile eines Rasters. kopf: 'oben' (ab Werk) kleine Beschriftung über dem Wert; 'links' Beschriftung vor dem Wert in einer Zeile;
+ *  'zeile' die Beschriftungen als eigene Kopfzeile (grau hinterlegt) über einer Zeile mit den Werten. */
+export interface RasterZeile { zellen: RasterZelle[]; kopf?: 'oben' | 'links' | 'zeile' }
 /** Eine Vorlage: dieselben Daten, anders angeordnet. Das Büro wählt sie in der Vorschau (Stelle „seite.vorlage“). */
 export interface Vorlage { id: string; titel: string; bloecke: Druckblock[]; fuss?: string; stil?: 'formular'; rand?: Partial<Rand> }
 export interface Rand { oben: number; links: number; rechts: number; unten: number }
@@ -241,6 +245,19 @@ export const CSS = (schrift: number) => `
   .raster span { display: block; overflow-wrap: anywhere; }
   .raster .gross span { font-size: 1.45em; font-weight: 700; line-height: 1.2; }
   .raster em { display: block; font-style: normal; color: #444; font-size: .8em; }
+  .raster .zelle.mitte { text-align: center; }
+  .formular .raster { margin-bottom: 7mm; } .formular .raster .zelle { display: flex; flex-direction: column; justify-content: center; }
+  .formular .raster .gross { min-height: 19mm; padding-left: 3mm; } .formular .rasterzeile.links .zelle { min-height: 9.5mm; flex-direction: row; justify-content: flex-start; align-items: center; }
+  .formular .rasterzeile.kopfzeile .zelle { min-height: 8mm; } .formular .rasterzeile:not(.kopfzeile):not(.links) .zelle:not(.gross) { min-height: 11.5mm; font-size: 1.05em; }
+  .rasterzeile.links .zelle { display: flex; align-items: baseline; gap: 3mm; background: #f6f7f8; }
+  .rasterzeile.links small { display: inline; flex: none; }
+  .rasterzeile.kopfzeile { background: #eef0f2; color: #6b7177; font-weight: 700; font-size: .8em; text-align: center; }
+  .rasterzeile.kopfzeile .zelle { padding: 1.6mm 2mm; }
+  .haken.gross { display: grid; grid-template-columns: 21.8fr 15.2fr 28.8fr 34.2fr; gap: 0; margin: 0 0 6mm; }
+  .haken.gross span { display: block; padding-left: 5mm; }
+  .haken.gross small { display: block; color: #6b7177; font-weight: 700; font-size: .72em; margin-bottom: 1.5mm; }
+  .haken.gross .kaestchen { display: grid; place-items: center; width: 6.5mm; height: 6.5mm; border-radius: 1.5mm; border-width: .35mm; font-size: 1.9em; font-weight: 400; line-height: 1; font-style: normal; }
+  .haken.gross .kaestchen.an { background: none; box-shadow: none; color: #1f2326; }
   .haken { display: flex; flex-wrap: wrap; gap: 2mm 7mm; margin: 0 0 5mm; break-inside: avoid; }
   .haken b { margin-right: 2mm; }
   .haken span { display: flex; align-items: center; gap: 1.8mm; }
@@ -252,10 +269,12 @@ export const CSS = (schrift: number) => `
   .kasteninhalt p { margin: 0 0 1mm; white-space: pre-wrap; overflow-wrap: anywhere; }
   .kasteninhalt p.frei { height: 7mm; margin: 0; }
   .kasteninhalt s { color: #777; }
-  .formular .liste table { border: .3mm solid #4a5056; }
-  .formular .liste th { background: #eef0f2; color: #6b7177; font-weight: 700; font-size: .8em; border: .2mm solid #4a5056; padding: 1.2mm 2mm; }
-  .formular .liste td { border: .2mm solid #4a5056; padding: 1.2mm 2mm; }
-  .formular .liste tbody tr:nth-child(even) td { background: #f6f7f8; }
+  .formular .liste table { border: .3mm solid #4a5056; border-collapse: separate; border-spacing: 0; border-radius: 1mm; overflow: hidden; }
+  .formular .liste th { background: #eef0f2; color: #6b7177; font-weight: 700; font-size: .75em; border: 0; border-bottom: .2mm solid #4a5056; padding: 2mm 2.5mm; }
+  .formular .liste td { border: 0; padding: 1.2mm 2.5mm; }
+  .formular .liste :is(th, td) + :is(th, td) { border-left: .2mm solid #4a5056; }   /* nur Spaltenlinien, keine Striche zwischen den Zeilen */
+  .formular .liste tbody tr:nth-child(even) td { background: #f6f7f8; }   /* feine Streifen statt Linien */
+  .formular .liste .schmal { text-align: center; }
   .liste tr.frei td { height: 7mm; }
   .lv h2 { font-size: 1.05em; margin: 0 0 1mm; break-after: avoid; }
   .lv table { width: 100%; border-collapse: collapse; }
@@ -298,12 +317,16 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       return huelle(b.id, 'formkopf', `<span class="formtitel" data-stelle="${b.id}.text">${sicher(einsetzen(e[`${b.id}.text`] || b.text, m, d))}</span>${rechts}`);
     }
     if (b.art === 'raster') {
-      return huelle(b.id, 'raster', b.zeilen.map((z) => `<div class="rasterzeile">${z.map((c) => {
+      const zelle = (c: RasterZelle, mitTitel: boolean, klasse = '') => {
         const unter = (c.unter ?? []).map((t) => einsetzen(t, m, d)).filter(Boolean).join(' · ');
-        return `<div class="zelle${c.gross ? ' gross' : ''}${c.grau ? ' grau' : ''}" style="flex: ${c.breite ?? 1} 1 0"><small>${sicher(c.titel)}</small><span>${sicher(einsetzen(c.text, m, d)) || '&nbsp;'}</span>${unter ? `<em>${sicher(unter)}</em>` : ''}</div>`;
-      }).join('')}</div>`).join(''));
+        return `<div class="zelle${klasse}${c.gross ? ' gross' : ''}${c.grau ? ' grau' : ''}${c.mitte ? ' mitte' : ''}" style="flex: ${c.breite ?? 1} 1 0">${mitTitel ? `<small>${sicher(c.titel)}</small>` : ''}<span>${sicher(einsetzen(c.text, m, d)) || '&nbsp;'}</span>${unter ? `<em>${sicher(unter)}</em>` : ''}</div>`;
+      };
+      return huelle(b.id, 'raster', b.zeilen.map((z) => z.kopf === 'zeile'
+        ? `<div class="rasterzeile kopfzeile">${z.zellen.map((c) => `<div class="zelle" style="flex: ${c.breite ?? 1} 1 0">${sicher(c.titel)}</div>`).join('')}</div><div class="rasterzeile">${z.zellen.map((c) => zelle(c, false)).join('')}</div>`
+        : `<div class="rasterzeile${z.kopf === 'links' ? ' links' : ''}">${z.zellen.map((c) => zelle(c, true)).join('')}</div>`).join(''));
     }
     if (b.art === 'haken') {
+      if (b.gross) return huelle(b.id, 'haken gross', b.felder.map((n) => `<span><small>${sicher(feld(n).titel)}</small><i class="kaestchen${d.werte[n] ? ' an' : ''}">${d.werte[n] ? '✓' : ''}</i></span>`).join(''));
       return huelle(b.id, 'haken', `${b.titel ? `<b>${sicher(einsetzen(e[`${b.id}.titel`] || b.titel, m, d))}</b>` : ''}${b.felder.map((n) => `<span><i class="kaestchen${d.werte[n] ? ' an' : ''}"></i>${sicher(feld(n).titel)}</span>`).join('')}`);
     }
     if (b.art === 'kasten') {
@@ -347,7 +370,7 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       const schmal = (f: Feld) => (f.art === 'langtext' || f.art === 'text' || f.art === 'verweis' ? '' : ' schmal');
       const kopf = spalten.map((f) => `<th class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}" data-stelle="${b.id}.${f.name}">${sicher(e[`${b.id}.${f.name}.titel`] || ab(f))}</th>`).join('');
       const rumpf = zeilen.map(({ werte: z }) => `<tr>${spalten.map((f) => `<td class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}">${sicher(f.art === 'ja_nein' ? (wert(z, f) ? '✓' : '') : feldtext(f, wert(z, f), d.verweis))}</td>`).join('')}</tr>`).join('');
-      const frei = b.art === 'liste' && b.leerzeile ? `<tr class="frei">${spalten.map(() => '<td>&nbsp;</td>').join('')}</tr>` : '';
+      const frei = b.art === 'liste' && b.leerzeile && !zeilen.length ? `<tr class="frei">${spalten.map(() => '<td>&nbsp;</td>').join('')}</tr>` : '';
       const titel = e[`${b.id}.titel`] || b.titel;
       return huelle(b.id, `liste${zeilen.length ? '' : ' leer'}`, `${titel ? `<h2>${sicher(titel)}</h2>` : ''}<table><thead><tr>${kopf}</tr></thead><tbody>${rumpf || (frei ? '' : `<tr><td colspan="${spalten.length}">–</td></tr>`)}${frei}</tbody></table>`);
     }
@@ -363,7 +386,7 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       if (!bilder.length && !bearbeiten) return '';
       const spalten = e[`${b.id}.spalten`] || String(b.spalten ?? 2), unter = b.unter ? einsetzen(b.unter, m, d) : '';
       return huelle(b.id, `bilder${bilder.length ? '' : ' leer'}${spalten === '1' ? ' eins' : spalten === '3' ? ' drei' : ''}${b.neueSeite ? ' neueseite' : ''}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2>${unter ? `<div class="unter bildunter">${sicher(unter)}</div>` : ''}<div class="bildraster">${
-        bilder.map((z) => `<figure><img src="${sicher(d.bild(z.id))}" alt=""><figcaption>${sicher(String(z.werte[b.beschriftung] ?? ''))}</figcaption></figure>`).join('') || '–'}</div>`);
+        bilder.map((z, i) => `<figure><img src="${sicher(d.bild(z.id))}" alt=""><figcaption>${b.nummern ? `<b>Foto ${i + 1}</b> ` : ''}${sicher(String(z.werte[b.beschriftung] ?? ''))}</figcaption></figure>`).join('') || '–'}</div>`);
     }
     if (b.art === 'absatz') return huelle(b.id, 'absatz', `<p>${sicher(einsetzen(e[`${b.id}.text`] || b.text, m, d))}</p>`);
     const text = String(d.werte[b.feld] ?? '');
@@ -417,9 +440,9 @@ function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; we
 }
 
 export const schriftgroesse = (e: Einstellungen) => (SCHRIFT[e['seite.schrift'] ?? ''] ?? SCHRIFT.normal!).pt;
-/** Fußzeile links – eine Zeile je Zeile der Vorlage (z. B. darunter die Anschrift des Büros). */
+/** Fußzeile links – legt die Vorlage fest (nicht die Druckvorschau, 27.11.2026); eine Zeile je Zeile der Vorlage (z. B. darunter die Anschrift des Büros). */
 export const fusszeile = (a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Einstellungen) =>
-  (e['seite.fuss.aus'] === 'ja' ? '' : (e['seite.fuss'] || vorlageVon(a, e).fuss).split('\n').map((z) => einsetzen(z, m, d)).filter(Boolean).join('\n'));
+  vorlageVon(a, e).fuss.split('\n').map((z) => einsetzen(z, m, d)).filter(Boolean).join('\n');
 export const dateiname = (a: Ausdruck, m: ObjektModell, d: Druckdaten) => (einsetzen(a.dateiname, m, d).replace(/[\\/:*?"<>|]+/g, '-') || a.titel) + '.pdf';
 
 /** Die ganze Seite für das PDF: A4, Ränder, Fußzeile mit Seitenzahl auf jeder Seite. Lädt nichts von außen. */
