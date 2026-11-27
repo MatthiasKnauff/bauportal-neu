@@ -37,13 +37,17 @@ function abstand(a: string, b: string, grenze: number): number {
  * Gruppen ähnlicher Werte: gleiche Grundform, ein Tippfehler (ab 6 Zeichen zwei) oder einer beginnt mit dem anderen
  * („Elektro“ – „Elektroinstallation“, ab 5 Zeichen). Der häufigste Wert steht vorn – er ist der Vorschlag.
  */
-export function aehnlicheGruppen(werte: { wert: string; anzahl: number }[]): { wert: string; anzahl: number }[][] {
+/** Schlüssel eines Wertepaars für „Nicht ähnlich“ (Reihenfolge und Groß/klein egal). */
+export const paar = (a: string, b: string) => [a.toLowerCase(), b.toLowerCase()].sort().join('|');
+/** Alle Paare einer Gruppe – „Nicht ähnlich“ merkt sie, danach fügt das Aufräumen diese Werte nicht mehr zusammen. */
+export const paareDer = (gruppe: string[]) => gruppe.flatMap((a, i) => gruppe.slice(i + 1).map((b) => paar(a, b)));
+export function aehnlicheGruppen(werte: { wert: string; anzahl: number }[], getrennt: Set<string> = new Set()): { wert: string; anzahl: number }[][] {
   const g = werte.map((w) => grundform(w.wert));
   const eltern = werte.map((_, i) => i);
   const wurzel = (i: number): number => (eltern[i] === i ? i : (eltern[i] = wurzel(eltern[i]!)));
   for (let i = 0; i < werte.length; i++) for (let j = i + 1; j < werte.length; j++) {
     const a = g[i]!, b = g[j]!;
-    if (!a || !b) continue;
+    if (!a || !b || getrennt.has(paar(werte[i]!.wert, werte[j]!.wert))) continue;
     const kurz = Math.min(a.length, b.length);
     const aehnlich = a === b || abstand(a, b, kurz >= 6 ? 2 : 1) <= (kurz >= 6 ? 2 : kurz >= 4 ? 1 : 0) || (kurz >= 5 && (a.startsWith(b) || b.startsWith(a)));
     if (aehnlich) eltern[wurzel(i)] = wurzel(j);

@@ -2026,3 +2026,11 @@ test('Türliste als Anlage zum LV: nur die Listen, aus denen Positionen stammen'
   assert.deepEqual(a[0]!.zeilen.map((z) => z.zellen[0]), ['T2', 'T10']); assert.ok(a[0]!.zeilen[0]!.zellen.includes('760 × 2010'));
   assert.deepEqual(tueranlage([{ id: 'p', werte: {} }], L, T), []);
 });
+
+test('Adressen aufräumen: „Nicht ähnlich“ gemerkte Werte bilden keine Gruppe mehr', async () => {
+  const w = await import('../src/module/adressen/werte');
+  const W = [{ wert: 'Elektro', anzahl: 3 }, { wert: 'Elektroinstallation', anzahl: 1 }, { wert: 'Maler', anzahl: 2 }, { wert: 'maler', anzahl: 1 }];
+  assert.equal(w.aehnlicheGruppen(W).length, 2);
+  const g = w.aehnlicheGruppen(W, new Set(w.paareDer(['Elektro', 'Elektroinstallation'])));
+  assert.deepEqual(g.map((x) => x.map((y) => y.wert)), [['Maler', 'maler']]);
+});

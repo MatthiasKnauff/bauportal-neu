@@ -64,6 +64,7 @@ export const buero: ObjektModell = {
       { wert: 'alle', titel: 'Angemeldete und beauftragte zählen als Leistung' }, { wert: 'beauftragt', titel: 'Nur beauftragte zählen als Leistung' }] },
     { name: 'aufmass_gelb_ab', titel: 'Aufmaß: Hinweis (gelb) ab % über der LV-Menge', art: 'zahl', kartenBreite: 3, gruppe: 'Abrechnung' },
     { name: 'aufmass_rot_ab', titel: 'rot ab % (VOB/B § 2 Abs. 3: 10)', art: 'zahl', kartenBreite: 3, gruppe: 'Abrechnung' },
+    { name: 'nicht_aehnlich', titel: 'Adressen aufräumen: als nicht ähnlich gemerkte Werte', art: 'langtext', verborgen: true },   // {feld: ["a|b", …]}
     { name: 'debugging', titel: 'Debugging-Modus: Quelltext im Aufbau sehen dürfen', art: 'mehrfach', optionen: ROLLEN_OPTIONEN, gruppe: 'Entwicklung' },
   ],
 };

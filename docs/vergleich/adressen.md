@@ -24,7 +24,7 @@ Stand 27.11.2026 (Abhaken nach Codeabgleich, nachgezogen 27.11. früh). Grundlag
 7. ~~**Drucken** als Adressverzeichnis~~ (erledigt) (PDF, Filterbeschreibung oben)
 8. ~~Excel als echte .xlsx statt CSV~~ – erledigt
 9. ~~**Einlesen** aus Excel/CSV~~ (erledigt): Spalten zuordnen, Vorschau, „schon da“ → ergänzen / überspringen / doppelt, ein Rückgängig, danach Aufräumen
-10. ◐ **Aufräumen** auch für Gewerk (zusammenführen und umbenennen erledigt; aufteilen und „Nicht ähnlich“ merken offen), Art, Stichwörter, Tags: ähnliche Werte zusammenführen, aufteilen, zuordnen; „Nicht ähnlich“ merken; alle Werte A–Z umbenennen
+10. ◐ **Aufräumen** auch für Gewerk (zusammenführen, umbenennen und „Nicht ähnlich“ merken erledigt – 27.11.; aufteilen offen), Art, Stichwörter, Tags: ähnliche Werte zusammenführen, aufteilen, zuordnen; „Nicht ähnlich“ merken; alle Werte A–Z umbenennen
 11. Duplikate: Ergebnis je Feld wählbar, „Keine Duplikate“ merken, Überspringen
 12. Rechts: Reiter **Schriftverkehr** und „Zuletzt“ (braucht das Modul Post & Vorgänge)
 13. ~~Reiter Projekte: ＋ Projekt / ✕ lösen~~ (erledigt 27.11.); Projektnummern aus den Projektordnern der Ablage (Projekt noch nicht im Portal)

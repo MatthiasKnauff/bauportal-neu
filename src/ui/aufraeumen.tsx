@@ -2,9 +2,10 @@
 // Baustein Übernahme) – und Werte aufräumen: ähnliche Gewerke, Stichwörter und Tags auf einen Wert bringen, Werte umbenennen.
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { aehnlicheGruppen, umbenennen, werteZaehlen } from '../module/adressen/werte';
-import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
-import { ruf } from './unterbau/api';
+import { aehnlicheGruppen, paareDer, umbenennen, werteZaehlen } from '../module/adressen/werte';
+import { BUERO_ID } from '../module/verwaltung/beipackzettel';
+import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
+import { darf, ruf } from './unterbau/api';
 import { Dialog } from './baukasten/dialog';
 import { vorschauZeigen, type Vorschau } from './uebernahme';
 
@@ -79,7 +80,11 @@ function WerteFenster(p: { feld: 'gewerk' | 'stichworte' | 'tags'; titel: string
   const liste = p.feld !== 'gewerk';
   const kontakte = () => lebende('kontakt');
   const werte = createMemo(() => werteZaehlen(kontakte(), p.feld, liste));
-  const gruppen = createMemo(() => aehnlicheGruppen(werte()));
+  // „Nicht ähnlich“ (wie bisher): für das ganze Büro gemerkt – diese Werte kommen nicht wieder als Gruppe
+  const gemerkt = (): Record<string, string[]> => { try { return JSON.parse(String(sicht.buero?.[BUERO_ID]?.werte.nicht_aehnlich || '{}')) as Record<string, string[]>; } catch { return {}; } };
+  const gruppen = createMemo(() => aehnlicheGruppen(werte(), new Set(gemerkt()[p.feld] ?? [])));
+  const nichtAehnlich = (g: string[]) => { const alt = gemerkt();
+    ausfuehren({ objekt: 'buero', art: 'aendern', objektId: BUERO_ID, werte: { nicht_aehnlich: JSON.stringify({ ...alt, [p.feld]: [...new Set([...(alt[p.feld] ?? []), ...paareDer(g)])] }) } }, `${p.titel}: „${g.join('“, „')}“ nicht ähnlich`); };
   const [ziel, setZiel] = createStore<Record<number, string>>({});
   const [ohne, setOhne] = createStore<Record<string, boolean>>({});   // Werte, die in ihrer Gruppe nicht mitgehen
   const [neuName, setNeuName] = createStore<Record<string, string>>({});
@@ -103,7 +108,7 @@ function WerteFenster(p: { feld: 'gewerk' | 'stichworte' | 'tags'; titel: string
                   <span class="doppelt-text"><strong>{x.wert}</strong><span class="leise">{x.anzahl} {x.anzahl === 1 ? 'Kontakt' : 'Kontakte'}</span></span>
                 </div>
               )}</For>
-              <div class="reihe"><button type="button" class="knopf klein" onClick={() => fuehren(g.filter((x) => !ohne[x.wert] || x.wert === nach()).map((x) => x.wert), nach(), `${p.titel}: zu „${nach()}“ zusammengeführt`)}>Zusammenführen zu „{nach()}“</button></div>
+              <div class="reihe"><Show when={darf('buero', 'schreiben')}><button type="button" class="knopf klein still" title="Diese Werte gehören nicht zusammen – nicht wieder vorschlagen" onClick={() => nichtAehnlich(g.map((x) => x.wert))}>Nicht ähnlich</button></Show><button type="button" class="knopf klein" onClick={() => fuehren(g.filter((x) => !ohne[x.wert] || x.wert === nach()).map((x) => x.wert), nach(), `${p.titel}: zu „${nach()}“ zusammengeführt`)}>Zusammenführen zu „{nach()}“</button></div>
             </fieldset>
           );
         }}</For>
