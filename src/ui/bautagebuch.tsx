@@ -265,12 +265,18 @@ function Anwesende(p: { bericht: Zeile }) {
     </div>
   );
 }
+/** Fotos an einen Eintrag hängen (Kamera in der Zeile oder hineingezogen). */
+const fotosAnEintrag = async (z: Zeile, d: File[], lage: (t: string) => void = () => {}) => {
+  if (!d.length) { hinweis('Nur Fotos lassen sich an einen Eintrag hängen.'); return; }
+  if (!darf('foto', 'schreiben')) { hinweis('Dazu fehlt dir das Recht.'); return; }
+  await fotosHochladen('/api/foto', { projekt: z.werte.projekt ?? null, bericht: z.werte.bericht ?? null, eintrag: z.id }, d, lage);
+};
 /** Fotos zu einem Eintrag (wie bisher): klein in der Zeile, groß unter „Bilder“; die Kamera nimmt eins dazu. */
 function EintragFotos(p: { eintrag: Zeile }): JSX.Element {
   const fotos = createMemo(() => lebende('foto').filter((f) => f.werte.eintrag === p.eintrag.id));
   const [lage, setLage] = createSignal('');
   let wahl!: HTMLInputElement;
-  const dazu = async () => { const d = [...(wahl.files ?? [])]; wahl.value = ''; await fotosHochladen('/api/foto', { projekt: p.eintrag.werte.projekt ?? null, bericht: p.eintrag.werte.bericht ?? null, eintrag: p.eintrag.id }, d, setLage); };
+  const dazu = async () => { const d = [...(wahl.files ?? [])]; wahl.value = ''; await fotosAnEintrag(p.eintrag, d, setLage); };
   return (
     <span class="bt-eintragfotos" onClick={(e) => e.stopPropagation()}>
       <For each={fotos()}>{(f) => <button type="button" class="bt-mini" title={String(f.werte.beschriftung || f.werte.name || 'Foto')} onClick={() => { setEintrag(null); setFoto(f.id); }}><img src={`/api/foto/vorschau/${f.id}`} alt={String(f.werte.beschriftung || 'Foto')} loading="lazy" /></button>}</For>
@@ -287,7 +293,8 @@ const personen = (bericht: string) => lebende('bericht_eintrag').filter((e) => e
 /** Die Listen eines Berichts – dieselben in der Seite und im Ablauf „Schritt für Schritt“. */
 function listen(bericht: Zeile, seite: boolean): Record<string, () => JSX.Element> {
   const fest = (art: string) => ({ projekt: bericht.werte.projekt ?? null, bericht: bericht.id, art });
-  const wahl = { ...(seite ? { ohneTitel: true, onWahl: (id: string) => { setBearbeiten(false); setFoto(null); setEintrag(id); } } : {}), zusatz: (z: Zeile) => <EintragFotos eintrag={z} /> };
+  const wahl = { ...(seite ? { ohneTitel: true, onWahl: (id: string) => { setBearbeiten(false); setFoto(null); setEintrag(id); } } : {}), zusatz: (z: Zeile) => <EintragFotos eintrag={z} />,
+    onDateien: (z: Zeile, d: File[]) => void fotosAnEintrag(z, d.filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name))) };
   return {
     anwesend: () => <Anwesende bericht={bericht} />,
     notiz: () => <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,

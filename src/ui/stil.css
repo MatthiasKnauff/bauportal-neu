@@ -1561,3 +1561,4 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .bt-eintragfotos { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .bt-mini { width: 34px; height: 34px; padding: 0; border: 1px solid var(--rand); border-radius: calc(5px * var(--rund)); overflow: hidden; background: var(--still); cursor: pointer; }
 .bt-mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.unterliste li.ziel { outline: 2px dashed var(--akzent); outline-offset: 2px; background: var(--akzent-hell); }

@@ -27,6 +27,7 @@ export function Unterliste(p: {
   gewaehlt?: string | null;       // hervorgehobener Eintrag
   onWahl?: (id: string) => void;  // Eintrag angeklickt (z. B. um ihn rechts im Detail zu zeigen)
   zusatz?: (z: Zeile) => JSX.Element;   // am Ende der Zeile (z. B. Fotos zum Eintrag)
+  onDateien?: (z: Zeile, dateien: File[]) => void;   // Dateien auf die Zeile gezogen (z. B. Fotos an den Eintrag)
 }) {
   const m = (): ObjektModell => modell(p.objekt);
   const feld = (n: string): Feld => m().felder.find((f) => f.name === n)!;
@@ -46,7 +47,10 @@ export function Unterliste(p: {
       <Show when={!p.ohneTitel}><legend>{p.titel}<Show when={eintraege().length}><span class="anzahl">{eintraege().length}</span></Show></legend></Show>
       <ul>
         <For each={eintraege()}>{(z) => (
-          <li classList={{ erledigt: !!p.haken && z.werte[p.haken] === true, gewaehlt: p.gewaehlt === z.id }} onFocusIn={() => p.onWahl?.(z.id)} onClick={() => p.onWahl?.(z.id)}>
+          <li classList={{ erledigt: !!p.haken && z.werte[p.haken] === true, gewaehlt: p.gewaehlt === z.id }} onFocusIn={() => p.onWahl?.(z.id)} onClick={() => p.onWahl?.(z.id)}
+            onDragOver={(e) => { if (p.onDateien && e.dataTransfer?.types.includes('Files')) { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ziel'); } }}
+            onDragLeave={(e) => e.currentTarget.classList.remove('ziel')}
+            onDrop={(e) => { if (!p.onDateien || !e.dataTransfer?.files.length) return; e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('ziel'); p.onDateien(z, [...e.dataTransfer.files]); }}>
             <div class="unterliste-zeile">
               <Show when={p.haken}>
                 <button type="button" role="checkbox" class="haken" classList={{ an: z.werte[p.haken!] === true }} aria-checked={z.werte[p.haken!] === true} aria-label={`${feld(p.haken!).titel}: ${zeilentitel(z)}`} disabled={!schreiben()}

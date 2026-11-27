@@ -21,7 +21,7 @@ Stand 27.11.2026. Grundlage: das Bautagebuch im bisherigen Bauportal (live anges
 6. Projektdaten im Bautagebuch (bei uns: Projekte in der Verwaltung)
 7. Frist mit Uhrzeit und Erinnerung per E-Mail – **über die zentrale Versandstelle** (Regel: Meldungen nur über die eine Stelle)
 8. Hinweise zu Gewerken/Leistungen aus dem Wiki (geprüfte Einträge) – das Wiki gibt es hier noch nicht
-9. ◐ Fotos an Einträgen (Kamera in der Zeile, klein am Eintrag, groß unter „Bilder“) – erledigt 27.11.; Hineinziehen auf den Eintrag fehlt noch
+9. ~~Fotos an Einträgen, auch hineinziehen~~ – erledigt 27.11.
 10. Suche über alle Projekte (Berichte, Mängel, Notizen, Anwesende, Weisungen, Fotobeschreibungen) – bei uns die Suche oben über alles
 
 ## Regelfragen
