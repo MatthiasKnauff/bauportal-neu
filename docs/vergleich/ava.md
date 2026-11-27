@@ -76,7 +76,7 @@ Zeichen:
 | V3 | Bieter:innen suchen und mehrere anhaken, passendes Gewerk zuerst, neue Firma direkt anlegen | ◐ | |
 | V4 | Je Bieter:in ein Verlauf: angeschrieben · nachgesandt · nachgefragt (Telefonnotiz, höchstens 10) · nächster Anruf (To-do) · Rückmeldung · Angebot eingegangen. Entfernen (🗑, Entf). | ◐ | |
 | V5 | Senden (Mail mit Vorlagen je LV/Firma, Erinnerung, Nachsenden), mehrere LVs in einem Versand | ⊘ | Später über die zentrale Versandstelle (Entscheidung 26.11.) |
-| V6 | Bieterliste drucken/Excel mit eigener Spaltenwahl | ✗ | Druck |
+| V6 | Bieterliste drucken/Excel mit eigener Spaltenwahl | ✓ (27.11.: Knopf „Bieterliste“ im Versand, Spalten frei – auch Telefon, E-Mail, Ort der Firma; Excel über den Druck noch nicht) | Druck |
 | V7 | Nachverfolgen über alle LVs | ✓ | |
 | V8 | Preisspiegel im LV-Baum (Projekt → LVs → Titel mit Summe je Bieter:in → Positionen), Spalte Mittel, Bieter-Spalten ein/aus und ordnen | ✓ | Baum, Mittel, Spaltenwahl |
 | V9 | Bieterangaben (Antworten auf Bietertextergänzungen aus X84) im Preisspiegel | ✗ | |

@@ -3,7 +3,7 @@
 // Die Vorschau entsteht auf dem Gerät aus den Daten, die schon da sind – sofort und auch ohne Netz.
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import { DRUCKQUELLEN } from '../module/druckquellen';
-import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, querformat, schriftgroesse, verzeichnisSpalten, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
+import { CSS, RAND, SCHRIFT, druckInhalt, fusszeile, listenfolge, platzhalter, querformat, schriftgroesse, spaltenFeld, verweisSpalten, verzeichnisSpalten, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
 import type { Feld, ObjektModell, Wert } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { ausfuehren, lebende, sicht, verweisname } from './unterbau/abgleich';
@@ -48,7 +48,7 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   if (b.art === 'text') { const f = m.felder.find((x) => x.name === b.feld)!; return { titel: f.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: f.titel }, zeigen(b.id),
     { name: 'leer', titel: 'Auch zeigen, wenn nichts eingetragen ist', art: 'ja_nein', stelle: `${b.id}.leer` }] }; }
-  if ((b.art === 'liste' || b.art === 'verzeichnis') && rest) { const f = (b.art === 'liste' ? modell(b.objekt) : m).felder.find((x) => x.name === rest)!; return { titel: `${b.titel} – Spalte ${f.titel}`, felder: [
+  if ((b.art === 'liste' || b.art === 'verzeichnis') && rest) { const f = spaltenFeld(b.art === 'liste' ? modell(b.objekt) : m, rest, modell)!; return { titel: `${b.titel} – Spalte ${f.titel}`, felder: [
     { name: 'titel', titel: 'Beschriftung der Spalte', art: 'text', stelle: `${stelle}.titel`, vorgabe: f.titel }, zeigen(stelle)] }; }
   if (b.art === 'bilder') return { titel: b.titel, felder: [
     { name: 'titel', titel: 'Überschrift des Abschnitts', art: 'text', stelle: `${b.id}.titel`, vorgabe: b.titel },
@@ -79,7 +79,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   const daten = createMemo((): Druckdaten | null => {
     if (a.verzeichnis) {   // viele Einträge: die übergebenen, in ihrer Reihenfolge
       const zeilen = (umfang()?.ids ?? []).map((id) => sicht[a.objekt]?.[id]).filter((z) => z && !z.geloescht).map((z) => ({ id: z!.id, werte: { ...z!.werte } }));
-      return { werte: {}, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: '', verweis: verweisname, modell, bild: () => '',
+      return { werte: {}, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: '', verweis: verweisname, zielwerte: (o, id) => sicht[o]?.[id]?.werte, modell, bild: () => '',
         kinder: (blockId) => (a.bloecke.find((x) => x.id === blockId)?.art === 'verzeichnis' ? zeilen : []),
         extra: { anzahl: `${zeilen.length} ${zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: umfang()?.filter ?? '', datum: new Date().toLocaleDateString('de-DE') } };
     }
@@ -185,16 +185,21 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
 
 /** Spalten eines Verzeichnisses wählen und ordnen: angehakte oben in ihrer Reihenfolge (↑↓), darunter die übrigen Felder. */
 function SpaltenWahl(p: { block: { id: string; spalten: string[] }; m: ObjektModell; e: Einstellungen; onSetzen: (w: string) => void }) {
-  const an = () => verzeichnisSpalten(p.block, p.m, p.e);
-  const moeglich = () => p.m.felder.filter((f) => !f.verborgen && f.art !== 'langtext');
+  const an = () => verzeichnisSpalten(p.block, p.m, p.e, modell);
+  // wählbar: die eigenen Felder und die kurzen Felder der verwiesenen Einträge (z. B. Telefon der Bieter:in)
+  const moeglich = (): { name: string; titel: string }[] => [
+    ...p.m.felder.filter((f) => !f.verborgen && f.art !== 'langtext').map((f) => ({ name: f.name, titel: f.titel })),
+    ...verweisSpalten(p.m, modell).flatMap((v) => v.felder.map((f) => ({ name: `${v.verweis.name}.${f.name}`, titel: `${v.verweis.titel} · ${f.titel}` }))),
+  ];
+  const titel = (n: string) => moeglich().find((x) => x.name === n)?.titel ?? spaltenFeld(p.m, n, modell)?.titel ?? n;
   const setzen = (namen: string[]) => p.onSetzen(namen.join(',') === p.block.spalten.join(',') ? '' : namen.join(','));
   const schieben = (n: string, d: -1 | 1) => { const l = [...an()]; const i = l.indexOf(n), k = i + d; if (k < 0 || k >= l.length) return; [l[i], l[k]] = [l[k]!, l[i]!]; setzen(l); };
   return (
     <div class="spaltenwahl-druck">
       <h3>Spalten</h3>
-      <For each={an()}>{(n) => { const f = () => p.m.felder.find((x) => x.name === n)!; return (
-        <div class="spalte-zeile"><label><input type="checkbox" checked disabled={an().length === 1} onChange={() => setzen(an().filter((x) => x !== n))} /> {f().titel}</label>
-          <button class="knopf klein still" aria-label={`${f().titel} nach oben`} onClick={() => schieben(n, -1)}>↑</button><button class="knopf klein still" aria-label={`${f().titel} nach unten`} onClick={() => schieben(n, 1)}>↓</button></div>); }}</For>
+      <For each={an()}>{(n) => (
+        <div class="spalte-zeile"><label><input type="checkbox" checked disabled={an().length === 1} onChange={() => setzen(an().filter((x) => x !== n))} /> {titel(n)}</label>
+          <button class="knopf klein still" aria-label={`${titel(n)} nach oben`} onClick={() => schieben(n, -1)}>↑</button><button class="knopf klein still" aria-label={`${titel(n)} nach unten`} onClick={() => schieben(n, 1)}>↓</button></div>)}</For>
       <For each={moeglich().filter((f) => !an().includes(f.name))}>{(f) => (
         <div class="spalte-zeile"><label><input type="checkbox" onChange={() => setzen([...an(), f.name])} /> {f.titel}</label></div>
       )}</For>

@@ -2,7 +2,7 @@
 // Der Kern liest daraus, welche Objekte es gibt und was das Modul braucht.
 
 import { pruefeModell, type Feld, type ObjektModell, type Werte } from './modell';
-import type { Ausdruck } from './druck';
+import { spaltenFeld, type Ausdruck } from './druck';
 
 export interface Beipackzettel {
   id: string;
@@ -155,7 +155,7 @@ export class Modulregister {
       for (const n of a.bloecke.flatMap((b) => (b.art === 'felder' ? b.felder : b.art === 'text' ? [b.feld] : []))) {
         if (!m.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Feld „${n}“ fehlt`);
       }
-      for (const b of a.bloecke) if (b.art === 'verzeichnis') for (const n of b.spalten) if (!m.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Spalte „${n}“ fehlt`);
+      for (const b of a.bloecke) if (b.art === 'verzeichnis') for (const n of b.spalten) if (!spaltenFeld(m, n, (o) => this.modelle.get(o))) throw new Error(`Ausdruck „${a.id}“: Spalte „${n}“ fehlt`);
       for (const b of a.bloecke) if (b.art === 'liste' || b.art === 'bilder' || b.art === 'lv') {
         const k = this.modelle.get(b.objekt);
         for (const n of b.art === 'liste' ? [b.ueber, ...b.spalten, ...Object.keys(b.filter ?? {})] : b.art === 'lv' ? [b.ueber, 'oz', 'art', 'kurztext', 'langtext', 'menge', 'einheit', 'ep', ...(b.ohne ? [b.ohne] : [])] : [b.ueber, b.beschriftung]) if (!k?.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Liste „${b.id}“ – Feld „${b.objekt}.${n}“ fehlt`);

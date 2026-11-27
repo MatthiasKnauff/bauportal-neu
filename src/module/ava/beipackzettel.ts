@@ -375,6 +375,15 @@ export const ava: Beipackzettel = {
     { art: 'lv', titel: 'Leistungsverzeichnis', ordner: 'Ausschreibung/{lv}', ansichten: ['lvs', 'positionen'], merkmale: ['leistungsverzeichnis', 'leistungsbeschreibung', 'vorbemerkungen'] },
   ],
   ausdrucke: [{
+    // Bieterliste wie bisher (Versand & Rücklauf): die Bieter:innen eines LV, Spalten frei wählbar – auch Telefon, E-Mail der Firma
+    id: 'ava.bieterliste', titel: 'Bieterliste', objekt: 'angebot', verzeichnis: true, format: 'quer',
+    dateiname: 'Bieterliste {filter} {datum}', fuss: '{buero} · Bieterliste vom {datum}', ordner: 'AVA/Ausschreibung',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Bieterliste', unter: '{filter} · {anzahl}' },
+      { id: 'liste', art: 'verzeichnis', titel: 'Bieter:innen', spalten: ['bieter', 'bieter.ansprechpartner', 'bieter.telefon', 'bieter.email', 'angeschrieben', 'rueckmeldung', 'nachfassen', 'eingang'] },
+    ],
+  }, {
     // Fenster- & Türliste wie bisher: die gefilterte Liste (z. B. eine Liste, ein Geschoss) als Tabelle quer – auch als Anlage zum LV
     id: 'ava.tuerliste', titel: 'Fenster- & Türliste', objekt: 'tuer', verzeichnis: true, format: 'quer',
     dateiname: 'Fenster- und Türliste {datum}', fuss: '{buero} · Fenster- & Türliste vom {datum}', ordner: 'AVA/Ausschreibung',

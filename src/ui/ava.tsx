@@ -18,7 +18,7 @@ import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abglei
 import { darf, modell, neueKennung } from './unterbau/api';
 import { FeldEingabe } from './baukasten/feld';
 import { Zeichen } from './baukasten/zeichen';
-import { druckOeffnen } from './druck';
+import { druckOeffnen, verzeichnisDrucken } from './druck';
 import { LvListe } from './lvliste';
 import { hinweis } from './unterbau/meldungen';
 import { BieterDazu } from './preisspiegel';
@@ -300,6 +300,9 @@ export function Versand(p: Mitte): JSX.Element {
   createEffect(() => p.setKnoepfe([
     ...(lv() && darf('angebot', 'schreiben') ? [{ titel: 'Bieter:in', zeichen: 'person_neu', gruppe: 'Neu', tun: () => setDazu(true) }] : []),
     { titel: 'Nachverfolgen', zeichen: 'telefon', gruppe: 'Nachverfolgen', tun: () => springeZu('lv', lv()?.id ?? '', { modul: 'ava', ansicht: 'nachverfolgen' }) },
+    ...(lv() && bieter().length ? [{ titel: 'Bieterliste', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => {
+      const l = lv()!; verzeichnisDrucken('ava.bieterliste', [{ titel: 'Die Bieter:innen dieses LV', ids: bieter().map((a) => a.id), filter: `LV ${String(l.werte.nummer ?? '')} ${String(l.werte.name ?? '')}`.trim() }]);
+    } }] : []),
   ]));
   return (
     <LvListe m={p} zusatz={(l) => { const n = angeboteVon(l.id).length; return n ? `${n} ${n === 1 ? 'Bieter:in' : 'Bieter:innen'}` : ''; }}>

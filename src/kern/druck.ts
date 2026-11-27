@@ -57,8 +57,20 @@ export interface Ausdruck {
 /** Querformat? Die Einstellung des Büros geht vor, sonst gilt, was der Ausdruck ab Werk hat. */
 export const querformat = (a: Ausdruck, e: Einstellungen) => (e['seite.format'] || a.format || 'hoch') === 'quer';
 /** Die Spalten eines Verzeichnisses: wie eingestellt (Stelle „<block>.spalten“, Feldnamen mit Komma) oder ab Werk. */
-export function verzeichnisSpalten(b: { id: string; spalten: string[] }, m: ObjektModell, e: Einstellungen): string[] {
-  const eigen = (e[`${b.id}.spalten`] ?? '').split(',').filter((n) => m.felder.some((f) => f.name === n));
+/** Feld einer Verzeichnis-Spalte: ein eigenes Feld („telefon“) oder ein Feld des verwiesenen Eintrags („bieter.telefon“). */
+export function spaltenFeld(m: ObjektModell, name: string, modell: (o: string) => ObjektModell | undefined): Feld | undefined {
+  const [a, b] = name.split('.');
+  if (b === undefined) return m.felder.find((f) => f.name === a);
+  const v = m.felder.find((f) => f.name === a && f.art === 'verweis'), z = v?.ziel ? modell(v.ziel)?.felder.find((f) => f.name === b && !f.verborgen) : undefined;
+  return z ? { ...z, name } : undefined;
+}
+/** Die verwiesenen Felder, die als Spalten wählbar sind (je Verweis die sichtbaren, kurzen Felder des Ziels). */
+export const verweisSpalten = (m: ObjektModell, modell: (o: string) => ObjektModell | undefined): { verweis: Feld; felder: Feld[] }[] =>
+  m.felder.filter((f) => f.art === 'verweis' && !f.verborgen && f.ziel && f.ziel !== 'projekt' && modell(f.ziel))
+    .map((f) => ({ verweis: f, felder: modell(f.ziel!)!.felder.filter((z) => !z.verborgen && z.art !== 'langtext' && z.art !== 'verweis' && z.name !== modell(f.ziel!)!.anzeigeFeld) }));
+
+export function verzeichnisSpalten(b: { id: string; spalten: string[] }, m: ObjektModell, e: Einstellungen, modell: (o: string) => ObjektModell | undefined): string[] {
+  const eigen = (e[`${b.id}.spalten`] ?? '').split(',').filter((n) => n && spaltenFeld(m, n, modell));
   return eigen.length ? eigen : b.spalten;
 }
 
@@ -74,6 +86,7 @@ export interface Druckdaten {
   logo?: string;                                   // Büro-Logo für den Briefkopf (im Browser eine Adresse, im PDF das Bild selbst)
   projekt: string;                                 // Name des Projekts, '' wenn es keins gibt
   verweis: (ziel: string, id: string) => string;   // Anzeigename eines verwiesenen Objekts
+  zielwerte?: (ziel: string, id: string) => Werte | undefined;   // Werte eines verwiesenen Objekts (Spalten „verweis.feld“ im Verzeichnis)
   kinder: (blockId: string) => { id: string; werte: Werte }[];   // die Einträge eines Listen- oder Bilder-Blocks, in der Reihenfolge des Ausdrucks
   bild: (id: string) => string;                    // Adresse des Vorschaubilds (im Browser ein Verweis, im PDF das Bild selbst)
   modell: (objekt: string) => ObjektModell;        // Modell der Einträge
@@ -215,11 +228,14 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       const k = b.art === 'liste' ? d.modell(b.objekt) : m;
       const zeilen = d.kinder(b.id);
       if (!zeilen.length && !bearbeiten && e[`${b.id}.leer`] !== 'ja') return '';
-      const spalten = (b.art === 'verzeichnis' ? verzeichnisSpalten(b, k, e) : b.spalten).map((n) => k.felder.find((f) => f.name === n)!).filter((f) => bearbeiten || !aus(`${b.id}.${f.name}`));
+      const spalten = (b.art === 'verzeichnis' ? verzeichnisSpalten(b, k, e, d.modell) : b.spalten).map((n) => spaltenFeld(k, n, d.modell)!).filter((f) => f && (bearbeiten || !aus(`${b.id}.${f.name}`)));
+      // Wert einer Spalte: eigenes Feld oder Feld des verwiesenen Eintrags
+      const wert = (z: Werte, f: Feld): Wert => { const [a, n] = f.name.split('.'); if (n === undefined) return z[f.name] ?? null;
+        const v = k.felder.find((x) => x.name === a)!, id = z[a!]; return id ? d.zielwerte?.(v.ziel!, String(id))?.[n] ?? null : null; };
       // schmale Spalten: alles außer langen Texten und Verweisen
       const schmal = (f: Feld) => (f.art === 'langtext' || f.art === 'text' || f.art === 'verweis' ? '' : ' schmal');
       const kopf = spalten.map((f) => `<th class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}" data-stelle="${b.id}.${f.name}">${sicher(e[`${b.id}.${f.name}.titel`] || f.titel)}</th>`).join('');
-      const rumpf = zeilen.map(({ werte: z }) => `<tr>${spalten.map((f) => `<td class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}">${sicher(f.art === 'ja_nein' ? (z[f.name] ? '✓' : '') : feldtext(f, z[f.name], d.verweis))}</td>`).join('')}</tr>`).join('');
+      const rumpf = zeilen.map(({ werte: z }) => `<tr>${spalten.map((f) => `<td class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}">${sicher(f.art === 'ja_nein' ? (wert(z, f) ? '✓' : '') : feldtext(f, wert(z, f), d.verweis))}</td>`).join('')}</tr>`).join('');
       return huelle(b.id, `liste${zeilen.length ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2><table><thead><tr>${kopf}</tr></thead><tbody>${rumpf || `<tr><td colspan="${spalten.length}">–</td></tr>`}</tbody></table>`);
     }
     if (b.art === 'lv') return huelle(b.id, 'lv', lvTabelle(b, d.kinder(b.id), e));

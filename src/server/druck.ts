@@ -103,17 +103,18 @@ export async function verzeichnisBauen(db: Db, register: Modulregister, wer: Ben
       .map((z) => ({ id: z.id as string, werte: werteAus(m, z) })).sort((x, y) => reihe.get(x.id)! - reihe.get(y.id)!);
     const e: Einstellungen = {};
     for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
-    const namen = new Map<string, string>();
-    const spalten = new Set(a.bloecke.flatMap((b) => (b.art === 'verzeichnis' ? verzeichnisSpalten(b, m, e) : [])));
-    for (const f of m.felder.filter((x) => x.art === 'verweis' && spalten.has(x.name))) {
+    // verwiesene Einträge der Spalten („bieter“ und „bieter.telefon“): einmal ganz laden – Name und Werte
+    const ziele = new Map<string, Werte>();
+    const spalten = a.bloecke.flatMap((b) => (b.art === 'verzeichnis' ? verzeichnisSpalten(b, m, e, (o) => register.modell(o)) : []));
+    for (const f of m.felder.filter((x) => x.art === 'verweis' && spalten.some((n) => n.split('.')[0] === x.name))) {
       const ziel = register.modell(f.ziel!)!;
       const v = [...new Set(zeilen.map((z) => z.werte[f.name]).filter(Boolean))];
-      if (v.length) for (const z of (await c.query(`select id, ${spalte(ziel.anzeigeFeld)} as name from ${tabelle(ziel.name)} where id = any($1)`, [v])).rows) namen.set(`${ziel.name}:${z.id}`, String(z.name ?? ''));
+      if (v.length) for (const z of (await c.query(`select * from ${tabelle(ziel.name)} where id = any($1)`, [v])).rows) ziele.set(`${ziel.name}:${z.id}`, werteAus(ziel, z));
     }
     const buero = werteAus(register.modell('buero')!, (await c.query('select * from o_buero where id = $1', [BUERO_ID])).rows[0]);
-    return { zeilen, namen, buero, e };
+    return { zeilen, ziele, buero, e };
   });
-  const d: Druckdaten = { werte: {}, buero: t.buero, logo: await logoDaten(db), projekt: '', verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', modell: (o) => register.modell(o)!, bild: () => '',
+  const d: Druckdaten = { werte: {}, buero: t.buero, logo: await logoDaten(db), projekt: '', verweis: (ziel, id) => String(t.ziele.get(`${ziel}:${id}`)?.[register.modell(ziel)!.anzeigeFeld] ?? ''), zielwerte: (ziel, id) => t.ziele.get(`${ziel}:${id}`), modell: (o) => register.modell(o)!, bild: () => '',
     kinder: (id) => (a.bloecke.find((b) => b.id === id)?.art === 'verzeichnis' ? t.zeilen : []),
     extra: { anzahl: `${t.zeilen.length} ${t.zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: filter.slice(0, 500), datum: new Date().toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' }) } };
   return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d) };
