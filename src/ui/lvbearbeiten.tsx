@@ -18,6 +18,7 @@ import { NeuesLv } from './neueslv';
 import { projektId } from './projekt';
 import { lvFolge, lvVon, lvWaehlen } from './avakopf';
 import { druckOeffnen } from './druck';
+import { springeZu } from './sprung';
 import { gaebAusgeben } from './ava';
 import { gaebEinlesen } from './uebernahme';
 import { LvExcelFenster, lvExcelAusgeben, lvExcelEinlesen } from './lvexcel';
@@ -395,7 +396,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
             <OrdnerZeile ebene={0} offen klasse="lvt-projekt" klick={() => {}} text={<><b>{[projekt()?.werte.nummer, projekt()?.werte.name].filter(Boolean).join(' ')}</b><span class="lvt-zahl">{lvs().length}</span></>}
               summe={(s) => summeText(s, lvs().flatMap((l) => positionenDes(l.id, !!p.mitNachtraegen)))} />
             <For each={vorher()}>{LvOrdner}</For>
-            <OrdnerZeile ebene={1} offen={!lvZu()} klasse="lvt-lv offen" klick={() => { if (lvZeiger() || wahl.markiert()) { wahl.setMarkiert(null); setLvZeiger(null); p.m.onWahl(lv()!.id); } else setLvZu(!lvZu()); }}
+            <OrdnerZeile ebene={1} offen={!lvZu()} klasse="lvt-lv offen" dbl={() => springeZu('lv', lv()!.id, { modul: 'ava', ansicht: 'lvs' })} klick={() => { if (lvZeiger() || wahl.markiert()) { wahl.setMarkiert(null); setLvZeiger(null); p.m.onWahl(lv()!.id); } else setLvZu(!lvZu()); }}
               text={<><b>{lvTitel(lv()!)}</b><span class="lvt-still">{lvHinweis(lv()!)}</span>
                 <Show when={p.struktur && vergeben()}><button type="button" class="lvt-sperre" onClick={(e) => { e.stopPropagation(); freischalten(); }} title={gesperrt() ? 'Beauftragt – Positionen sind Vertragsinhalt. Klick schaltet das Bearbeiten frei.' : 'Bearbeiten freigeschaltet – Klick sperrt wieder'}>{gesperrt() ? '🔒' : '🔓'}</button></Show></>}
               summe={(s) => summeText(s, positionen())} />
