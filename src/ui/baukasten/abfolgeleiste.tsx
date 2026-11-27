@@ -5,11 +5,13 @@ import { For } from 'solid-js';
 
 export interface Schritt { id: string; titel: string; weg?: boolean }
 
-export function Abfolgeleiste(p: { schritte: Schritt[]; aktiv: string; hier?: string; onWahl?: (id: string) => void; bisher?: boolean }) {
+export function Abfolgeleiste(p: { schritte: Schritt[]; aktiv: string; hier?: string; onWahl?: (id: string) => void; bisher?: boolean;
+  /** ohne eigene Fläche und Linie – z. B. oben in einem Formular (Einrichtung) */
+  eingebettet?: boolean }) {
   const stelle = () => p.schritte.findIndex((s) => s.id === p.aktiv);
   const hier = () => p.hier ?? p.aktiv;
   return (
-    <ol class="abfolge" aria-label="Abfolge">
+    <ol class="abfolge" classList={{ eingebettet: !!p.eingebettet }} aria-label="Abfolge">
       <For each={p.schritte}>{(s, i) => (
         <li classList={{ aktiv: i() === stelle(), erledigt: i() < stelle(), hier: s.id === hier() && hier() !== p.aktiv, weg: !!s.weg }} aria-current={s.id === hier() ? 'step' : undefined}>
           {/* bisher = nur schon erreichte Schritte sind anklickbar (Assistent); sonst alle (App mit freier Abfolge) */}

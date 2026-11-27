@@ -3,6 +3,7 @@
 // bearbeitet mit bearbeiten.ts; jede Handlung ist ein Schritt für Strg+Z.
 // Bedienung wie gewohnt: Zelle anklicken und lostippen, F2, Enter/Tab/Esc; Einfg, Entf; Alt+Umschalt+Pfeile gliedern und
 // verschieben; Balken ziehen (verschieben), rechte Kante ziehen (Dauer), Punkt am Balkenende auf einen anderen ziehen (verknüpfen).
+import { zeilenZiehen } from './baukasten/zeilenzug';
 import { Zeichen } from './baukasten/zeichen';
 import { spaltenwahl, zusatzMessen } from './baukasten/spalten';
 import { zeilenwahl } from './baukasten/zeilenwahl';
@@ -552,27 +553,21 @@ export function Balkenplan(p: Mitte) {
   let klickSchlucken = false;
   const zeileDruecken = (e: PointerEvent, id: string) => {
     if (e.button !== 0 || !schreiben() || edit() || (e.target as Element).closest('input, .klappe, button')) return;
-    const y0 = e.clientY, liste = (e.currentTarget as HTMLElement).parentElement!;
+    const liste = (e.currentTarget as HTMLElement).parentElement!;
     const stelle = (m: PointerEvent) => Math.max(0, Math.min(sichtbar().length, Math.round((m.clientY - liste.getBoundingClientRect().top) / H)));
-    const bewegt = (m: PointerEvent) => {
-      let z = zeilenZug();
-      if (!z) {
-        if (Math.abs(m.clientY - y0) < 6) return;
-        if (!istGewaehlt(id)) setMarkiert(id);
-        z = { ids: gewaehlt(), ziel: 0, kopie: false };
-      }
-      setZeilenZug({ ...z, ziel: stelle(m), kopie: m.ctrlKey || m.metaKey });
-    };
-    const fertig = (m: PointerEvent) => {
-      removeEventListener('pointermove', bewegt); removeEventListener('pointerup', fertig);
-      const z = zeilenZug(); setZeilenZug(null);
-      if (!z) return;
-      klickSchlucken = true; setTimeout(() => (klickSchlucken = false));
-      const l = sichtbar(), v = V_(), i = stelle(m), ziel = i < l.length ? v.findIndex((x) => x.id === l[i]!.id) : v.length;
-      if (m.ctrlKey || m.metaKey) einfuegenBei(ablageAus(v, L_(), z.ids, werteVon), ziel, undefined, `${anzahlText(bloeckeVon(v, z.ids).reduce((n, [a, b]) => n + b - a, 0))} kopieren`);
-      else tun(verschiebenNach(v, z.ids, ziel), `${anzahlText(z.ids.length)} verschieben`);
-    };
-    addEventListener('pointermove', bewegt); addEventListener('pointerup', fertig);
+    // derselbe Baustein wie im LV: Schwelle, mehrere gewählte, Strg kopiert, Esc bricht ab
+    zeilenZiehen<number>({
+      start: e,
+      ids: () => { if (!istGewaehlt(id)) setMarkiert(id); return gewaehlt(); },
+      ziel: (m) => stelle(m),
+      onZug: (z) => setZeilenZug(z ? { ids: z.ids, ziel: z.ziel, kopie: z.kopie } : null),
+      onAblegen: (z) => {
+        klickSchlucken = true; setTimeout(() => (klickSchlucken = false));
+        const l = sichtbar(), v = V_(), i = z.ziel, ziel = i < l.length ? v.findIndex((x) => x.id === l[i]!.id) : v.length;
+        if (z.kopie) einfuegenBei(ablageAus(v, L_(), z.ids, werteVon), ziel, undefined, `${anzahlText(bloeckeVon(v, z.ids).reduce((n, [a, b]) => n + b - a, 0))} kopieren`);
+        else tun(verschiebenNach(v, z.ids, ziel), `${anzahlText(z.ids.length)} verschieben`);
+      },
+    });
   };
   const verschiebung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'schieben' ? tageAus(g.dx) * px() : 0; };
   const verlaengerung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'dauer' ? tageAus(g.dx) * px() : 0; };

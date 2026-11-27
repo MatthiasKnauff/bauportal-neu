@@ -11,12 +11,13 @@ export const LEER: Bedingung = { gruppen: [], zwischen: [] };
 const klein = (s: string) => s.toLocaleLowerCase('de');
 const gleich = (a: string, b: string) => klein(a) === klein(b);
 
-/** Passt ein Eintrag? werteVon(art) liefert die Werte des Eintrags in dieser Art. */
-export function erfuellt(b: Bedingung, werteVon: (art: string) => string[]): boolean {
+/** Passt ein Eintrag? werteVon(art) liefert die Werte des Eintrags in dieser Art; titel(art, w) wie sie angezeigt werden
+ *  (z. B. der Name zu einer Kennung) – „enthält …“ sucht im angezeigten Text, wie man ihn getippt hat. */
+export function erfuellt(b: Bedingung, werteVon: (art: string) => string[], titel: (art: string, w: string) => string = (_a, w) => w): boolean {
   let erg: boolean | null = null;
   b.gruppen.forEach((g, i) => {
-    const hat = werteVon(g.art).map(klein);
-    const r = g.werte.map((v) => (v.enthaelt ? hat.some((h) => h.includes(klein(v.w))) : hat.includes(klein(v.w))) !== v.nicht);
+    const roh = werteVon(g.art), hat = roh.map(klein), gezeigt = roh.map((w) => klein(titel(g.art, w)));
+    const r = g.werte.map((v) => (v.enthaelt ? gezeigt.some((h) => h.includes(klein(v.w))) : hat.includes(klein(v.w))) !== v.nicht);
     const x = g.op === 'und' ? r.every(Boolean) : r.some(Boolean);
     erg = erg === null ? x : (b.zwischen[i - 1] ?? 'und') === 'oder' ? erg || x : erg && x;
   });

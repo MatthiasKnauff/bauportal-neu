@@ -98,6 +98,7 @@ export function FeldEingabe(p: {
   zusammenhang?: Werte;  // Projekt und Version des Eintrags: Verweise bieten nur an, was dazugehört
   objekt?: string;       // Modell des Eintrags: Schlagworte schlagen vor, was an anderen Einträgen schon steht
   breit?: boolean;       // über die ganze Breite (z. B. der Name in der Karte)
+  klein?: boolean;       // kleine Beschriftung (z. B. Felder neben einer Zeile der Unterliste)
 }) {
   const id = createUniqueId();
   // Zahlen stehen mit Komma da, wie man sie hier schreibt
@@ -112,7 +113,7 @@ export function FeldEingabe(p: {
     onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />;
   const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : p.feld.art === 'datum' ? 'date' : 'text');
   return (
-    <div class="feld" style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, quer: p.feld.art === 'ja_nein',
+    <div class="feld" style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, klein: !!p.klein, quer: p.feld.art === 'ja_nein',
       breit: p.breit || (!p.feld.kartenBreite && ['langtext', 'mehrfach', 'schlagworte'].includes(p.feld.art)) || (!p.feld.kartenBreite && p.feld.art === 'auswahl' && !p.feld.eigeneWerte && p.feld.optionen!.length <= 4 && p.feld.optionen!.length > 2) }}>
       <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show>
         {/* Lange Texte: Wenn das Büro eine KI eingeschaltet hat, kann sie hier einen Vorschlag machen */}

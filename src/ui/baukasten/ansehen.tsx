@@ -36,12 +36,12 @@ export function Ansehen() {
       <div class="ansehen" role="dialog" aria-modal="true" aria-label={`Ansehen: ${jetzt()!.name}`}
         onPointerDown={(e) => { wischX = e.clientX; }} onPointerUp={(e) => { const d = e.clientX - wischX; if (e.pointerType !== 'mouse' && Math.abs(d) > 60) schritt(d < 0 ? 1 : -1); }}>
         <div class="ansehen-kopf">
-          <button class="knopf still" aria-label="Voriges" disabled={reihe()!.i <= 0} onClick={() => schritt(-1)}><Zeichen name="links" groesse={20} /></button>
+          <button class="knopf still auf-dunkel ohne-rand" aria-label="Voriges" disabled={reihe()!.i <= 0} onClick={() => schritt(-1)}><Zeichen name="links" groesse={20} /></button>
           <span class="ansehen-zahl">{reihe()!.i + 1} von {reihe()!.l.length}</span>
-          <button class="knopf still" aria-label="Nächstes" disabled={reihe()!.i >= reihe()!.l.length - 1} onClick={() => schritt(1)}><Zeichen name="rechts" groesse={20} /></button>
+          <button class="knopf still auf-dunkel ohne-rand" aria-label="Nächstes" disabled={reihe()!.i >= reihe()!.l.length - 1} onClick={() => schritt(1)}><Zeichen name="rechts" groesse={20} /></button>
           <span class="ansehen-name">{jetzt()!.name}</span>
-          <button class="knopf still" aria-label="Herunterladen" title="Original herunterladen" onClick={laden}><Zeichen name="export" groesse={18} /></button>
-          <button class="knopf still" aria-label="Schließen" title="Schließen (Esc)" onClick={zu}><Zeichen name="schliessen" groesse={20} /></button>
+          <button class="knopf still auf-dunkel ohne-rand" aria-label="Herunterladen" title="Original herunterladen" onClick={laden}><Zeichen name="export" groesse={18} /></button>
+          <button class="knopf still auf-dunkel ohne-rand" aria-label="Schließen" title="Schließen (Esc)" onClick={zu}><Zeichen name="schliessen" groesse={20} /></button>
         </div>
         <div class="ansehen-inhalt">
           <Show when={jetzt()!.typ === 'bild'} fallback={<Show when={pdf()} fallback={<p class="still-text">PDF wird geladen …</p>}>{(b) => <PdfAnsicht inhalt={b()} titel={jetzt()!.name} />}</Show>}>

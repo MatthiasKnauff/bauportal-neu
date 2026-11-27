@@ -37,7 +37,7 @@ export function Projektwahl(p: { kartenZusatz: (z: Zeile) => JSX.Element }) {
   return (
     <>
       <div class="projektwahl">
-        <button type="button" ref={knopf} class="auswahlliste-knopf" aria-haspopup="dialog" aria-label={`Projekt: ${aktuell() ? titel(aktuell()!) : 'keine Auswahl'}`} onClick={() => setOffen(!offen())}>
+        <button type="button" ref={knopf} class="projektwahl-knopf" aria-haspopup="dialog" aria-label={`Projekt: ${aktuell() ? titel(aktuell()!) : 'keine Auswahl'}`} onClick={() => setOffen(!offen())}>
           <span class="pw-titel"><b>{aktuell() && !aktuell()!.geloescht ? titel(aktuell()!) : 'Projekt wählen …'}</b>
             <Show when={aktuell() && !aktuell()!.geloescht && adresse(aktuell()!)}><small>{adresse(aktuell()!)}</small></Show></span><span aria-hidden="true">▾</span>
         </button>

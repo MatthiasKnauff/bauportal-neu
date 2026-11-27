@@ -8,7 +8,17 @@ export interface Option { wert: string; titel: string; anzahl?: number }   // an
 
 /** Stellschraube „neu“: Steht das Gesuchte nicht in der Liste, bietet die Liste „＋ „…“ neu anlegen“ an (z. B. eine neue Firma) – mit dem getippten Text. */
 /** Stellschraube „gewaehlt“: mehrere Werte sind gewählt (z. B. Filter) – sie sind in der Liste markiert, der Knopf zeigt den Platzhalter. */
-export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string; platzhalter?: string; neu?: { titel: string; tun: (text: string) => void }; gewaehlt?: (w: string) => boolean }) {
+export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string | null; onWert: (w: string) => void; gesperrt?: boolean; titel: string; platzhalter?: string; neu?: { titel: string; tun: (text: string) => void }; gewaehlt?: (w: string) => boolean;
+  /** Aussehen des Knopfs: wie ein Feld (Vorgabe), als Überschrift (z. B. das LV oben im Kopf), als Kapsel mit Vorsatz (z. B. „Stand: Entwurf“) oder als Chip (Filter) */
+  aussehen?: 'feld' | 'titel' | 'kapsel' | 'chip'; vorsatz?: string;
+  /** als Chip: hervorgehoben, wenn schon etwas gewählt ist (z. B. ein Filter) */
+  aktiv?: boolean;
+  /** Zahl vorn im Knopf (z. B. wie viele Versionen es gibt) */
+  zahl?: number;
+  /** Befehle unter der Liste, abgesetzt (z. B. „＋ Neue Version …“, „Umbenennen …“) */
+  aktionen?: { titel: string; tun: () => void; gesperrt?: boolean; gefahr?: boolean; hilfe?: string }[];
+  /** Rechtsklick auf einen Eintrag (oder auf den Knopf: der gewählte) – z. B. ein Kontextmenü mit Befehlen zu diesem Eintrag */
+  kontext?: (e: MouseEvent, wert: string) => void }) {
   const [offen, setOffen] = createSignal(false);
   const [suche, setSuche] = createSignal('');
   const [zeiger, setZeiger] = createSignal(0);
@@ -50,10 +60,11 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
     fenster?.querySelector('.zeiger')?.scrollIntoView({ block: 'nearest' });
   };
   return (
-    <div class="auswahlliste" ref={wurzel}>
+    <div class={`auswahlliste ${p.aussehen && p.aussehen !== 'feld' ? `als-${p.aussehen}` : ''}`} classList={{ aktiv: !!p.aktiv }} ref={wurzel}>
       <button type="button" id={p.id} class="auswahlliste-knopf" aria-label={p.id ? undefined : `${p.titel}: ${aktuell() || 'keine Auswahl'}`} aria-haspopup="listbox" aria-expanded={offen()} disabled={p.gesperrt}
-        onClick={() => (offen() ? zu() : auf())} onKeyDown={(e) => { if (e.key === 'ArrowDown' && !offen()) { e.preventDefault(); auf(); } }}>
-        <span classList={{ platzhalter: !aktuell() }}>{aktuell() || p.platzhalter || ''}</span><i>▾</i>
+        onClick={() => (offen() ? zu() : auf())} onKeyDown={(e) => { if (e.key === 'ArrowDown' && !offen()) { e.preventDefault(); auf(); } }}
+        onContextMenu={(e) => { if (p.kontext && p.wert) { e.preventDefault(); p.kontext(e, p.wert); } }}>
+        <Show when={p.zahl !== undefined}><span class="auswahlliste-zahl">{p.zahl}</span></Show><Show when={p.vorsatz}><small class="auswahlliste-vorsatz">{p.vorsatz}</small></Show><span classList={{ platzhalter: !aktuell() }}>{aktuell() || p.platzhalter || ''}</span><i>▾</i>
       </button>
       <Show when={offen()}>
         <Portal>
@@ -65,11 +76,16 @@ export function Auswahlliste(p: { id?: string; optionen: Option[]; wert: string 
           <div role="listbox" tabindex="-1" aria-label={p.titel}>
             <For each={treffer()}>{(o, i) => (
               <div role="option" aria-selected={o.wert === p.wert || !!p.gewaehlt?.(o.wert)} classList={{ zeiger: zeiger() === i(), gewaehlt: o.wert === p.wert || !!p.gewaehlt?.(o.wert) }}
-                onMouseEnter={() => setZeiger(i())} onClick={() => nimm(o)}>{o.titel}<Show when={o.anzahl !== undefined}><span class="auswahlliste-anzahl">{o.anzahl}</span></Show></div>
+                onMouseEnter={() => setZeiger(i())} onClick={() => nimm(o)} onContextMenu={(e) => { if (p.kontext) { e.preventDefault(); zu(); p.kontext(e, o.wert); } }}>{o.titel}<Show when={o.anzahl !== undefined}><span class="auswahlliste-anzahl">{o.anzahl}</span></Show></div>
             )}</For>
             <Show when={neuText()}><div role="option" aria-selected="false" class="auswahlliste-neu" onClick={neuNehmen}>＋ „{neuText()}“ {p.neu!.titel}</div></Show>
             <Show when={!treffer().length && !neuText()}><div class="auswahlliste-leer">Kein Treffer</div></Show>
           </div>
+          <Show when={p.aktionen?.length}>
+            <div class="auswahlliste-aktionen" role="group" aria-label="Befehle">
+              <For each={p.aktionen}>{(a) => <button type="button" classList={{ 'gefahr-text': !!a.gefahr }} disabled={a.gesperrt} title={a.hilfe} onClick={() => { zu(); a.tun(); }}>{a.titel}</button>}</For>
+            </div>
+          </Show>
         </div>
         </Portal>
       </Show>

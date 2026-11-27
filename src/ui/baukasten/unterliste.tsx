@@ -67,7 +67,7 @@ export function Unterliste(p: {
             </div>
             <Show when={neben(z).length}>
               <div class="unterliste-neben">
-                <For each={neben(z)}>{(f) => <FeldEingabe feld={f} wert={z.werte[f.name] ?? null} gesperrt={!schreiben()} zusammenhang={z.werte} onWert={(w) => feldAendern(m(), z, f, w)} />}</For>
+                <For each={neben(z)}>{(f) => <FeldEingabe klein feld={f} wert={z.werte[f.name] ?? null} gesperrt={!schreiben()} zusammenhang={z.werte} onWert={(w) => feldAendern(m(), z, f, w)} />}</For>
               </div>
             </Show>
           </li>

@@ -71,8 +71,8 @@ export function Seitenliste(p: { abschnitte: SeitenAbschnitt[]; aktiv: string | 
             <For each={knoepfe()}>{(a) => {
               const n = () => werte(a).filter(gewaehlt).length;
               return (
-                <div class="filter-feld" classList={{ aktiv: n() > 0 }}>
-                  <Auswahlliste titel={a.titel} wert={null} platzhalter={n() ? `${a.titel} · ${n()}` : a.titel} gewaehlt={(id) => gewaehlt({ id, titel: '' })}
+                <div class="filter-feld">
+                  <Auswahlliste titel={a.titel} aussehen="chip" aktiv={n() > 0} wert={null} platzhalter={n() ? `${a.titel} · ${n()}` : a.titel} gewaehlt={(id) => gewaehlt({ id, titel: '' })}
                     optionen={werte(a).map((e) => ({ wert: e.id, titel: e.titel, anzahl: e.anzahl }))} onWert={p.onWahl} />
                 </div>
               );

@@ -9,8 +9,8 @@ export function Hinweise() {
       <For each={meldungen}>{(h) => (
         <div class="hinweis" classList={{ fehler: h.art === 'fehler' }}>
           <span>{h.text}</span>
-          {h.aktion && <button class="knopf klein" onClick={() => { h.aktion!.tun(); meldungSchliessen(h.nr); }}>{h.aktion.titel}</button>}
-          <button class="knopf klein still" aria-label="Hinweis schließen" onClick={() => meldungSchliessen(h.nr)}>×</button>
+          {h.aktion && <button class="knopf klein auf-dunkel" onClick={() => { h.aktion!.tun(); meldungSchliessen(h.nr); }}>{h.aktion.titel}</button>}
+          <button class="knopf klein still auf-dunkel" aria-label="Hinweis schließen" onClick={() => meldungSchliessen(h.nr)}>×</button>
         </div>
       )}</For>
     </div>

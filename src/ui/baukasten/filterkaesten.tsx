@@ -52,6 +52,8 @@ type Vorschlag = { art: FilterArt; w: string; n: number } | { text: true };
 export function Filtersuche(p: {
   text: string; onText: (t: string) => void; arten: FilterArt[]; ids: () => string[];
   onNehmen: (art: string, w: string, nicht: boolean) => void; onWeiter: () => void; platzhalter: string; ref?: (el: HTMLInputElement) => void; name?: string;
+  /** Enter ohne gewählten Vorschlag: das Getippte als „enthält …“ für die Art des ersten Vorschlags übernehmen (auch unvollständig, z. B. „tier“) */
+  onEnthaelt?: (art: string, text: string) => void;
 }) {
   const [offen, setOffen] = createSignal(false);
   const [markiert, setMarkiert] = createSignal(-1);
@@ -91,6 +93,7 @@ export function Filtersuche(p: {
           else if (e.key === 'ArrowDown' && offen() && l.length && markiert() < l.length - 1) { e.preventDefault(); setMarkiert(markiert() + 1); }
           else if (e.key === 'ArrowUp' && offen() && markiert() >= 0) { e.preventDefault(); setMarkiert(markiert() - 1); }
           else if (e.key === 'Enter' && offen() && markiert() >= 0) { e.preventDefault(); nimm(l[markiert()]); }
+          else if (e.key === 'Enter' && p.onEnthaelt && p.text.trim() && !nicht() && liste().length) { e.preventDefault(); const art = liste()[0]!.art.key; setOffen(false); p.onEnthaelt(art, p.text.trim()); p.onText(''); }
           else if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); setOffen(false); p.onWeiter(); }
         }} />
       <Show when={offen() && flach().length > 0}>

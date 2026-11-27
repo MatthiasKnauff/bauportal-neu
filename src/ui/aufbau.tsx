@@ -3,12 +3,13 @@
 // bindet ein) und „Betrieb“ (Server-Stellen, Hilfsdienste, Tabellen). Ohne Auswahl stehen Module bzw. Bereiche als
 // Kacheln da; das Gewählte steht in der Mitte, links seine Herkunft, rechts sein Ziel – eine oder zwei Stufen tief.
 // Rechts in der Karte steht, was der gewählte Baustein ist.
+import { Kartenrahmen } from './baukasten/kartenrahmen';
 import { For, Show, createMemo, createResource, createSignal, type JSX } from 'solid-js';
 import type { ObjektModell } from '../kern/modell';
 import { REGELN, codeNetz, datenNetz, pruefen, umfeld, type Datei, type Netz, type Quelltext } from '../kern/aufbaunetz';
 import { sicht as daten } from './unterbau/abgleich';
 import { ich, ruf, zustand } from './unterbau/api';
-import { Rahmen } from './baukasten/rahmen';
+import { Rahmen, type RahmenSteuer } from './baukasten/rahmen';
 
 interface Aufbau {
   quelltext: Quelltext | null;
@@ -107,8 +108,9 @@ export function AufbauAnsicht() {
       <ul class="aufbau-liste"><For each={eintraege}>{(e) => <li>{waehlen ? <button class="verweis" onClick={() => setWahl(e)}>{e}</button> : <code>{e}</code>}</li>}</For></ul></fieldset></Show>
   );
   const befundListe = (id: string) => liste('Prüfung', befunde().filter((b) => b.baustein === id).map((b) => `${b.stufe === 'fehler' ? 'Fehler' : 'Hinweis'}: ${b.text}`), false);
+  let rahmen: RahmenSteuer | undefined;   // für die eine Heftzwecke rechts
   const objektKarte = (o: ObjektModell, modul: string) => (
-    <aside class="karte" aria-label={o.titel}><div class="karte-kopf"><h2>{o.titel}</h2></div><div class="karte-inhalt">
+    <Kartenrahmen label={o.titel} titel={o.titel} heftzwecke={rahmen?.heftzweckeRechts()}>
       <p class="still-text">Objekt <code>{o.name}</code> im Modul {modul}{o.projektFeld ? ' · gehört zu einem Projekt' : ''}{o.versionsBereich ? ` · in Versionen (${o.versionsBereich})` : ''}{o.einzeln ? ' · gibt es genau einmal' : ''}</p>
       <p class="still-text klein-text">Sehen: {o.rechte.lesen.join(', ') || 'nur Admin'} · Ändern: {o.rechte.schreiben.join(', ') || 'nur Admin'} · Löschen: {o.rechte.loeschen.join(', ') || 'nur Admin'} (ab Werk)</p>
       {befundListe(o.name)}
@@ -118,16 +120,16 @@ export function AufbauAnsicht() {
       {liste('Ansichten', module().flatMap((m) => m.ansichten.filter((x) => x.objekt === o.name).map((x) => `${m.name} → ${x.titel}`)), false)}
       {liste('Ausdrucke', module().flatMap((m) => (m.ausdrucke ?? []).filter((x) => x.objekt === o.name).map((x) => x.titel)), false)}
       {liste('Kataloge', module().flatMap((m) => (m.kataloge ?? []).filter((x) => x.objekt === o.name).map((x) => x.titel)), false)}
-    </div></aside>
+    </Kartenrahmen>
   );
   const dateiKarte = (d: Datei) => (
-    <aside class="karte" aria-label={d.pfad}><div class="karte-kopf"><h2>{d.pfad.split('/').pop()}</h2></div><div class="karte-inhalt">
+    <Kartenrahmen label={d.pfad} titel={d.pfad.split('/').pop()} heftzwecke={rahmen?.heftzweckeRechts()}>
       <p class="still-text"><code>{d.pfad}</code> · {d.zeilen} Zeilen</p>
       <p class="aufbau-text">{d.beschreibung || 'Diese Datei hat noch keine Beschreibung am Anfang.'}</p>
       {befundListe(d.pfad)}
       {liste('Stellt bereit', d.stelltBereit, false)}
       <Quelltext pfad={d.pfad} />
-    </div></aside>
+    </Kartenrahmen>
   );
   const details = () => {
     const w = wahl();
@@ -153,7 +155,7 @@ export function AufbauAnsicht() {
   };
 
   return (
-    <Rahmen schluessel="verwaltung.aufbau" detailsTitel="Baustein" details={details()}
+    <Rahmen schluessel="verwaltung.aufbau" steuer={(x) => (rahmen = x)} detailsTitel="Baustein" details={details()}
       menueMitte={<>
         <Show when={wahl()}><button class="knopf still" onClick={() => setWahl('')}>‹ Übersicht</button></Show>
         <div class="auswahl aufbau-wahl" role="radiogroup" aria-label="Sicht">

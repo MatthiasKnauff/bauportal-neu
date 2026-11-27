@@ -1,6 +1,7 @@
 // Baustein „Bilder“: Fotos, die an einem Objekt hängen, in dessen Karte – ansehen, beschriften, hinzufügen, entfernen.
 // Hochladen braucht die Verbindung zum Server: Der Browser verkleinert jedes Foto zu einem Vorschaubild und schickt
 // es zusammen mit dem Original; das Original wandert in den Projektordner, im Bauportal bleibt das Vorschaubild.
+import { Kartenrahmen } from './kartenrahmen';
 import { ansehen, type Ansehbar } from './ansehen';
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import { listenfolge } from '../../kern/druck';
@@ -82,22 +83,19 @@ export function Bilder(p: {
 
 const alleAnsehbar = (l: Zeile[], beschriftung: string): Ansehbar[] => l.map((x) => ({ url: `/api/foto/original/${x.id}`, name: String(x.werte[beschriftung] || x.werte.name || 'Foto'), typ: 'bild' }));
 /** Ein Foto groß – wie rechts im bisherigen Bautagebuch: Bild (Klick öffnet das Original), ‹ 1 von n ›, Beschriftung, darunter alle als Streifen. */
-export function FotoGross(p: { objekt: string; id: string; alle: Zeile[]; beschriftung: string; onWahl: (id: string) => void; onZu: () => void }) {
+export function FotoGross(p: { ohneRahmen?: boolean; objekt: string; id: string; alle: Zeile[]; beschriftung: string; onWahl: (id: string) => void; onZu: () => void }) {
   const m = () => modell(p.objekt);
   const z = () => p.alle.find((x) => x.id === p.id);
   const i = () => p.alle.findIndex((x) => x.id === p.id);
   const schritt = (d: -1 | 1) => { const n = p.alle[i() + d]; if (n) p.onWahl(n.id); };
   return (
     <Show when={z()}>{(f) => (
-      <aside class="karte foto-ansicht" aria-label={`Foto ${String(f().werte.name)}`} tabindex="-1"
-        onKeyDown={(e) => { if (e.key === 'ArrowLeft') schritt(-1); if (e.key === 'ArrowRight') schritt(1); if (e.key === 'Escape') p.onZu(); }}>
-        <div class="karte-kopf">
+      <Kartenrahmen klasse="foto-ansicht" label={`Foto ${String(f().werte.name)}`} ohneRahmen={p.ohneRahmen} titel={<span class="still-text klein-text foto-name">{String(f().werte.name)}</span>}
+        onKeyDown={(e) => { if (e.key === 'ArrowLeft') schritt(-1); if (e.key === 'ArrowRight') schritt(1); if (e.key === 'Escape') p.onZu(); }}
+        knoepfe={<span class="foto-blaettern">
           <button class="knopf klein still" aria-label="Voriges Foto" disabled={i() <= 0} onClick={() => schritt(-1)}>‹</button>
           <span>{i() + 1} von {p.alle.length}</span>
-          <button class="knopf klein still" aria-label="Nächstes Foto" disabled={i() >= p.alle.length - 1} onClick={() => schritt(1)}>›</button>
-          <span class="still-text klein-text foto-name">{String(f().werte.name)}</span>
-          <button class="knopf still" aria-label="Foto schließen" title="Schließen (Esc)" onClick={p.onZu}>×</button>
-        </div>
+          <button class="knopf klein still" aria-label="Nächstes Foto" disabled={i() >= p.alle.length - 1} onClick={() => schritt(1)}>›</button></span>}>
         <a class="foto-gross" href={`/api/foto/original/${f().id}`} title="Groß ansehen – mit ‹ › durch alle Fotos" onClick={(e) => { e.preventDefault(); ansehen(alleAnsehbar(p.alle, p.beschriftung), i()); }}><img src={`/api/foto/original/${f().id}`} alt={String(f().werte[p.beschriftung] || f().werte.name)} /></a>
         <label class="foto-beschriftung">Beschreibung
           <input value={String(f().werte[p.beschriftung] ?? '')} readOnly={!darf(p.objekt, 'schreiben')} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
@@ -106,7 +104,7 @@ export function FotoGross(p: { objekt: string; id: string; alle: Zeile[]; beschr
         <div class="foto-streifen">
           <For each={p.alle}>{(x) => <button type="button" classList={{ an: x.id === p.id }} aria-label={String(x.werte[p.beschriftung] || x.werte.name)} onClick={() => p.onWahl(x.id)}><img src={`/api/foto/vorschau/${x.id}`} alt="" loading="lazy" /></button>}</For>
         </div>
-      </aside>
+      </Kartenrahmen>
     )}</Show>
   );
 }

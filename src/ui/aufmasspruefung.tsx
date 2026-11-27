@@ -3,16 +3,17 @@
 // geprüften Rechnung) · lt. Firma · aufgemessen (Stand) · Zuwachs · ✓/✗/○ · GP. „aufgemessen“ und „Zuwachs“ sind direkt eintippbar,
 // solange die Position höchstens eine Zeile in dieser Rechnung hat; mehr Zeilen (Datum, Ort, Rechenweg) rechts in der Karte.
 // Prüfung abschließen hält das Aufmaß fest (die laufenden Zeilen bekommen die Rechnung) und trägt den geprüften Leistungsstand ein.
+import { Kartenrahmen } from './baukasten/kartenrahmen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import { beitrag, geprueft as istGeprueft, ketteVon, mehrmenge, nachAufmass, pruefung, rechnungTitel, vorige, zeileAus } from '../module/ava/aufmass';
 import { abschliessen, aufmassVon, setRechnungWahl, zuruecknehmbar, zuruecknehmen } from './rechnungpruefen';
-import { gp, istZuschlag, zaehlt, zahl } from '../module/ava/rechnung';
+import { gp, istZuschlag, lvMenge, zaehlt, zahl } from '../module/ava/rechnung';
 import { gpMit } from './avadaten';
 import { AufmassEinlesen } from './aufmasseinlesen';
 import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
-import { LV_SPALTEN, LvBaum, eur, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
+import { LV_SPALTEN, LvBaum, eur, lvSpalteLesen, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { nachtragAnlegen } from './auftraege';
 import { darf, neueKennung } from './unterbau/api';
@@ -69,6 +70,20 @@ export function Aufmasspruefung(m: Mitte): JSX.Element {
       klasse: (q) => { const f = a.firma().get(q.id)?.werte.menge; const p = pruefung(f == null || f === '' ? null : zahl(f), a.stand().get(q.id)); return `am-${p}`; } },
     { id: 'gp_gepr', titel: 'GP geprüft', breite: 96, rechts: true, wert: (q) => { const s = a.stand().get(q.id), e = a.ep(q); return (s == null && !istZuschlag(q.werte.art)) || e == null || !zaehlt(q) ? '' : eur(gpMit(q, geprueft, a.ep)); },
       summe: (pos) => pos.filter(zaehlt).reduce((x, q) => x + gpMit(q, geprueft, a.ep), 0) },
+    // wie bisher in der Spaltenwahl einschaltbar: GP Auftrag, EP/GP Schätzung, Mehr-/Mindermenge, %, Prognose, KG, Art
+    { id: 'gp_auftrag', titel: 'GP Auftrag', aus: true, breite: 96, rechts: true, wert: (q) => (a.ep(q) == null || !zaehlt(q) ? '' : eur(gpMit(q, lvMenge, a.ep))),
+      summe: (pos) => pos.filter(zaehlt).reduce((x, q) => x + gpMit(q, lvMenge, a.ep), 0) },
+    { id: 'ep_schaetz', titel: 'EP Schätzung', aus: true, breite: 90, rechts: true, wert: (q) => (q.werte.ep == null || q.werte.ep === '' ? '' : eur(zahl(q.werte.ep))) },
+    { id: 'gp_schaetz', titel: 'GP Schätzung', aus: true, breite: 96, rechts: true, wert: (q) => (q.werte.ep == null || q.werte.ep === '' || !zaehlt(q) ? '' : eur(gpMit(q))),
+      summe: (pos) => pos.filter(zaehlt).reduce((x, q) => x + gpMit(q), 0) },
+    { id: 'mehr', titel: 'Mehr/Minder', aus: true, breite: 86, rechts: true, hilfe: 'aufgemessen minus LV-Menge', klasse: (q) => (geprueft(q) - zahl(q.werte.menge) > 1e-9 ? 'warn' : undefined),
+      wert: (q) => { if (istZuschlag(q.werte.art) || a.stand().get(q.id) == null) return ''; const d = geprueft(q) - zahl(q.werte.menge); return Math.abs(d) < 1e-9 ? '0' : `${d > 0 ? '+' : ''}${zahlText(d)}`; } },
+    { id: 'prozent', titel: '%', aus: true, breite: 54, rechts: true, hilfe: 'aufgemessen in % der LV-Menge',
+      wert: (q) => (istZuschlag(q.werte.art) || !zahl(q.werte.menge) || a.stand().get(q.id) == null ? '' : `${Math.round(geprueft(q) / zahl(q.werte.menge) * 100)} %`) },
+    { id: 'prognose', titel: 'Prognose', aus: true, breite: 96, rechts: true, hilfe: 'größere von LV-Menge und Aufmaß × EP Auftrag',
+      wert: (q) => (a.ep(q) == null || !zaehlt(q) ? '' : eur(gpMit(q, (y) => Math.max(zahl(y.werte.menge), geprueft(y)), a.ep))),
+      summe: (pos) => pos.filter(zaehlt).reduce((x, q) => x + gpMit(q, (y) => Math.max(zahl(y.werte.menge), geprueft(y)), a.ep), 0) },
+    lvSpalteLesen('kg', true), lvSpalteLesen('art', true),
   ];
   const laut = (y: Zeile) => { const f = a.firma().get(y.id)?.werte.menge; return f == null || f === '' ? 0 : zahl(f); };
   const summeFirma = (pos: Zeile[]) => pos.filter(zaehlt).reduce((x, q) => x + gpMit(q, laut, a.ep), 0);
@@ -142,8 +157,7 @@ export function AufmassKarte(p: { position: Zeile; heftzwecke: JSX.Element }): J
     setNeu('');
   };
   return (
-    <div class="karte am-karte">
-      <div class="karte-kopf"><h2>{String(q().werte.oz ?? '')} {String(q().werte.kurztext ?? '')}</h2>{p.heftzwecke}</div>
+    <Kartenrahmen klasse="am-karte" label="Aufmaß der Position" titel={<>{String(q().werte.oz ?? '')} {String(q().werte.kurztext ?? '')}</>} heftzwecke={p.heftzwecke}>
       <p class="still-text">LV-Menge {zahlText(menge())} {String(q().werte.einheit ?? '')} · aufgemessen <b>{zahlText(stand())} {String(q().werte.einheit ?? '')}</b>{pct() != null ? ` (${pct()} %)` : ''}
         {a.ep(q()) != null ? ` · ${eur(gp(stand(), a.ep(q())))} € zum EP ${eur(a.ep(q())!)}` : ''}</p>
       <Show when={mehr()}><div class="am-balken" classList={{ rot: mehr() === 'rot' }} title={mehr() === 'rot' ? 'deutlich mehr als im LV: neuer Preis kann verlangt werden (VOB/B § 2 Abs. 3)' : 'mehr als im LV'}><i style={{ width: `${Math.min(100, pct()! - 100) }%` }} /></div></Show>
@@ -175,7 +189,7 @@ export function AufmassKarte(p: { position: Zeile; heftzwecke: JSX.Element }): J
           <button type="button" class="knopf" onClick={dazu}>Hinzufügen</button></div>
         <p class="still-text klein-text">Ohne Zeichen getippt ist es der Stand bis einschließlich dieser Rechnung, mit „+“ davor ein Zuwachs. Text vor einem Doppelpunkt ist Beschriftung („Wand Nord: 2,5*3“).</p>
       </Show>
-    </div>
+    </Kartenrahmen>
   );
 }
 

@@ -1,8 +1,9 @@
 // Modul „Pläne und Dateien“: der Ordner des gewählten Projekts auf dem Dateiserver.
 // Setzt nur fertige Bausteine in den Rahmen: Baum (Ordner) | Tabelle (Inhalt) | Details (Datei).
 // Die Dateien bleiben auf dem Dateiserver und werden nicht ins Gerät geholt – diese Ansicht braucht Verbindung.
+import { Kartenrahmen } from './baukasten/kartenrahmen';
 import { dateiZeigen } from './baukasten/ansehen';
-import { For, Show, createEffect, createMemo, createSignal, on } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, on, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import type { Zeile } from '../kern/befehl';
 import type { ObjektModell } from '../kern/modell';
@@ -130,23 +131,16 @@ export function DateienAnsicht() {
         detailsTitel={datei()?.name}
         details={datei() ? <DateiKarte name={datei()!.name} groesse={datei()!.groesse} geaendert={datei()!.geaendert} ordner={pfad()} adresse={(laden) => adresse(datei()!.name, laden)}
           vorschau={vorschauAdresse(projekt()!.id, pfad() ? `${pfad()}/${datei()!.name}` : datei()!.name, datei()!.geaendert, 640)}
-          onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} /> : undefined} />
+          onZu={() => setGewaehlt(null)} heftzwecke={rahmen.heftzweckeRechts()} /> : undefined} />
     </Show>
   );
 }
 
 /** Karte einer Datei rechts: Vorschau bei Bildern, Angaben, Öffnen und Herunterladen – in beiden Ansichten gleich. */
-function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordner: string; adresse: (laden?: boolean) => string; vorschau: string; onZu: () => void; onZuklappen: () => void }) {
+function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordner: string; adresse: (laden?: boolean) => string; vorschau: string; onZu: () => void; heftzwecke: JSX.Element }) {
   const [fehlt, setFehlt] = createSignal(false);
   return (
-    <aside class="karte" aria-label={`Datei ${p.name}`}>
-      <div class="karte-kopf">
-        <button class="knopf still nur-schmal" onClick={p.onZu}>‹ Liste</button>
-        <h2>{p.name}</h2>
-        <button class="knopf still nur-breit" aria-label="Details zuklappen" title="Zuklappen" onClick={p.onZuklappen}>⇥</button>
-        <button class="knopf still nur-breit" aria-label="Details schließen" onClick={p.onZu}>×</button>
-      </div>
-      <div class="karte-inhalt">
+    <Kartenrahmen label={`Datei ${p.name}`} titel={p.name} onZu={p.onZu} heftzwecke={p.heftzwecke}>
         <Show when={MIT_VORSCHAU.includes(endung(p.name)) && !fehlt()}><a class="vorschau-verweis" href={p.adresse()} title="Ansehen" onClick={(e) => { e.preventDefault(); dateiZeigen([{ name: p.name, url: p.adresse(), laden: p.adresse(true) }], p.name); }}><img class="vorschau" src={p.vorschau} alt={`Vorschau ${p.name}`} onError={() => setFehlt(true)} /></a></Show>
         <dl class="angaben">
           <dt>Art</dt><dd>{endung(p.name).toUpperCase() || 'Datei'}</dd>
@@ -159,8 +153,7 @@ function DateiKarte(p: { name: string; groesse: number; geaendert: string; ordne
           <a class="knopf" href={p.adresse(true)}>Herunterladen</a>
         </div>
         <p class="still-text klein-text">Das Original liegt auf dem Dateiserver und bleibt dort.</p>
-      </div>
-    </aside>
+    </Kartenrahmen>
   );
 }
 
@@ -252,7 +245,7 @@ export function AlleDateien() {
         detailsTitel={datei()?.name}
         details={datei() ? <DateiKarte name={datei()!.name} groesse={datei()!.groesse} geaendert={datei()!.geaendert} ordner={datei()!.ordner} adresse={(l) => adresse(datei()!.pfad, l)}
           vorschau={vorschauAdresse(projekt()!.id, datei()!.pfad, datei()!.geaendert, 640)}
-          onZu={() => setGewaehlt(null)} onZuklappen={() => rahmen.detailsZuklappen()} /> : undefined} />
+          onZu={() => setGewaehlt(null)} heftzwecke={rahmen.heftzweckeRechts()} /> : undefined} />
     </Show>
   );
 }

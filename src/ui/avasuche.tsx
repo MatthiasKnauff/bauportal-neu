@@ -34,7 +34,7 @@ export function AvaSuche() {
     <div class="ava-suche">
       <input type="search" placeholder="Suchen: LV, Firma, OZ, Text …" aria-label="Suchen in der Ausschreibung" value={suchtext()}
         onInput={(e) => setSuchtext(e.currentTarget.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') setSuchtext(''); }} />
-      <div class="auswahl" role="radiogroup" aria-label="Suchen in"><For each={SUCHBEREICHE}>{(b) =>
+      <div class="auswahl klein" role="radiogroup" aria-label="Suchen in"><For each={SUCHBEREICHE}>{(b) =>
         <button type="button" role="radio" aria-checked={bereich() === b.wert} classList={{ aktiv: bereich() === b.wert }} title={b.hilfe} onClick={() => setBereich(b.wert)}>{b.titel}</button>}</For></div>
       <Show when={worte().length}>
         <div class="ava-treffer" role="list" aria-label="Treffer">

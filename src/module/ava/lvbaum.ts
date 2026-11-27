@@ -154,3 +154,32 @@ export function gaebPruefung(zeilen: LvZeile[], hinweis: (id: string) => boolean
   if (sprung.length) aus.push(`Übersprungene Gliederungsebene bei ${sprung.slice(0, 3).map((z) => z.oz).join(', ')}${sprung.length > 3 ? ' …' : ''} – fehlt ein Titel? „Nummerieren“ ordnet die OZ neu.`);
   return aus;
 }
+
+/** Die Zeile und alles darunter (in LV-Reihenfolge). */
+export function mitUnterzeilen(zeilen: LvZeile[], id: string): LvZeile[] {
+  const i = zeilen.findIndex((z) => z.id === id); if (i < 0) return [];
+  const e = zeilen[i]!.ebene; let j = i + 1;
+  while (j < zeilen.length && zeilen[j]!.ebene > e) j++;
+  return zeilen.slice(i, j);
+}
+
+/** Gliederungspunkt eine Ebene höher (−1, mit seinen Untertiteln: hinter seinen bisherigen Oberpunkt) oder tiefer (+1: unter den
+ *  Gliederungspunkt davor auf derselben Ebene). GAEB: höchstens 4 Titelebenen. null: geht nicht. Die OZ vergibt danach nummerieren(). */
+export function ebeneAendern(zeilen: LvZeile[], id: string, richtung: -1 | 1): LvZeile[] | null {
+  const t = zeilen.find((z) => z.id === id);
+  if (!t?.titel) return null;
+  const block = mitUnterzeilen(zeilen, id), ids = new Set(block.map((z) => z.id));
+  const tiefe = Math.max(...block.filter((z) => z.titel).map((z) => z.ebene)) - t.ebene;
+  if (richtung === 1) {
+    const vor = [...zeilen.slice(0, zeilen.indexOf(t))].reverse().find((z) => z.ebene <= t.ebene);
+    if (!vor || !vor.titel || vor.ebene !== t.ebene || t.ebene + 1 + tiefe > 3) return null;
+    return zeilen.map((z) => (!ids.has(z.id) ? z : { ...z, ebene: z.ebene + 1, eltern: z.id === id ? vor.id : z.eltern }));
+  }
+  if (!t.eltern) return null;
+  const oben = zeilen.find((z) => z.id === t.eltern)!;
+  const ohne = zeilen.filter((z) => !ids.has(z.id));
+  const ende = mitUnterzeilen(ohne, oben.id).at(-1)!;
+  const neu = block.map((z) => ({ ...z, ebene: z.ebene - 1, eltern: z.id === id ? oben.eltern : z.eltern }));
+  const k = ohne.indexOf(ende) + 1;
+  return [...ohne.slice(0, k), ...neu, ...ohne.slice(k)];
+}

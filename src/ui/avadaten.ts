@@ -1,8 +1,9 @@
 // Ausschreibung: die Daten der Ansichten an einer Stelle – Angebote, Preise, EP des Auftrags, die Zahlen eines LV und die
 // GAEB-Ausgabe. Ohne eigene Oberfläche, damit Kopf, Preisspiegel, LV, Besprechung, Aufträge und Rechnungen sie nutzen,
 // ohne einander einzubinden (vorher lag das in ava.tsx – Kreise ava ↔ avakopf/preisspiegel/lvbearbeiten/besprechung).
-import type { Zeile } from '../kern/befehl';
-import { auftragsstand, ausgeschrieben, type Auftragsstand, gp, gpVon, istZuschlag, lvEp, lvMenge, nachKennung, nachOz, summeGeschaetzt, wertung, zaehlt, zahl } from '../module/ava/rechnung';
+import type { Vorlage, Zeile } from '../kern/befehl';
+import { neueKennung } from './unterbau/api';
+import { auftragsstand, ausgeschrieben, naechsterNachtrag, type Auftragsstand, gp, gpVon, istZuschlag, lvEp, lvMenge, nachKennung, nachOz, summeGeschaetzt, wertung, zaehlt, zahl } from '../module/ava/rechnung';
 import { abgerechnetAus, standAus, zeilenBis } from '../module/ava/aufmass';
 import { epAus } from '../module/ava/freigabe';
 import { lvAlsX83 } from '../module/ava/gaeb';
@@ -54,4 +55,10 @@ export function gaebAusgeben(lv: Zeile): void {
 /** GP einer Position mit Menge und EP aus derselben Quelle – bei einer Zuschlagsposition auf die GP ihrer Positionen im LV. */
 export function gpMit(q: Zeile, menge: (y: Zeile) => number = lvMenge, ep: (y: Zeile) => number | null = lvEp): number {
   return istZuschlag(q.werte.art) ? gpVon(q, nachKennung(allePositionenVon(String(q.werte.lv ?? ''))), menge, ep) : gp(menge(q), ep(q) ?? 0);
+}
+
+/** Neuer Nachtrag des LV („N3“, angemeldet heute) als Befehl – für „Nachtrag anlegen“ (Aufträge, Aufmaß) und NT am Gliederungspunkt. */
+export function nachtragNeu(lv: Zeile, name: string): { id: string; nr: string; befehl: Vorlage } {
+  const nr = naechsterNachtrag(lebende('nachtrag').filter((n) => n.werte.lv === lv.id)), id = neueKennung();
+  return { id, nr, befehl: { objekt: 'nachtrag', art: 'anlegen', objektId: id, werte: { projekt: lv.werte.projekt ?? null, lv: lv.id, nummer: nr, name, stand: 'angemeldet', angemeldet: new Date().toLocaleDateString('sv') } } };
 }

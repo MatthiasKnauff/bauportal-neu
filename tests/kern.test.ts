@@ -1202,7 +1202,7 @@ test('GAEB DA XML: schreiben und wieder lesen (X83 ohne, X84 mit Preisen)', asyn
   assert.throws(() => g.gaebLesen('<foo/>'), /GAEB/);
   // Bieterangaben (V9): Antworten in den Bieter-Ergänzungen – „Angeboten“ gehört zur Frage davor
   const mit = g.gaebSchreiben({ projekt: 'A', name: 'M', nummer: '1' }, [{ oz: '01', art: 'titel', kurztext: 'T', langtext: '', menge: null, einheit: '', ep: null }, { oz: '01.0010', art: 'normal', kurztext: 'W', langtext: 'Farbe [[Bieter: Fabrikat]]\nTyp [[Bieter: Typ | Caparol X]]', menge: 1, einheit: 'm2', ep: null }], '84', () => 5);
-  let n = 0; const antwort = mit.replace(/<ComplBody><\/ComplBody>/g, () => `<ComplBody><span>${['Brillux', 'Caparol X'][n++]}</span></ComplBody>`);
+  let n = 0; const antwort = mit.replace(/<ComplBody><span>\.{20}<\/span><\/ComplBody>/g, () => `<ComplBody><span>${['Brillux', 'Caparol X'][n++]}</span></ComplBody>`);
   assert.equal(g.gaebLesen(antwort).posten[1]!.angaben, 'Fabrikat: Brillux; Typ: Caparol X');
 });
 
@@ -1834,7 +1834,7 @@ test('Bietertextergänzung: im Langtext, im Ausdruck und in GAEB (TextComplement
   const lang = 'Wärmedämmverbundsystem\nAngeboten: [[Bieter: Fabrikat | Sto Therm Classic]]\nFarbton: [[Bieter: Farbton]]';
   assert.deepEqual(t.ergaenzungen(lang).map((e) => [e.art, e.frage, e.wert]), [['bieter', 'Fabrikat', 'Sto Therm Classic'], ['bieter', 'Farbton', '']]);
   assert.equal(t.ergaenzungBei(lang, lang.indexOf('Farbton]') + 2)?.frage, 'Farbton');
-  assert.match(t.zumDrucken(lang), /Fabrikat: …+ \(Vorschlag: Sto Therm Classic oder gleichwertig\)/);
+  assert.match(t.zumDrucken(lang), /Fabrikat: \.{20} \(Vorschlag: Sto Therm Classic oder gleichwertig\)/);
   const x = t.gaebText(lang);
   assert.ok(x.includes('<TextComplement Kind="Owner"><ComplCaption><span>Fabrikat: </span></ComplCaption><ComplBody><span>Sto Therm Classic oder gleichwertig</span></ComplBody></TextComplement><TextComplement Kind="Bidder"><ComplCaption><span>Angeboten: </span>'), 'Vorschlag als Feld des Büros, dahinter das Feld der Bieter:in');
   const datei = g.gaebSchreiben({ projekt: 'P', name: 'WDVS', nummer: '1' }, [{ oz: '01', art: 'titel', kurztext: 'Fassade', langtext: '', menge: null, einheit: '', ep: null },
@@ -2155,4 +2155,30 @@ test('LV-Überblick: Stufe, Inhalt und Hinweise nur bei Fehlendem oder naher Fri
   const v = lvLage({ abgabe: '2027-02-01' }, P, A, { vergeben: true, abgerechnet: 0, heute: '2026-11-27' });
   assert.equal(v.stufe, 2); assert.deepEqual(v.warnungen, [], 'beauftragt und Frist weit: nichts Gelbes');
   assert.equal(lvLage({}, [], [], { vergeben: true, abgerechnet: 5, heute: '2026-11-27' }).stufe, 3);
+});
+
+test('LV-Gliederung: Gliederungspunkt eine Ebene höher oder tiefer, OZ danach neu', async () => {
+  const { ebeneAendern, nummerieren, lvZeilen } = await import('../src/module/ava/lvbaum');
+  const P = [['t1', '01', 'titel'], ['a', '01.0010', 'normal'], ['t2', '02', 'titel'], ['b', '02.0010', 'normal'], ['t3', '03', 'titel'], ['c', '03.0010', 'normal']]
+    .map(([id, oz, art]) => ({ id: id!, werte: { oz: oz!, art: art! } }));
+  const Z = lvZeilen(P);
+  const tiefer = ebeneAendern(Z, 't2', 1)!;
+  assert.deepEqual(Object.fromEntries(nummerieren(tiefer)), { t2: '01.01', b: '01.01.0010', t3: '02', c: '02.0010' });
+  assert.equal(ebeneAendern(Z, 't1', 1), null, 'erster Punkt hat keinen davor');
+  assert.equal(ebeneAendern(Z, 'a', 1), null, 'nur Gliederungspunkte');
+  const neuZ = lvZeilen(P.map((x) => ({ ...x, werte: { ...x.werte, oz: nummerieren(tiefer).get(x.id) ?? x.werte.oz } })));
+  // Unterpunkt 01.01 wieder hoch: hinter den Rest von 01 (Position a bleibt in 01)
+  const hoch = ebeneAendern(neuZ, 't2', -1)!;
+  assert.deepEqual(hoch.map((z) => z.id), ['t1', 'a', 't2', 'b', 't3', 'c']);
+  assert.deepEqual(Object.fromEntries(nummerieren(hoch)), { t2: '02', b: '02.0010', t3: '03', c: '03.0010' });
+  assert.equal(ebeneAendern(Z, 't1', -1), null, 'oberste Ebene');
+});
+
+test('Filter „enthält“ sucht im angezeigten Text (Name zur Kennung), Werte bleiben Kennungen', async () => {
+  const f = await import('../src/kern/filterbedingung');
+  const b = f.enthaeltDazu(f.LEER, 'gewerk', 'dachd');
+  const titel = (_a: string, w: string) => ({ g1: 'Dachdecker', g2: 'Maler' } as Record<string, string>)[w] ?? w;
+  assert.ok(f.erfuellt(b, () => ['g1'], titel));
+  assert.ok(!f.erfuellt(b, () => ['g2'], titel));
+  assert.ok(!f.erfuellt(b, () => ['g1']), 'ohne Titel nur die Kennung');
 });

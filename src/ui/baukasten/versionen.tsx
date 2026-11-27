@@ -3,7 +3,7 @@
 // Zwischen Versionen wechselt man wie zwischen Dateien; genau eine ist die gültige (★).
 // Die Dialoge hängen nicht an der Auswahl: „Neue Version“ geht auch, wenn die Gliederung ausgeblendet ist (leere Seite).
 // Neue Version auf den Wegen, die das Modul erlaubt: aus der aktuellen, leer, aus einem anderen Projekt.
-import { For, Show, createSignal, onCleanup, type JSX } from 'solid-js';
+import { For, Show, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../../kern/befehl';
 import type { Versionsweg } from '../../kern/modul';
 import { Auswahlliste, type Option } from './auswahlliste';
@@ -54,46 +54,22 @@ export function versionenBauen(p: VersionenEinstellung): { Wahl: () => JSX.Eleme
     ]);
   };
   const aktiv = () => p.versionen.find((v) => v.id === p.aktiv);
-  const Wahl = () => {
-    const [offen, setOffen] = createSignal(false);
-    let wurzel!: HTMLDivElement;
-    const draussen = (e: MouseEvent) => { if (!wurzel.contains(e.target as Node)) zu(); };
-    const auf = () => { setOffen(true); document.addEventListener('mousedown', draussen); };
-    const zu = () => { setOffen(false); document.removeEventListener('mousedown', draussen); };
-    onCleanup(() => document.removeEventListener('mousedown', draussen));
-    const tun = (f: () => void) => () => { zu(); f(); };
-    return (
-      <div class="versionswahl" ref={wurzel} onKeyDown={(e) => { if (e.key === 'Escape' && offen()) { e.stopPropagation(); zu(); } }}>
-        <button type="button" class="versionswahl-knopf" aria-haspopup="menu" aria-expanded={offen()} aria-label={`Versionen ${p.titel}: ${aktiv() ? String(aktiv()!.werte.name) : 'keine'}`}
-          onClick={() => (offen() ? zu() : auf())} onContextMenu={(e) => { const v = aktiv(); if (v) { e.preventDefault(); menue(e, v); } }}>
-          <span class="versions-zahl" title={`${p.versionen.length} ${p.versionen.length === 1 ? 'Version' : 'Versionen'}`}>{p.versionen.length}</span>
-          <span class="versions-name">Version: <b>{aktiv() ? String(aktiv()!.werte.name) : '–'}</b></span>
-          <Show when={aktiv()?.werte.gueltig}><span class="stern" aria-label="gültig">★</span></Show>
-          <i>▾</i>
-        </button>
-        <Show when={offen()}>
-          <div class="auswahlliste-fenster versionswahl-fenster" role="menu" aria-label={`Versionen ${p.titel}`}>
-            <For each={p.versionen}>{(v) => (
-              <button type="button" role="menuitemradio" aria-checked={p.aktiv === v.id} classList={{ gewaehlt: p.aktiv === v.id }}
-                title={p.darfAendern ? 'Rechtsklick: gültig markieren, umbenennen, löschen' : undefined}
-                onClick={tun(() => p.onWahl(v.id))} onContextMenu={(e) => { e.preventDefault(); menue(e, v); }}>
-                <span>{String(v.werte.name)}</span><Show when={v.werte.gueltig}><span class="stern" aria-label="gültig">★</span></Show>
-              </button>
-            )}</For>
-            <Show when={p.darfAendern}>
-              <hr />
-              <button type="button" role="menuitem" onClick={tun(oeffneNeu)}>＋ Neue Version …</button>
-              <Show when={aktiv()}>{(v) => <>
-                <button type="button" role="menuitem" onClick={tun(() => { setName(String(v().werte.name)); setFehler(''); setUmbenennen(v()); })}>Umbenennen …</button>
-                <button type="button" role="menuitem" disabled={v().werte.gueltig === true} onClick={tun(() => p.onGueltig(v().id))}>Als gültig markieren</button>
-                <button type="button" role="menuitem" class="gefahr-text" disabled={!loeschbar(v())} title={loeschbar(v()) ? undefined : 'Erst eine andere Version gültig machen'} onClick={tun(() => setWeg_(v()))}>Löschen …</button>
-              </>}</Show>
-            </Show>
-          </div>
-        </Show>
-      </div>
-    );
-  };
+  // Die Wahl der Version ist eine Auswahlliste (Baustein): Zahl vorn, „Version:“ als Vorsatz, gültige mit ★, Befehle unter der Liste,
+  // Rechtsklick auf eine Version: ihr Menü
+  const Wahl = () => (
+    <div class="versionswahl">
+      <Auswahlliste titel={`Versionen ${p.titel}`} vorsatz="Version:" zahl={p.versionen.length} wert={p.aktiv ?? null}
+        optionen={p.versionen.map((v) => ({ wert: v.id, titel: `${String(v.werte.name)}${v.werte.gueltig ? ' ★' : ''}` }))}
+        onWert={(id) => p.onWahl(id)} kontext={(e, id) => { const v = p.versionen.find((x) => x.id === id); if (v) menue(e, v); }}
+        aktionen={p.darfAendern ? [
+          { titel: '＋ Neue Version …', tun: oeffneNeu },
+          ...(aktiv() ? [
+            { titel: 'Umbenennen …', tun: () => { setName(String(aktiv()!.werte.name)); setFehler(''); setUmbenennen(aktiv()!); } },
+            { titel: 'Als gültig markieren', gesperrt: aktiv()!.werte.gueltig === true, tun: () => p.onGueltig(aktiv()!.id) },
+            { titel: 'Löschen …', gefahr: true, gesperrt: !loeschbar(aktiv()!), hilfe: loeschbar(aktiv()!) ? undefined : 'Erst eine andere Version gültig machen', tun: () => setWeg_(aktiv()!) },
+          ] : [])] : undefined} />
+    </div>
+  );
   const Dialoge = () => (
     <>
       <Show when={staende() && p.verlauf} keyed>{(v) => (

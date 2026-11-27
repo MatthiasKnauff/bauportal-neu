@@ -1,6 +1,7 @@
 // Bautagebuch wie gewohnt: links Kalender (oder Liste) und die Abschnitte des Berichts, in der Mitte der Bericht als
 // Seite – Kopf mit Datum, Wetter und Kontrollen, darunter je Abschnitt eine Karte –, rechts das Detail des angeklickten
 // Eintrags. Die Abschnitte sind dieselben Bausteine wie in „Schritt für Schritt“ (Unterliste, Bilder, Feld).
+import { Kartenrahmen } from './baukasten/kartenrahmen';
 import { Seitenliste } from './baukasten/seitenliste';
 import { appOeffnen, springeZu } from './sprung';
 import { For, Show, createEffect, createMemo, createResource, createRoot, createSignal, on, onCleanup, type JSX } from 'solid-js';
@@ -553,31 +554,25 @@ function BerichtPdf(p: { bericht: Zeile }) {
   );
 }
 
+const REITER_RECHTS = [['details', 'Details'], ['foto', 'Foto'], ['pdf', 'PDF']] as const;
 export function BerichtDetails(z: Zeile, heftzwecke?: () => JSX.Element): JSX.Element {
   const fotos = () => lebende('foto').filter((f) => f.werte.bericht === z.id).sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0) || String(a.werte.name).localeCompare(String(b.werte.name)));
   const gezeigt = () => (foto() && fotos().some((f) => f.id === foto()) ? foto()! : fotos()[0]?.id);
   const details = () => (
     <Show when={eintrag() && sicht.bericht_eintrag?.[eintrag()!] && !sicht.bericht_eintrag[eintrag()!]!.geloescht ? sicht.bericht_eintrag[eintrag()!] : undefined}
-      fallback={<Show when={bearbeiten()} fallback={<div class="karte-inhalt"><p class="still-text">{HINWEIS_RECHTS}</p></div>}>
-        <Detailkarte modell={modell('tagesbericht')} zeile={z} onZu={() => setBearbeiten(false)} verborgen={['projekt']} gruppe={bearbeitenBei()} /></Show>}>
-      {(e) => <Detailkarte modell={modell('bericht_eintrag')} zeile={e()} onZu={() => setEintrag(null)} verborgen={['projekt', 'bericht', 'reihe']} />}
+      fallback={<Show when={bearbeiten()} fallback={<p class="still-text bt-rechts-leer">{HINWEIS_RECHTS}</p>}>
+        <Detailkarte modell={modell('tagesbericht')} zeile={z} ohneRahmen onZu={() => setBearbeiten(false)} verborgen={['projekt']} gruppe={bearbeitenBei()} /></Show>}>
+      {(e) => <Detailkarte modell={modell('bericht_eintrag')} zeile={e()} ohneRahmen onZu={() => setEintrag(null)} verborgen={['projekt', 'bericht', 'reihe']} />}
     </Show>
   );
   return (
-    <aside class="karte bt-rechts" aria-label="Details">
-      <div class="karte-reiter bt-rechts-reiter" role="tablist" aria-label="Rechts zeigen">
-        <For each={[['details', 'Details'], ['foto', 'Foto'], ['pdf', 'PDF']] as const}>{([k, t]) =>
-          <button type="button" role="tab" aria-selected={reiterRechts() === k} onClick={() => setReiterRechts(k)}>{t}</button>}</For>
-        <span class="bt-rechts-zwecke">{heftzwecke?.()}</span>
-      </div>
-      <Show when={reiterRechts() === 'details'}>{details()}</Show>
-      <Show when={reiterRechts() === 'foto'}>
-        <Show when={gezeigt()} fallback={<div class="karte-inhalt"><p class="still-text">Noch keine Fotos in diesem Bericht. Im Bericht ein Foto anklicken – hier steht es dann groß.</p></div>}>
-          {(id) => <FotoGross objekt="foto" id={id()} alle={fotos()} beschriftung="beschriftung" onWahl={setFoto} onZu={() => { setFoto(null); setReiterRechts('details'); }} />}
+    <Kartenrahmen klasse="bt-rechts" label="Details" heftzwecke={heftzwecke?.()} ohneInhaltRand
+      reiterWahl={REITER_RECHTS.findIndex(([k]) => k === reiterRechts())} onReiterWahl={(i) => setReiterRechts(REITER_RECHTS[i]![0])}
+      reiter={REITER_RECHTS.map(([k, t]) => ({ titel: t, inhalt: () => k === 'details' ? details()
+        : k === 'foto' ? <Show when={gezeigt()} fallback={<p class="still-text bt-rechts-leer">Noch keine Fotos in diesem Bericht. Im Bericht ein Foto anklicken – hier steht es dann groß.</p>}>
+          {(id) => <FotoGross ohneRahmen objekt="foto" id={id()} alle={fotos()} beschriftung="beschriftung" onWahl={setFoto} onZu={() => { setFoto(null); setReiterRechts('details'); }} />}
         </Show>
-      </Show>
-      <Show when={reiterRechts() === 'pdf'}><BerichtPdf bericht={z} /></Show>
-    </aside>
+        : <BerichtPdf bericht={z} /> }))} />
   );
 }
 /** Rechts ist am großen Bildschirm immer da (Reiter); am Handy nur, wenn ein Eintrag gewählt ist oder der Bericht bearbeitet wird. */

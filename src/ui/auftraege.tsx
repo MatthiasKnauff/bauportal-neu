@@ -6,24 +6,23 @@ import { createMemo, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Wert } from '../kern/modell';
 import { standAus, zeilenBis } from '../module/ava/aufmass';
-import { istZuschlag, lvMenge, naechsteOz, naechsterNachtrag, zaehlt, zahl } from '../module/ava/rechnung';
-import { angeboteVon, gpMit, lvZahlen, preiseVon } from './avadaten';
+import { istZuschlag, lvMenge, naechsteOz, zaehlt, zahl } from '../module/ava/rechnung';
+import { angeboteVon, gpMit, lvZahlen, nachtragNeu, preiseVon } from './avadaten';
 import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
-import { LV_SPALTEN, LvBaum, eur, lvZeiger, setLvZeiger, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
+import { LV_SPALTEN, LvBaum, lvSpalteLesen, eur, lvZeiger, setLvZeiger, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
 import { bauvertragOeffnen } from './besprechung';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 
-const heute = () => new Date().toLocaleDateString('sv');
 
 /** Nachtrag anlegen (Aufträge, Aufmaßprüfung): „N1“ mit Gliederungspunkt, auf Wunsch gleich mit einer Position darunter. */
 export function nachtragAnlegen(lv: Zeile, name: string, position?: Record<string, Wert>): { nr: string; id: string; titel: string; position?: string } {
-  const nr = naechsterNachtrag(lebende('nachtrag').filter((n) => n.werte.lv === lv.id)), id = neueKennung(), titel = neueKennung(), pos = position ? neueKennung() : undefined;
+  const { id, nr, befehl } = nachtragNeu(lv, name), titel = neueKennung(), pos = position ? neueKennung() : undefined;
   const p = lv.werte.projekt ?? null;
   ausfuehrenMehrere([
-    { objekt: 'nachtrag', art: 'anlegen', objektId: id, werte: { projekt: p, lv: lv.id, nummer: nr, name, stand: 'angemeldet', angemeldet: heute() } },
+    befehl,
     { objekt: 'lv_position', art: 'anlegen', objektId: titel, werte: { projekt: p, lv: lv.id, nachtrag: id, oz: nr, art: 'titel', kurztext: name } },
     ...(position ? [{ objekt: 'lv_position', art: 'anlegen' as const, objektId: pos!, werte: { projekt: p, lv: lv.id, nachtrag: id, oz: `${nr}.0010`, art: 'normal', ...position } }] : []),
   ], `Nachtrag ${nr}`);
@@ -50,7 +49,7 @@ export function Auftraege(m: Mitte): JSX.Element {
   const aendern = (q: Zeile, werte: Record<string, unknown>, titel: string) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: q.id, werte: werte as never }, titel);
   const nurNachtrag = (s: BaumSpalte): BaumSpalte => ({ ...s, setzen: (q, t) => (!q.werte.nachtrag ? 'Positionen des Auftrags sind Vertragsinhalt – Änderungen als Nachtrag.' : ntBeauftragt(q) ? GESPERRT : s.setzen!(q, t)) });
   const spalten = (): BaumSpalte[] => [
-    nurNachtrag(LV_SPALTEN.find((s) => s.id === 'menge')!), nurNachtrag(LV_SPALTEN.find((s) => s.id === 'einheit')!), { ...LV_SPALTEN.find((s) => s.id === 'art')!, setzen: undefined },
+    nurNachtrag(LV_SPALTEN.find((s) => s.id === 'menge')!), nurNachtrag(LV_SPALTEN.find((s) => s.id === 'einheit')!), lvSpalteLesen('art'),
     { ...nurNachtrag(LV_SPALTEN.find((s) => s.id === 'kg')!), aus: true },
     { id: 'ep_auftrag', titel: 'EP Auftrag', breite: 94, rechts: true, hilfe: 'Einheitspreis des Auftrags – bei Nachtragspositionen der Nachtragspreis (hier änderbar)',
       wert: (q) => { const e = epAuftrag(q); return e == null ? '' : eur(e); }, roh: (q) => zahlText(epAuftrag(q)),

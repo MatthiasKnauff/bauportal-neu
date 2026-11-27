@@ -1,5 +1,6 @@
 // Spalten einer Tabelle: welche sichtbar sind, in welcher Reihenfolge und wie breit.
 // Gilt je Benutzer und Gerät (im Browser gespeichert) – für jede Tabelle im Programm gleich, auch für die des Balkenplans.
+import { createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import type { Feld, ObjektModell } from '../../kern/modell';
 
@@ -22,7 +23,7 @@ export function spaltenwahl<S extends Spaltenart>(schluessel: string, moeglich: 
   const [stand, setStand] = createStore<Stand>(start);
   const merken = () => { try { localStorage.setItem(schluessel, JSON.stringify(stand)); } catch { /* Speicher voll oder gesperrt */ } };
   const spalte = (n: string) => moeglich.find((f) => f.name === n)!;
-  let gezogen = '';   // Spalte, die gerade mit der Maus verschoben wird
+  const [zug, setZug] = createSignal<{ was: string; ziel: string; seite: 'links' | 'rechts' } | null>(null);   // Spalte, die gerade mit der Maus verschoben wird
   let kante = false;   // gerade wird an einer Kante die Breite gezogen – dann ist es kein Verschieben
   const this_ = {
     alle: () => stand.reihenfolge.map(spalte),
@@ -68,14 +69,44 @@ export function spaltenwahl<S extends Spaltenart>(schluessel: string, moeglich: 
     },
     setzeBreite(n: string, px: number, fertig: boolean) { setStand('breiten', n, Math.max(40, Math.round(px))); if (fertig) merken(); },
     zuruecksetzen() { setStand(werk()); merken(); },
-    /** Kopfzelle: mit der Maus an eine andere Stelle ziehen – die Reihenfolge, in jeder Tabelle gleich (nicht nur im Spaltenfeld). */
+    /** Kopfzelle wie in Excel an eine andere Stelle ziehen – in jeder Tabelle gleich: ab ein paar Pixeln Weg wird gezogen (ein Klick
+     *  sortiert weiter), die gezogene Spalte wird blass, eine Linie zeigt, wo sie landet; Esc bricht ab. Feste Spalten bleiben, wo sie sind. */
     ziehbar: (n: string) => ({
-      draggable: true,
-      onDragStart: (e: DragEvent) => { if (kante) { e.preventDefault(); return; } gezogen = n; e.dataTransfer!.effectAllowed = 'move'; e.dataTransfer!.setData('text/plain', n); },
-      onDragOver: (e: DragEvent) => { if (gezogen) e.preventDefault(); },
-      onDrop: (e: DragEvent) => { e.preventDefault(); if (gezogen) this_.schieben(gezogen, n); gezogen = ''; },
-      onDragEnd: () => { gezogen = ''; },
+      'data-spalte': n,
+      get 'data-spalte-gezogen'() { return zug()?.was === n ? '' : undefined; },
+      get 'data-spalte-ziel'() { const z = zug(); return z && z.ziel === n && z.was !== n ? z.seite : undefined; },
+      onPointerDown: (e: PointerEvent) => {
+        if (e.button !== 0 || kante || (e.target as Element).closest('.griff, input')) return;
+        const kopf = (e.currentTarget as HTMLElement).parentElement!, x0 = e.clientX;
+        let laeuft = false;
+        const unter = (ev: PointerEvent) => {
+          const el = [...kopf.querySelectorAll<HTMLElement>('[data-spalte]')].find((x) => { const r = x.getBoundingClientRect(); return ev.clientX >= r.left && ev.clientX < r.right; });
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { ziel: el.dataset.spalte!, seite: (ev.clientX < r.left + r.width / 2 ? 'links' : 'rechts') as 'links' | 'rechts' };
+        };
+        const bewegt = (ev: PointerEvent) => {
+          if (!laeuft) { if (Math.abs(ev.clientX - x0) < 6) return; laeuft = true; }
+          const u = unter(ev); if (u) setZug({ was: n, ...u });
+        };
+        const ende = () => { removeEventListener('pointermove', bewegt); removeEventListener('pointerup', los); removeEventListener('keydown', taste, true); setZug(null); };
+        const los = () => {
+          const z = zug(); ende(); if (!laeuft || !z) return;
+          // der Klick nach dem Ziehen sortiert nicht
+          addEventListener('click', (k) => { k.stopPropagation(); k.preventDefault(); }, { capture: true, once: true });
+          this_.setzen(z.was, z.ziel, z.seite);
+        };
+        const taste = (ev: KeyboardEvent) => { if (ev.key === 'Escape' && laeuft) { ev.stopPropagation(); laeuft = false; ende(); } };
+        addEventListener('pointermove', bewegt); addEventListener('pointerup', los); addEventListener('keydown', taste, true);
+      },
     }),
+    /** Spalte „was“ links oder rechts neben „wohin“ setzen. */
+    setzen(was: string, wohin: string, seite: 'links' | 'rechts') {
+      if (was === wohin || !stand.reihenfolge.includes(wohin)) return;   // z. B. auf eine Spalte außerhalb der Wahl (je Bieter:in)
+      const r = stand.reihenfolge.filter((x) => x !== was), i = r.indexOf(wohin);
+      r.splice(seite === 'links' ? i : i + 1, 0, was);
+      setStand('reihenfolge', r); merken();
+    },
     /** Wie in Excel: Ziehen an der rechten Kante ändert nur diese Spalte. vorher: z. B. die gerade sichtbaren Breiten festhalten. */
     breiteZiehen(e: PointerEvent, n: string, vorher?: () => void) {
       e.preventDefault(); e.stopPropagation();

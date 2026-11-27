@@ -100,6 +100,9 @@ export function Tabelle(p: {
   onEnde?: () => void;                          // die letzten Zeilen kommen in Sicht – z. B. um die nächste Seite zu holen
   auswahl?: Auswahl;                            // mehrere wählen: Haken vorn, Strg/Umschalt+Klick, Strg+A (Baustein Auswahl)
   auswahlMenue?: (e: MouseEvent) => void;       // rechte Maustaste auf einer gewählten Zeile
+  zeilenKlasse?: (z: Zeile) => Record<string, boolean>;   // Zeile hervorheben (z. B. „Nachfassen fällig“, „gibt nicht ab“)
+  summe?: (f: Feld, zeilen: Zeile[]) => string | undefined;   // Summenzeile je Spalte (der gezeigten Zeilen); in der ersten Spalte ohne Summe steht summeTitel
+  summeTitel?: string;
 }) {
   const m = p.modell;
   const spalten = spaltenFuer(m);
@@ -204,6 +207,9 @@ export function Tabelle(p: {
   // eine Summe, wenn die Einheiten passen; sonst „Einheiten gemischt“ mit den Summen je Einheit im Hinweis.
   const summenSpalten = createMemo(() => spalten.sichtbare().filter((f) => f.art === 'zahl' && f.einheit));
   const einheitText = (f: Feld, e: string) => { const ef = m.felder.find((x) => x.name === f.einheit); return ef ? anzeige(ef, e) || e : e; };
+  // Summe je Spalte (Stellschraube summe): eine Zeile unter den gezeigten Zeilen, in der Reihenfolge der gewählten Spalten
+  const spaltenSumme = () => <tr class="summenzeile spaltensumme"><Show when={p.auswahl}><td /></Show>
+    <For each={spalten.sichtbare()}>{(f, i) => { const w = () => p.summe!(f, sortiert()); return <td classList={{ zahl: f.art === 'zahl' }}>{w() ?? (i() === 0 ? p.summeTitel ?? 'Summe' : '')}</td>; }}</For></tr>;
   const summenZeile = () => {
     const werte = sortiert().map((z) => unwrap(z).werte);
     // über die ganze Breite: eine schmale Mengenspalte schneidet die Zahl sonst ab
@@ -259,7 +265,7 @@ export function Tabelle(p: {
           <tbody>
             <tr aria-hidden="true" style={{ height: `${fenster().von * ZEILENHOEHE}px` }} />
             <For each={fenster().teil}>{(z) => { const lang = langTippen(p.auswahl, z.id); return (
-              <tr classList={{ gewaehlt: istGewaehlt(z.id), markiert: !!p.auswahl?.hat(z.id) }}
+              <tr classList={{ ...p.zeilenKlasse?.(z), gewaehlt: istGewaehlt(z.id), markiert: !!p.auswahl?.hat(z.id) }}
                 onClick={(e) => { if (lang.schlucken(e) || auswahlKlick(p.auswahl, e, z.id, reihe)) return; p.onWahl(z.id); }}
                 onPointerDown={lang.onPointerDown} onPointerMove={lang.onPointerMove} onPointerUp={lang.onPointerUp} onPointerCancel={lang.onPointerCancel}
                 onContextMenu={(e) => { lang.onContextMenu(e); if (e.defaultPrevented) return; if (p.auswahl?.hat(z.id) && p.auswahlMenue) { e.preventDefault(); p.auswahlMenue(e); return; } if (!p.zeilenMenue) return; p.onWahl(z.id); zeigeMenue(e, p.zeilenMenue(z)); }}>
@@ -278,7 +284,7 @@ export function Tabelle(p: {
               </tr>); }}</For>
             <tr aria-hidden="true" style={{ height: `${(sortiert().length - fenster().bis) * ZEILENHOEHE}px` }} />
           </tbody>
-          <Show when={p.fuss ?? (summenSpalten().length && sortiert().length > 1 ? summenZeile() : undefined)}>{(fuss) => <tfoot>{fuss()}</tfoot>}</Show>
+          <Show when={p.fuss ?? (p.summe ? spaltenSumme() : summenSpalten().length && sortiert().length > 1 ? summenZeile() : undefined)}>{(fuss) => <tfoot>{fuss()}</tfoot>}</Show>
         </table>
         <Show when={!sortiert().length}><div class="leer">{p.leer}</div></Show>
       </div>

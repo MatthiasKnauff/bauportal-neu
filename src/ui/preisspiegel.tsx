@@ -11,7 +11,7 @@ import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
-import { LV_SPALTEN, LvBaum, eur, setLvZeiger, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
+import { LvBaum, lvSpalteLesen, eur, setLvZeiger, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
 import { besprechungOeffnen } from './besprechung';
 import { gaebEinlesen } from './uebernahme';
 import { AngebotExcelFenster, angebotExcelEinlesen } from './lvexcel';
@@ -23,7 +23,7 @@ import { hinweis } from './unterbau/meldungen';
 const heute = () => new Date().toLocaleDateString('sv');
 /** Gewählte Bieter:in im Preisspiegel (Klick auf den Spaltenkopf, wie bisher) – rechts steht ihre Karte. */
 export const [psAngebot, setPsAngebot] = createSignal<string | null>(null);
-const nurLesen = (id: string) => { const s = LV_SPALTEN.find((x) => x.id === id)!; return { ...s, setzen: undefined }; };
+const nurLesen = (id: string, aus = false) => lvSpalteLesen(id, aus);
 
 export function Preisspiegel(m: Mitte): JSX.Element {
   const lv = () => lvVon(m);
@@ -53,7 +53,7 @@ export function Preisspiegel(m: Mitte): JSX.Element {
     summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gpMit(q, lvMenge, (y) => preis(a.id, y.id)), 0),
     ...(darfPreise() ? { setzen: (q: Zeile, t: string) => setzen(a, q, t) } : {}),
   });
-  const spalten = (): BaumSpalte[] => [nurLesen('menge'), nurLesen('einheit'), nurLesen('art'),
+  const spalten = (): BaumSpalte[] => [nurLesen('menge'), nurLesen('einheit'), nurLesen('art'), nurLesen('kg', true),
     { ...nurLesen('ep'), id: 'schaetzung', titel: 'Schätzung', summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gpMit(q), 0) },
     ...ang().map(bieterSpalte),
     ...(ang().length ? [{ id: 'mittel', titel: 'Mittel', breite: 96, rechts: true, frei: true, hilfe: 'Mittel der gewerteten Angebote', wert: (q: Zeile) => { const x = vergleich(q).mittel; return x == null ? '' : eur(x); } }] : []),

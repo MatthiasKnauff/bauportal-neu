@@ -3,7 +3,10 @@
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Ruecklauf, nachtragNetto, ozVergleich, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
-import type { Werte } from '../kern/modell';
+import type { Feld, ObjektModell, Werte } from '../kern/modell';
+import { Tabelle } from './baukasten/tabelle';
+import { spaltenwahl } from './baukasten/spalten';
+import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
 import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
@@ -18,7 +21,7 @@ import { druckOeffnen, verzeichnisDrucken } from './druck';
 import { LvListe } from './lvliste';
 import { hinweis } from './unterbau/meldungen';
 import { BieterDazu } from './preisspiegel';
-import { allePositionenVon, angeboteVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon, type LvZahlen } from './avadaten';
+import { allePositionenVon, angeboteVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon } from './avadaten';
 import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
 import { LAEUFE, laufText, vorab, type Lauf } from '../module/ava/bieterversand';
 import { STUFEN, lvLage } from '../module/ava/lvlage';
@@ -180,36 +183,40 @@ function Sicherheiten(p: { lv: Zeile }): JSX.Element {
 
 /** Kostenkontrolle (wie im bisherigen Bauportal): alle Vergabeeinheiten des Projekts – Schätzung, bestes Angebot, Auftrag,
  *  beauftragte Nachträge, abgerechnet, noch offen und die Abweichung zur Schätzung. Klick öffnet das LV. */
+// Kostenkontrolle als Tabelle (Baustein): je LV eine Zeile – sortieren, Spalten wählen und ordnen wie überall
+const KK_GELD = ['schaetzung', 'bestes', 'auftrag', 'nachtraege', 'abgerechnet', 'offen', 'abweichung'];
+const KOSTENKONTROLLE: ObjektModell = {
+  name: 'ava_kostenkontrolle', titel: 'LV', titelMehrzahl: 'LVs', anzeigeFeld: 'lv', sortierFeld: 'nummer', rechte: { lesen: [], schreiben: [], loeschen: [] },
+  felder: [
+    { name: 'nummer', titel: 'Nr.', art: 'text', inListe: true, breite: 60 }, { name: 'lv', titel: 'LV', art: 'text', inListe: true, breite: 220 },
+    { name: 'stand', titel: 'Stand', art: 'text', inListe: true, breite: 110 },
+    { name: 'schaetzung', titel: 'Schätzung', art: 'zahl', inListe: true, breite: 110 }, { name: 'bestes', titel: 'bestes Angebot', art: 'zahl', inListe: true, breite: 120 },
+    { name: 'auftrag', titel: 'Auftrag', art: 'zahl', inListe: true, breite: 110 }, { name: 'nachtraege', titel: 'Nachträge', art: 'zahl', inListe: true, breite: 110 },
+    { name: 'abgerechnet', titel: 'abgerechnet', art: 'zahl', inListe: true, breite: 110 }, { name: 'offen', titel: 'noch offen', art: 'zahl', inListe: true, breite: 110 },
+    { name: 'abweichung', titel: 'Abweichung zur Schätzung', art: 'zahl', inListe: true, breite: 130 },
+  ],
+};
 export function Kostenkontrolle(p: Mitte): JSX.Element {
-  const zeilen = createMemo(() => [...p.zeilen()].filter((l) => !l.werte.archiviert).sort((a, b) => String(a.werte.nummer ?? '').localeCompare(String(b.werte.nummer ?? ''), 'de', { numeric: true })).map((l) => ({ l, z: lvZahlen(l.id) })));   // wie bisher: ohne archivierte
-  const vergeben = (z: LvZahlen) => z.auftrag ? z.stand.aktuell : null;
-  const offen = (z: LvZahlen) => z.auftrag ? Math.round((z.stand.aktuell - z.abgerechnet) * 100) / 100 : null;
-  // Abweichung zur Schätzung: mit Auftrag der aktuelle Auftrag, sonst das beste Angebot
-  const abw = (z: LvZahlen) => { const v = vergeben(z) ?? z.bestes; return v == null || !z.schaetzung ? null : Math.round((v - z.schaetzung) * 100) / 100; };
-  const summe = (f: (z: LvZahlen) => number | null) => Math.round(zeilen().reduce((s, x) => s + (f(x.z) ?? 0), 0) * 100) / 100;
-  const zelle = (n: number | null) => (n == null ? '–' : eur(n));
   const STAND: Record<string, string> = Object.fromEntries(LV_STATUS.map((x) => [x.wert, x.titel]));
+  const zeilen = createMemo((): Zeile[] => p.zeilen().filter((l) => !l.werte.archiviert).map((l) => {
+    const z = lvZahlen(l.id), vergeben = z.auftrag ? z.stand.aktuell : null, v = vergeben ?? z.bestes;
+    return { id: l.id, geloescht: false, werte: { nummer: String(l.werte.nummer ?? ''), lv: String(l.werte.name ?? ''), stand: STAND[String(l.werte.status ?? '')] ?? '',
+      schaetzung: z.schaetzung || null, bestes: z.bestes, auftrag: z.auftrag ? z.haupt : null, nachtraege: z.auftrag && z.stand.beauftragt ? z.stand.beauftragt : null,
+      abgerechnet: z.rechnungen ? z.abgerechnet : null, offen: z.auftrag ? Math.round((z.stand.aktuell - z.abgerechnet) * 100) / 100 : null,
+      // Abweichung zur Schätzung: mit Auftrag der aktuelle Auftrag, sonst das beste Angebot (in % in der Zelle)
+      abweichung: v == null || !z.schaetzung ? null : Math.round((v - z.schaetzung) * 100) / 100, prozent: v == null || !z.schaetzung ? null : (v - z.schaetzung) / z.schaetzung * 100 } };
+  }));
+  const zelle = (f: Feld, z: Zeile): JSX.Element | undefined => {
+    if (!KK_GELD.includes(f.name)) return undefined;
+    const n = z.werte[f.name] as number | null;
+    if (f.name !== 'abweichung') return <span class="zahl">{n == null ? '–' : eur(n)}</span>;
+    return n == null ? <span /> : <span class="zahl" classList={{ 'gefahr-text': n > 0, 'gut-text': n < 0 }}>{`${n > 0 ? '+' : ''}${eur(n)}`} <small>{`${n > 0 ? '+' : ''}${(z.werte.prozent as number).toFixed(1).replace('.', ',')} %`}</small></span>;
+  };
   return (
     <div class="preisspiegel-flaeche">
       <p class="still-text klein-text">Alle Vergabeeinheiten des Projekts: Schätzung im LV, bestes Angebot, Auftrag und beauftragte Nachträge (nach Nachlass), anerkannte Abrechnung. Klick öffnet das LV.</p>
-      <div class="ps-rollen">
-        <table class="preisspiegel kostenkontrolle">
-          <thead><tr><th>LV</th><th>Stand</th><th class="zahl">Schätzung</th><th class="zahl">bestes Angebot</th><th class="zahl">Auftrag</th><th class="zahl">Nachträge</th><th class="zahl">{"abge\u00ADrechnet"}</th><th class="zahl">noch offen</th><th class="zahl">{"Abw. zur Schät\u00ADzung"}</th></tr></thead>
-          <tbody>
-            <For each={zeilen()}>{(x) => (
-              <tr classList={{ gewaehlt: p.gewaehlt() === x.l.id }} onClick={() => { p.onWahl(x.l.id); p.onOeffnen(); }}>
-                <td><span class="kk-nr">{String(x.l.werte.nummer ?? '')}</span> {String(x.l.werte.name ?? '')}</td><td>{STAND[String(x.l.werte.status ?? '')] ?? ''}</td>
-                <td class="zahl">{x.z.schaetzung ? eur(x.z.schaetzung) : '–'}</td><td class="zahl">{zelle(x.z.bestes)}</td>
-                <td class="zahl">{x.z.auftrag ? eur(x.z.haupt) : '–'}</td><td class="zahl">{x.z.auftrag && x.z.stand.beauftragt ? eur(x.z.stand.beauftragt) : '–'}</td>
-                <td class="zahl">{x.z.rechnungen ? eur(x.z.abgerechnet) : '–'}</td><td class="zahl">{zelle(offen(x.z))}</td>
-                <td class="zahl" classList={{ 'gefahr-text': (abw(x.z) ?? 0) > 0, 'gut-text': (abw(x.z) ?? 0) < 0 }}><Show when={abw(x.z) != null}>{`${abw(x.z)! > 0 ? '+' : ''}${eur(abw(x.z)!)}`}<br /><small>{`${abw(x.z)! > 0 ? '+' : ''}${(abw(x.z)! / x.z.schaetzung * 100).toLocaleString('de-DE', { maximumFractionDigits: 1 })} %`}</small></Show></td>
-              </tr>
-            )}</For>
-          </tbody>
-          <tfoot><tr class="ps-summe"><td colSpan={2}>Summe netto in €</td><td class="zahl">{eur(summe((z) => z.schaetzung))}</td><td class="zahl">{eur(summe((z) => z.bestes))}</td><td class="zahl">{eur(summe((z) => (z.auftrag ? z.haupt : null)))}</td>
-            <td class="zahl">{eur(summe((z) => (z.auftrag ? z.stand.beauftragt : null)))}</td><td class="zahl">{eur(summe((z) => z.abgerechnet))}</td><td class="zahl">{eur(summe(offen))}</td><td /></tr></tfoot>
-        </table>
-      </div>
+      <Tabelle modell={KOSTENKONTROLLE} zeilen={zeilen()} gewaehlt={p.gewaehlt()} onWahl={(id) => { if (id) { p.onWahl(id); p.onOeffnen(); } }} leer="Noch kein LV im Projekt." zelle={zelle}
+        summeTitel="Summe netto in €" summe={(f, l) => (KK_GELD.includes(f.name) && f.name !== 'abweichung' ? eur(Math.round(l.reduce((s, z) => s + ((z.werte[f.name] as number | null) ?? 0), 0) * 100) / 100) : undefined)} />
     </div>
   );
 }
@@ -230,30 +237,38 @@ function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string
   const aendern = (a: Zeile, werte: Werte, titel: string) => ausfuehren({ objekt: 'angebot', art: 'aendern', objektId: a.id, werte }, `${name(a.werte.bieter)}: ${titel}`);
   const telefon = (a: Zeile) => { const k = sicht.kontakt?.[String(a.werte.bieter ?? '')]?.werte; return String(k?.telefon || k?.mobil || ''); };
   const lvName = (id: unknown) => { const l = sicht.lv?.[String(id ?? '')]?.werte; return l ? [l.nummer, l.name].filter(Boolean).join(' · ') : ''; };
+  // Spalten wählen und ordnen (Baustein Spaltenwahl, Rechtsklick auf den Kopf) – Bieter:in bleibt immer
+  type Sp = { name: string; titel: string; fest?: boolean; zelle: (a: Zeile) => JSX.Element };
+  const SPALTEN: Sp[] = [
+    ...(p.mitLv ? [{ name: 'lv', titel: 'LV', zelle: (a: Zeile) => <button type="button" class="link-knopf" onClick={() => p.onLv?.(String(a.werte.lv))}>{lvName(a.werte.lv)}</button> },
+      { name: 'abgabe', titel: 'Abgabe', zelle: (a: Zeile) => <>{datum(sicht.lv?.[String(a.werte.lv)]?.werte.abgabe)}</> }] : []),
+    { name: 'bieter', titel: 'Bieter:in · Telefon', fest: true, zelle: (a) => <><span class="vr-name">{name(a.werte.bieter)}<Show when={!p.mitLv && darf('angebot', 'loeschen')}><button type="button" class="knopf klein still vr-weg" title="Bieter:in entfernen – mit Angebot und Preisen in den Papierkorb (Rückgängig holt alles zurück)" aria-label={`${name(a.werte.bieter)} entfernen`} onClick={() => bieterEntfernen(a)}><Zeichen name="loeschen" groesse={14} /></button></Show></span><Show when={telefon(a)}><br /><a class="klein-text" href={`tel:${telefon(a).replace(/[^+\d]/g, '')}`}>{telefon(a)}</a></Show></> },
+    { name: 'angeschrieben', titel: 'ange\u00ADschrieben', zelle: (a) => <>{datum(a.werte.angeschrieben)}</> },
+    { name: 'stand', titel: 'Stand', zelle: (a) => { const st = ruecklaufVon(a); return <Show when={schreiben() && st !== 'abgegeben'} fallback={<b class={`vr-${st}`}>{STAND_RUECKLAUF[st]}</b>}>
+      <Auswahlliste titel={`Rückmeldung ${name(a.werte.bieter)}`} wert={String(a.werte.rueckmeldung || 'offen')} optionen={RUECKMELDUNGEN} onWert={(w) => aendern(a, { rueckmeldung: w }, 'Rückmeldung')} /></Show>; } },
+    { name: 'nachfassen', titel: 'Nach\u00ADfassen', zelle: (a) => { const st = ruecklaufVon(a); return <Show when={schreiben() && st !== 'abgegeben' && st !== 'gibt_nicht_ab'} fallback={<>{a.werte.nachfassen ? datum(a.werte.nachfassen) : ''}</>}>
+      <FeldEingabe feld={{ name: 'nachfassen', titel: `Nachfassen ${name(a.werte.bieter)}`, art: 'datum' }} wert={a.werte.nachfassen ?? null} onWert={(w) => aendern(a, { nachfassen: w || null }, 'Nachfassen')} />
+      <Show when={nachfassenFaellig(a, heute())}><small class="gefahr-text"> fällig</small></Show></Show>; } },
+    { name: 'eingang', titel: 'Angebot', zelle: (a) => <Show when={a.werte.eingang} fallback={<Show when={schreiben() && ruecklaufVon(a) !== 'gibt_nicht_ab'}><button type="button" class="knopf klein" onClick={() => aendern(a, { eingang: heute() }, 'Angebot eingegangen')}>eingegangen</button></Show>}>
+      {datum(a.werte.eingang)}</Show> },
+  ];
+  const spw = spaltenwahl(p.mitLv ? 'bp_spalten_nachverfolgen' : 'bp_spalten_versand', SPALTEN.map((x) => ({ name: x.name, titel: x.titel.replace('\u00AD', ''), inListe: true, fest: x.fest })));
+  const [feld, setFeld] = createSignal<{ x: number; y: number } | null>(null);
+  const sichtbar = () => spw.sichtbare().map((x) => SPALTEN.find((y) => y.name === x.name)!);
   return (
     <div class="ps-rollen">
       <table class="preisspiegel versand">
-        <thead><tr><Show when={p.mitLv}><th>LV</th><th>Abgabe</th></Show><th>Bieter:in · Telefon</th><th title="angeschrieben am">{'ange\u00ADschrieben'}</th><th>Stand</th><th>{'Nach\u00ADfassen'}</th><th>Angebot</th></tr></thead>
+        <thead><tr title="Rechtsklick: Spalten wählen und ordnen" onContextMenu={(e) => { e.preventDefault(); setFeld({ x: e.clientX, y: e.clientY }); }}>
+          <For each={sichtbar()}>{(x) => <th {...spw.ziehbar(x.name)}>{x.titel}</th>}</For></tr></thead>
         <tbody>
-          <For each={p.bieter}>{(a) => {
-            const st = () => ruecklaufVon(a);
-            return (
-              <tr classList={{ 'vr-faellig': nachfassenFaellig(a, heute()), 'vr-ab': st() === 'gibt_nicht_ab' }}>
-                <Show when={p.mitLv}><td><button type="button" class="link-knopf" onClick={() => p.onLv?.(String(a.werte.lv))}>{lvName(a.werte.lv)}</button></td><td>{datum(sicht.lv?.[String(a.werte.lv)]?.werte.abgabe)}</td></Show>
-                <td><span class="vr-name">{name(a.werte.bieter)}<Show when={!p.mitLv && darf('angebot', 'loeschen')}><button type="button" class="knopf klein still vr-weg" title="Bieter:in entfernen – mit Angebot und Preisen in den Papierkorb (Rückgängig holt alles zurück)" aria-label={`${name(a.werte.bieter)} entfernen`} onClick={() => bieterEntfernen(a)}><Zeichen name="loeschen" groesse={14} /></button></Show></span><Show when={telefon(a)}><br /><a class="klein-text" href={`tel:${telefon(a).replace(/[^+\d]/g, '')}`}>{telefon(a)}</a></Show></td>
-                <td>{datum(a.werte.angeschrieben)}</td>
-                <td><Show when={schreiben() && st() !== 'abgegeben'} fallback={<b class={`vr-${st()}`}>{STAND_RUECKLAUF[st()]}</b>}>
-                  <Auswahlliste titel={`Rückmeldung ${name(a.werte.bieter)}`} wert={String(a.werte.rueckmeldung || 'offen')} optionen={RUECKMELDUNGEN} onWert={(w) => aendern(a, { rueckmeldung: w }, 'Rückmeldung')} /></Show></td>
-                <td><Show when={schreiben() && st() !== 'abgegeben' && st() !== 'gibt_nicht_ab'} fallback={a.werte.nachfassen ? datum(a.werte.nachfassen) : ''}>
-                  <FeldEingabe feld={{ name: 'nachfassen', titel: `Nachfassen ${name(a.werte.bieter)}`, art: 'datum' }} wert={a.werte.nachfassen ?? null} onWert={(w) => aendern(a, { nachfassen: w || null }, 'Nachfassen')} />
-                  <Show when={nachfassenFaellig(a, heute())}><small class="gefahr-text"> fällig</small></Show></Show></td>
-                <td><Show when={a.werte.eingang} fallback={<Show when={schreiben() && st() !== 'gibt_nicht_ab'}><button type="button" class="knopf klein" onClick={() => aendern(a, { eingang: heute() }, 'Angebot eingegangen')}>eingegangen</button></Show>}>
-                  {datum(a.werte.eingang)}</Show></td>
-              </tr>
-            );
-          }}</For>
+          <For each={p.bieter}>{(a) => (
+            <tr classList={{ 'vr-faellig': nachfassenFaellig(a, heute()), 'vr-ab': ruecklaufVon(a) === 'gibt_nicht_ab' }}>
+              <For each={sichtbar()}>{(x) => <td>{x.zelle(a)}</td>}</For>
+            </tr>
+          )}</For>
         </tbody>
       </table>
+      <Show when={feld()}>{(o) => <Spaltenfeld spalten={spw} ort={o()} onZu={() => setFeld(null)} />}</Show>
     </div>
   );
 }

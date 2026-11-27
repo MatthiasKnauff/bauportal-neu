@@ -19,8 +19,11 @@ export const ergaenzungBei = (text: string, stelle: number) => ergaenzungen(text
 export const bieterFeld = (frage: string, vorschlag = '') => `[[Bieter: ${frage.trim()}${vorschlag.trim() ? ` | ${vorschlag.trim()}` : ''}]]`;
 /** Fragt die Angabe nach Hersteller, Fabrikat oder Typ? Dann bietet sich ein Vorschlag des Büros an. */
 export const fragtNachProdukt = (frage: string) => /hersteller|fabrikat|typ\b|produkt/i.test(frage);
-/** Für den Ausdruck: „Angebotenes Fabrikat: ________ (Vorschlag: X oder gleichwertig)“. */
-export function zumDrucken(text: string, linie = '…………………………'): string {
+/** Vorbelegung des Felds der Bieter:in: 20 Punkte (27.11.2026) – im Ausdruck und im GAEB-Feld; wer sie stehen lässt, hat nichts angegeben. */
+export const LUECKE = '.'.repeat(20);
+const nurLuecke = (t: string) => /^[.…_\s]*$/.test(t);
+/** Für den Ausdruck: „Angebotenes Fabrikat: .................... (Vorschlag: X oder gleichwertig)“. */
+export function zumDrucken(text: string, linie = LUECKE): string {
   return text.replace(MUSTER, (_g, art: string, frage: string, _z, wert: string | undefined) => art === 'Bieter'
     ? `${frage}: ${linie}${wert ? ` (Vorschlag: ${wert} oder gleichwertig)` : ''}`
     : `${frage}: ${wert || linie}`);
@@ -42,7 +45,7 @@ export function gaebText(lang: string, antworten: string[] = []): string {
       if (m[1] === 'Bieter') {
         const a = antworten[k++] ?? '';
         if (w) h += `<TextComplement Kind="Owner"><ComplCaption>${span(`${frage}: `)}</ComplCaption><ComplBody>${span(`${w} oder gleichwertig`)}</ComplBody></TextComplement>`;
-        h += `<TextComplement Kind="Bidder"><ComplCaption>${span(w ? 'Angeboten: ' : `${frage}: `)}</ComplCaption><ComplBody>${span(a)}</ComplBody></TextComplement>`;
+        h += `<TextComplement Kind="Bidder"><ComplCaption>${span(w ? 'Angeboten: ' : `${frage}: `)}</ComplCaption><ComplBody>${span(a || LUECKE)}</ComplBody></TextComplement>`;
       } else h += `<TextComplement Kind="Owner"><ComplCaption>${span(`${frage}: `)}</ComplCaption><ComplBody>${span(w)}</ComplBody></TextComplement>`;
       pos = m.index! + m[0].length;
     }
@@ -52,7 +55,7 @@ export function gaebText(lang: string, antworten: string[] = []): string {
 
 /** Ein gelesenes TextComplement → Feld im Langtext (Zwischenmarke, s. gaebZusammen) und die Antwort der Bieter:in. */
 export function gaebFeld(kind: string, ansprechtext: string, inhalt: string): { marke: string; antwort: string | null } {
-  const frage = ansprechtext.trim().replace(/:$/, '').trim(), body = inhalt.trim();
+  const frage = ansprechtext.trim().replace(/:$/, '').trim(), body = nurLuecke(inhalt) ? '' : inhalt.trim();
   if (kind.toLowerCase() === 'bidder') return frage.toLowerCase() === 'angeboten' ? { marke: '\u0000B\u0000', antwort: body } : { marke: `[[Bieter: ${frage}]]`, antwort: body };
   if (/oder gleichwertig$/.test(body)) return { marke: `\u0000V${frage}\u0000${body.replace(/\s*oder gleichwertig$/, '')}\u0000`, antwort: null };
   return { marke: body ? `[[Büro: ${frage} = ${body}]]` : `[[Büro: ${frage}]]`, antwort: null };

@@ -1,7 +1,8 @@
 // AVA: ein gewähltes LV für alle Ansichten der App (LV bearbeiten, Versand, Preisspiegel, Aufträge, Aufmaß …) und oben sein Kopf –
 // Bezeichnung, Stand, an wen vergeben, Eckdaten; darunter der Ablauf (Abfolge-Leiste), wie weit das LV ist. Wie im bisherigen Bauportal.
 import { For, Show, createEffect, createMemo, createSignal, useContext, type JSX } from 'solid-js';
-import { lvZahlen } from './avadaten';
+import { angeboteVon, lvZahlen, positionenVon } from './avadaten';
+import { istZuschlag, zaehlt } from '../module/ava/rechnung';
 import { AppUmgebung } from './baukasten/rahmen';
 import type { Zeile } from '../kern/befehl';
 import { avaAbfolge, avaSchrittVon } from '../module/ava/abfolge';
@@ -11,7 +12,7 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { anzeige } from './baukasten/feld';
 import { Zeichen } from './baukasten/zeichen';
 import { projektId } from './projekt';
-import { springeZu } from './sprung';
+import { karteOeffnen } from './kartendialog';
 import { ausfuehren, lebende, sicht } from './unterbau/abgleich';
 import { darf, modell } from './unterbau/api';
 
@@ -37,12 +38,6 @@ const lvListe = () => lebende('lv').filter((z) => z.werte.projekt === projektId(
   .sort(lvFolge)
   .map((z) => ({ wert: z.id, titel: `${[z.werte.nummer, z.werte.name].filter(Boolean).join(' · ')}${z.werte.archiviert ? ' (Archiv)' : ''}` }));
 
-/** Archivieren (wie im bisherigen Bauportal): das LV verschwindet aus den Listen, oben steht dann das nächste; zurückholen über „Archiv“. */
-function archivUmschalten(p: Mitte, lv: Zeile): void {
-  const rein = !lv.werte.archiviert;
-  ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv.id, werte: { archiviert: rein } }, rein ? 'LV archiviert' : 'LV aus dem Archiv geholt');
-  if (rein) { const naechstes = lebende('lv').filter((z) => z.werte.projekt === projektId() && !z.werte.archiviert && z.id !== lv.id).sort(lvFolge)[0]; if (naechstes) lvWaehlen(p, naechstes.id); }
-}
 
 function AvaKopf(p: Mitte): JSX.Element {
   // in Ansichten, die LVs zeigen, gilt das dort gewählte für die ganze App
@@ -53,24 +48,25 @@ function AvaKopf(p: Mitte): JSX.Element {
   const auftrag = () => (lv() ? lebende('angebot').find((a) => a.werte.lv === lv()!.id && a.werte.beauftragt === true) : undefined);
   // wie bisher: Gewerk · Vertrag · Strafe, dazu die Fristen
   const strafe = () => { const w = lv()!.werte; return w.strafe_prozent ? `${anzeige(feld('strafe_prozent'), w.strafe_prozent)} % je ${anzeige(feld('strafe_tagart'), w.strafe_tagart ?? 'wt')}${w.strafe_max ? `, höchstens ${anzeige(feld('strafe_max'), w.strafe_max)} %` : ''}` : ''; };
-  const angaben = () => (lv() ? [...['gewerk', 'vertragsart', 'abgabe', 'bindefrist', 'ausfuehrung_beginn'].map((n) => [n === 'vertragsart' ? 'Vertrag' : feld(n).titel.replace(/ (bis|nach VOB\/C)$/, ''), anzeige(feld(n), lv()!.werte[n])] as const),
-    ['Strafe', strafe()] as const].filter(([, w]) => w) : []);
+  // wie bisher rechts: Gewerk · Vertrag · Strafe (die Fristen stehen in den Ausschreibungsdaten und im Überblick der Karte)
+  const angaben = () => (lv() ? [['Gewerk', anzeige(feld('gewerk'), lv()!.werte.gewerk)], ['Vertrag', anzeige(feld('vertragsart'), lv()!.werte.vertragsart)], ['Strafe', strafe() || 'keine']] as const : []).filter(([, w]) => w);
+  const app = useContext(AppUmgebung);
+  const ansichtTitel = () => app?.reiter().find((r) => r.id === app.aktiv())?.titel ?? 'Ausschreibung';
   return (
     <Show when={lv()}>{(z) => (
       <div class="ansicht-kopf" aria-label="Leistungsverzeichnis">
         {/* wie im bisherigen Bauportal: oben das LV wählen – gilt dann in allen Ansichten der AVA */}
-        <div class="kopf-lv"><Auswahlliste titel="Leistungsverzeichnis" wert={z().id} optionen={lvListe()} onWert={(id) => lvWaehlen(p, id)} /></div>
-        <span class="kopf-angabe"><small>Stand</small><Auswahlliste titel="Stand" wert={String(z().werte.status ?? 'bearbeitung')} optionen={LV_STATUS} gesperrt={!darf('lv', 'schreiben')}
-          onWert={(w) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: z().id, werte: { status: w } }, 'Stand des LV')} /></span>
+        <div class="kopf-titel"><span class="kopf-ansicht">{ansichtTitel()}:</span>
+          <span class="kopf-lv"><Auswahlliste titel="Leistungsverzeichnis" aussehen="titel" wert={z().id} optionen={lvListe()} onWert={(id) => lvWaehlen(p, id)} /></span>
+          <Auswahlliste titel="Stand" aussehen="kapsel" vorsatz="Stand:" wert={String(z().werte.status ?? 'bearbeitung')} optionen={LV_STATUS} gesperrt={!darf('lv', 'schreiben')}
+            onWert={(w) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: z().id, werte: { status: w } }, 'Stand des LV')} /></div>
+        <span class="kopf-rechts">
         <Show when={auftrag()} fallback={<span class="kopf-firma offen">{z().werte.status === 'aufgehoben' ? 'aufgehoben – nicht vergeben' : 'noch nicht vergeben'}</span>}>
           {(a) => <span class="kopf-firma">{anzeige(modell('angebot').felder.find((f) => f.name === 'bieter')!, a().werte.bieter)}{a().werte.auftragsdatum ? ` · beauftragt am ${anzeige(modell('angebot').felder.find((f) => f.name === 'auftragsdatum')!, a().werte.auftragsdatum)}` : ''}</span>}
         </Show>
         {angaben().map(([k, w]) => <span class="kopf-angabe"><small>{k}</small>{w}</span>)}
-        <span class="kopf-rechts">
-          <button type="button" class="knopf klein" title="Projektdaten: Bauherr:in, Baustelle, Beteiligte, Termine – gelten für alle Apps des Projekts" onClick={() => springeZu('projekt', String(z().werte.projekt))}><Zeichen name="bearbeiten" groesse={14} /> Projektdaten</button>
-          <Show when={darf('lv', 'schreiben')}><button type="button" class="knopf klein still" title={z().werte.archiviert ? 'Wieder in die Listen holen' : 'Aus allen Listen nehmen – alles bleibt erhalten und lässt sich zurückholen'}
-            onClick={() => archivUmschalten(p, z())}>{z().werte.archiviert ? 'Aus dem Archiv holen' : 'Archivieren'}</button></Show>
-          <button type="button" class="knopf klein" title="Ausschreibungsdaten dieses LV: Vergabenummer, Fristen, Ausführung, Kostenansatz" onClick={() => springeZu('lv', z().id, { modul: 'ava', ansicht: 'lvs' })}><Zeichen name="bearbeiten" groesse={14} /> Ausschreibungsdaten</button>
+          <button type="button" class="knopf klein" title="Projektdaten: Bauherr:in, Baustelle, Beteiligte, Termine – gelten für alle Apps des Projekts" onClick={() => karteOeffnen({ objekt: 'projekt', id: String(z().werte.projekt), titel: 'Projektdaten' })}><Zeichen name="bearbeiten" groesse={14} /> Projektdaten</button>
+          <button type="button" class="knopf klein" title="Ausschreibungsdaten dieses LV: Vergabenummer, Fristen, Ausführung, Kostenansatz" onClick={() => karteOeffnen({ objekt: 'lv', id: z().id, titel: `Ausschreibungsdaten – LV ${[z().werte.nummer, z().werte.name].filter(Boolean).join(' ')}`, ohneOben: true })}><Zeichen name="bearbeiten" groesse={14} /> Ausschreibungsdaten</button>
         </span>
       </div>
     )}</Show>
@@ -98,19 +94,37 @@ export const AVA_OBEN: Anpassung = { kopf: (p) => <AvaKopf {...p} />, abfolge, m
 function Kennzahlen(p: Mitte) { const app = useContext(AppUmgebung); return <AvaKennzahlen lv={lvVon(p)} ansicht={(app?.aktiv() ?? '').replace(/^ava\./, '')} />; }
 
 /** Kennzahlen in der Menüleiste (wie im bisherigen Bauportal): je Bereich die passenden Summen des gewählten LV. */
-const KENNZAHLEN: Record<string, ('schaetzung' | 'bestes' | 'auftrag' | 'nachtraege' | 'leistung' | 'abgerechnet')[]> = {
-  lv: ['schaetzung'], tueren: [], versand: ['schaetzung', 'bestes'], nachverfolgen: [], preisspiegel: ['schaetzung', 'bestes', 'auftrag', 'leistung'],
-  besprechungen: ['schaetzung', 'bestes', 'auftrag', 'nachtraege', 'leistung', 'abgerechnet'], auftraege: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'],
-  aufmass: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'], rechnungen: ['auftrag', 'nachtraege', 'leistung', 'abgerechnet'],
+// Kennzahlen in der Menüleiste wie bisher: alle sechs in jeder Ansicht, mit Zusatz (Pos. ohne Preis, wer, % …); Reihenfolge durch Ziehen, gemerkt
+type Kz = 'schaetzung' | 'bestes' | 'auftrag' | 'nachtraege' | 'leistung' | 'abgerechnet';
+const KZ_ALLE: Kz[] = ['schaetzung', 'bestes', 'auftrag', 'nachtraege', 'leistung', 'abgerechnet'];
+const KZ_TITEL: Record<Kz, string> = { schaetzung: 'Schätzung', bestes: 'Bestes Angebot', auftrag: 'Auftrag', nachtraege: 'Nachträge beauftragt', leistung: 'Leistungsstand', abgerechnet: 'abgerechnet' };
+const KZ_MERKER = 'bp_ava_kennzahlen';
+const [kzReihe, setKzReihe] = createSignal<Kz[]>((() => { try { const l = JSON.parse(localStorage.getItem(KZ_MERKER) ?? '[]') as Kz[]; return [...l.filter((k) => KZ_ALLE.includes(k)), ...KZ_ALLE.filter((k) => !l.includes(k))]; } catch { return KZ_ALLE; } })());
+const kzSchieben = (was: Kz, wohin: Kz) => {
+  if (was === wohin) return;
+  const r = kzReihe().filter((k) => k !== was); r.splice(r.indexOf(wohin) + (kzReihe().indexOf(was) < kzReihe().indexOf(wohin) ? 1 : 0), 0, was);
+  setKzReihe(r); try { localStorage.setItem(KZ_MERKER, JSON.stringify(r)); } catch { /* gesperrt */ }
 };
-const KZ_TITEL = { schaetzung: 'Schätzung', bestes: 'Bestes Angebot', auftrag: 'Auftrag', nachtraege: 'Nachträge beauftragt', leistung: 'Leistungsstand', abgerechnet: 'abgerechnet' };
 export function AvaKennzahlen(p: { lv: Zeile | undefined; ansicht: string }): JSX.Element {
   const z = createMemo(() => (p.lv ? lvZahlen(p.lv.id) : undefined));
-  const welche = () => (KENNZAHLEN[p.ansicht] ?? []).map((k) => (k === 'schaetzung' && z()?.auftrag && p.ansicht === 'lv' ? 'auftrag' : k));
-  const wert = (k: keyof typeof KZ_TITEL): string => {
-    const x = z(); if (!x) return '–';
-    const n = { schaetzung: x.schaetzung, bestes: x.bestes, auftrag: x.auftrag ? x.haupt : null, nachtraege: x.auftrag ? x.stand.beauftragt : null, leistung: x.auftrag ? x.leistung : null, abgerechnet: x.rechnungen ? x.abgerechnet : null }[k];
-    return n == null ? '–' : `${Math.round(n).toLocaleString('de-DE')} €`;
+  const e0 = (n: number) => `${Math.round(n).toLocaleString('de-DE')} €`;
+  const ohnePreis = createMemo(() => (p.lv ? positionenVon(p.lv.id).filter((q) => zaehlt(q) && !istZuschlag(q.werte.art) && (q.werte.ep == null || q.werte.ep === '')).length : 0));
+  const inhalt = (k: Kz): { wert: string; zusatz?: string } => {
+    const x = z(); if (!x) return { wert: '–' };
+    const ges = x.haupt + x.stand.beauftragt;
+    switch (k) {
+      case 'schaetzung': return { wert: e0(x.schaetzung), zusatz: ohnePreis() ? `${ohnePreis()} Pos. ohne Preis` : undefined };
+      case 'bestes': return { wert: x.bestes != null ? e0(x.bestes) : '–', zusatz: x.bestes != null ? x.besterBieter : angeboteVon(p.lv!.id).length ? undefined : 'noch keine' };
+      case 'auftrag': return { wert: x.auftrag ? e0(x.haupt) : '–', zusatz: x.auftrag && x.schaetzung ? `${Math.round((x.haupt / x.schaetzung - 1) * 100)} % zur Schätzung` : undefined };
+      case 'nachtraege': return { wert: x.auftrag && x.stand.beauftragt ? e0(x.stand.beauftragt) : '–', zusatz: x.stand.offen ? `angemeldet ${e0(x.stand.offen)}` : undefined };
+      case 'leistung': return { wert: x.auftrag && x.leistung ? e0(x.leistung) : '–', zusatz: ges && x.leistung ? `${Math.round((x.leistung / ges) * 100)} %` : undefined };
+      default: return { wert: x.rechnungen ? e0(x.abgerechnet) : '–' };
+    }
   };
-  return <div class="kennzahlen" role="group" aria-label="Kennzahlen"><For each={welche()}>{(k) => <span class="kennzahl" title={k === 'bestes' && z()?.bestes != null ? z()!.besterBieter : undefined}><small>{KZ_TITEL[k]}</small><b>{wert(k)}</b></span>}</For></div>;
+  let gezogen: Kz | null = null;
+  return <div class="kennzahlen" role="group" aria-label="Kennzahlen"><For each={kzReihe()}>{(k) => { const i = () => inhalt(k); return (
+    <span class="kennzahl" draggable="true" title={`${KZ_TITEL[k]}: ${i().wert}${i().zusatz ? ` · ${i().zusatz}` : ''} – zum Umsortieren ziehen`}
+      onDragStart={(e) => { gezogen = k; e.dataTransfer!.effectAllowed = 'move'; e.dataTransfer!.setData('text/plain', k); }} onDragOver={(e) => { if (gezogen) e.preventDefault(); }}
+      onDrop={(e) => { e.preventDefault(); if (gezogen) kzSchieben(gezogen, k); gezogen = null; }} onDragEnd={() => { gezogen = null; }}>
+      <small>{KZ_TITEL[k]}</small><b>{i().wert}</b><Show when={i().zusatz}><span class="kz-zusatz">{i().zusatz}</span></Show></span>); }}</For></div>;
 }

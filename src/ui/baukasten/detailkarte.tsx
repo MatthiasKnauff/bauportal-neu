@@ -1,5 +1,6 @@
 // Baustein „Detailkarte“ (Platz rechts): alle Felder eines Objekts, erzeugt aus dem Datenmodell.
 // Jede Änderung eines Feldes ist ein Befehl – sofort wirksam, mit Rückgängig.
+import { Kartenrahmen } from './kartenrahmen';
 import { For, Show, createEffect, createSignal, type JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { Eingabefehler, gilt, leerwert, pruefeWerte, type Feld, type ObjektModell, type Wert, type Werte } from '../../kern/modell';
@@ -60,6 +61,8 @@ export function Detailkarte(p: {
   oben?: (z: Zeile) => JSX.Element;        // über den Angaben (z. B. Anrufen, E-Mail, Route beim Kontakt)
   einschub?: Record<string, (z: Zeile) => JSX.Element>;   // nach dieser Gruppe (Titel) oder diesem Feld (Name), über die ganze Breite (z. B. weitere Nummern unter Telefon/Mobil)
   blaettern?: { nr: number; anzahl: number; onSchritt: (schritt: -1 | 1) => void };   // „3 von 42“ mit ‹ › durch die gezeigten Einträge
+  ohneKopf?: boolean;                      // ohne Kopfzeile – das Fenster drumherum trägt den Titel (Karte im Fenster, schwebende Karte)
+  ohneRahmen?: boolean;                    // ohne eigenen Rahmen – sie steht schon in einer Fläche (Fenster, Bautagebuch rechts)
   gruppe?: string;                         // zu dieser Gruppe springen und ihr erstes Feld wählen (z. B. „Wetter“ beim Stift am Wetter)
 }) {
   const schreiben = () => darf(p.modell.name, 'schreiben');
@@ -73,46 +76,33 @@ export function Detailkarte(p: {
     const g = p.gruppe; if (!g) return;
     queueMicrotask(() => { const f = [...karte.querySelectorAll<HTMLElement>('[data-gruppe]')].find((x) => x.dataset.gruppe === g); if (!f) return; f.scrollIntoView({ block: 'start' }); f.querySelector<HTMLElement>('input, select, textarea, button')?.focus(); });
   });
+  const angaben = () => <>
+    {p.oben?.(p.zeile)}
+    <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => {
+      const felder = () => <For each={g.felder}>{(f) => <><FeldEingabe feld={f} breit={f.name === p.modell.anzeigeFeld} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />{p.einschub?.[f.name]?.(p.zeile)}</>}</For>;
+      return <>{p.modell.eingeklappt?.includes(g.titel)
+        ? <details class="feldgruppe" data-gruppe={g.titel} open={p.gruppe === g.titel || undefined}><summary>{g.titel}</summary><div class="feldgruppe-inhalt">{felder()}</div></details>
+        : <fieldset data-gruppe={g.titel}><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>}{p.einschub?.[g.titel]?.(p.zeile)}</>;
+    }}</For>
+    {p.zusatz?.(p.zeile)}
+    <Show when={!schreiben()}><p class="still-text klein-text">Du kannst diese Angaben ansehen, aber nicht ändern.</p></Show>
+    <Show when={p.onZu && !p.modell.einzeln && darf(p.modell.name, 'loeschen')}>
+      <div class="karte-fuss"><button class="knopf gefahr" onClick={() => loesche(p.modell, p.zeile)}>{p.modell.titel} löschen</button></div>
+    </Show>
+  </>;
   return (
-    <aside class="karte" ref={karte} aria-label={`${p.modell.titel} ${titel()}`}>
-      <div class="karte-kopf">
-        <Show when={p.onZu}><button class="knopf still nur-schmal" onClick={p.onZu}>‹ Liste</button></Show>
-        <h2>{titel() || p.modell.titel}</h2>
-        <Show when={p.heftzwecke}>
-          <button class="knopf still nur-breit" aria-label="In eigenem Fenster öffnen" title="In eigenem Fenster öffnen" onClick={() => inEigenemFenster(p.modell, p.zeile.id)}>{p.symbole?.fenster ?? '⧉'}</button>
-          <span class="nur-breit-flex">{p.heftzwecke}</span>
-        </Show>
-        {/* rechts angeheftet: die Heftzwecke entscheidet über den Platz, die Karte schließt mit Esc oder „‹ Liste“ – ein Kreuz nur im eigenen Fenster */}
-        <Show when={p.onZu && !p.heftzwecke}><button class="knopf still nur-breit" aria-label="Karte schließen" title="Schließen (Esc)" onClick={p.onZu}>{p.symbole?.schliessen ?? "×"}</button></Show>
-      </div>
-      <Show when={p.blaettern && p.blaettern.anzahl > 1}>{(_) => { const b = () => p.blaettern!; return (
+    <Kartenrahmen label={`${p.modell.titel} ${titel()}`} ref={(el) => (karte = el)} titel={titel() || p.modell.titel} onZu={p.onZu} heftzwecke={p.heftzwecke}
+      ohneKopf={p.ohneKopf} ohneRahmen={p.ohneRahmen} schliessenZeichen={p.symbole?.schliessen}
+      knoepfe={<Show when={p.heftzwecke}><button class="knopf still nur-breit" aria-label="In eigenem Fenster öffnen" title="In eigenem Fenster öffnen" onClick={() => inEigenemFenster(p.modell, p.zeile.id)}>{p.symbole?.fenster ?? '⧉'}</button></Show>}
+      unterKopf={<Show when={p.blaettern && p.blaettern.anzahl > 1}>{(_) => { const b = () => p.blaettern!; return (
         <div class="karte-blaettern">
           <button class="knopf klein still" aria-label="Voriger Eintrag" disabled={b().nr <= 1} onClick={() => b().onSchritt(-1)}>‹</button>
           <span>{b().nr} von {b().anzahl}</span>
           <button class="knopf klein still" aria-label="Nächster Eintrag" disabled={b().nr >= b().anzahl} onClick={() => b().onSchritt(1)}>›</button>
-        </div>); }}</Show>
-      <Show when={reiterListe().length}>
-        <div class="karte-reiter" role="tablist">
-          <For each={[p.modell.titel, ...reiterListe().map((r) => r.titel)]}>{(t, i) => <button type="button" role="tab" aria-selected={reiter() === i()} onClick={() => setReiter(i())}>{t}</button>}</For>
-        </div>
-      </Show>
-      <Show when={reiter() === 0} fallback={<div class="karte-inhalt">{reiterListe()[reiter() - 1]?.inhalt()}</div>}>
-      <div class="karte-inhalt">
-        {p.oben?.(p.zeile)}
-        <For each={gruppen(p.modell, p.zeile.werte, p.verborgen)}>{(g) => {
-          const felder = () => <For each={g.felder}>{(f) => <><FeldEingabe feld={f} breit={f.name === p.modell.anzeigeFeld} wert={p.zeile.werte[f.name] ?? null} fehler={fehler[f.name]} gesperrt={!schreiben()} herkunft={p.zeile.herkunft?.[f.name]} objekt={p.modell.name} zusammenhang={p.zeile.werte} onWert={(w, herkunft) => aendern(f, w, herkunft)} />{p.einschub?.[f.name]?.(p.zeile)}</>}</For>;
-          return <>{p.modell.eingeklappt?.includes(g.titel)
-            ? <details class="feldgruppe" data-gruppe={g.titel} open={p.gruppe === g.titel || undefined}><summary>{g.titel}</summary><div class="feldgruppe-inhalt">{felder()}</div></details>
-            : <fieldset data-gruppe={g.titel}><Show when={g.titel}><legend>{g.titel}</legend></Show>{felder()}</fieldset>}{p.einschub?.[g.titel]?.(p.zeile)}</>;
-        }}</For>
-        {p.zusatz?.(p.zeile)}
-        <Show when={!schreiben()}><p class="still-text klein-text">Du kannst diese Angaben ansehen, aber nicht ändern.</p></Show>
-        <Show when={p.onZu && !p.modell.einzeln && darf(p.modell.name, 'loeschen')}>
-          <div class="karte-fuss"><button class="knopf gefahr" onClick={() => loesche(p.modell, p.zeile)}>{p.modell.titel} löschen</button></div>
-        </Show>
-      </div>
-      </Show>
-    </aside>
+        </div>); }}</Show>}
+      reiter={reiterListe().length ? [{ titel: p.modell.titel, inhalt: angaben }, ...reiterListe()] : undefined} reiterWahl={reiter()} onReiterWahl={setReiter}>
+      {angaben()}
+    </Kartenrahmen>
   );
 }
 

@@ -106,7 +106,7 @@ export function KatalogNetz(p: Mitte) {
   const Kiste = (q: { z: Zeile; b: Bezug; ziel: Zeile; id: string }) => (
     <div class="kn-bezug">
       <div class="kn-pfeil">
-        <button type="button" class="knopf klein still" disabled={!schreibenDarf()} title="Klick: Ende → Anfang ↔ Anfang → Anfang" onClick={() => aendern(q.ziel, q.id, { art: q.b.art === 'ea' ? 'aa' : 'ea' })}>{PFEIL[q.b.art]} ↓</button>
+        <button type="button" class="knopf mini still" disabled={!schreibenDarf()} title="Klick: Ende → Anfang ↔ Anfang → Anfang" onClick={() => aendern(q.ziel, q.id, { art: q.b.art === 'ea' ? 'aa' : 'ea' })}>{PFEIL[q.b.art]} ↓</button>
         <label class="kn-abstand" title="Abstand in Arbeitstagen">+<input type="number" value={q.b.abstand} disabled={!schreibenDarf()} aria-label="Abstand in Arbeitstagen"
           onChange={(e) => aendern(q.ziel, q.id, { abstand: Number(e.currentTarget.value) || 0 })} /> AT</label>
       </div>

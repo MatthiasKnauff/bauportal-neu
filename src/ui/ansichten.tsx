@@ -12,7 +12,7 @@ import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
 import type { Rechtart } from '../kern/modell';
-import { ausfuehren, ausfuehrenMehrere, gemerkt, sicht, lebende } from './unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, gemerkt, sicht, lebende, rueckgaengig, verlauf } from './unterbau/abgleich';
 import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { versionenBauen } from './baukasten/versionen';
@@ -66,6 +66,7 @@ import { kontaktAuswahl } from './kontaktauswahl';
 import { PruefSchluessel } from './pruefki';
 import { MailVersand, NachrichtAnhaenge } from './versand';
 import { AvaSuche } from './avasuche';
+import { karteImFenster, setKarteImFenster } from './kartendialog';
 
 const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
 
@@ -519,6 +520,23 @@ const ANPASSUNG: Record<string, Anpassung> = {
 // und eine ganze App eigene für alle ihre Ansichten (Schlüssel „modul“, z. B. AVA: Kopf des LV und Ablauf)
 const anpassung = (objekt: string, ansicht?: string): Anpassung => ({ ...ANPASSUNG[objekt], ...(ansicht ? { ...MODUL_ANPASSUNG[ansicht.split('.')[0]!], ...ANSICHT_ANPASSUNG[ansicht] } : {}), kartenZusatz: kartenZusatz(objekt) });
 const MODUL_ANPASSUNG: Record<string, Anpassung> = { ava: AVA_OBEN };
+
+/** Karte im Fenster (kartendialog.ts): dieselbe Karte mit ihren Stellschrauben. Jede Änderung ist sofort ein Schritt; OK schließt,
+ *  Abbrechen nimmt mit Rückfrage alle Schritte zurück, die im Fenster gemacht wurden. */
+export function KarteImFensterZeigen() {
+  return <Show when={karteImFenster()} keyed>{(k) => {
+    const m = modell(k.objekt), a = anpassung(k.objekt), start = verlauf().zurueck;
+    const zeile = () => sicht[k.objekt]?.[k.id];
+    const schritte = () => Math.max(0, verlauf().zurueck - start);
+    const zu = () => setKarteImFenster(null);
+    const verwerfen = () => { for (let i = schritte(); i > 0; i--) rueckgaengig(); zu(); };
+    return <Dialog titel={k.titel} breit onAbbrechen={verwerfen} geaendert={() => schritte() > 0}
+      knoepfe={<><button type="button" class="knopf" data-abbrechen onClick={verwerfen}>Abbrechen</button><button type="button" class="knopf haupt" onClick={zu}>OK</button></>}>
+      <Show when={zeile()} fallback={<p class="still-text">Nicht (mehr) vorhanden.</p>}>{(z) =>
+        <Detailkarte modell={m} zeile={z()} ohneKopf ohneRahmen zusatz={a.kartenZusatz} oben={k.ohneOben ? undefined : a.kartenOben} einschub={a.kartenEinschub} reiter={a.kartenReiter} />}</Show>
+    </Dialog>;
+  }}</Show>;
+}
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },

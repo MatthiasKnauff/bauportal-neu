@@ -8,7 +8,7 @@ import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCle
 import { createStore } from 'solid-js/store';
 import { MERKER, Netzfehler, Serverfehler, darf, ich, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
 import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
-import { AnsichtZeigen, HANDY_APPS, karteVon, kartenZusatz, sichtbar } from './ansichten';
+import { AnsichtZeigen, HANDY_APPS, KarteImFensterZeigen, karteVon, kartenZusatz, sichtbar } from './ansichten';
 import { Kontextmenue } from './baukasten/kontextmenue';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Abfolgeleiste } from './baukasten/abfolgeleiste';
@@ -79,6 +79,7 @@ export function App() {
       <ProjektLoeschen />
       <LvLoeschen />
       <MailAnAlleFenster />
+      <KarteImFensterZeigen />
       <Druck />
       <KiFenster />
       <Show when={wartetLange() > 0}><div class="warte" role="status">Einen Moment …</div></Show>
@@ -120,7 +121,7 @@ function Einrichtung() {
   return (
     <div class="mitte">
       <form class="formular" onSubmit={weiter}>
-        <Abfolgeleiste bisher aktiv={String(schritt())} onWahl={(id) => setSchritt(Number(id))} schritte={[{ id: '1', titel: 'Büro' }, { id: '2', titel: 'Konto' }, { id: '3', titel: 'Ausprobieren' }]} />
+        <Abfolgeleiste bisher eingebettet aktiv={String(schritt())} onWahl={(id) => setSchritt(Number(id))} schritte={[{ id: '1', titel: 'Büro' }, { id: '2', titel: 'Konto' }, { id: '3', titel: 'Ausprobieren' }]} />
         <Switch>
           <Match when={schritt() === 1}>
             <h1>Bauportal einrichten</h1>

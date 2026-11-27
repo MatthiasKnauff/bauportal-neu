@@ -2,6 +2,7 @@
 //   Abfolge-Leiste (nur bei Apps mit Abfolge) · Menüleiste · darunter drei Plätze: Baum | Inhalt | Details
 // Die App setzt fertige Bausteine auf die Plätze. Ein leerer Platz fehlt einfach; wer zugeklappt ist,
 // gibt seinen Platz an die Mitte ab. Am Handy stehen die Plätze nacheinander statt nebeneinander.
+import { Kartenrahmen } from './kartenrahmen';
 import { Show, createContext, createEffect, createSignal, onCleanup, useContext, type JSX } from 'solid-js';
 import { Zeichen } from './zeichen';
 import { Seitenliste, type SeitenAbschnitt } from './seitenliste';
@@ -142,10 +143,9 @@ export function Rahmen(p: {
     </div>
   </>);
   const rechtsInhalt = () => p.details ?? (
-    <aside class="karte karte-hinweis" aria-label="Details">
-      <div class="karte-kopf"><h2>Details</h2>{heftzwecke(rechtsZu, setRechtsZu, setRechtsSchwebt)}</div>
-      <div class="karte-inhalt"><p class="still-text">{p.detailsHinweis}</p></div>
-    </aside>);
+    <Kartenrahmen klasse="karte-hinweis" label="Details" titel="Details" heftzwecke={heftzwecke(rechtsZu, setRechtsZu, setRechtsSchwebt)}>
+      <p class="still-text">{p.detailsHinweis}</p>
+    </Kartenrahmen>);
   // Kopf und Menüband: Stufe je App (erster Teil des Schlüssels)
   const obenMerk = () => `bp.oben.${p.schluessel.split('.')[0]}`;
   const [oben, setOben] = createSignal(0);
