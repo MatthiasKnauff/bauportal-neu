@@ -2,7 +2,7 @@
 // Kontakt, Vergabe, Einsatz im Plan (nur die tatsächlichen Arbeitszeiträume als Balken) und Notiz. Die Zuordnung Gewerk → Firma
 // ist ein Eintrag der Projektbeteiligten (Aufgabe = Gewerk); die Firma steht danach bei den Leistungen des Gewerks.
 // Aufklappen zeigt die Leistungen – mit eigener Firma, wo sie abweicht (z. B. Nachunternehmer).
-import { For, Show, createMemo, createSignal } from 'solid-js';
+import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { xlsxSchreiben } from '../kern/xlsx';
@@ -11,6 +11,8 @@ import { GEWERKFARBEN, gewerkFarbe, gewerkFarbenAus } from '../module/bauzeitenp
 import { firmaInDenPlan, gewerkeAus, passtZumGewerk, type Gewerkzeile } from '../module/bauzeitenplan/gewerke';
 import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
+import { spaltenwahl } from './baukasten/spalten';
+import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { Dialog } from './baukasten/dialog';
 import { herunterladen } from './baukasten/herunterladen';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
@@ -192,6 +194,14 @@ export function GewerkeFirmen(p: Mitte) {
   const VERGABE = modell('projekt_kontakt').felder.find((f) => f.name === 'vergabe')!.optionen!;
   const klapp = (g: string) => { const s = new Set(offen()); if (s.has(g)) s.delete(g); else s.add(g); setOffen(s); };
 
+  // Spalten wählen und ordnen (Baustein Spaltenwahl, Rechtsklick auf den Kopf) – das Gewerk bleibt immer
+  // breite: Anteil an der Tabellenbreite (die Tabelle füllt die Mitte, kein Scrollbalken)
+  const SPALTEN = [{ name: 'gewerk', titel: 'Gewerk · Leistungsbereich (VOB/C)', fest: true, breite: 23 }, { name: 'firma', titel: 'Firma im Projekt', breite: 24 }, { name: 'kontakt', titel: 'Kontakt', breite: 15 },
+    { name: 'vergabe', titel: 'Vergabe', breite: 14 }, { name: 'einsatz', titel: 'Einsatz im Plan', breite: 14 }, { name: 'notiz', titel: 'Notiz', breite: 10 }];
+  const spw = spaltenwahl('bp_spalten_gewerke', SPALTEN.map((x) => ({ ...x, inListe: true })));
+  const sichtbar = () => spw.sichtbare();
+  const anteil = (n: string) => { const s = sichtbar(), w = (x: { name: string }) => SPALTEN.find((y) => y.name === x.name)!.breite; return `${(w({ name: n }) / s.reduce((a, x) => a + w(x), 0)) * 100}%`; };
+  const [spFeld, setSpFeld] = createSignal<{ x: number; y: number } | null>(null);
   return (
     <div class="preisspiegel-flaeche gewerke-firmen">
       <Show when={version()} fallback={<p class="still-text">Noch kein Bauzeitenplan in diesem Projekt – Gewerke kommen aus der Spalte „Gewerk“ der Leistungen.</p>}>
@@ -202,54 +212,65 @@ export function GewerkeFirmen(p: Mitte) {
         <Show when={zeilen().length} fallback={<p class="still-text">Noch keine Gewerke im Plan – in der Spalte „Gewerk“ der Leistungen eintragen.</p>}>
           <div class="ps-rollen">
             <table class="preisspiegel gf-tabelle">
-              <thead><tr><th>Gewerk · Leistungsbereich (VOB/C)</th><th>Firma im Projekt</th><th>Kontakt</th><th>Vergabe</th><th class="gf-einsatz">Einsatz im Plan<Show when={achse()}><Zeitleiste kopf /></Show></th><th>Notiz</th></tr></thead>
+              <thead><tr title="Rechtsklick: Spalten wählen und ordnen" onContextMenu={(e) => { e.preventDefault(); setSpFeld({ x: e.clientX, y: e.clientY }); }}>
+                <For each={sichtbar()}>{(x) => <th class={x.name === 'einsatz' ? 'gf-einsatz' : undefined} style={{ width: anteil(x.name) }} {...spw.ziehbar(x.name)}>{x.titel}<Show when={x.name === 'einsatz' && achse()}><Zeitleiste kopf /></Show></th>}</For></tr></thead>
               <tbody>
                 <For each={zeilen()}>{(r) => {
                   const b = () => eintrag(r.gewerk), k = () => kontakt(b()?.werte.kontakt)?.werte;
+                  const halt = (e: MouseEvent) => e.stopPropagation();
+                  const zelle: Record<string, () => JSX.Element> = {
+                    gewerk: () => <td class="gf-gewerk">
+                      <Show when={r.leistungen.length} fallback={<span class="gf-auf" />}>
+                        <button type="button" class="gf-auf" aria-expanded={offen().has(r.gewerk)} aria-label={`Leistungen ${r.gewerk}`} onClick={(e) => { e.stopPropagation(); klapp(r.gewerk); }}>{offen().has(r.gewerk) ? '▾' : '▸'}</button>
+                      </Show>
+                      <span class="gf-punkt" style={{ background: farbe(r.gewerk) }} /><b>{r.gewerk}</b>
+                      <small class="still-text">{[r.leistungen.length ? `${r.leistungen.length} ${r.leistungen.length === 1 ? 'Leistung' : 'Leistungen'}` : 'nicht im Plan', r.vob ? String(sicht.gewerk?.[r.vob]?.werte.name ?? '') : ''].filter(Boolean).join(' · ')}</small>
+                    </td>,
+                    firma: () => <td class="gf-firma" onClick={halt}>
+                      <Show when={schreiben()} fallback={name(b()?.werte.kontakt)}>
+                        <Auswahlliste titel={`Firma ${r.gewerk}`} platzhalter="Firma wählen …" wert={b() ? String(b()!.werte.kontakt) : null} optionen={firmenFuer(r.gewerk)}
+                          onWert={(w) => firmaSetzen(r.gewerk, w)} neu={{ titel: 'als neue Firma anlegen', tun: (t) => neueFirma(r.gewerk, t) }} />
+                      </Show>
+                      <Show when={!b() && r.firmen.length}><small class="still-text">im Plan: {r.firmen.map(name).join(', ')}</small></Show>
+                    </td>,
+                    kontakt: () => <td class="gf-kontakt"><Show when={k()}>
+                      <Show when={k()!.ansprechpartner}><span>{String(k()!.ansprechpartner)}</span></Show>
+                      <Show when={k()!.telefon || k()!.mobil}><a href={`tel:${String(k()!.telefon || k()!.mobil).replace(/[^\d+]/g, '')}`} onClick={halt}>☎ {String(k()!.telefon || k()!.mobil)}</a></Show>
+                      <Show when={k()!.email}><a href={`mailto:${String(k()!.email)}`} onClick={halt}>✉ {String(k()!.email)}</a></Show>
+                    </Show></td>,
+                    vergabe: () => <td onClick={halt}><Show when={b()} fallback={<span class="still-text">–</span>}>
+                      <Show when={schreiben()} fallback={VERGABE.find((o) => o.wert === b()!.werte.vergabe)?.titel}>
+                        <Auswahlliste titel={`Vergabe ${r.gewerk}`} wert={String(b()!.werte.vergabe ?? '')} optionen={VERGABE} onWert={(w) => aendern(b()!, { vergabe: w }, `Vergabe ${r.gewerk}`)} />
+                      </Show></Show></td>,
+                    einsatz: () => <td class="gf-einsatz"><div class="gf-datum">{r.anfang == null ? '–' : r.anfang === r.ende ? datum(r.anfang) : `${datum(r.anfang)} – ${datum(r.ende!)}`}</div><Show when={achse() && r.einsatz.length}><Zeitleiste r={r} /></Show></td>,
+                    notiz: () => <td onClick={halt}><Show when={b()}>
+                      <input class="gf-notiz" aria-label={`Notiz ${r.gewerk}`} value={String(b()!.werte.notiz ?? '')} disabled={!schreiben()} onChange={(e) => aendern(b()!, { notiz: e.currentTarget.value.trim() || null }, `Notiz ${r.gewerk}`)} />
+                    </Show></td>,
+                  };
                   return (<>
                     <tr classList={{ gewaehlt: !!b() && p.gewaehlt() === b()!.id, [`gf-${String(b()?.werte.vergabe ?? '')}`]: !!b() }} onClick={() => { if (b()) p.onWahl(b()!.id); }}>
-                      <td class="gf-gewerk">
-                        <Show when={r.leistungen.length} fallback={<span class="gf-auf" />}>
-                          <button type="button" class="gf-auf" aria-expanded={offen().has(r.gewerk)} aria-label={`Leistungen ${r.gewerk}`} onClick={(e) => { e.stopPropagation(); klapp(r.gewerk); }}>{offen().has(r.gewerk) ? '▾' : '▸'}</button>
-                        </Show>
-                        <span class="gf-punkt" style={{ background: farbe(r.gewerk) }} /><b>{r.gewerk}</b>
-                        <small class="still-text">{[r.leistungen.length ? `${r.leistungen.length} ${r.leistungen.length === 1 ? 'Leistung' : 'Leistungen'}` : 'nicht im Plan', r.vob ? String(sicht.gewerk?.[r.vob]?.werte.name ?? '') : ''].filter(Boolean).join(' · ')}</small>
-                      </td>
-                      <td class="gf-firma" onClick={(e) => e.stopPropagation()}>
-                        <Show when={schreiben()} fallback={name(b()?.werte.kontakt)}>
-                          <Auswahlliste titel={`Firma ${r.gewerk}`} platzhalter="Firma wählen …" wert={b() ? String(b()!.werte.kontakt) : null} optionen={firmenFuer(r.gewerk)}
-                            onWert={(w) => firmaSetzen(r.gewerk, w)} neu={{ titel: 'als neue Firma anlegen', tun: (t) => neueFirma(r.gewerk, t) }} />
-                        </Show>
-                        <Show when={!b() && r.firmen.length}><small class="still-text">im Plan: {r.firmen.map(name).join(', ')}</small></Show>
-                      </td>
-                      <td class="gf-kontakt"><Show when={k()}>
-                        <Show when={k()!.ansprechpartner}><span>{String(k()!.ansprechpartner)}</span></Show>
-                        <Show when={k()!.telefon || k()!.mobil}><a href={`tel:${String(k()!.telefon || k()!.mobil).replace(/[^\d+]/g, '')}`} onClick={(e) => e.stopPropagation()}>☎ {String(k()!.telefon || k()!.mobil)}</a></Show>
-                        <Show when={k()!.email}><a href={`mailto:${String(k()!.email)}`} onClick={(e) => e.stopPropagation()}>✉ {String(k()!.email)}</a></Show>
-                      </Show></td>
-                      <td onClick={(e) => e.stopPropagation()}><Show when={b()} fallback={<span class="still-text">–</span>}>
-                        <Show when={schreiben()} fallback={VERGABE.find((o) => o.wert === b()!.werte.vergabe)?.titel}>
-                          <Auswahlliste titel={`Vergabe ${r.gewerk}`} wert={String(b()!.werte.vergabe ?? '')} optionen={VERGABE} onWert={(w) => aendern(b()!, { vergabe: w }, `Vergabe ${r.gewerk}`)} />
-                        </Show></Show></td>
-                      <td class="gf-einsatz"><div class="gf-datum">{r.anfang == null ? '–' : r.anfang === r.ende ? datum(r.anfang) : `${datum(r.anfang)} – ${datum(r.ende!)}`}</div><Show when={achse() && r.einsatz.length}><Zeitleiste r={r} /></Show></td>
-                      <td onClick={(e) => e.stopPropagation()}><Show when={b()}>
-                        <input class="gf-notiz" aria-label={`Notiz ${r.gewerk}`} value={String(b()!.werte.notiz ?? '')} disabled={!schreiben()} onChange={(e) => aendern(b()!, { notiz: e.currentTarget.value.trim() || null }, `Notiz ${r.gewerk}`)} />
-                      </Show></td>
+                      <For each={sichtbar()}>{(x) => zelle[x.name]!()}</For>
                     </tr>
                     <Show when={offen().has(r.gewerk)}>
                       <For each={r.leistungen}>{(l) => {
                         const f = () => sicht.vorgang?.[l.id]?.werte.firma as string | null | undefined;
                         const weicht = () => !!f() && !!b() && f() !== b()!.werte.kontakt;
+                        // Leistung: Name unter dem Gewerk, ihre Firma unter der Firma, „weicht ab“ in der ersten freien Spalte
+                        const frei = () => sichtbar().findIndex((x) => x.name !== 'gewerk' && x.name !== 'firma');
+                        const lz: Record<string, () => JSX.Element> = {
+                          gewerk: () => <td>{l.name}</td>,
+                          firma: () => <td onClick={halt}>
+                            <Show when={darf('vorgang', 'schreiben')} fallback={name(f())}>
+                              <Auswahlliste titel={`Firma bei ${l.name}`} platzhalter={b() ? `${name(b()!.werte.kontakt)} (wie Gewerk)` : 'Firma wählen …'} wert={f() ?? null} optionen={firmenFuer(r.gewerk)} onWert={(w) => leistungFirma(l.id, w)} />
+                            </Show>
+                          </td>,
+                        };
                         return (
                           <tr class="gf-leistung">
-                            <td>{l.name}</td>
-                            <td onClick={(e) => e.stopPropagation()}>
-                              <Show when={darf('vorgang', 'schreiben')} fallback={name(f())}>
-                                <Auswahlliste titel={`Firma bei ${l.name}`} platzhalter={b() ? `${name(b()!.werte.kontakt)} (wie Gewerk)` : 'Firma wählen …'} wert={f() ?? null} optionen={firmenFuer(r.gewerk)} onWert={(w) => leistungFirma(l.id, w)} />
-                              </Show>
-                            </td>
-                            <td colSpan={3}><Show when={weicht()}><span class="gf-abw">weicht ab</span>
-                              <button type="button" class="knopf klein" title={`Wieder die Firma des Gewerks (${name(b()!.werte.kontakt)})`} onClick={() => leistungFirma(l.id, String(b()!.werte.kontakt))}>↺ wie Gewerk</button></Show></td>
+                            <For each={sichtbar()}>{(x, i) => lz[x.name]?.() ?? (i() === frei()
+                              ? <td><Show when={weicht()}><span class="gf-abw">weicht ab</span>
+                                <button type="button" class="knopf klein" title={`Wieder die Firma des Gewerks (${name(b()!.werte.kontakt)})`} onClick={() => leistungFirma(l.id, String(b()!.werte.kontakt))}>↺ wie Gewerk</button></Show></td>
+                              : <td />)}</For>
                           </tr>
                         );
                       }}</For>
@@ -258,6 +279,7 @@ export function GewerkeFirmen(p: Mitte) {
                 }}</For>
               </tbody>
             </table>
+            <Show when={spFeld()}>{(o) => <Spaltenfeld spalten={spw} ort={o()} onZu={() => setSpFeld(null)} />}</Show>
           </div>
           <p class="still-text klein-text">Firma wählen oder neu eintragen – sie wird bei den Leistungen des Gewerks eingetragen, wo noch keine oder die bisherige steht. Kontaktdaten stehen in den Adressen und gelten für alle Projekte.</p>
         </Show>

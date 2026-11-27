@@ -15,6 +15,8 @@ import { projektId } from './projekt';
 import type { Mitte } from './baukasten/anpassung';
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
+import { spaltenwahl } from './baukasten/spalten';
+import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { zeigeMenue } from './baukasten/kontextmenue';
 import type { Knopf } from './baukasten/menueleiste';
 import { AppUmgebung } from './baukasten/rahmen';
@@ -90,21 +92,36 @@ function Zeilen(p: { r: Zeile }): JSX.Element {
   const zfeld = (n: string) => modell('rechnungszeile').felder.find((f) => f.name === n)!;
   const frei = () => darfSchreiben(p.r) && darf('rechnungszeile', 'schreiben');
   const dazu = () => ausfuehren({ objekt: 'rechnungszeile', art: 'anlegen', objektId: neueKennung(), werte: { projekt: p.r.werte.projekt ?? null, rechnung: p.r.id, einheit: p.r.werte.art === 'stundenlohn' ? 'h' : null } }, 'Zeile');
+  // Spalten wählen und ordnen (Baustein Spaltenwahl, Rechtsklick auf den Kopf) – die Bezeichnung bleibt immer
+  const stunden = () => p.r.werte.art === 'stundenlohn';
+  const eingabe = (z: Zeile, n: string) => <FeldEingabe feld={{ ...zfeld(n), titel: '' }} wert={z.werte[n] ?? null} gesperrt={!frei()} onWert={(w) => ausfuehren({ objekt: 'rechnungszeile', art: 'aendern', objektId: z.id, werte: { [n]: w } }, zfeld(n).titel)} />;
+  type Sp = { name: string; titel: () => string; zahl?: boolean; fest?: boolean; zelle: (z: Zeile) => JSX.Element };
+  const SPALTEN: Sp[] = [
+    { name: 'text', titel: () => (stunden() ? 'Stundenlohnarbeiten (Stundenzettel)' : 'Positionen der Rechnung (von Hand)'), fest: true, zelle: (z) => eingabe(z, 'text') },
+    { name: 'menge', titel: () => 'Menge', zahl: true, zelle: (z) => eingabe(z, 'menge') },
+    { name: 'einheit', titel: () => 'EH', zelle: (z) => eingabe(z, 'einheit') },
+    { name: 'ep', titel: () => (stunden() ? 'Satz €' : 'EP €'), zahl: true, zelle: (z) => eingabe(z, 'ep') },
+    { name: 'betrag', titel: () => 'Betrag', zahl: true, zelle: (z) => <>{eur(gp(z.werte.menge, z.werte.ep))}</> },
+  ];
+  const spw = spaltenwahl('bp_spalten_rechnungszeilen', SPALTEN.map((x) => ({ name: x.name, titel: x.titel(), inListe: true, fest: x.fest })));
+  const sichtbar = () => spw.sichtbare().map((x) => SPALTEN.find((y) => y.name === x.name)!);
+  const [spFeld, setSpFeld] = createSignal<{ x: number; y: number } | null>(null);
   return (
     <div class="re-zeilen">
       <table class="tabelle schmal">
-        <thead><tr><th>{p.r.werte.art === 'stundenlohn' ? 'Stundenlohnarbeiten (Stundenzettel)' : 'Positionen der Rechnung (von Hand)'}</th><th class="zahl">Menge</th><th>EH</th><th class="zahl">{p.r.werte.art === 'stundenlohn' ? 'Satz €' : 'EP €'}</th><th class="zahl">Betrag</th><th /></tr></thead>
+        <thead><tr title="Rechtsklick: Spalten wählen und ordnen" onContextMenu={(e) => { e.preventDefault(); setSpFeld({ x: e.clientX, y: e.clientY }); }}>
+          <For each={sichtbar()}>{(x) => <th classList={{ zahl: !!x.zahl }} {...spw.ziehbar(x.name)}>{x.titel()}</th>}</For><th /></tr></thead>
         <tbody>
           <For each={Z()}>{(z) => (
             <tr>
-              <For each={['text', 'menge', 'einheit', 'ep']}>{(n) => <td classList={{ zahl: n === 'menge' || n === 'ep' }}><FeldEingabe feld={{ ...zfeld(n), titel: '' }} wert={z.werte[n] ?? null} gesperrt={!frei()} onWert={(w) => ausfuehren({ objekt: 'rechnungszeile', art: 'aendern', objektId: z.id, werte: { [n]: w } }, zfeld(n).titel)} /></td>}</For>
-              <td class="zahl">{eur(gp(z.werte.menge, z.werte.ep))}</td>
+              <For each={sichtbar()}>{(x) => <td classList={{ zahl: !!x.zahl }}>{x.zelle(z)}</td>}</For>
               <td><Show when={frei()}><button type="button" class="knopf klein still" aria-label="Zeile entfernen" onClick={() => ausfuehren({ objekt: 'rechnungszeile', art: 'loeschen', objektId: z.id }, 'Zeile entfernen')}>✕</button></Show></td>
             </tr>)}</For>
         </tbody>
-        <tfoot><tr><td colSpan={4}>Summe netto</td><td class="zahl">{eur(zeilenSumme(Z()))}</td><td /></tr></tfoot>
+        <tfoot><tr><For each={sichtbar()}>{(x, i) => <td classList={{ zahl: x.name === 'betrag' }}>{x.name === 'betrag' ? eur(zeilenSumme(Z())) : i() === 0 ? 'Summe netto' : ''}</td>}</For><td /></tr></tfoot>
       </table>
-      <Show when={frei()}><button type="button" class="knopf klein" onClick={dazu}>＋ {p.r.werte.art === 'stundenlohn' ? 'Zeile (Lohn, Gerät, Material)' : 'Position'}</button></Show>
+      <Show when={spFeld()}>{(o) => <Spaltenfeld spalten={spw} ort={o()} onZu={() => setSpFeld(null)} />}</Show>
+      <Show when={frei()}><button type="button" class="knopf klein" onClick={dazu}>＋ {stunden() ? 'Zeile (Lohn, Gerät, Material)' : 'Position'}</button></Show>
     </div>
   );
 }

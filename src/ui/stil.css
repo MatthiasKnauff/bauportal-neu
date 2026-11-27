@@ -1243,8 +1243,6 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 /* passt in die Standardbreite auch mit offenen Details: feste Spaltenanteile, Auswahllisten so breit wie ihre Spalte */
 .gf-tabelle { table-layout: fixed; min-width: 0; }
 .gf-tabelle th { white-space: normal; }
-.gf-tabelle th:nth-child(1) { width: 23%; } .gf-tabelle th:nth-child(2) { width: 24%; } .gf-tabelle th:nth-child(3) { width: 15%; }
-.gf-tabelle th:nth-child(4) { width: 14%; } .gf-tabelle th:nth-child(5) { width: 14%; } .gf-tabelle th:nth-child(6) { width: 10%; }
 .gf-tabelle td { overflow: hidden; }
 .gf-tabelle .auswahlliste, .gf-firma .auswahlliste { max-width: none; width: 100%; }
 .gf-firma, .gf-einsatz, .gf-kontakt { width: auto; min-width: 0; max-width: none; }
