@@ -7,6 +7,7 @@ import { unwrap } from 'solid-js/store';
 import { leerwert, type ObjektModell, type Werte } from '../kern/modell';
 import { enthaeltDazu, satz, werteIn } from '../kern/filterbedingung';
 import { objektFilter } from './baukasten/objektfilter';
+import { projektId } from './projekt';
 import { Filterkaesten, Filtersuche } from './baukasten/filterkaesten';
 import type { Zeile } from '../kern/befehl';
 import { ausfuehrenMehrere, geaendert, lebende, objektname, rueckgaengig, sicht } from './unterbau/abgleich';
@@ -98,7 +99,7 @@ export function ObjektAnsicht(p: {
     return [{ id: '', titel: `Alle ${m.titelMehrzahl}`, anzahl: lebend().length, kinder: ebene(lebend(), 0, '') }];
   });
   // ---------- Filter (Baustein Objektfilter): Abschnitte links, Suchfeld, Spaltenköpfe ----------
-  const filter = objektFilter({ schluessel: p.schluessel, modell: m, lfs, suchArten: p.suchArten, lebend });
+  const filter = objektFilter({ schluessel: p.schluessel, modell: m, lfs, suchArten: p.suchArten, lebend, projektId });
   const { suche, setSuche, bed, setBed, arten, nimm, entwurf, setEntwurf, wirksam, spalteFest, linksAbschnitte, linksAn, linksNicht, linksWahl } = filter;
   const zeilen = createMemo(() => {
     let l = filter.filtern(lebend());

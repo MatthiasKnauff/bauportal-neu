@@ -23,12 +23,13 @@ export function Wahltabelle(p: {
   /** oben einsortiert (z. B. Firmen mit passendem Gewerk) */
   zuerst?: (z: Zeile) => boolean;
   titel: string; knopf: (n: number) => string; hinweis?: JSX.Element;
+  projektId?: () => string | null | undefined;   // das gewählte Projekt (Filter „Beteiligte“)
   onUebernehmen: (ids: string[]) => void; onAbbrechen: () => void;
 }): JSX.Element {
   const m = p.modell;
   const lebend = createMemo(() => lebende(m.name).filter((z) => !p.nur || p.nur(z)));
   const lfs = p.linksFilter ?? sammelfilter(m, []);
-  const f = objektFilter({ schluessel: p.schluessel, modell: m, lfs, suchArten: p.suchArten, lebend });
+  const f = objektFilter({ schluessel: p.schluessel, modell: m, lfs, suchArten: p.suchArten, lebend, projektId: () => p.projektId?.() });
   const [sort, setSort] = createSignal<Sortierung>({ feld: m.sortierFeld ?? m.anzeigeFeld, ab: false });
   const zeilen = createMemo(() => { const l = f.filtern(lebend()); return p.zuerst ? [...l.filter(p.zuerst), ...l.filter((z) => !p.zuerst!(z))] : l; });
   const auswahl = auswahlAnlegen();

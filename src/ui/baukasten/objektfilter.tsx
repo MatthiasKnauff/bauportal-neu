@@ -11,11 +11,12 @@ import type { FilterArt } from './filterkaesten';
 import type { SeitenAbschnitt } from './seitenliste';
 import { anzeige } from './feld';
 import { geaendert, lebende, sicht } from '../unterbau/abgleich';
-import { projektId } from '../projekt';
 
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 
-export function objektFilter(o: { schluessel: string; modell: ObjektModell; lfs: LinksFilter[]; suchArten?: { titel: string; felder: string[] }[]; lebend: () => Zeile[] }) {
+/** projektId: das oben gewählte Projekt (für „Beteiligte“) – von der Ansicht hereingereicht, der Baukasten kennt die Projektwahl nicht. */
+export function objektFilter(o: { schluessel: string; modell: ObjektModell; lfs: LinksFilter[]; suchArten?: { titel: string; felder: string[] }[]; lebend: () => Zeile[]; projektId: () => string | null | undefined }) {
+  const projektId = o.projektId;
   const m = o.modell, lfs = o.lfs, lebend = o.lebend, p = { suchArten: o.suchArten, schluessel: o.schluessel };
   const roh = (z: Zeile) => unwrap(z);
   const [suche, setSuche] = createSignal('');
