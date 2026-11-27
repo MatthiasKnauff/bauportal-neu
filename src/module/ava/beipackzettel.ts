@@ -419,6 +419,7 @@ export const ava: Beipackzettel = {
       { id: 'vorbemerkungen', art: 'text', feld: 'vorbemerkungen' },
       { id: 'positionen', art: 'lv', objekt: 'lv_position', ueber: 'lv', ohne: 'nachtrag', titel: 'Leistungen' },
       { id: 'unterschrift', art: 'unterschriften', parteien: ['Bieter:in (Firma, Stempel, Unterschrift)'] },
+      { id: 'tueren', art: 'berechnet', quelle: 'ava.tueranlage', titel: 'Anlage: Fenster- & Türliste' },   // nur, wenn Positionen aus einer Türliste stammen
     ],
   }, {
     id: 'ava.bauvertrag', titel: 'Bauvertrag', objekt: 'bauvertrag',

@@ -65,7 +65,7 @@ Zeichen:
 | T1 | Mehrere Listen je Projekt, Gruppen und Systembeschreibung, ins LV, Abgleich | ✓ | |
 | T2 | Tabelle wie Excel: Ausfüllkästchen mit Reihen, Strg+D/R, Strg+Enter, Kopieren/Einfügen aus Excel, Spaltenbreite und Zeilenhöhe | ◐ (Tabellen-Baustein) | Ausfüllen im Tabellen-Baustein |
 | T3 | Darstellung: Ansichten, feste Lage-Spalten, Ausstattung als Marken, große Schrift | ✗ | |
-| T4 | Räume aus dem Gebäudemodell, Türliste als PDF/Excel, Anlage zum LV-Druck | ◐ (Türliste drucken – 27.11.; Anlage zum LV fehlt) | Druck und Anlage |
+| T4 | Räume aus dem Gebäudemodell, Türliste als PDF/Excel, Anlage zum LV-Druck | ✓ (Türliste drucken; 27.11.: Anlage zum LV-Druck, nur wenn Positionen aus einer Türliste stammen) | Druck und Anlage |
 
 ## Vergabe
 

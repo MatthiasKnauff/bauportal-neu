@@ -2014,3 +2014,15 @@ test('Abrechnung: welche Nachträge als Leistung zählen; Mehrmenge gelb/rot nac
   assert.equal(m.mehrmenge(105, 100), 'gelb'); assert.equal(m.mehrmenge(111, 100), 'rot'); assert.equal(m.mehrmenge(100, 100), undefined);
   assert.equal(m.mehrmenge(105, 100, { aufmass_gelb_ab: 5 }), undefined); assert.equal(m.mehrmenge(121, 100, { aufmass_rot_ab: 25 }), 'gelb');
 });
+
+test('Türliste als Anlage zum LV: nur die Listen, aus denen Positionen stammen', async () => {
+  const { tueranlage } = await import('../src/module/ava/tueranlage');
+  type E = { id: string; werte: Record<string, string | number> };
+  const P: E[] = [{ id: 'p1', werte: { quelle: 'L1|Türen|abc' } }, { id: 'p2', werte: {} }];
+  const L: E[] = [{ id: 'L1', werte: { name: 'Türliste EG' } }, { id: 'L2', werte: { name: 'andere' } }];
+  const T: E[] = [{ id: 't2', werte: { liste: 'L1', nr: 'T10', b: 885, h: 2010, anzahl: 1 } }, { id: 't1', werte: { liste: 'L1', nr: 'T2', b: 760, h: 2010 } }, { id: 't3', werte: { liste: 'L2', nr: 'X' } }];
+  const a = tueranlage(P, L, T);
+  assert.equal(a.length, 1); assert.equal(a[0]!.titel, 'Türliste EG');
+  assert.deepEqual(a[0]!.zeilen.map((z) => z.zellen[0]), ['T2', 'T10']); assert.ok(a[0]!.zeilen[0]!.zellen.includes('760 × 2010'));
+  assert.deepEqual(tueranlage([{ id: 'p', werte: {} }], L, T), []);
+});
