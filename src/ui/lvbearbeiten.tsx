@@ -65,6 +65,12 @@ export const zahlAus = (t: string): number | null | string => (!t.trim() ? null 
 const FREI = new Set<string>();   // freigeschaltete vergebene LVs – bis zum Neuladen
 /** Die markierte Zeile – rechts steht dann ihre Karte (Eigenschaften der Position, wie im bisherigen Bauportal). */
 export const [lvZeiger, setLvZeiger] = createSignal<string | null>(null);
+// Blättern in der Karte (wie bisher „3 von 35“): durch die Positionen in der Reihenfolge, die der Baum gerade zeigt
+const [lvReihe, setLvReihe] = createSignal<string[]>([]);
+export const lvBlaettern = () => {
+  const ids = lvReihe(), i = ids.indexOf(lvZeiger() ?? '');
+  return i < 0 ? undefined : { nr: i + 1, anzahl: ids.length, onSchritt: (s: -1 | 1) => { const n = ids[i + s]; if (n) setLvZeiger(n); } };
+};
 const aendern = (id: string, werte: Record<string, Wert>, titel: string) => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: id, werte }, titel);
 const positionenDes = (lv: string, mitNachtraegen: boolean) => lebende('lv_position').filter((x) => x.werte.lv === lv && (mitNachtraegen || !x.werte.nachtrag));
 
@@ -110,6 +116,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   const lv = () => lvVon(p.m);
   const positionen = createMemo(() => (lv() ? positionenDes(lv()!.id, !!p.mitNachtraegen).filter((x) => !p.ohneHinweise || !istHinweis(x.werte.art)) : []));
   const zeilen = createMemo(() => lvZeilen(positionen()));
+  createEffect(() => setLvReihe(zeilen().filter((z) => !z.titel).map((z) => z.id)));
   const nachZeile = createMemo(() => new Map(zeilen().map((z) => [z.id, z])));   // Zeilen über ihre Kennung – die Darstellung hängt an der Kennung, nicht am Objekt (sonst ginge ein offenes Feld bei jedem Abgleich verloren)
   const nachId = (id: string) => sicht.lv_position?.[id];
   // GAEB-Prüfhinweis (wie bisher in der Leiste): gleiche Tiefe der Positionen, höchstens 4 Ebenen, keine übersprungene Ebene

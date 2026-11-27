@@ -45,7 +45,7 @@ Zeichen:
 | L10 | Bauteile aus dem Gebäudemodell übernehmen, verknüpft halten, abgleichen | ✓ (Dialog) | |
 | L11 | Zeilen an der OZ ziehen; auf ein anderes LV ziehen (verschieben/kopieren, beauftragte LVs nur kopieren). Über zugeklappten Titeln kurz verweilen klappt sie auf. | ◐ | Auf anderes LV ziehen |
 | L12 | Kopieren/Ausschneiden/Einfügen, Mehrfachauswahl wie unter Windows, Leiste für mehrere Zeilen, „Als Normal/Bedarf/Wahl“ für mehrere | ✓ (Art für mehrere, 27.11.) | Art für mehrere |
-| L13 | Eigenschaften der Position (Allgemein · Weiteres · Menge · Grafik), Blättern „1 von 35“ | ◐ (Detailkarte) | Blättern in der Karte |
+| L13 | Eigenschaften der Position (Allgemein · Weiteres · Menge · Grafik), Blättern „1 von 35“ | ✓ (Detailkarte; 27.11.: Blättern „1 von n“ in der Reihenfolge des Baums) | Blättern in der Karte |
 | L14 | KG-Spalte mit Vorschlägen (KG des LV, benutzte, passend zum Gewerk). Ändert sich die KG des LV, ziehen Positionen ohne eigene KG mit. | ◐ (KG an der Position) | KG an der Position |
 | L15 | GAEB-Prüfhinweis: Positionen außerhalb der häufigsten Titeltiefe, übersprungene Ebene, mehr als 4 Ebenen | ✓ (27.11.) | Hinweis in der Leiste |
 | L16 | Sperre nach Vergabe 🔒/🔓, Warnung vor der ersten Änderung, beauftragte Nachträge einzeln gesperrt | ✓ (🔒 nach Vergabe, beauftragte Nachträge einzeln gesperrt – 27.11.) | |

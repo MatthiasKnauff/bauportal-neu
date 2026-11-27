@@ -36,7 +36,7 @@ import { ansehen } from './baukasten/ansehen';
 import { Preisspiegel, psAngebot, setPsAngebot } from './preisspiegel';
 import { Auftraege } from './auftraege';
 import { AufmassKarte, Aufmasspruefung } from './aufmasspruefung';
-import { LvBearbeiten, lvZeiger, setLvZeiger } from './lvbearbeiten';
+import { LvBearbeiten, lvBlaettern, lvZeiger, setLvZeiger } from './lvbearbeiten';
 import { Updates } from './updates';
 import { AufbauAnsicht } from './aufbau';
 import { Altdaten } from './altdaten';
@@ -521,15 +521,15 @@ const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
   'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, neuTitel: 'LV',
     detailsHinweis: 'Eine Zeile anklicken – hier stehen dann alle Angaben der Position (Kurz- und Langtext, Menge, Einheit, Preis), direkt änderbar.',
-    details: (_, heftzwecke, standard) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={z} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : standard(); } },
+    details: (_, heftzwecke, standard) => { const z = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return z && !z.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={z} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : standard(); } },
   'ava.preisspiegel': { mitte: (m) => <Preisspiegel {...m} />, ohneNeu: true,
     details: (_, heftzwecke, standard) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; const a = psAngebot() ? sicht.angebot?.[psAngebot()!] : undefined;
-      return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} />
+      return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} />
         : a && !a.geloescht ? <Detailkarte modell={modell('angebot')} zeile={a} heftzwecke={heftzwecke()} onZu={() => setPsAngebot(null)} verborgen={['projekt', 'lv']} zusatz={(z) => <><AngebotSumme angebot={z} /><BesprechungKnopf angebot={z} /></>} /> : standard(); },
     detailsHinweis: 'Links ein Leistungsverzeichnis wählen. Preise direkt in der Tabelle eintragen; „Vergeben an …“ beauftragt das Angebot.' },
   'ava.auftraege': { mitte: (m) => <Auftraege {...m} />, ohneNeu: true,
     detailsHinweis: 'Eine Position anklicken – hier steht dann ihre Karte. Ohne Auswahl: der Auftrag mit Nachträgen, Summen und Sicherheiten.',
-    details: (z, heftzwecke) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : <div class="karte"><div class="karte-kopf">{heftzwecke()}</div><AuftragKarte lv={z} /></div>; } },
+    details: (z, heftzwecke) => { const q = lvZeiger() ? sicht.lv_position?.[lvZeiger()!] : undefined; return q && !q.geloescht ? <Detailkarte modell={modell('lv_position')} zeile={q} blaettern={lvBlaettern()} heftzwecke={heftzwecke()} onZu={() => setLvZeiger(null)} verborgen={['projekt', 'lv', 'reihe']} /> : <div class="karte"><div class="karte-kopf">{heftzwecke()}</div><AuftragKarte lv={z} /></div>; } },
   'ava.rechnungen': { mitte: (m) => <Rechnungen {...m} />, ohneNeu: true,
     detailsHinweis: 'Links ein vergebenes LV wählen, oben eine Rechnung – hier stehen dann alle ihre Angaben (auch Zahlung und Prüfvermerk).',
     details: (z, heftzwecke, standard) => { const r = z ? gewaehlteRechnung(z.id) : null; return r ? <Detailkarte modell={modell('rechnung')} zeile={r} heftzwecke={heftzwecke()} onZu={() => setRechnungWahl(null)} verborgen={['projekt', 'lv']} /> : standard(); } },
