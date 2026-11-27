@@ -121,8 +121,56 @@ export const bautagebuch: Beipackzettel = {
   ],
   ausdrucke: [{
     id: 'bautagebuch.tagesbericht', titel: 'Tagesbericht', objekt: 'tagesbericht',
-    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', fuss: '{buero} · Tagesbericht Nr. {nummer} vom {datum}', ordner: 'Bautagebuch/Berichte', vermerk: 'pdf',
+    dateiname: 'Tagesbericht {nummer} {datum} {projekt}', ordner: 'Bautagebuch/Berichte', vermerk: 'pdf',
+    // Ab Werk das Formular des bisherigen Bauportals (Entscheidung 27.11.2026): Kästen, 25 mm Heftrand, Fotos auf eigener Seite
+    vorlageTitel: 'Wie bisher (Formular)', stil: 'formular', rand: { oben: 14, links: 25, rechts: 12, unten: 18 },
+    fuss: `{projekt} · Bautagebuch Nr. {nummer} · {datum}\n{buero}[ · {buero.strasse}][ · {buero.plz} {buero.ort}][ · Tel. {buero.telefon}][ · {buero.email}][ · {buero.web}]`,
     bloecke: [
+      { id: 'a_kopf', art: 'formularkopf', text: 'BAUTAGEBUCH' },
+      { id: 'a_vorhaben', art: 'raster', zeilen: [[{ titel: 'Bauvorhaben', text: '{projekt}', unter: ['[{projekt.strasse}, ][{projekt.plz} ]{projekt.ort}'], gross: true, grau: true }]] },
+      { id: 'a_angaben', art: 'raster', zeilen: [
+        [{ titel: 'Bauherrschaft', text: '{projekt.bauherrschaft}' }],
+        [{ titel: 'Datum', text: '{datum}', breite: 22 }, { titel: 'Uhrzeit', text: '{uhrzeit}', breite: 16 },
+          { titel: 'Wetter (°C / Bewölkung / Regen)', text: '[{temperatur} °C / ]{wetter}[ / {niederschlag} mm]', unter: ['[Luftfeuchte {luftfeuchte} %]', '[Wind {wind} km/h]'], breite: 35 },
+          { titel: 'Bauleitung vor Ort', text: '{bauleitung}', breite: 27 }]] },
+      { id: 'a_kontrollen', art: 'haken', felder: ['aufgeraeumt', 'masskontrolle', 'fotodoku', 'firmen_angesprochen'] },
+      { id: 'a_bemerkungen', art: 'kasten', objekt: 'bericht_eintrag', ueber: 'bericht', titel: 'Bemerkungen / Anweisungen', immer: true, erledigt: 'erledigt', quellen: [
+        { wenn: { art: 'notiz' }, text: '{text}[ (bis {frist})]' },
+        { wenn: { art: 'weisung' }, vorne: 'Anweisung[ an {firma}]:', text: '{text}[ (bis {frist})]' }] },
+      { id: 'a_aufgaben', art: 'kasten', objekt: 'bericht_eintrag', ueber: 'bericht', titel: 'Zu erledigen von {buero.kurzname|buero}:', immer: true, erledigt: 'erledigt', quellen: [
+        { wenn: { art: 'aufgabe' }, text: '{text}[ (bis {frist})]' }] },
+      { id: 'a_maengel', art: 'kasten', objekt: 'bericht_eintrag', ueber: 'bericht', titel: 'Mängel', erledigt: 'erledigt', quellen: [
+        { wenn: { art: 'mangel' }, vorne: '[{firma}:]', text: '{text}[ (bis {frist})]' }] },
+      { id: 'a_anwesend', art: 'liste', objekt: 'bericht_eintrag', ueber: 'bericht', filter: { art: 'anwesend' }, titel: '', spalten: ['firma', 'text', 'personen'], leerzeile: true,
+        spaltenTitel: { firma: 'Anwesende Firmen', text: 'Art der Tätigkeit', personen: 'Anz. Mitarb.' } },
+      { id: 'a_fotos', art: 'bilder', objekt: 'foto', ueber: 'bericht', titel: 'Fotodokumentation', unter: '{projekt} · Bautagebuch Nr. {nummer} · {datum}', beschriftung: 'beschriftung', spalten: 3, neueSeite: true },
+    ],
+    vorlagen: [{
+      // Tagesblatt nach den üblichen Vorlagen (Entscheidung 27.11.2026): nummerierte Abschnitte, Unterschriften von Bauleitung und Bauherrschaft
+      id: 'tagesblatt', titel: 'Tagesblatt mit Unterschriften', stil: 'formular', rand: { links: 25, rechts: 12 },
+      fuss: '{buero} · Tagesblatt Nr. {nummer} vom {datum}',
+      bloecke: [
+        { id: 'c_kopf', art: 'formularkopf', text: 'Bautagebuch – Tagesblatt' },
+        { id: 'c_angaben', art: 'raster', zeilen: [
+          [{ titel: 'Bauvorhaben', text: '{projekt}', unter: ['[{projekt.strasse}, ][{projekt.plz} ]{projekt.ort}'], breite: 45 }, { titel: 'Bauherrschaft', text: '{projekt.bauherrschaft}', breite: 35 }, { titel: 'Blatt-Nr.', text: '{nummer}', breite: 20 }],
+          [{ titel: 'Bauleitung', text: '{bauleitung}', breite: 45 }, { titel: 'Datum', text: '{datum}[, {uhrzeit} Uhr]', breite: 35 }, { titel: 'Wochentag', text: '{datum:wochentag}', breite: 20 }]] },
+        { id: 'c_wetter', art: 'raster', zeilen: [[{ titel: '1 · Witterung', text: '{wetter}[ · {temperatur} °C][ · Niederschlag {niederschlag} mm][ · Wind {wind} km/h][ · Luftfeuchte {luftfeuchte} %]' }]] },
+        { id: 'c_anwesend', art: 'liste', objekt: 'bericht_eintrag', ueber: 'bericht', filter: { art: 'anwesend' }, titel: '2 · Anwesende Firmen und ausgeführte Arbeiten', spalten: ['firma', 'personen', 'text'], leerzeile: true,
+          spaltenTitel: { firma: 'Firma / Gewerk', personen: 'Personal', text: 'Ausgeführte Arbeiten / Bauteil' } },
+        { id: 'c_anordnungen', art: 'kasten', objekt: 'bericht_eintrag', ueber: 'bericht', titel: '3 · Anordnungen und Absprachen', immer: true, erledigt: 'erledigt', quellen: [
+          { wenn: { art: 'weisung' }, vorne: '[an {firma}:]', text: '{text}[ (bis {frist})]' }, { wenn: { art: 'notiz' }, text: '{text}[ (bis {frist})]' }] },
+        { id: 'c_maengel', art: 'kasten', objekt: 'bericht_eintrag', ueber: 'bericht', titel: '4 · Mängel, Vorkommnisse, Behinderungen', immer: true, erledigt: 'erledigt', quellen: [
+          { wenn: { art: 'mangel' }, vorne: '[{firma}:]', text: '{text}[ (bis {frist})]' }] },
+        { id: 'c_aufgaben', art: 'kasten', objekt: 'bericht_eintrag', ueber: 'bericht', titel: '5 · Zu erledigen von {buero.kurzname|buero}', erledigt: 'erledigt', quellen: [
+          { wenn: { art: 'aufgabe' }, text: '{text}[ (bis {frist})]' }] },
+        { id: 'c_doku', art: 'haken', titel: '6 · Dokumentation', felder: ['fotodoku', 'masskontrolle', 'aufgeraeumt', 'firmen_angesprochen'] },
+        { id: 'c_unterschrift', art: 'unterschriften', parteien: ['Bauleitung', 'Kenntnisnahme Bauherrschaft'] },
+        { id: 'c_fotos', art: 'bilder', objekt: 'foto', ueber: 'bericht', titel: 'Fotos', unter: '{projekt} · Tagesblatt Nr. {nummer} · {datum}', beschriftung: 'beschriftung', neueSeite: true },
+      ],
+    }, {
+      // der Ausdruck dieses Neuaufbaus bis 27.11.2026: Briefkopf, Angaben, je Abschnitt eine Tabelle
+      id: 'neu', titel: 'Briefkopf und Tabellen', fuss: '{buero} · Tagesbericht Nr. {nummer} vom {datum}',
+      bloecke: [
       { id: 'kopf', art: 'briefkopf' },
       { id: 'titel', art: 'titel', text: 'Tagesbericht Nr. {nummer}', unter: '{datum}' },
       { id: 'angaben', art: 'felder', felder: ['datum', 'uhrzeit', 'nummer', 'bauleitung', 'wetter', 'temperatur', 'luftfeuchte', 'wind', 'niederschlag'] },
@@ -133,6 +181,7 @@ export const bautagebuch: Beipackzettel = {
       liste('aufgabe', ['text', 'frist', 'erledigt']),
       liste('weisung', ['text', 'firma', 'frist', 'erledigt']),
       { id: 'fotos', art: 'bilder', objekt: 'foto', ueber: 'bericht', titel: 'Fotos', beschriftung: 'beschriftung' },
-    ],
+      ],
+    }],
   }],
 };

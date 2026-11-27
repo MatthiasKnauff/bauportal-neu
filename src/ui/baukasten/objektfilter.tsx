@@ -15,7 +15,9 @@ import { geaendert, lebende, sicht } from '../unterbau/abgleich';
 const vergleich = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 
 /** projektId: das oben gewählte Projekt (für „Beteiligte“) – von der Ansicht hereingereicht, der Baukasten kennt die Projektwahl nicht. */
-export function objektFilter(o: { schluessel: string; modell: ObjektModell; lfs: LinksFilter[]; suchArten?: { titel: string; felder: string[] }[]; lebend: () => Zeile[]; projektId: () => string | null | undefined }) {
+export function objektFilter(o: { schluessel: string; modell: ObjektModell; lfs: LinksFilter[]; suchArten?: { titel: string; felder: string[] }[]; lebend: () => Zeile[]; projektId: () => string | null | undefined;
+  /** Start: diese Werte je Feld als Filter (z. B. Art = Firmen); dann beginnt die Liste nicht mit den Beteiligten des Projekts */
+  start?: { feld: string; werte: string[] }[] }) {
   const projektId = o.projektId;
   const m = o.modell, lfs = o.lfs, lebend = o.lebend, p = { suchArten: o.suchArten, schluessel: o.schluessel };
   const roh = (z: Zeile) => unwrap(z);
@@ -66,7 +68,8 @@ export function objektFilter(o: { schluessel: string; modell: ObjektModell; lfs:
   const OHNE = `bp.ohneProjekt.${p.schluessel}`;
   const [ohneProjekt, setOhneProjekt] = createSignal((() => { try { return localStorage.getItem(OHNE) === 'ja'; } catch { return false; } })());
   const ohneMerken = (an: boolean) => { setOhneProjekt(an); try { localStorage.setItem(OHNE, an ? 'ja' : 'nein'); } catch { /* gilt dann bis zum Neuladen */ } };
-  if (betNr >= 0) createEffect(on(projektId, (pid, alt) => untrack(() => {
+  if (o.start?.length) setBed(o.start.reduce((b, s) => { const nr = lfs.findIndex((lf) => lf.feld === s.feld); return nr < 0 ? b : s.werte.reduce((x, w) => umschalten(x, `l${nr}`, w), b); }, bed()));
+  if (betNr >= 0 && !o.start?.length) createEffect(on(projektId, (pid, alt) => untrack(() => {
     const drin = werteIn(bed(), betKey);
     const ohne = artWeg(bed(), betKey);
     const hatBeteiligte = !!pid && [...projekteVon().values()].some((l) => l.includes(pid));

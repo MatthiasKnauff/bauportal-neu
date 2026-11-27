@@ -2,6 +2,7 @@
 // Bearbeiten direkt in der Zelle wie im bisherigen Bauportal: Zelle anklicken und tippen (oder F2); Doppelklick öffnet den
 // Eintrag (onDoppelklick, z. B. im Schwebefenster). Tastatur, Kontextmenü.
 // Im Dokument stehen nur die sichtbaren Zeilen – die Tabelle bleibt auch mit tausenden Einträgen schnell.
+import { datumAusText, datumText } from '../../kern/datum';
 import { For, Show, createEffect, createMemo, createSelector, createSignal, onCleanup, onMount, untrack, type JSX } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import { mengenSumme, type Feld, type ObjektModell, type Wert } from '../../kern/modell';
@@ -179,14 +180,15 @@ export function Tabelle(p: {
   };
 
   // ---- Bearbeiten in der Zelle ----
-  const zeigen = (f: Feld, w: Wert | undefined) => (w === null || w === undefined ? '' : typeof w === 'number' ? String(w).replace('.', ',') : String(w));
+  const zeigen = (f: Feld, w: Wert | undefined) => (w === null || w === undefined ? '' : typeof w === 'number' ? String(w).replace('.', ',') : f.art === 'datum' ? datumText(w) : String(w));
   // Der erste Klick eines Doppelklicks wählt die Zeile – dabei kann die Karte aufgehen und die Spalten rücken.
   // Gemeint ist die Zelle des ersten Klicks, deshalb wird sie gemerkt.
   const doppelklick = (z: Zeile) => (p.onDoppelklick ?? p.onOeffnen)?.(z);
   /** Übernimmt die Eingabe. weiter: +1/-1 = danach die nächste/vorige schreibbare Zelle der Zeile öffnen (Tab). */
   const fertig = (z: Zeile, f: Feld, feld: HTMLInputElement, weiter = 0) => {
     if (inArbeit()?.id !== z.id || inArbeit()?.feld !== f.name) return;   // schon weitergezogen (Tab) oder abgebrochen
-    const fehler = feld.value === zeigen(f, z.werte[f.name]) ? undefined : p.onZelle!(z, f, feld.value);
+    const iso = f.art === 'datum' ? datumAusText(feld.value) : feld.value;   // Datum wie man es schreibt (27.11.26, +1w) → JJJJ-MM-TT
+    const fehler = feld.value === zeigen(f, z.werte[f.name]) ? undefined : iso === null ? 'Bitte ein Datum eintragen (TT.MM.JJJJ)' : p.onZelle!(z, f, iso);
     if (fehler) { setInArbeit({ id: z.id, feld: f.name, fehler }); feld.focus(); return; }
     const reihe = spalten.sichtbare().filter((x) => IN_ZELLE.includes(x.art));
     const naechste = weiter ? reihe[reihe.indexOf(f) + weiter] : undefined;
@@ -275,7 +277,7 @@ export function Tabelle(p: {
                     title={z.herkunft?.[f.name] ? HERKUNFT[z.herkunft[f.name]!] : undefined}
                     onClick={() => setZelle({ id: z.id, feld: f.name })} onDblClick={() => doppelklick(z)}>
                     <Show when={inArbeit()?.id === z.id && inArbeit()?.feld === f.name} fallback={p.zelle?.(f, z) ?? <><Verbinden f={f} w={z.werte[f.name]} />{anzeige(f, z.werte[f.name])}</>}>
-                      <input ref={(el) => queueMicrotask(() => { el.focus(); if (inArbeit()?.start === undefined) el.select?.(); })} type={f.art === 'datum' ? 'date' : 'text'} inputMode={f.art === 'zahl' ? 'decimal' : undefined} value={inArbeit()?.start ?? zeigen(f, z.werte[f.name])}
+                      <input ref={(el) => queueMicrotask(() => { el.focus(); if (inArbeit()?.start === undefined) el.select?.(); })} type="text" placeholder={f.art === 'datum' ? 'TT.MM.JJJJ' : undefined} inputMode={f.art === 'zahl' ? 'decimal' : undefined} value={inArbeit()?.start ?? zeigen(f, z.werte[f.name])}
                         aria-label={f.titel} aria-invalid={!!inArbeit()?.fehler} title={inArbeit()?.fehler} classList={{ falsch: !!inArbeit()?.fehler }}
                         onKeyDown={(e) => eingabeTaste(e, z, f)} onBlur={(e) => fertig(z, f, e.currentTarget)} onClick={(e) => e.stopPropagation()} onDblClick={(e) => e.stopPropagation()} />
                     </Show>

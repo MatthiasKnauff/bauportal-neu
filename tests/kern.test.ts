@@ -478,7 +478,20 @@ test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man seh
     await eintrag('mangel', 1, { text: 'Abstandhalter fehlen', erledigt: true });
     await eintrag('anwesend', 1, { firma, text: 'Bewehrung', personen: 4 });
     const A = 'bautagebuch.tagesbericht';
+    // Ab Werk das Formular des bisherigen Bauportals: Kästen, Häkchen, 25 mm Heftrand, Fußzeile mit Anschrift des Büros
     let s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
+    for (const t of ['>BAUTAGEBUCH</span>', 'Haus &lt;A&gt; &amp; Söhne', '<span>4,5 °C / Regen</span>', '<small>Bauleitung vor Ort</small><span>leitung</span>', '<i class="kaestchen an"></i>Baustelle aufgeräumt',
+      '<i class="kaestchen"></i>Maßkontrolle', '>Bemerkungen / Anweisungen</h2>', '>Zu erledigen von GK3:</h2>', '<b>Rohbau Schmitz GmbH:</b> Riss in der Sohle', '(bis 01.12.2026)', '<s>Abstandhalter fehlen</s> (erledigt)',
+      '>Anwesende Firmen</th>', '<tr class="frei">', 'class="seite formular"', 'margin: 14mm 12mm 18mm 25mm', 'Bautagebuch Nr. 7 · 24.11.2026\\A GK3 · 45127 Essen']) assert.ok(s.html.includes(t), t);
+    assert.ok(!s.html.includes('Luftfeuchte') && !s.html.includes('<h2>Weisungen</h2>'), 'leere Teile fallen weg');
+    // Vorlage „Tagesblatt“: nummerierte Abschnitte, Wochentag, Unterschriften
+    const vorlage = randomUUID();
+    await tun(db, leitung, { objekt: 'druckeinstellung', art: 'anlegen', objektId: vorlage, werte: { ausdruck: A, stelle: 'seite.vorlage', wert: 'tagesblatt' } });
+    s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
+    for (const t of ['>Bautagebuch – Tagesblatt</span>', '<span>Dienstag</span>', '<span>24.11.2026, 09:30 Uhr</span>', '>3 · Anordnungen und Absprachen</h2>', 'Kenntnisnahme Bauherrschaft', '>Firma / Gewerk</th>']) assert.ok(s.html.includes(t), t);
+    // Die Vorlage „Briefkopf und Tabellen“ (der Ausdruck bis 27.11.2026) mit ihren Einstellungen
+    await tun(db, leitung, { objekt: 'druckeinstellung', art: 'aendern', objektId: vorlage, werte: { wert: 'neu' } });
+    s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
     assert.equal(s.name, 'Tagesbericht 7 24.11.2026 Haus -A- & Söhne.pdf');
     for (const t of ['<h1 data-stelle="titel.text">Tagesbericht Nr. 7</h1>', '24.11.2026<', '<dt>Wetter</dt><dd>Regen</dd>', '<dd>4,5</dd>', '<dt>Bauleitung</dt><dd>leitung</dd>', '<dt>Baustelle aufgeräumt</dt><dd>Ja</dd>', '<dt>Maßkontrolle</dt><dd>Nein</dd>',
       'Haus &lt;A&gt; &amp; Söhne', '45127 Essen', '&lt;b&gt;fett?&lt;/b&gt;', 'GK3 · Tagesbericht Nr. 7 vom 24.11.2026', 'counter(pages)', '<h2>Mängel</h2>', '<h2>Anwesende</h2>', 'Rohbau Schmitz GmbH</td>', '01.12.2026', '>✓</td>']) assert.ok(s.html.includes(t), t);
@@ -647,7 +660,7 @@ test('Fotos: Vorschaubild im Bauportal, Original abgelegt, im Ausdruck eingebett
     await assert.rejects(fotoAblegen(db, register, 'test', als(mit, 'mitarbeiter'), hoch), Ablehnung, 'kein Mitglied des Projekts');
     await assert.rejects(fotoAblegen(db, register, 'test', als(gast, 'gast'), hoch), Ablehnung);
     const s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), 'bautagebuch.tagesbericht', b);
-    assert.ok(s.html.includes('<h2>Fotos</h2>') && s.html.includes(`<img src="data:image/jpeg;base64,${jpeg.toString('base64').slice(0, 40)}`), 'im PDF steckt das Vorschaubild selbst');
+    assert.ok(s.html.includes('<h2>Fotodokumentation</h2>') && s.html.includes('class="bilder drei neueseite"') && s.html.includes(`<img src="data:image/jpeg;base64,${jpeg.toString('base64').slice(0, 40)}`), 'im PDF steckt das Vorschaubild selbst');
   } finally { await weg(); }
 });
 
@@ -1762,8 +1775,8 @@ test('Druckwerk: mehrere Einträge in einem PDF – je eigene Seiten und Fußzei
   const m = register.modell('tagesbericht')!;
   const d = (nr: number) => ({ werte: { nummer: nr, datum: `2026-11-0${nr}` }, buero: { name: 'GK3' }, projekt: 'Haus', verweis: () => '', kinder: () => [], bild: () => '', modell: (o: string) => register.modell(o)! });
   const html = druckSeiten(a, m, [d(1), d(2)], {});
-  assert.equal(html.match(/<div class="seite"/g)?.length, 2);
-  assert.ok(html.includes('@page s0') && html.includes('@page s1') && html.includes('Tagesbericht Nr. 2'), 'eigene Fußzeile je Bericht');
+  assert.equal(html.match(/<div class="seite/g)?.length, 2);
+  assert.ok(html.includes('@page s0') && html.includes('@page s1') && html.includes('Bautagebuch Nr. 2'), 'eigene Fußzeile je Bericht');
   assert.ok(html.includes('.seite + .seite { break-before: page; }'));
 });
 
@@ -2266,4 +2279,31 @@ test('Neustart mit vorhandenen Daten: das Schema anlegen schreibt nie in die Tab
     await schemaAnlegen(db, register);
     await grundausstattung(db, register);
   } finally { await weg(); }
+});
+
+test('Datum: tippen wie man schreibt (27.11.2026, 27.11., +2w, heute), Vorschläge rechnen ab einem anderen Feld, Monatsende bleibt im Monat', async () => {
+  const { datumAusText, datumPlus, datumText } = await import('../src/kern/datum');
+  const heute = new Date(2026, 10, 27);
+  assert.equal(datumAusText('27.11.2026', heute), '2026-11-27');
+  assert.equal(datumAusText('3.1.27', heute), '2027-01-03');
+  assert.equal(datumAusText('24.12.', heute), '2026-12-24');
+  assert.equal(datumAusText('+2w', heute), '2026-12-11');
+  assert.equal(datumAusText('heute', heute), '2026-11-27');
+  assert.equal(datumAusText('2026-02-30', heute), null, 'kein gültiger Tag');
+  assert.equal(datumAusText('', heute), '');
+  assert.equal(datumPlus('2027-01-31', { monate: 1 }), '2027-02-28');
+  assert.equal(datumText('2026-11-27'), '27.11.2026');
+  assert.equal(pruefeWerte(register.modell('lv')!, { abgabe: '2026-12-10' }, false).abgabe, '2026-12-10');
+  assert.throws(() => pruefeWerte(register.modell('lv')!, { abgabe: '10.12.2026' }, false), 'gespeichert wird JJJJ-MM-TT – umwandeln tut das Eingabefeld');
+});
+
+test('Bauzeitenplan: Teil einer unterbrochenen Leistung einzeln ziehen – verschieben, Anfang, Ende; die anderen Teile bleiben stehen', async () => {
+  const { teilAendern } = await import('../src/module/bauzeitenplan/bearbeiten');
+  const ab = [{ dauer: 5, pause: 0 }, { dauer: 3, pause: 4 }, { dauer: 2, pause: 3 }];
+  assert.deepEqual(teilAendern(ab, 1, 'schieben', 2), { abschnitte: [{ dauer: 5, pause: 0 }, { dauer: 3, pause: 6 }, { dauer: 2, pause: 1 }], anfang: 0 });
+  assert.deepEqual(teilAendern(ab, 0, 'schieben', 1), { abschnitte: [{ dauer: 5, pause: 0 }, { dauer: 3, pause: 3 }, { dauer: 2, pause: 3 }], anfang: 1 }, 'erster Teil: der Anfang wandert');
+  assert.deepEqual(teilAendern(ab, 1, 'anfang', -2), { abschnitte: [{ dauer: 5, pause: 0 }, { dauer: 5, pause: 2 }, { dauer: 2, pause: 3 }], anfang: 0 });
+  assert.deepEqual(teilAendern(ab, 2, 'ende', 4), { abschnitte: [{ dauer: 5, pause: 0 }, { dauer: 3, pause: 4 }, { dauer: 6, pause: 3 }], anfang: 0 });
+  assert.equal(typeof teilAendern(ab, 1, 'schieben', 3), 'string', 'Teile würden sich berühren');
+  assert.equal(typeof teilAendern(ab, 2, 'anfang', 2), 'string', 'kein Teil ohne Tag');
 });

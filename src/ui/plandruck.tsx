@@ -1,5 +1,6 @@
 // Druckdialog des Bauzeitenplans: Format, Ausrichtung, Maßstab, Zeitraum, Spalten und was mitgedruckt wird – mit
 // Vorschau aus derselben Funktion, die auf dem Server das PDF baut. Die Einstellungen merkt sich das Gerät.
+import { Datumsfeld } from './baukasten/datum';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { For, Show, createMemo, createSignal, onCleanup } from 'solid-js';
 import { DRUCKSPALTEN, FORMATE, STANDARD, planDruck, type Druckoptionen } from '../module/bauzeitenplan/druck';
@@ -63,8 +64,8 @@ export function PlanDrucken(p: { plan: Plan; projekt: string; version: string; o
             {zahl('schrift', 'Schrift pt', 5, 14, 0.5)}
           </fieldset>
           <fieldset><legend>Zeitraum</legend>
-            <label class="druck-feld">von <input type="date" value={o().von ?? ''} onChange={(e) => setze('von', e.currentTarget.value || undefined)} /></label>
-            <label class="druck-feld">bis <input type="date" value={o().bis ?? ''} onChange={(e) => setze('bis', e.currentTarget.value || undefined)} /></label>
+            <label class="druck-feld">von <Datumsfeld titel="von" wert={o().von ?? ''} vorschlaege={[]} onWert={(w) => setze('von', /^\d{4}-/.test(w) ? w : undefined)} /></label>
+            <label class="druck-feld">bis <Datumsfeld titel="bis" wert={o().bis ?? ''} vorschlaege={[{ titel: '+1 Monat', monate: 1, ab: 'von' }, { titel: '+3 Monate', monate: 3, ab: 'von' }, { titel: '+6 Monate', monate: 6, ab: 'von' }]} zusammenhang={{ von: o().von ?? null }} onWert={(w) => setze('bis', /^\d{4}-/.test(w) ? w : undefined)} /></label>
             <p class="still-text klein-text">Leer: der ganze Plan.</p>
           </fieldset>
           <fieldset><legend>Spalten</legend>

@@ -15,9 +15,20 @@ export type Druckblock =
   | { id: string; art: 'text'; feld: string; titel?: string }         // langer Text mit Überschrift (ab Werk die des Felds), über mehrere Seiten
   | { id: string; art: 'absatz'; text: string }                        // fester Text (z. B. Anrede und Gruß eines Briefs); {feld} wird ersetzt, einstellbar
   // Tabelle der Einträge, die am Objekt hängen (z. B. die Mängel eines Berichts): objekt.ueber verweist auf das gedruckte Objekt
-  | { id: string; art: 'liste'; objekt: string; ueber: string; filter?: Werte; titel: string; spalten: string[] }
-  // Bilder, die am Objekt hängen – zwei nebeneinander, nie beschnitten, mit Beschriftung
-  | { id: string; art: 'bilder'; objekt: string; ueber: string; titel: string; beschriftung: string }
+  // spaltenTitel: eigene Beschriftung je Spalte ab Werk; leerzeile: eine freie Zeile zum Nachtragen; titel '' – ohne Überschrift
+  | { id: string; art: 'liste'; objekt: string; ueber: string; filter?: Werte; titel: string; spalten: string[]; spaltenTitel?: Record<string, string>; leerzeile?: boolean }
+  // Bilder, die am Objekt hängen – ab Werk zwei nebeneinander (spalten), nie beschnitten, mit Beschriftung; neueSeite: beginnt auf einer neuen Seite
+  | { id: string; art: 'bilder'; objekt: string; ueber: string; titel: string; beschriftung: string; spalten?: 1 | 2 | 3; neueSeite?: boolean; unter?: string }
+  // Formularkopf: großer Titel links, rechts das Logo (sonst der Name des Büros), darunter eine kräftige Linie
+  | { id: string; art: 'formularkopf'; text: string }
+  // Raster aus beschrifteten Zellen (Zeilen × Zellen, breite in %): kleine Beschriftung oben, Wert darunter; Text mit Platzhaltern
+  | { id: string; art: 'raster'; zeilen: RasterZelle[][] }
+  // Häkchen in einer Reihe (ja/nein-Felder), wahlweise mit Beschriftung davor
+  | { id: string; art: 'haken'; felder: string[]; titel?: string }
+  // Beschrifteter Kasten mit den Einträgen, die am Objekt hängen, als Text: je Quelle (welche Einträge, wenn) ein fetter Vorspann und der Text;
+  // erledigt: Feld, mit dem ein Eintrag durchgestrichen und „(erledigt)“ dasteht. Unten eine freie Zeile zum Nachtragen. Ohne Einträge
+  // steht der Kasten nur da, wenn immer gesetzt ist.
+  | { id: string; art: 'kasten'; objekt: string; ueber: string; titel: string; quellen: { wenn: Werte; vorne?: string; text: string }[]; erledigt?: string; immer?: boolean }
   // Verzeichnis: die gewählten bzw. gefilterten Einträge des Objekts selbst als Tabelle (z. B. Adressverzeichnis)
   | { id: string; art: 'verzeichnis'; titel: string; spalten: string[] }
   // Leistungsverzeichnis: Titel und Positionen nach OZ mit Kurz- und Langtext, Menge, Einheit, EP/GP – zum Ausfüllen durch die
@@ -30,6 +41,12 @@ export type Druckblock =
   // Berechnete Tabellen (z. B. Rechenleiter und Prüfblatt einer Rechnung): eine Druckquelle des Moduls rechnet sie aus den Daten,
   // die sie braucht – im Browser aus der Sicht, auf dem Server aus der Datenbank, mit derselben Rechnung
   | { id: string; art: 'berechnet'; quelle: string; titel: string };
+
+/** Zelle eines Rasters: Beschriftung, Text, kleine Zeile darunter, Breite in %, groß (z. B. das Bauvorhaben), grau hinterlegt. */
+export interface RasterZelle { titel: string; text: string; unter?: string[] /* Teile, leere fallen weg, verbunden mit „ · “ */; breite?: number; gross?: boolean; grau?: boolean }
+/** Eine Vorlage: dieselben Daten, anders angeordnet. Das Büro wählt sie in der Vorschau (Stelle „seite.vorlage“). */
+export interface Vorlage { id: string; titel: string; bloecke: Druckblock[]; fuss?: string; stil?: 'formular'; rand?: Partial<Rand> }
+export interface Rand { oben: number; links: number; rechts: number; unten: number }
 
 /** Eine berechnete Tabelle: Spalten und Zeilen als fertiger Text (summe fett mit Linie, hinweis kursiv, titel als Zwischenzeile). */
 export interface DruckTabelle { titel?: string; spalten: { titel: string; rechts?: boolean }[]; zeilen: { zellen: string[]; art?: 'summe' | 'hinweis' | 'titel' }[] }
@@ -53,6 +70,25 @@ export interface Ausdruck {
   verzeichnis?: boolean;
   /** Hoch- oder Querformat ab Werk (einstellbar: Stelle „seite.format“). */
   format?: 'hoch' | 'quer';
+  /** Weitere Vorlagen zur Wahl (Stelle „seite.vorlage“); ab Werk gilt die des Ausdrucks selbst (bloecke, fuss, stil, rand) mit dem Namen vorlageTitel. */
+  vorlagen?: Vorlage[];
+  vorlageTitel?: string;
+  stil?: 'formular';       // Formular: Tabellen mit Rahmen und grauem Kopf, Zeilen abwechselnd hinterlegt
+  rand?: Partial<Rand>;    // Seitenränder in mm, wenn anders als ab Werk (z. B. 25 mm links zum Abheften)
+}
+
+/** Die gewählte Vorlage eines Ausdrucks: Blöcke, Fußzeile, Stil, Ränder. */
+export function vorlageVon(a: Ausdruck, e: Einstellungen): { bloecke: Druckblock[]; fuss: string; stil?: 'formular'; rand: Rand } {
+  const v = a.vorlagen?.find((x) => x.id === e['seite.vorlage']);
+  const r = { oben: RAND.oben, links: RAND.seite, rechts: RAND.seite, unten: RAND.unten, ...(v ? v.rand : a.rand) };
+  return v ? { bloecke: v.bloecke, fuss: v.fuss ?? a.fuss, stil: v.stil, rand: r } : { bloecke: a.bloecke, fuss: a.fuss, stil: a.stil, rand: r };
+}
+/** Alle Blöcke aller Vorlagen – zum Nachschlagen eines Blocks über seine Kennung (die ist über alle Vorlagen eindeutig). */
+export const alleBloecke = (a: Ausdruck): Druckblock[] => [...a.bloecke, ...(a.vorlagen ?? []).flatMap((v) => v.bloecke)];
+/** Gehört ein Eintrag zu einem Block mit Einträgen? (Liste: alle Werte des Filters; Kasten: eine seiner Quellen) */
+export function passt(b: Druckblock, w: Werte): boolean {
+  const gleich = (f: Werte) => Object.entries(f).every(([n, x]) => w[n] === x);
+  return b.art === 'liste' ? gleich(b.filter ?? {}) : b.art === 'kasten' ? b.quellen.some((q) => gleich(q.wenn)) : true;
 }
 
 /** Querformat? Die Einstellung des Büros geht vor, sonst gilt, was der Ausdruck ab Werk hat. */
@@ -92,6 +128,7 @@ export interface Druckdaten {
   bild: (id: string) => string;                    // Adresse des Vorschaubilds (im Browser ein Verweis, im PDF das Bild selbst)
   modell: (objekt: string) => ObjektModell;        // Modell der Einträge
   extra?: Record<string, string>;                  // weitere Platzhalter (Verzeichnis: anzahl, filter, datum)
+  projektwerte?: Werte;                            // das Projekt des Objekts (Platzhalter {projekt.feld})
   berechnet?: (blockId: string) => DruckTabelle[];  // die Tabellen eines berechneten Blocks
 }
 export const SCHRIFT: Record<string, { titel: string; pt: number }> = { klein: { titel: 'klein', pt: 9 }, normal: { titel: 'normal', pt: 10.5 }, gross: { titel: 'groß', pt: 12 } };
@@ -121,22 +158,36 @@ export function feldtext(f: Feld, w: Wert | undefined, verweis: (ziel: string, i
 
 const sicher = (t: string) => t.replace(/[&<>"']/g, (z) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[z]!);
 
-/** Ersetzt {feld} durch den Wert des Objekts, {buero} und {projekt} durch Büro- und Projektnamen. */
-export function einsetzen(vorlage: string, m: ObjektModell, d: Druckdaten): string {
-  return vorlage.replace(/\{([a-z0-9_]+)\}/g, (_ganz, k: string) => {
-    if (k === 'buero') return String(d.buero.name ?? '');
-    if (k === 'projekt') return d.projekt;
-    if (d.extra && k in d.extra) return d.extra[k]!;
-    const f = m.felder.find((x) => x.name === k);
-    return f ? feldtext(f, d.werte[k], d.verweis) : '';
-  }).replace(/\s+/g, ' ').trim();
+const WOCHENTAGE = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+/**
+ * Ersetzt {feld} durch den Wert des Objekts, {buero} und {projekt} durch Büro- und Projektnamen, {buero.feld} und {projekt.feld}
+ * durch Felder des Büros bzw. Projekts, {datum:wochentag} durch den Wochentag. {a|b}: der erste Platzhalter mit Wert.
+ * [ … ] fällt weg, wenn ein Platzhalter darin leer ist (z. B. „[ (bis {frist})]“). werte: ab Werk die des gedruckten Objekts.
+ */
+export function einsetzen(vorlage: string, m: ObjektModell, d: Druckdaten, werte: Werte = d.werte): string {
+  const eins = (k: string): string => {
+    const [name, form] = k.split(':') as [string, string | undefined];
+    if (name === 'buero') return String(d.buero.name ?? '');
+    if (name === 'projekt') return d.projekt;
+    if (d.extra && name in d.extra) return d.extra[name]!;
+    const [ebene, feldname] = name.includes('.') ? name.split('.') as [string, string] : ['', name];
+    if (ebene === 'buero') return String(d.buero[feldname] ?? '');
+    const mm = ebene === 'projekt' ? d.modell('projekt') : m, ww = ebene === 'projekt' ? d.projektwerte ?? {} : werte;
+    const f = mm?.felder.find((x) => x.name === feldname);
+    if (!f) return '';
+    if (form === 'wochentag') { const t = String(ww[feldname] ?? ''); return /^\d{4}-\d{2}-\d{2}/.test(t) ? WOCHENTAGE[new Date(`${t.slice(0, 10)}T12:00:00Z`).getUTCDay()]! : ''; }
+    return feldtext(f, ww[feldname], d.verweis);
+  };
+  const wert = (k: string) => k.split('|').map(eins).find((x) => x !== '') ?? '';
+  return vorlage.replace(/\[([^\[\]]*\{[^\[\]]*)\]/g, (_g, innen: string) => ([...innen.matchAll(/\{([a-z0-9_.:|]+)\}/g)].every((x) => wert(x[1]!) !== '') ? innen : ''))
+    .replace(/\{([a-z0-9_.:|]+)\}/g, (_g, k: string) => wert(k)).replace(/\s+/g, ' ').trim();
 }
 
 /** Platzhalter, die ein Text dieses Ausdrucks verwenden kann – für die Erklärung im Einstellfeld. */
 export const platzhalter = (m: ObjektModell): string[] => ['buero', 'projekt', ...m.felder.filter((f) => f.art !== 'verweis' && f.art !== 'langtext' && !f.verborgen).map((f) => f.name)];
 
 export const CSS = (schrift: number) => `
-  .seite { font: ${schrift}pt/1.4 Arial, "Liberation Sans", Helvetica, sans-serif; color: #111; }
+  .seite { font: ${schrift}pt/1.4 Arial, "Liberation Sans", Helvetica, sans-serif; color: #111; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .seite * { box-sizing: border-box; }
   .briefkopf { display: flex; justify-content: space-between; align-items: center; gap: 12mm; padding-bottom: 3mm; border-bottom: .4mm solid #111; margin-bottom: 7mm; }
   .briefkopf .logo { max-height: 16mm; max-width: 45mm; object-fit: contain; margin-right: -6mm; }
@@ -172,7 +223,40 @@ export const CSS = (schrift: number) => `
   .bildraster img { display: block; width: 100%; height: auto; max-height: 110mm; object-fit: contain; object-position: left top; }
   .bilder.eins .bildraster img { max-height: 200mm; }
   .bildraster figcaption { font-size: .9em; color: #333; padding-top: 1mm; min-height: 1em; }
-  .fuss { color: #444; font-size: .85em; }
+  .fuss { color: #444; font-size: .85em; white-space: pre-line; }
+  .bilder.drei .bildraster { grid-template-columns: 1fr 1fr 1fr; gap: 4mm; }
+  .bilder.drei .bildraster img { max-height: 52mm; }
+  .bilder.neueseite { break-before: page; }
+  .bilder .bildunter { margin: -1mm 0 3mm; padding-bottom: 2mm; border-bottom: .3mm solid #4a5056; }
+  .formkopf { display: flex; justify-content: space-between; align-items: center; border-bottom: .6mm solid #1f2326; padding-bottom: 2mm; margin-bottom: 5mm; }
+  .formkopf .formtitel { font-size: 2em; font-weight: 700; letter-spacing: .02em; }
+  .formkopf .logo { max-height: 20mm; max-width: 55mm; object-fit: contain; }
+  .raster { border: .3mm solid #4a5056; border-radius: 1mm; margin-bottom: 4mm; break-inside: avoid; overflow: hidden; }
+  .rasterzeile { display: flex; }
+  .rasterzeile + .rasterzeile { border-top: .2mm solid #4a5056; }
+  .raster .zelle { padding: 1.2mm 2.5mm; min-width: 0; }
+  .raster .zelle + .zelle { border-left: .2mm solid #4a5056; }
+  .raster .zelle.grau { background: #eef0f2; }
+  .raster small { display: block; color: #6b7177; font-size: .7em; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+  .raster span { display: block; overflow-wrap: anywhere; }
+  .raster .gross span { font-size: 1.45em; font-weight: 700; line-height: 1.2; }
+  .raster em { display: block; font-style: normal; color: #444; font-size: .8em; }
+  .haken { display: flex; flex-wrap: wrap; gap: 2mm 7mm; margin: 0 0 5mm; break-inside: avoid; }
+  .haken b { margin-right: 2mm; }
+  .haken span { display: flex; align-items: center; gap: 1.8mm; }
+  .kaestchen { display: inline-block; width: 3.6mm; height: 3.6mm; border: .3mm solid #4a5056; border-radius: .5mm; }
+  .kaestchen.an { background: #1f2326; box-shadow: inset 0 0 0 .6mm #fff; }
+  .kasten { border: .3mm solid #4a5056; border-radius: 1mm; margin-bottom: 3mm; break-inside: avoid; overflow: hidden; }
+  .kasten h2 { margin: 0; padding: 1.6mm 2.5mm; background: #eef0f2; border-bottom: .2mm solid #4a5056; color: #6b7177; font-size: .75em; }
+  .kasteninhalt { padding: 1mm 2.5mm 0; }
+  .kasteninhalt p { margin: 0 0 1mm; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .kasteninhalt p.frei { height: 7mm; margin: 0; }
+  .kasteninhalt s { color: #777; }
+  .formular .liste table { border: .3mm solid #4a5056; }
+  .formular .liste th { background: #eef0f2; color: #6b7177; font-weight: 700; font-size: .8em; border: .2mm solid #4a5056; padding: 1.2mm 2mm; }
+  .formular .liste td { border: .2mm solid #4a5056; padding: 1.2mm 2mm; }
+  .formular .liste tbody tr:nth-child(even) td { background: #f6f7f8; }
+  .liste tr.frei td { height: 7mm; }
   .lv h2 { font-size: 1.05em; margin: 0 0 1mm; break-after: avoid; }
   .lv table { width: 100%; border-collapse: collapse; }
   .lv th { text-align: left; font-weight: 400; color: #444; font-size: .9em; border-bottom: .3mm solid #111; padding: .8mm 2mm .8mm 0; }
@@ -208,7 +292,31 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
   const huelle = (stelle: string, klasse: string, innen: string, tag = 'div') =>
     aus(stelle) && !bearbeiten ? '' : `<${tag} class="${klasse}${aus(stelle) ? ' aus' : ''}" data-stelle="${stelle}">${innen}</${tag}>`;
   const feld = (name: string) => m.felder.find((f) => f.name === name)!;
-  const teile = a.bloecke.map((b) => {
+  const teile = vorlageVon(a, e).bloecke.map((b) => {
+    if (b.art === 'formularkopf') {
+      const rechts = d.logo ? `<img class="logo" src="${sicher(d.logo)}" alt="">` : `<b>${sicher(String(d.buero.name ?? ''))}</b>`;
+      return huelle(b.id, 'formkopf', `<span class="formtitel" data-stelle="${b.id}.text">${sicher(einsetzen(e[`${b.id}.text`] || b.text, m, d))}</span>${rechts}`);
+    }
+    if (b.art === 'raster') {
+      return huelle(b.id, 'raster', b.zeilen.map((z) => `<div class="rasterzeile">${z.map((c) => {
+        const unter = (c.unter ?? []).map((t) => einsetzen(t, m, d)).filter(Boolean).join(' · ');
+        return `<div class="zelle${c.gross ? ' gross' : ''}${c.grau ? ' grau' : ''}" style="flex: ${c.breite ?? 1} 1 0"><small>${sicher(c.titel)}</small><span>${sicher(einsetzen(c.text, m, d)) || '&nbsp;'}</span>${unter ? `<em>${sicher(unter)}</em>` : ''}</div>`;
+      }).join('')}</div>`).join(''));
+    }
+    if (b.art === 'haken') {
+      return huelle(b.id, 'haken', `${b.titel ? `<b>${sicher(einsetzen(e[`${b.id}.titel`] || b.titel, m, d))}</b>` : ''}${b.felder.map((n) => `<span><i class="kaestchen${d.werte[n] ? ' an' : ''}"></i>${sicher(feld(n).titel)}</span>`).join('')}`);
+    }
+    if (b.art === 'kasten') {
+      const k = d.modell(b.objekt), zeilen = d.kinder(b.id);
+      if (!zeilen.length && !bearbeiten && !b.immer && e[`${b.id}.leer`] !== 'ja') return '';
+      const eintrag = (z: Werte) => {
+        const q = b.quellen.find((x) => Object.entries(x.wenn).every(([n, w]) => z[n] === w))!;
+        const vorne = q.vorne ? einsetzen(q.vorne, k, d, z) : '', text = sicher(einsetzen(q.text, k, d, z));
+        const fertig = b.erledigt && z[b.erledigt];
+        return `<p>${vorne ? `<b>${sicher(vorne)}</b> ` : ''}${fertig ? `<s>${text}</s> (erledigt)` : text}</p>`;
+      };
+      return huelle(b.id, 'kasten', `<h2 data-stelle="${b.id}">${sicher(einsetzen(e[`${b.id}.titel`] || b.titel, m, d))}</h2><div class="kasteninhalt">${zeilen.map((z) => eintrag(z.werte)).join('')}<p class="frei">&nbsp;</p></div>`);
+    }
     if (b.art === 'briefkopf') {
       const anschrift = [d.buero.strasse, [d.buero.plz, d.buero.ort].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
       const draht = [d.buero.telefon, d.buero.email].filter(Boolean).join(' · ');
@@ -229,16 +337,19 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
     if (b.art === 'liste' || b.art === 'verzeichnis') {
       const k = b.art === 'liste' ? d.modell(b.objekt) : m;
       const zeilen = d.kinder(b.id);
-      if (!zeilen.length && !bearbeiten && e[`${b.id}.leer`] !== 'ja') return '';
+      if (!zeilen.length && !bearbeiten && e[`${b.id}.leer`] !== 'ja' && !(b.art === 'liste' && b.leerzeile)) return '';
+      const ab = (f: Feld) => (b.art === 'liste' ? b.spaltenTitel?.[f.name] : undefined) ?? f.titel;
       const spalten = (b.art === 'verzeichnis' ? verzeichnisSpalten(b, k, e, d.modell) : b.spalten).map((n) => spaltenFeld(k, n, d.modell)!).filter((f) => f && (bearbeiten || !aus(`${b.id}.${f.name}`)));
       // Wert einer Spalte: eigenes Feld oder Feld des verwiesenen Eintrags
       const wert = (z: Werte, f: Feld): Wert => { const [a, n] = f.name.split('.'); if (n === undefined) return z[f.name] ?? null;
         const v = k.felder.find((x) => x.name === a)!, id = z[a!]; return id ? d.zielwerte?.(v.ziel!, String(id))?.[n] ?? null : null; };
       // schmale Spalten: alles außer langen Texten und Verweisen
       const schmal = (f: Feld) => (f.art === 'langtext' || f.art === 'text' || f.art === 'verweis' ? '' : ' schmal');
-      const kopf = spalten.map((f) => `<th class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}" data-stelle="${b.id}.${f.name}">${sicher(e[`${b.id}.${f.name}.titel`] || f.titel)}</th>`).join('');
+      const kopf = spalten.map((f) => `<th class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}" data-stelle="${b.id}.${f.name}">${sicher(e[`${b.id}.${f.name}.titel`] || ab(f))}</th>`).join('');
       const rumpf = zeilen.map(({ werte: z }) => `<tr>${spalten.map((f) => `<td class="${aus(`${b.id}.${f.name}`) ? 'aus' : ''}${schmal(f)}">${sicher(f.art === 'ja_nein' ? (wert(z, f) ? '✓' : '') : feldtext(f, wert(z, f), d.verweis))}</td>`).join('')}</tr>`).join('');
-      return huelle(b.id, `liste${zeilen.length ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2><table><thead><tr>${kopf}</tr></thead><tbody>${rumpf || `<tr><td colspan="${spalten.length}">–</td></tr>`}</tbody></table>`);
+      const frei = b.art === 'liste' && b.leerzeile ? `<tr class="frei">${spalten.map(() => '<td>&nbsp;</td>').join('')}</tr>` : '';
+      const titel = e[`${b.id}.titel`] || b.titel;
+      return huelle(b.id, `liste${zeilen.length ? '' : ' leer'}`, `${titel ? `<h2>${sicher(titel)}</h2>` : ''}<table><thead><tr>${kopf}</tr></thead><tbody>${rumpf || (frei ? '' : `<tr><td colspan="${spalten.length}">–</td></tr>`)}${frei}</tbody></table>`);
     }
     if (b.art === 'lv') return huelle(b.id, 'lv', lvTabelle(b, d.kinder(b.id), e));
     if (b.art === 'berechnet') {
@@ -250,8 +361,8 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
     if (b.art === 'bilder') {
       const bilder = d.kinder(b.id);
       if (!bilder.length && !bearbeiten) return '';
-      const eins = e[`${b.id}.spalten`] === '1';
-      return huelle(b.id, `bilder${bilder.length ? '' : ' leer'}${eins ? ' eins' : ''}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2><div class="bildraster">${
+      const spalten = e[`${b.id}.spalten`] || String(b.spalten ?? 2), unter = b.unter ? einsetzen(b.unter, m, d) : '';
+      return huelle(b.id, `bilder${bilder.length ? '' : ' leer'}${spalten === '1' ? ' eins' : spalten === '3' ? ' drei' : ''}${b.neueSeite ? ' neueseite' : ''}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2>${unter ? `<div class="unter bildunter">${sicher(unter)}</div>` : ''}<div class="bildraster">${
         bilder.map((z) => `<figure><img src="${sicher(d.bild(z.id))}" alt=""><figcaption>${sicher(String(z.werte[b.beschriftung] ?? ''))}</figcaption></figure>`).join('') || '–'}</div>`);
     }
     if (b.art === 'absatz') return huelle(b.id, 'absatz', `<p>${sicher(einsetzen(e[`${b.id}.text`] || b.text, m, d))}</p>`);
@@ -306,7 +417,9 @@ function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; we
 }
 
 export const schriftgroesse = (e: Einstellungen) => (SCHRIFT[e['seite.schrift'] ?? ''] ?? SCHRIFT.normal!).pt;
-export const fusszeile = (a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Einstellungen) => (e['seite.fuss.aus'] === 'ja' ? '' : einsetzen(e['seite.fuss'] || a.fuss, m, d));
+/** Fußzeile links – eine Zeile je Zeile der Vorlage (z. B. darunter die Anschrift des Büros). */
+export const fusszeile = (a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Einstellungen) =>
+  (e['seite.fuss.aus'] === 'ja' ? '' : (e['seite.fuss'] || vorlageVon(a, e).fuss).split('\n').map((z) => einsetzen(z, m, d)).filter(Boolean).join('\n'));
 export const dateiname = (a: Ausdruck, m: ObjektModell, d: Druckdaten) => (einsetzen(a.dateiname, m, d).replace(/[\\/:*?"<>|]+/g, '-') || a.titel) + '.pdf';
 
 /** Die ganze Seite für das PDF: A4, Ränder, Fußzeile mit Seitenzahl auf jeder Seite. Lädt nichts von außen. */
@@ -315,12 +428,13 @@ export function druckSeite(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Einst
 /** Mehrere Einträge in einem PDF (z. B. ausgewählte Tagesberichte): jeder beginnt auf einer neuen Seite und hat seine eigene Fußzeile. */
 export function druckSeiten(a: Ausdruck, m: ObjektModell, alle: Druckdaten[], e: Einstellungen): string {
   const schrift = '8pt Arial, "Liberation Sans", Helvetica, sans-serif';
-  const seiten = alle.map((d, i) => `@page s${i} { @bottom-left { content: "${fusszeile(a, m, d, e).replace(/[\\"]/g, '\\$&')}"; font: ${schrift}; color: #444; } }`).join('\n  ');
+  const v = vorlageVon(a, e), r = v.rand;
+  const seiten = alle.map((d, i) => `@page s${i} { @bottom-left { content: "${fusszeile(a, m, d, e).replace(/[\\"]/g, '\\$&').replace(/\n/g, '\\A ')}"; font: ${schrift}; color: #444; white-space: pre; } }`).join('\n  ');
   return `<!doctype html><html lang="de"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"><title>${sicher(a.titel)}</title><style>
-  @page { size: A4${querformat(a, e) ? ' landscape' : ''}; margin: ${RAND.oben}mm ${RAND.seite}mm ${RAND.unten}mm;
+  @page { size: A4${querformat(a, e) ? ' landscape' : ''}; margin: ${r.oben}mm ${r.rechts}mm ${r.unten}mm ${r.links}mm;
     @bottom-right { content: "Seite " counter(page) " von " counter(pages); font: ${schrift}; color: #444; } }
   ${seiten}
   html, body { margin: 0; padding: 0; }
   .seite + .seite { break-before: page; }
-  ${CSS(schriftgroesse(e))}</style></head><body>${alle.map((d, i) => `<div class="seite" style="page: s${i}">${druckInhalt(a, m, d, e)}</div>`).join('')}</body></html>`;
+  ${CSS(schriftgroesse(e))}</style></head><body>${alle.map((d, i) => `<div class="seite${v.stil ? ` ${v.stil}` : ''}" style="page: s${i}">${druckInhalt(a, m, d, e)}</div>`).join('')}</body></html>`;
 }

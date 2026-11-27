@@ -2,7 +2,7 @@
 // verschieben) liefert die Befehle, die das Bauportal dann als einen Schritt ausführt – Strg+Z nimmt alles zusammen zurück.
 // „Automatisch verknüpfen“ wie gewohnt: Einfügen setzt den neuen Vorgang in die Kette, Löschen überbrückt sie.
 import type { Wert } from '../../kern/modell';
-import { abschnitteLesen, abschnitteSchreiben, type Art } from './rechnung';
+import { abschnitteLesen, abschnitteSchreiben, type Abschnitt, type Art } from './rechnung';
 import type { Vorgaenger } from './schreibweise';
 
 export interface V { id: string; reihe: number; ebene: number; name?: string }
@@ -437,4 +437,27 @@ export function masterNeu(v: VM[], l: L[], master: string, neuId: string, werte:
     }
   }
   return b;
+}
+
+/** Ein Teil einer unterbrochenen Leistung mit der Maus geändert (wie man es erwartet: nur dieser Teil, die anderen bleiben stehen).
+ *  art: schieben – der ganze Teil; anfang/ende – nur diese Kante. d in Arbeitstagen. Ergebnis: neue Abschnitte und um wie viel
+ *  der Anfang der Leistung wandert (nur beim ersten Teil) – oder ein Hinweis, warum es so nicht geht (Teile dürfen sich nicht
+ *  berühren, jeder Teil hat mindestens einen Tag). */
+export function teilAendern(ab: Abschnitt[], k: number, art: 'schieben' | 'anfang' | 'ende', d: number): { abschnitte: Abschnitt[]; anfang: number } | string {
+  const neu = ab.map((a) => ({ ...a })), t = neu[k], nach = neu[k + 1];
+  if (!t || !d) return { abschnitte: neu, anfang: 0 };
+  let anfang = 0;
+  if (art === 'schieben') {
+    if (k === 0) anfang = d; else t.pause += d;
+    if (nach) nach.pause -= d;
+  } else if (art === 'anfang') {
+    if (k === 0) anfang = d; else t.pause += d;
+    t.dauer -= d;
+  } else {
+    t.dauer += d;
+    if (nach) nach.pause -= d;
+  }
+  if (neu.some((a) => a.dauer < 1)) return 'Ein Teil braucht mindestens einen Tag.';
+  if (neu.some((a, i) => i > 0 && a.pause < 1)) return 'Die Teile dürfen sich nicht berühren – für eine durchgehende Leistung die Unterbrechung in der Karte entfernen.';
+  return { abschnitte: neu, anfang };
 }

@@ -2,7 +2,7 @@
 // Der Kern liest daraus, welche Objekte es gibt und was das Modul braucht.
 
 import { pruefeModell, type Erben, type Feld, type ObjektModell, type Werte } from './modell';
-import { spaltenFeld, type Ausdruck } from './druck';
+import { alleBloecke, spaltenFeld, type Ausdruck } from './druck';
 
 export interface Beipackzettel {
   id: string;
@@ -173,11 +173,16 @@ export class Modulregister {
     for (const a of this.ausdrucke) {
       const m = this.modelle.get(a.objekt);
       if (!m) throw new Error(`Ausdruck „${a.id}“: Objekt „${a.objekt}“ fehlt`);
-      for (const n of a.bloecke.flatMap((b) => (b.art === 'felder' ? b.felder : b.art === 'text' ? [b.feld] : []))) {
+      const bloecke = alleBloecke(a);
+      if (new Set(bloecke.map((b) => b.id)).size !== bloecke.length) throw new Error(`Ausdruck „${a.id}“: Kennungen der Blöcke doppelt (sie gelten über alle Vorlagen)`);
+      for (const n of bloecke.flatMap((b) => (b.art === 'felder' || b.art === 'haken' ? b.felder : b.art === 'text' ? [b.feld] : []))) {
         if (!m.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Feld „${n}“ fehlt`);
       }
-      for (const b of a.bloecke) if (b.art === 'verzeichnis') for (const n of b.spalten) if (!spaltenFeld(m, n, (o) => this.modelle.get(o))) throw new Error(`Ausdruck „${a.id}“: Spalte „${n}“ fehlt`);
-      for (const b of a.bloecke) if (b.art === 'liste' || b.art === 'bilder' || b.art === 'lv') {
+      for (const b of bloecke) if (b.art === 'kasten') for (const n of [b.ueber, ...(b.erledigt ? [b.erledigt] : []), ...b.quellen.flatMap((q) => Object.keys(q.wenn))]) {
+        if (!this.modelle.get(b.objekt)?.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Kasten „${b.id}“ – Feld „${b.objekt}.${n}“ fehlt`);
+      }
+      for (const b of bloecke) if (b.art === 'verzeichnis') for (const n of b.spalten) if (!spaltenFeld(m, n, (o) => this.modelle.get(o))) throw new Error(`Ausdruck „${a.id}“: Spalte „${n}“ fehlt`);
+      for (const b of bloecke) if (b.art === 'liste' || b.art === 'bilder' || b.art === 'lv') {
         const k = this.modelle.get(b.objekt);
         for (const n of b.art === 'liste' ? [b.ueber, ...b.spalten, ...Object.keys(b.filter ?? {})] : b.art === 'lv' ? [b.ueber, 'oz', 'art', 'kurztext', 'langtext', 'menge', 'einheit', 'ep', ...(b.ohne ? [b.ohne] : [])] : [b.ueber, b.beschriftung]) if (!k?.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Liste „${b.id}“ – Feld „${b.objekt}.${n}“ fehlt`);
       }

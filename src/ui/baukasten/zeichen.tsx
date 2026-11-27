@@ -7,12 +7,12 @@ import {
   FileDown, FileText, FileUp, Flag, Folder, FolderKanban, GitBranch, Grid3x3, History, House, ImagePlus, Info, KeyRound, LayoutGrid, Library,
   List, ListPlus, ListTree, Mail, MapPin, Merge, Mic, NotebookPen, NotebookText, PanelLeft, PanelRightClose, Paintbrush, Pencil, Plus, Printer,
   Redo2, RefreshCw, Search, Send, Settings, Share2, ShieldCheck, Sparkles, StickyNote, Table, Trash2, TriangleAlert, Undo2, Upload, UserPlus,
-  User, Users, Workflow, Maximize2, Crosshair, X, Route, Spline, ZoomIn, ZoomOut, Pin, PinOff, Scissors, ClipboardPaste, CopyPlus, Link, Unlink, Box, ScrollText, Receipt, Scale, Ruler, Handshake, FilePlus2, ChartColumn, PhoneCall, AppWindow, DoorOpen, Palette, type IconNode,
+  User, Users, Workflow, Maximize2, Crosshair, X, Route, Spline, ZoomIn, ZoomOut, Pin, PinOff, Scissors, SquareSplitHorizontal, ClipboardPaste, CopyPlus, Link, Unlink, Box, ScrollText, Receipt, Scale, Ruler, Handshake, FilePlus2, ChartColumn, PhoneCall, AppWindow, DoorOpen, Palette, type IconNode,
 } from 'lucide';
 
 const ZEICHEN = {
   // allgemein
-  griff: GripVertical, zurueck: Undo2, wieder: Redo2, neu: Plus, loeschen: Trash2, bearbeiten: Pencil, kopieren: Copy, ausschneiden: Scissors, einfuegen: ClipboardPaste, duplizieren: CopyPlus, verknuepfen: Link, entkoppeln: Unlink, schliessen: X, fenster: ExternalLink,
+  griff: GripVertical, zurueck: Undo2, wieder: Redo2, neu: Plus, loeschen: Trash2, bearbeiten: Pencil, kopieren: Copy, ausschneiden: Scissors, unterbrechen: SquareSplitHorizontal, einfuegen: ClipboardPaste, duplizieren: CopyPlus, verknuepfen: Link, entkoppeln: Unlink, schliessen: X, fenster: ExternalLink,
   zuklappen: PanelRightClose, suche: Search, aktualisieren: RefreshCw, hilfe: CircleHelp, info: Info, apps: Grid3x3, einstellungen: Settings,
   links: ChevronLeft, rechts: ChevronRight, runter: ChevronDown, haken: Check, erledigt: CircleCheck, ansehen: Eye, schluessel: KeyRound,
   // Ansicht und Liste

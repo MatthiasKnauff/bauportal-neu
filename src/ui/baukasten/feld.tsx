@@ -7,6 +7,7 @@ import { feldtext } from '../../kern/druck';
 import { feldWerte, gemerkt, lebende, objektname, sicht, verweisname } from '../unterbau/abgleich';
 import { modell } from '../unterbau/api';
 import { Auswahlliste } from './auswahlliste';
+import { Datumsfeld } from './datum';
 import { hinweis } from '../unterbau/meldungen';
 import { kiAnbindungen, kiOeffnen } from './ki';
 
@@ -116,7 +117,7 @@ export function FeldEingabe(p: {
   const ereignis = () => (p.sofort ? { onInput: melden } : { onChange: melden });
   const eingabe = () => <input id={id} type={typ()} inputMode={p.feld.art === 'zahl' ? 'decimal' : undefined} value={text()} autocomplete="off" readOnly={p.gesperrt}
     onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />;
-  const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : p.feld.art === 'datum' ? 'date' : 'text');
+  const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : 'text');
   return (
     <div class="feld" data-geerbt={geerbt() || undefined} style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, klein: !!p.klein, quer: p.feld.art === 'ja_nein',
       breit: p.breit || (!p.feld.kartenBreite && ['langtext', 'mehrfach', 'schlagworte'].includes(p.feld.art)) || (!p.feld.kartenBreite && p.feld.art === 'auswahl' && !p.feld.eigeneWerte && p.feld.optionen!.length <= 4 && p.feld.optionen!.length > 2) }}>
@@ -141,6 +142,9 @@ export function FeldEingabe(p: {
       }>
         <Match when={p.feld.art === 'text' && p.feld.vorschlagen && p.objekt}>
           <TextVorschlag id={id} feld={p.feld} wert={text()} objekt={p.objekt!} gesperrt={p.gesperrt} sofort={p.sofort} onWert={p.onWert} />
+        </Match>
+        <Match when={p.feld.art === 'datum'}>
+          <Datumsfeld id={id} wert={text()} titel={p.feld.titel} gesperrt={p.gesperrt} sofort={p.sofort} vorschlaege={p.feld.datumVorschlaege} zusammenhang={p.zusammenhang} onWert={(w) => p.onWert(w)} />
         </Match>
         <Match when={p.feld.art === 'langtext'}>
           <textarea id={id} rows={5} value={text()} readOnly={p.gesperrt} {...ereignis()} />

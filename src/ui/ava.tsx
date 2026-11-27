@@ -350,7 +350,7 @@ function BieterWahl(p: { lv: Zeile; onZu: () => void }): JSX.Element {
       ids.length === 1 ? 'Bieter:in hinzufügen' : `${ids.length} Bieter:innen hinzufügen`);
     p.onZu();
   };
-  return <Wahltabelle schluessel="ava.bieterwahl" modell={modell('kontakt')} projektId={() => String(p.lv.werte.projekt ?? '')} linksFilter={ansicht()?.linksFilter} suchArten={ansicht()?.suchArten} titel="Bieter:innen aus den Adressen wählen"
+  return <Wahltabelle schluessel="ava.bieterwahl" modell={modell('kontakt')} projektId={() => String(p.lv.werte.projekt ?? '')} start={[{ feld: 'art', werte: ['firma'] }]} linksFilter={ansicht()?.linksFilter} suchArten={ansicht()?.suchArten} titel="Bieter:innen aus den Adressen wählen"
     nur={(z) => !da.has(z.id) && z.werte.art !== 'person'} zuerst={passt} knopf={(n) => (n ? `${n} ${n === 1 ? 'Bieter:in' : 'Bieter:innen'} übernehmen` : 'Übernehmen')}
     hinweis={gewerkName ? 'Firmen mit passendem Gewerk stehen oben.' : undefined} onUebernehmen={uebernehmen} onAbbrechen={p.onZu} />;
 }

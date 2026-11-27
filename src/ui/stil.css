@@ -492,6 +492,7 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .bzp-meilenstein { fill: var(--text); cursor: grab; }
 .bzp-gruppe { fill: var(--text-still); }
 .bzp-griff { fill: transparent; cursor: ew-resize; }
+.bzp-griff:hover { fill: color-mix(in srgb, var(--akzent) 30%, transparent); }   /* breiter zu greifen, als er aussieht – beim Darüberfahren sichtbar */
 .bzp-punkt { fill: var(--flaeche); stroke: var(--akzent); stroke-width: 1.5; cursor: crosshair; opacity: 0; }
 .bzp-vorgang:hover .bzp-punkt { opacity: 1; }
 .bzp-text { font-size: 11px; fill: var(--text-still); pointer-events: none; }
@@ -1653,3 +1654,16 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .wt-fuss { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--rand); }
 .wt-knoepfe { display: flex; gap: 8px; margin-left: auto; }
 @media (max-width: 700px) { .wt-links { display: none; } }
+/* Datum (eigener Kalender statt des Systemdialogs): drei Vorschläge, Monat, Tage */
+.datum-fenster { position: fixed; z-index: 85; width: 236px; padding: 8px; background: var(--flaeche); color: var(--text); border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); box-shadow: var(--schatten, 0 8px 24px rgba(0,0,0,.16)); display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+/* drei Vorschläge als kleine Kapseln über dem Monat */
+.datum-vorschlaege { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 6px; border-bottom: 1px solid var(--rand); }
+.datum-vorschlaege .knopf { flex: 1 1 auto; min-height: 0; padding: 3px 8px; font-size: 11.5px; line-height: 1.25; border-radius: 99px; border-color: transparent; background: var(--akzent-hell); color: var(--akzent); font-weight: 600; white-space: nowrap; }
+.datum-vorschlaege .knopf:hover { filter: brightness(.95); }
+.datum-monat { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.datum-tage { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; text-align: center; }
+.datum-wt { font-size: 10.5px; color: var(--text-still); padding-bottom: 2px; }
+.datum-tage button { border: 0; background: none; border-radius: 99px; width: 28px; height: 28px; justify-self: center; padding: 0; font: inherit; font-size: 12px; color: inherit; cursor: pointer; font-variant-numeric: tabular-nums; }
+.datum-tage button:nth-child(7n), .datum-tage button:nth-child(7n - 1) { color: var(--text-still); }
+.datum-tage button:hover { background: var(--still-hell); } .datum-tage button.heute { box-shadow: inset 0 0 0 1px var(--akzent); color: var(--akzent); font-weight: 600; } .datum-tage button.an { background: var(--akzent); color: #fff; }
+.datum-fuss { display: flex; justify-content: space-between; border-top: 1px solid var(--rand); padding-top: 4px; }

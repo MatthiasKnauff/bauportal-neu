@@ -19,7 +19,7 @@ import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
 import { masterNachziehen } from '../module/bauzeitenplan/master';
-import { ablageAus, gruppeUm, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { teilAendern, ablageAus, gruppeUm, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { DuplizierenFenster } from './duplizieren';
 import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
@@ -113,33 +113,29 @@ export function Balkenplan(p: Mitte) {
     ...(schreiben() ? [{ titel: 'Gruppe', zeichen: 'gruppe_neu', gruppe: 'Neu', tun: neueGruppe },
       { titel: 'Meilenstein', zeichen: 'meilenstein', gruppe: 'Neu', tun: () => neuDarunter({ name: 'Neuer Meilenstein', dauer: 0 }) }] : []),
     ...(schreiben() ? [
-      { titel: 'Kopieren', zeichen: 'kopieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: kopieren },
-      { titel: 'Ausschneiden', zeichen: 'ausschneiden', gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: ausschneiden },
-      { titel: 'Einfügen', zeichen: 'einfuegen', gruppe: 'Bearbeiten', gesperrt: !ablage(), tun: ablageEinfuegenHier },
+      // Wie in der Ausschreibung: wenige Knöpfe mit Text – Kopieren, Ausschneiden, Einfügen und Zeilen hoch/runter gehen über
+      // Strg+C/X/V, das Kontextmenü und Ziehen
       { titel: 'Duplizieren …', zeichen: 'duplizieren', gruppe: 'Bearbeiten', gesperrt: !markiert(), tun: duplizieren },
       { titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bearbeiten', gesperrt: !markiert() || !darf('vorgang', 'loeschen'), tun: () => entfernen() },
       { titel: 'Höher', zeichen: 'ausruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('aus') },
       { titel: 'Tiefer', zeichen: 'einruecken', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('ein') },
-      { titel: 'Nach oben', zeichen: 'nach_oben', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('hoch') },
-      { titel: 'Nach unten', zeichen: 'nach_unten', gruppe: 'Gliederung', gesperrt: !markiert(), tun: () => gliederung('runter') },
       { titel: 'Gruppieren …', zeichen: 'baum', gruppe: 'Gliederung', gesperrt: !vorgaenge().length, tun: () => setGrp(true) },
     ] : []),
     ...(schreiben() ? [{ titel: 'Verknüpfen', zeichen: 'verknuepfen', gruppe: 'Planen', gesperrt: !markiert() || vorgaenge()[0]?.id === markiert(), tun: mitVorigerVerknuepfen },
       { titel: 'Lösen', zeichen: 'entkoppeln', gruppe: 'Planen', gesperrt: !links().some((l) => l.werte.von === markiert() || l.werte.nach === markiert()), tun: verknuepfungenLoesen },
-      { titel: 'Unterbrechen', zeichen: 'ausschneiden', gruppe: 'Planen', an: teilen(), gesperrt: !vorgaenge().length, tun: () => setTeilen(!teilen()) },
+      { titel: 'Unterbrechen', zeichen: 'unterbrechen', gruppe: 'Planen', an: teilen(), gesperrt: !vorgaenge().length, tun: () => setTeilen(!teilen()) },
       { titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Planen', gesperrt: !links().length, tun: aufraeumen },
       { titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
     // Fortschritt der gewählten Leistungen in Stufen wie bisher (bei einer Gruppe: alle Leistungen darunter)
-    ...(schreiben() ? STUFEN.map(([w, z]) => ({ titel: `${w} %`, zeichen: z, gruppe: 'Fortschritt', gesperrt: !fortschrittIds().length, an: fortschrittIds().length > 0 && fortschrittJetzt() === w, tun: () => fortschrittSetzen(w) })) : []),
+    ...(schreiben() ? [{ titel: fortschrittIds().length ? `Fortschritt ${fortschrittJetzt()} %` : 'Fortschritt', zeichen: STUFEN.find(([w]) => w === fortschrittJetzt())?.[1] ?? STUFEN[0]![1], gruppe: 'Fortschritt', gesperrt: !fortschrittIds().length,
+      tun: (e: MouseEvent) => zeigeMenue(e, STUFEN.map(([w]) => ({ titel: `${fortschrittJetzt() === w ? '✓ ' : ''}${w} %`, tun: () => fortschrittSetzen(w) }))) }] : []),
     ...(darf('soll', 'schreiben') && vorgaenge().length ? [{ titel: sollJetzt() ? 'Soll neu …' : 'Scharf schalten …', zeichen: 'anheften', gruppe: 'Fortschritt', tun: () => setSollFenster('fest') },
       ...(sollJetzt() ? [{ titel: 'Soll zurück …', zeichen: 'zurueck', gruppe: 'Fortschritt', tun: () => setSollFenster('zurueck') }] : [])] : []),
     ...(gruppenIds().length ? (['grob', 'mittel', 'fein'] as const).map((d) => ({ titel: d[0]!.toUpperCase() + d.slice(1), zeichen: 'liste', gruppe: 'Detail', an: detailJetzt() === d, tun: () => detail(d) })) : []),
     ...(sollJetzt() ? [{ titel: 'Soll', zeichen: 'version', gruppe: 'Ansicht', an: !sollAus(), tun: () => setSollAus(!sollAus()) }] : []),
     { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
     { titel: `Pfeile: ${PFEILE.find((x) => x.wert === pfeile())?.titel ?? ''}`, zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
-    { titel: 'Größer', zeichen: 'groesser', gruppe: 'Ansicht', gesperrt: zoom() === ZOOM.length - 1, tun: () => setZoom(zoom() + 1) },
-    { titel: 'Kleiner', zeichen: 'kleiner', gruppe: 'Ansicht', gesperrt: zoom() === 0, tun: () => setZoom(zoom() - 1) },
     { titel: 'Ganzer Plan', zeichen: 'einpassen', gruppe: 'Ansicht', gesperrt: !vorgaenge().length, tun: ganzerPlan },
     { titel: 'Heute', zeichen: 'kalender', gruppe: 'Ansicht', tun: () => zumTag(tagAus(new Date().toLocaleDateString('sv')), 0.3) },
     { titel: 'Zur Leistung', zeichen: 'zielen', gruppe: 'Ansicht', gesperrt: !markiert(), tun: zurLeistung },
@@ -184,6 +180,13 @@ export function Balkenplan(p: Mitte) {
     if (!weg.length) { hinweis('Keine überflüssigen Verknüpfungen gefunden.'); return; }
     tun(weg.map((id) => ({ objekt: 'verknuepfung', art: 'loeschen' as const, objektId: id })), 'Aufräumen');
     hinweis(`${weg.length} überflüssige Verknüpfung${weg.length === 1 ? '' : 'en'} entfernt – die Termine bleiben gleich.`);
+  };
+  // Strg+Mausrad (wie bisher), aber der Tag unter der Maus bleibt stehen; das einfache Mausrad rollt wie überall
+  const zoomBei = (clientX: number, richtung: 1 | -1) => {
+    const z = Math.max(0, Math.min(ZOOM.length - 1, zoom() + richtung)); if (z === zoom()) return;
+    const mx = svgX(clientX), tag = achse().t0 + mx / px(), vorher = flaeche.scrollLeft;
+    setZoom(z);
+    requestAnimationFrame(() => { flaeche.scrollLeft = vorher + ((tag - achse().t0) * px() - mx); });
   };
   // Ansicht wie bisher: zu einem Tag rollen (Anteil der Breite links davor), den ganzen Plan einpassen, zur markierten Leistung
   const zumTag = (tag: number, anteil: number) => { flaeche.scrollLeft = Math.max(0, (tag - achse().t0) * px() - (flaeche.clientWidth - breiteL()) * anteil); };   // die Spalten links stehen fest (sticky)
@@ -471,9 +474,9 @@ export function Balkenplan(p: Mitte) {
   };
 
   // ---------- Balken mit der Maus ----------
-  const [ziehen, setZiehen] = createSignal<{ id: string; art: 'schieben' | 'dauer' | 'link' | 'neu'; x0: number; dx: number; y: number; yMaus: number; xs?: number; teil?: number | null } | null>(null);
+  const [ziehen, setZiehen] = createSignal<{ id: string; art: 'schieben' | 'dauer' | 'anfang' | 'link' | 'neu'; x0: number; dx: number; y: number; yMaus: number; xs?: number; teil?: number | null } | null>(null);
   const tageAus = (dx: number) => Math.round(dx / px());
-  const startZiehen = (e: PointerEvent, v: Zeile, art: 'schieben' | 'dauer' | 'link', y: number, teil: number | null = null) => {
+  const startZiehen = (e: PointerEvent, v: Zeile, art: 'schieben' | 'dauer' | 'anfang' | 'link', y: number, teil: number | null = null) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     if (teilen()) { teilenAn(e, v); return; }
@@ -538,6 +541,21 @@ export function Balkenplan(p: Mitte) {
     }
     const d = tageAus(g.dx);
     if (!d) return;
+    // ein Teil einer unterbrochenen Leistung: nur dieser Teil (die anderen bleiben stehen)
+    const ab = abschnitteLesen(v.werte.unterbrechung as string);
+    if (g.teil != null && ab && ab.length > 1) {
+      const r = teilAendern(ab, g.teil, g.art === 'dauer' ? 'ende' : g.art === 'anfang' ? 'anfang' : 'schieben', d);
+      if (typeof r === 'string') return hinweis(r, { art: 'fehler' });
+      ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { unterbrechung: abschnitteSchreiben(r.abschnitte), dauer: r.abschnitte.reduce((x, a) => x + a.dauer, 0),
+        ...(r.anfang ? { anfang_nicht_vor: isoAus(k.tag(k.arbeitstag(k.tag(t.s) + r.anfang))) } : {}) } }, `Teil ${g.teil + 1} von „${name}“ ${g.art === 'schieben' ? 'verschieben' : 'ändern'}`);
+      return;
+    }
+    if (g.art === 'anfang') {   // linke Kante: der Anfang wandert, das Ende bleibt
+      const dauer = Number(v.werte.dauer ?? 0) - d;
+      if (dauer < 1) return hinweis('Eine Leistung braucht mindestens einen Tag – für einen Meilenstein die Dauer 0 in der Karte eintragen.', { art: 'fehler' });
+      ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { anfang_nicht_vor: isoAus(k.tag(k.arbeitstag(k.tag(t.s) + d))), dauer } }, `Anfang von „${name}“ ändern`);
+      return;
+    }
     if (g.art === 'schieben') {
       const neu = k.arbeitstag(k.tag(t.s) + d);
       ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { anfang_nicht_vor: isoAus(k.tag(neu)) } }, `„${name}“ verschieben`);
@@ -569,8 +587,16 @@ export function Balkenplan(p: Mitte) {
       },
     });
   };
-  const verschiebung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'schieben' ? tageAus(g.dx) * px() : 0; };
-  const verlaengerung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'dauer' ? tageAus(g.dx) * px() : 0; };
+  // Vorschau beim Ziehen: die ganze Leistung (teil null) oder nur ein Teil einer unterbrochenen – verschoben bzw. eine Kante
+  const verschiebung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'schieben' && g.teil == null ? tageAus(g.dx) * px() : 0; };
+  const verlaengerung = (id: string) => { const g = ziehen(); return g && g.id === id && g.art === 'dauer' && g.teil == null ? tageAus(g.dx) * px() : 0; };
+  const teilVersatz = (id: string, k: number, letzter: boolean): { x: number; w: number } => {
+    const g = ziehen(); if (!g || g.id !== id) return { x: 0, w: 0 };
+    const D = tageAus(g.dx) * px();
+    if (g.teil == null) return g.art === 'schieben' ? { x: D, w: 0 } : g.art === 'dauer' && letzter ? { x: 0, w: D } : g.art === 'anfang' && k === 0 ? { x: D, w: -D } : { x: 0, w: 0 };
+    if (g.teil !== k) return { x: 0, w: 0 };
+    return g.art === 'schieben' ? { x: D, w: 0 } : g.art === 'anfang' ? { x: D, w: -D } : g.art === 'dauer' ? { x: 0, w: D } : { x: 0, w: 0 };
+  };
 
   // ---------- Pfeile ----------
   const pfeilListe = createMemo(() => pfeilWege(L_(), erg().termine, new Map(sichtbar().map((v, i) => [v.id, i])), pfeile(), markiert(), { x, xEnde, h: H }));
@@ -599,6 +625,9 @@ export function Balkenplan(p: Mitte) {
       { titel: 'Informationen …', tun: () => oeffnen(v.id) },
       ...(schreiben() ? [
         { titel: 'Leistung darunter einfügen', tun: () => neuDarunter() },
+        { titel: 'Kopieren', tun: kopieren },
+        ...(darf('vorgang', 'loeschen') ? [{ titel: 'Ausschneiden', tun: ausschneiden }] : []),
+        { titel: 'Einfügen darunter', gesperrt: !ablage(), tun: ablageEinfuegenHier },
         { titel: 'Hier unterbrechen …', gesperrt: erg().termine.get(v.id)!.gruppe || Number(v.werte.dauer ?? 0) < 2, tun: () => teilenAn(e, v) },
         { titel: 'Anfang wieder automatisch', gesperrt: !v.werte.anfang_nicht_vor, tun: () => ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { anfang_nicht_vor: null } }, 'Anfang wieder automatisch') },
       ] : []),
@@ -644,7 +673,7 @@ export function Balkenplan(p: Mitte) {
       <Show when={!schmal() || handy() === 'plan'}>
       <Show when={erg().zyklen.length}><p class="feld-fehler bzp-warnung">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</p></Show>
       <div class="bzp-flaeche" classList={{ teilen: teilen() }} ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
-        onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); setZoom(Math.max(0, Math.min(ZOOM.length - 1, zoom() + (e.deltaY < 0 ? 1 : -1)))); } }}>
+        onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); zoomBei(e.clientX, e.deltaY < 0 ? 1 : -1); } }}>
         <div class="bzp-innen" style={{ width: `${breiteL() + breiteR()}px`, height: `${KOPF + flaechenZeilen() * H}px` }}>
           <div class="bzp-kopf" style={{ width: `${breiteL() + breiteR()}px` }}>
             <div class="bzp-links bzp-kopfzellen" onContextMenu={(e) => { e.preventDefault(); setSpaltenFeld({ x: e.clientX, y: e.clientY }); }}>
@@ -677,9 +706,17 @@ export function Balkenplan(p: Mitte) {
                         <For each={tt().abschnitte}>{(a, k) => (
                           <>
                             <Show when={k() > 0}><line x1={xEnde(tt().abschnitte[k() - 1]!.s, tt().abschnitte[k() - 1]!.f) + verschiebung(v.id)} x2={x(a.s) + verschiebung(v.id)} y1={y() + H / 2} y2={y() + H / 2} class="bzp-pause" /></Show>
-                            <rect x={x(a.s) + verschiebung(v.id)} y={y() + 8} rx={3} height={14}
-                              width={Math.max(2, xEnde(a.s, a.f) - x(a.s) + (k() === tt().abschnitte.length - 1 ? verlaengerung(v.id) : 0))}
-                              fill={fb()} class="bzp-balken-teil" classList={{ kritisch: kritisch() && tt().kritisch }} onPointerDown={(e) => startZiehen(e, v, 'schieben', y())} />
+                            {(() => { const geteilt = () => tt().abschnitte.length > 1, o = () => teilVersatz(v.id, k(), k() === tt().abschnitte.length - 1), links = () => x(a.s) + o().x, breite = () => Math.max(2, xEnde(a.s, a.f) - x(a.s) + o().w);
+                              return <>
+                                <rect x={links()} y={y() + 8} rx={3} height={14} width={breite()}
+                                  fill={fb()} class="bzp-balken-teil" classList={{ kritisch: kritisch() && tt().kritisch }} onPointerDown={(e) => startZiehen(e, v, 'schieben', y(), geteilt() ? k() : null)}>
+                                  <Show when={geteilt()}><title>{`Teil ${k() + 1}: ziehen verschiebt nur diesen Teil`}</title></Show></rect>
+                                {/* Kanten zum Greifen (breiter als sie aussehen): links der Anfang, rechts das Ende – bei geteilten je Teil */}
+                                <Show when={schreiben()}>
+                                  <rect x={links() - 5} y={y() + 4} width={10} height={22} class="bzp-griff" onPointerDown={(e) => startZiehen(e, v, 'anfang', y(), geteilt() ? k() : null)}><title>Ziehen ändert den Anfang</title></rect>
+                                  <Show when={geteilt() && k() < tt().abschnitte.length - 1}><rect x={links() + breite() - 5} y={y() + 4} width={10} height={22} class="bzp-griff" onPointerDown={(e) => startZiehen(e, v, 'dauer', y(), k())}><title>Ziehen ändert das Ende dieses Teils</title></rect></Show>
+                                </Show>
+                              </>; })()}
                           </>
                         )}</For>
                         <Show when={vgl()?.je.get(v.id)?.soll}>{(so) => (
@@ -690,15 +727,15 @@ export function Balkenplan(p: Mitte) {
                         <Show when={xEnde(tt().s, tt().f) - x(tt().s) >= 30}>
                           <text x={x(tt().s) + verschiebung(v.id) + 3} y={y() + 19} class="bzp-pct">{Math.round(Number(v.werte.fortschritt ?? 0))} %</text>
                         </Show>
-                        <rect x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) - 4} y={y() + 8} width={8} height={14} class="bzp-griff" onPointerDown={(e) => startZiehen(e, v, 'dauer', y())}><title>Ziehen ändert die Dauer</title></rect>
+                        <rect x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + teilVersatz(v.id, tt().abschnitte.length - 1, true).w * Number(ziehen()?.teil != null) - 5} y={y() + 4} width={10} height={22} class="bzp-griff" onPointerDown={(e) => startZiehen(e, v, 'dauer', y(), tt().abschnitte.length > 1 ? tt().abschnitte.length - 1 : null)}><title>Ziehen ändert die Dauer</title></rect>
                       </Show>
                     }>
                       <path d={`M${x(tt().s)},${y() + 9} H${xEnde(tt().s, tt().f)} v10 l-5,-4 H${x(tt().s) + 5} l-5,4 z`} class="bzp-gruppe" />
                     </Show>
-                    <Show when={schreiben()}><circle cx={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 9} cy={y() + H / 2} r={4} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y(), tt().abschnitte.length > 1 ? tt().abschnitte.length - 1 : null)}><title>Auf eine andere Leistung ziehen: verknüpfen</title></circle>
+                    <Show when={schreiben()}><circle cx={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 9} cy={y() + H / 2} r={6} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y(), tt().abschnitte.length > 1 ? tt().abschnitte.length - 1 : null)}><title>Auf eine andere Leistung ziehen: verknüpfen</title></circle>
                       {/* geteilte Leistung: auch jeder frühere Teil hat seinen Punkt – Pfeile gehen von und zu jedem Teil */}
                       <For each={tt().abschnitte.length > 1 ? tt().abschnitte.slice(0, -1) : []}>{(a, k) => (
-                        <circle cx={xEnde(a.s, a.f) + verschiebung(v.id) + 4} cy={y() + H / 2 - 9} r={3.5} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y(), k())}><title>{`Teil ${k() + 1} auf eine andere Leistung ziehen: verknüpfen`}</title></circle>
+                        <circle cx={xEnde(a.s, a.f) + verschiebung(v.id) + 4} cy={y() + H / 2 - 9} r={5} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y(), k())}><title>{`Teil ${k() + 1} auf eine andere Leistung ziehen: verknüpfen`}</title></circle>
                       )}</For></Show>
                     <text x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 18} y={y() + 19} class="bzp-text">{String(v.werte.name ?? '')}{v.werte.unternehmer ? ` · ${v.werte.unternehmer}` : ''}<Show when={vgl()?.je.get(v.id)}>{(g) => <Show when={g().art === 'neu' || g().tage}><tspan class="bzp-soll-text" classList={{ spaet: g().tage > 0, frueh: g().tage < 0 }}>{g().art === 'neu' ? '  neu' : `  ${g().tage > 0 ? '+' : ''}${g().tage} T`}</tspan></Show>}</Show></text>
                   </g>

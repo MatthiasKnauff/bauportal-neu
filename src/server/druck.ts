@@ -6,7 +6,7 @@ import { wirksam } from '../kern/erben';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
-import { dateiname, druckSeite, druckSeiten, listenfolge, verzeichnisSpalten, type Druckdaten, type Einstellungen } from '../kern/druck';
+import { alleBloecke, dateiname, druckSeite, druckSeiten, listenfolge, passt, verzeichnisSpalten, type Druckdaten, type Einstellungen } from '../kern/druck';
 import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, spalte, tabelle, type Absender, type Db } from './db';
@@ -47,19 +47,20 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
     // Listen: die Einträge, die am Objekt hängen – gelesen als der Benutzer, in der Reihenfolge des Berichts
     const kinder = new Map<string, { id: string; werte: Werte }[]>();
     const bildIds: string[] = [];
-    for (const b of a.bloecke) if (b.art === 'liste' || b.art === 'bilder' || b.art === 'lv') {
+    // (aller Vorlagen – welche gedruckt wird, entscheidet die Einstellung des Büros)
+    for (const b of alleBloecke(a)) if (b.art === 'liste' || b.art === 'bilder' || b.art === 'lv' || b.art === 'kasten') {
       const k = register.modell(b.objekt)!;
       const filter = Object.entries(b.art === 'liste' ? b.filter ?? {} : {});
       const ohne = b.art === 'lv' && b.ohne ? ` and ${spalte(b.ohne)} is null` : '';
       const zeilen = (await c.query(`select * from ${tabelle(k.name)} where ${spalte(b.ueber)} = $1 and not geloescht${ohne}${filter.map(([n], i) => ` and ${spalte(n)} = $${i + 2}`).join('')}`, [objektId, ...filter.map(([, w]) => w)])).rows
-        .map((z) => ({ id: z.id as string, werte: werteAus(k, z) })).sort(listenfolge);
+        .map((z) => ({ id: z.id as string, werte: werteAus(k, z) })).filter((z) => passt(b, z.werte)).sort(listenfolge);
       kinder.set(b.id, zeilen);
       if (b.art === 'lv') continue;   // Reihenfolge nach OZ, keine Verweise
       if (b.art === 'bilder') {
         bildIds.push(...zeilen.map((z) => z.id));   // welche Fotos der Benutzer sehen darf, steht damit fest
         continue;
       }
-      for (const f of k.felder.filter((x) => x.art === 'verweis' && b.spalten.includes(x.name))) {
+      for (const f of k.felder.filter((x) => x.art === 'verweis' && (b.art === 'kasten' || b.spalten.includes(x.name)))) {
         const ziel = register.modell(f.ziel!)!;
         const ids = [...new Set(zeilen.map((z) => z.werte[f.name]).filter(Boolean))];
         if (ids.length) for (const z of (await c.query(`select id, ${spalte(ziel.anzeigeFeld)} as name from ${tabelle(ziel.name)} where id = any($1)`, [ids])).rows) namen.set(`${ziel.name}:${z.id}`, String(z.name ?? ''));
@@ -67,7 +68,7 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
     }
     // Berechnete Blöcke: was ihre Druckquellen brauchen, einmal lesen (als der Benutzer) – gerechnet wird wie im Browser
     const geholt = new Map<string, { id: string; werte: Werte }[]>();
-    for (const b of a.bloecke) if (b.art === 'berechnet') for (const x of DRUCKQUELLEN[b.quelle]?.braucht ?? []) {
+    for (const b of alleBloecke(a)) if (b.art === 'berechnet') for (const x of DRUCKQUELLEN[b.quelle]?.braucht ?? []) {
       const wert = x.fest ?? String(x.wert === 'id' ? objektId : werte[x.wert] ?? ''), k = `${x.objekt}|${x.feld}|${wert}`;
       if (geholt.has(k) || !wert) continue;
       const ziel = register.modell(x.objekt); if (!ziel) continue;
@@ -79,14 +80,22 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
     // bei doppelten Einträgen (zwei Geräte ohne Netz) gilt überall derselbe: der mit der kleinsten Kennung
     for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
     const projektId = m.projektFeld && m.projektFeld !== 'id' ? (werte[m.projektFeld] as string | null) : null;
-    const projektordner = projektId ? ((await c.query('select ordner from o_projekt where id = $1', [projektId])).rows[0]?.ordner as string | undefined) || null : null;
-    return { werte, buero, projekt, namen, kinder, e, bildIds, projektId, projektordner, geholt };
+    const pz = projektId ? (await c.query('select * from o_projekt where id = $1', [projektId])).rows[0] : undefined;
+    const projektordner = (pz?.ordner as string | undefined) || null;
+    // das Projekt selbst (Platzhalter {projekt.feld}), seine Verweise aufgelöst – z. B. die Bauherrschaft
+    const pm = register.modell('projekt')!, projektwerte = pz ? werteAus(pm, pz) : undefined;
+    if (projektwerte) for (const f of pm.felder.filter((x) => x.art === 'verweis' && projektwerte[x.name])) {
+      const ziel = register.modell(f.ziel!)!;
+      const z = (await c.query(`select ${spalte(ziel.anzeigeFeld)} as name from ${tabelle(ziel.name)} where id = $1`, [projektwerte[f.name]])).rows[0];
+      namen.set(`${ziel.name}:${projektwerte[f.name]}`, String(z?.name ?? ''));
+    }
+    return { werte, buero, projekt, namen, kinder, e, bildIds, projektId, projektordner, projektwerte, geholt };
   });
   // Im PDF steckt das Vorschaubild selbst – der Druckdienst lädt nichts nach
   const bilder = new Map<string, string>();
   if (t.bildIds.length) for (const v of (await db.query('select id, bild from kern_vorschau where id = any($1)', [t.bildIds])).rows) bilder.set(v.id, `data:image/jpeg;base64,${(v.bild as Buffer).toString('base64')}`);
-  const d: Druckdaten = { werte: t.werte, buero: t.buero, logo: await logoDaten(db), projekt: t.projekt, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '',
-    berechnet: (blockId) => { const b = a.bloecke.find((x) => x.id === blockId); const q = b?.art === 'berechnet' ? DRUCKQUELLEN[b.quelle] : undefined;
+  const d: Druckdaten = { werte: t.werte, buero: t.buero, logo: await logoDaten(db), projekt: t.projekt, projektwerte: t.projektwerte, verweis: (ziel, id) => t.namen.get(`${ziel}:${id}`) ?? '', kinder: (id) => t.kinder.get(id) ?? [], modell: (o) => register.modell(o)!, bild: (id) => bilder.get(id) ?? '',
+    berechnet: (blockId) => { const b = alleBloecke(a).find((x) => x.id === blockId); const q = b?.art === 'berechnet' ? DRUCKQUELLEN[b.quelle] : undefined;
       return q ? q.tabellen((o, f, w) => t.geholt.get(`${o}|${f}|${w}`) ?? [], { id: objektId, werte: t.werte }) : []; } };
   return { html: druckSeite(a, m, d, t.e), name: dateiname(a, m, d), projekt: t.projektId, projektordner: t.projektordner, ordner: (t.e['seite.ordner'] || a.ordner || '').trim(), d, e: t.e };
 }

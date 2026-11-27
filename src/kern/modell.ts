@@ -5,6 +5,8 @@
 export type FeldArt = 'text' | 'langtext' | 'auswahl' | 'email' | 'telefon' | 'zahl' | 'ja_nein' | 'verweis' | 'datum' | 'mehrfach' | 'schlagworte';
 export type Wert = string | number | boolean | null;
 export type Werte = Record<string, Wert>;
+/** Vorschlag zum Antippen im Kalender eines Datumsfelds (kern/datum.ts). */
+export interface DatumVorschlag { titel: string; tage?: number; wochen?: number; monate?: number; ab?: string /* Feld mit dem Ausgangsdatum (sonst heute) */ }
 
 export interface Feld {
   name: string;            // technischer Name, zugleich Spaltenname
@@ -26,6 +28,7 @@ export interface Feld {
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)
   verborgen?: boolean;     // führt das Programm selbst (z. B. die Reihenfolge) – steht in keiner Karte
   einheit?: string;        // bei art = zahl: Feld mit der Einheit dieser Menge – die Tabelle zeigt dann unten die Summe der gezeigten Zeilen
+  datumVorschlaege?: DatumVorschlag[];   // bei art = datum: drei Vorschläge zum Antippen im Kalender (ab Werk +1 Woche · +2 Wochen · +1 Monat ab heute)
   erbt?: boolean;          // leer gilt der Wert der Ebene darüber (Modell „erben“, z. B. LV ← Projekt ← Büro) – kern/erben.ts
 }
 
@@ -122,9 +125,9 @@ function pruefeFeld(f: Feld, roh: unknown): Wert {
       return roh === true || roh === 'true';
     case 'datum': {
       if (roh === null || roh === '' || roh === undefined) return '';
-      const t = String(roh);
+      const t = String(roh);   // gespeichert wird JJJJ-MM-TT; Eingaben wie „27.11.26“ wandelt das Eingabefeld (kern/datum.ts)
       const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-      if (!d || new Date(`${t}T00:00:00Z`).toISOString().slice(0, 10) !== t) throw new Error('Bitte ein Datum eintragen');
+      if (!d || new Date(`${t}T00:00:00Z`).toISOString().slice(0, 10) !== t) throw new Error('Bitte ein Datum eintragen (TT.MM.JJJJ)');
       return t;
     }
     case 'verweis': {

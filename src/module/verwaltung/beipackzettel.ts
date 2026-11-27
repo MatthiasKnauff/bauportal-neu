@@ -48,6 +48,7 @@ export const buero: ObjektModell = {
   rechte: { lesen: ALLE, schreiben: ['bueroleitung'], loeschen: [] },
   felder: [
     { name: 'name', titel: 'Name des Büros', art: 'text', gruppe: 'Büro' },
+    { name: 'kurzname', titel: 'Kurzname (z. B. „Zu erledigen von GK3“ im Tagesbericht)', art: 'text', gruppe: 'Büro' },
     { name: 'bundesland', titel: 'Bundesland (Vorgabe, je Bauantrag änderbar)', art: 'auswahl', gruppe: 'Büro',
       optionen: [{ wert: '', titel: 'noch nicht gewählt' }, ...BUNDESLAENDER.map((b) => ({ wert: b, titel: b }))] },
     { name: 'strasse', titel: 'Straße und Hausnummer', art: 'text', gruppe: 'Anschrift' },
@@ -55,6 +56,7 @@ export const buero: ObjektModell = {
     { name: 'ort', titel: 'Ort', art: 'text', gruppe: 'Anschrift' },
     { name: 'telefon', titel: 'Telefon', art: 'telefon', gruppe: 'Anschrift' },
     { name: 'email', titel: 'E-Mail', art: 'email', gruppe: 'Anschrift' },
+    { name: 'web', titel: 'Internet', art: 'text', gruppe: 'Anschrift' },
     { name: 'logo', titel: 'Logo', art: 'text', verborgen: true },   // Stand des Logos (Zeit) – das Bild selbst: Verwaltung → Büro, /api/logo
     // Debugging-Modus (Entscheidung 25.11.2026): nur diese Rollen sehen in Verwaltung → Aufbau den Quelltext eines Bausteins
     // Ausschreibung (bisher AVA → Einstellungen → Vergabe- und Auftragsnummern): Vorschlag an der LV-Karte
