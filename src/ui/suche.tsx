@@ -5,7 +5,7 @@ import { unwrap } from 'solid-js/store';
 import type { Beipackzettel } from '../kern/modul';
 import type { ObjektModell } from '../kern/modell';
 import { objektname, sicht } from './unterbau/abgleich';
-import { darf, zustand } from './unterbau/api';
+import { darf, darfBereich, zustand } from './unterbau/api';
 import { anzeige } from './baukasten/feld';
 import { Dialog } from './baukasten/dialog';
 
@@ -22,7 +22,7 @@ export function Suche(p: { onTreffer: (t: Treffer) => void; onZu: () => void; se
   // Wo jedes Objekt zu sehen ist: die erste Ansicht eines Moduls, die es zeigt
   const orte = createMemo(() => {
     const o = new Map<string, { modul: Beipackzettel; ansicht: string; m: ObjektModell }>();
-    for (const modul of zustand()!.module) for (const a of modul.ansichten) if (a.objekt && !o.has(a.objekt) && !a.nurAdmin) {
+    for (const modul of zustand()!.module) for (const a of modul.ansichten) if (a.objekt && !o.has(a.objekt) && (!a.bereich || darfBereich(a.bereich))) {
       const m = modul.objekte.find((x) => x.name === a.objekt) ?? zustand()!.module.flatMap((x) => x.objekte).find((x) => x.name === a.objekt);
       if (m && darf(m.name, 'lesen')) o.set(a.objekt, { modul, ansicht: a.id, m });
     }

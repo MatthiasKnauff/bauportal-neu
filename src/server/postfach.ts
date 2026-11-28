@@ -12,6 +12,7 @@ import type { Modulregister } from '../kern/modul';
 import { MAILSERVER_ID } from '../module/verwaltung/beipackzettel';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { SYSTEM, type Db } from './db';
+import { pruefeBereich } from './bereich';
 import { werteAus } from './druck';
 import { Ablehnung, ALLES_GESEHEN, befehlAusfuehren, regelAnmelden } from './protokoll';
 
@@ -90,9 +91,10 @@ export async function sender(db: Db, register: Modulregister, pf: PostfachId, ho
     } };
 }
 
-/** Darf der Benutzer dieses Postfach einrichten? Das Büro nur die Verwaltung, ein eigenes nur der Inhaber (oder die Verwaltung). */
-async function darfEinrichten(db: Db, req: FastifyRequest, pf: PostfachId): Promise<void> {
-  if (req.benutzer!.rolle === 'admin') return;
+/** Darf der Benutzer dieses Postfach einrichten? Das Büro, wer „Mail & Versand“ ändern darf, ein eigenes nur der Inhaber (oder die Verwaltung). */
+async function darfEinrichten(db: Db, req: FastifyRequest, pf: PostfachId, zugang = false): Promise<void> {
+  if (req.benutzer!.admin) return;
+  if (pf === BUERO) return pruefeBereich(db, req, zugang ? 'zugaenge' : 'mail', zugang ? 'schreiben' : 'lesen');   // Kennwort/Anmeldung des Büros: Zugänge „neu setzen“
   if (pf !== BUERO && (await db.query('select 1 from o_postfach where id = $1 and inhaber = $2 and not geloescht', [pf, req.benutzer!.id])).rowCount) return;
   throw new Ablehnung('Das darf nur die Verwaltung');
 }
@@ -129,14 +131,14 @@ export function postfachRouten(app_: FastifyInstance, e: { db: Db; register: Mod
     return { id };
   });
   app_.post('/api/postfach/kennwort', { preHandler: e.nurAngemeldet }, async (req) => {
-    const pf = pfAus(req.body); await darfEinrichten(db, req, pf);
+    const pf = pfAus(req.body); await darfEinrichten(db, req, pf, true);
     const k = (req.body as { kennwort?: unknown }).kennwort;
     if (typeof k !== 'string' || !k) throw new Eingabefehler({ kennwort: 'Bitte das Kennwort eintragen' });
     await geheimnisSetzen(db, geheim(pf, 'kennwort'), k);
     return { ok: true };
   });
   app_.post('/api/postfach/app-geheimnis', { preHandler: e.nurAngemeldet }, async (req) => {
-    if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das darf nur die Verwaltung');
+    await pruefeBereich(e.db, req, 'zugaenge', 'schreiben');
     const k = (req.body as { geheimnis?: unknown } | null)?.geheimnis;
     if (typeof k !== 'string' || !k) throw new Eingabefehler({ geheimnis: 'Bitte das Geheimnis der App eintragen' });
     await geheimnisSetzen(db, APP_GEHEIMNIS, k);
@@ -153,7 +155,7 @@ export function postfachRouten(app_: FastifyInstance, e: { db: Db; register: Mod
   const offen = new Map<string, { pf: PostfachId; wer: string; zurueck: string; bis: number }>();
   const adresseZurueck = (req: FastifyRequest) => `${process.env.BAUPORTAL_URL?.replace(/\/$/, '') || `${String(req.headers['x-forwarded-proto'] ?? req.protocol)}://${String(req.headers['x-forwarded-host'] ?? req.headers.host)}`}/api/postfach/m365/zurueck`;
   app_.post('/api/postfach/m365/start', { preHandler: e.nurAngemeldet }, async (req) => {
-    const pf = pfAus(req.body); await darfEinrichten(db, req, pf);
+    const pf = pfAus(req.body); await darfEinrichten(db, req, pf, true);
     const { buero } = await laden(db, e.register, pf), a = await app(db, buero), state = randomBytes(24).toString('hex'), zurueck = adresseZurueck(req);
     for (const [k, v] of offen) if (v.bis < Date.now()) offen.delete(k);
     offen.set(state, { pf, wer: req.benutzer!.id, zurueck, bis: Date.now() + 15 * 60000 });

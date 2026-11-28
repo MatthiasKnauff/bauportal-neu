@@ -18,6 +18,8 @@ export interface Beipackzettel {
    *  das Register fügt sie dem Objekt hinzu; das andere Modul muss davon nichts wissen. */
   ergaenzt?: Ergaenzung[];
   ansichten: Ansicht[];       // was das Modul in der Oberfläche zeigt
+  /** Bereiche der Verwaltung (wie bisher je Rolle „– · sehen · ändern“): eine Ansicht mit „bereich“ sieht nur, wer ihn sehen darf. */
+  bereiche?: Bereich[];
   kataloge?: Katalog[];       // Kataloge, die über den Katalog-Kanal kommen und sich auf Knopfdruck aktualisieren lassen
   nachschlagen?: Nachschlag[];   // große Kataloge, die nur am Server liegen und seitenweise gesucht werden
   ausdrucke?: Ausdruck[];     // was das Modul drucken kann (Druckwerk)
@@ -73,6 +75,10 @@ export interface Nachschlag {
 export type Versionsweg = 'kopie' | 'leer' | 'projekt';
 export interface Versionsbereich { bereich: string; titel: string; wege: Versionsweg[] }
 
+/** Bereich der Verwaltung. Stufen: 3 = – · sehen · ändern, 2 = nur sehen freigebbar (ändern bleibt bei der Administrator:in),
+ *  1 = nur „neu setzen“ (Zugänge: Kennwörter und Schlüssel, den Wert sieht niemand). „ändern“ gibt auch das Schreiben der Objekte. */
+export interface Bereich { id: string; titel: string; erklaerung: string; stufen: 1 | 2 | 3; objekte?: string[] }
+
 export interface Ansicht {
   id: string;
   titel: string;
@@ -83,7 +89,7 @@ export interface Ansicht {
    *  das Fenster bringt die Oberfläche mit (ansichten.tsx, FENSTER) */
   fenster?: boolean;
   filter?: Werte;             // zeigt nur Einträge mit diesen Werten (z. B. nur die Mängel); neue Einträge bekommen sie
-  nurAdmin?: boolean;
+  bereich?: string;           // gehört zu diesem Bereich der Verwaltung (Beipackzettel „bereiche“) – sonst für alle, die das Objekt sehen
   hilfe?: string;             // Hilfe zur Ansicht (Knopf „?“ oben): was man hier tut und wie – Absätze mit Leerzeile getrennt
   einstellungen?: string;     // eigene Seite, die dieses Objekt einstellt (z. B. „buero“) – die Suche findet dann jedes seiner Felder
   abschnitt?: string;         // Überschrift, unter der die Ansicht links steht (z. B. „Terminplan“, „Vorlagen“)
@@ -185,6 +191,10 @@ export class Modulregister {
     for (const z of module) for (const b of z.braucht) {
       if (!this.zettel.has(b)) throw new Error(`Modul „${z.id}“ braucht „${b}“, das fehlt`);
     }
+    // Bereiche der Verwaltung: jede Ansicht nennt einen, den es gibt; die Objekte eines Bereichs gibt es
+    const bereiche = module.flatMap((z) => z.bereiche ?? []);
+    for (const b of bereiche) for (const o of b.objekte ?? []) if (!this.modelle.has(o)) throw new Error(`Bereich „${b.id}“: Objekt „${o}“ fehlt`);
+    for (const z of this.module) for (const a of z.ansichten) if (a.bereich && !bereiche.some((b) => b.id === a.bereich)) throw new Error(`Ansicht „${z.id}.${a.id}“: Bereich „${a.bereich}“ fehlt`);
     // Ausdrucke dürfen nur Felder nennen, die es gibt
     for (const a of this.ausdrucke) {
       const m = this.modelle.get(a.objekt);
@@ -212,6 +222,7 @@ export class Modulregister {
   get kataloge(): Katalog[] { return this.module.flatMap((m) => m.kataloge ?? []); }
   get ausdrucke(): Ausdruck[] { return this.module.flatMap((m) => m.ausdrucke ?? []); }
   get ablagerollen(): Ablagerolle[] { return this.module.flatMap((m) => m.ablagerollen ?? []); }
+  get bereiche(): Bereich[] { return this.module.flatMap((m) => m.bereiche ?? []); }
   ablagerolle(id: string): Ablagerolle | undefined { return this.ablagerollen.find((r) => r.id === id); }
   get versionsbereiche(): Versionsbereich[] { return this.module.flatMap((m) => m.versionen ?? []); }
   modell(name: string): ObjektModell | undefined { return this.modelle.get(name); }

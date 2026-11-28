@@ -8,9 +8,10 @@ import type { Modulregister } from '../kern/modul';
 import type { Befehl } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { SYSTEM, alsBenutzer, type Db } from './db';
+import { nurAdmin } from './bereich';
 import { Ablehnung, ALLES_GESEHEN, vorgangAusfuehren } from './protokoll';
 import { pruefwertUebernehmen, type Benutzer } from './anmeldung';
-import { ROLLEN } from '../kern/rechte';
+import { ROLLEN, rolleId } from '../kern/rechte';
 import { fotoAblegen } from './foto';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { randomUUID } from 'node:crypto';
@@ -161,7 +162,6 @@ export async function altFotosHolen(db: Db, register: Modulregister, umgebung: s
 
 export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
   const { db } = e;
-  const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
 
   // Der Export – als Datei oder vom alten Bautagebuch geholt – wird zur Vorschau. Übernommen wird über /api/uebernehmen;
   // danach ist gemerkt, welche Fotos zu welchem Bericht gehören, und bei einer Verbindung kommen sie gleich hinterher.
@@ -182,7 +182,7 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     });
   };
   app.post('/api/altdaten/vorschau', { preHandler: e.nurAngemeldet, bodyLimit: 300 * 1024 * 1024 }, async (req): Promise<Vorschau> => {
-    admin(req);
+    nurAdmin(req);
     let roh: unknown;
     try { roh = JSON.parse((req.body as Buffer).toString('utf8')); } catch { throw new Ablehnung('Die Datei ist nicht lesbar (erwartet wird der JSON-Export des Bautagebuchs)'); }
     return vorschau(req.benutzer!, roh);
@@ -191,12 +191,12 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
   // Verbindung zum alten Bautagebuch: Adresse und Anmeldung – das Kennwort verschlüsselt, es geht nie zurück an den Browser
   const quelleLesen = async () => ({ adresse: (await geheimnisLesen(db, 'alt.adresse')) ?? '', name: (await geheimnisLesen(db, 'alt.name')) ?? '', kennwort: (await geheimnisLesen(db, 'alt.kennwort')) ?? '' });
   app.get('/api/altdaten/quelle', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    nurAdmin(req);
     const q = await quelleLesen();
     return { adresse: q.adresse, name: q.name, kennwortGesetzt: !!q.kennwort };
   });
   app.post('/api/altdaten/quelle', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    nurAdmin(req);
     const b = (req.body ?? {}) as { adresse?: string; name?: string; kennwort?: string };
     await geheimnisSetzen(db, 'alt.adresse', String(b.adresse ?? '').trim());
     await geheimnisSetzen(db, 'alt.name', String(b.name ?? '').trim());
@@ -209,7 +209,7 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     return altAnmelden(q.adresse, q.name, q.kennwort);
   };
   app.post('/api/altdaten/abholen', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
-    admin(req);
+    nurAdmin(req);
     const quelle = await anmelden();
     let roh: unknown;
     try { roh = JSON.parse((await quelle.holen('api/export')).toString('utf8')); } catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung('Der Export des alten Bautagebuchs ist nicht lesbar'); }
@@ -217,7 +217,7 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
   });
   // Bauzeitenpläne der alten Gantt-App: dieselbe Anmeldung (gilt im alten Bauportal für alle Apps)
   app.post('/api/altdaten/plaene', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    nurAdmin(req);
     const q = await anmelden();
     let l: unknown;
     try { l = JSON.parse((await q.holen('../bauzeitenplan/api/projects')).toString('utf8')); } catch (x) { throw x instanceof Ablehnung ? x : new Ablehnung('Die Liste der Bauzeitenpläne ist nicht lesbar'); }
@@ -225,7 +225,7 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     return { plaene: (Array.isArray(l) ? l : []).map((p: Record<string, unknown>) => ({ id: String(p.id), name: String(p.name ?? ''), leistungen: Number(p.n ?? 0), geaendert: String(p.updated ?? ''), uebernommen: da.has(`alt-gantt:${p.id}`) })) };
   });
   app.post('/api/altdaten/plan', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
-    admin(req);
+    nurAdmin(req);
     const id = String((req.body as { id?: string } | undefined)?.id ?? '');
     if (!/^[\w-]{1,80}$/.test(id)) throw new Ablehnung('Welcher Plan?');
     const q = await anmelden();
@@ -258,7 +258,7 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
   // Darstellung je Person (Umzug, 26.11.2026): das bisherige Bauportal gibt sie der Verwaltung heraus; zugeordnet über den Namen
   // (oder Anmeldenamen) der Person. Wer hier noch nicht angelegt ist, steht im Hinweis.
   app.post('/api/altdaten/darstellung', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
-    admin(req);
+    nurAdmin(req);
     const q = await anmelden();
     let l: { name: string; email?: string; admin?: boolean; aktiv?: boolean; rolle?: string; pruefwert?: string; darstellung: AlteDarstellung }[];
     try { l = (JSON.parse((await q.holen('api/bp/umzug/benutzer')).toString('utf8')) as { benutzer?: typeof l }).benutzer ?? []; }
@@ -301,19 +301,19 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
     });
   });
   app.post('/api/altdaten/fotos-holen', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    nurAdmin(req);
     fotosStarten(req.benutzer!, await anmelden());
     return { ok: true };
   });
 
   // Schritt 2: Fotos nachreichen
   app.get('/api/altdaten/fotos', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    nurAdmin(req);
     const r = (await db.query('select datei, foto is not null as da from kern_altbild order by datei')).rows as { datei: string; da: boolean }[];
     return { offen: r.filter((x) => !x.da).map((x) => x.datei), erledigt: r.filter((x) => x.da).length, laeuft };
   });
   app.post('/api/altdaten/foto', { preHandler: e.nurAngemeldet, bodyLimit: 60 * 1024 * 1024 }, async (req) => {
-    admin(req);
+    nurAdmin(req);
     const b = (req.body ?? {}) as { datei?: string; original?: string; vorschau?: string };
     const f = await altFotoAblegen(db, e.register, e.umgebung, req.benutzer!, String(b.datei ?? ''), Buffer.from(String(b.original ?? ''), 'base64'), Buffer.from(String(b.vorschau ?? ''), 'base64'));
     if (!f.schon) e.nachBefehlen();
@@ -323,9 +323,9 @@ export function altdatenRouten(app: FastifyInstance, e: { db: Db; register: Modu
 
 /** Rolle aus dem bisherigen Bauportal: Verwaltung → Administrator:in, gleichnamige Rollen bleiben, sonst Mitarbeiter:in. */
 function rolleAusAlt(a: { admin?: boolean; rolle?: string }): string {
-  if (a.admin) return 'admin';
+  if (a.admin) return rolleId('admin');
   const r = String(a.rolle ?? '');
-  return ROLLEN.some((x) => x.name === r) ? r : r === 'gf' ? 'bueroleitung' : 'mitarbeiter';
+  return rolleId(ROLLEN.some((x) => x.name === r) ? r : r === 'gf' ? 'bueroleitung' : 'mitarbeiter');
 }
 
 /** Die Angaben, die das bisherige Bauportal je Kontakt im Feld „extra“ führt (Ansprechpartner zerlegt, Firma / Rechnung), dazu Funktion und Stichwörter. */

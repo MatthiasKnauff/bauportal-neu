@@ -16,6 +16,7 @@ export function Kopfleiste(p: {
   apps?: { id: string; titel: string; zeichen?: string }[]; onApp?: (id: string) => void;   // App-Wechsler
   projektName?: string;   // bleibt beim App-Wechsel gewählt
   onHilfe?: () => void;                                   // Hilfe zur aktuellen Seite
+  hilfeNeu?: number;                                      // so viele Neuigkeiten sind noch ungesehen – Punkt am „?“ (wie bisher „neu für dich“)
 }) {
   const [apps, setApps] = createSignal(false);
   const [menue, setMenue] = createSignal(false);
@@ -28,7 +29,7 @@ export function Kopfleiste(p: {
       </nav>
       <Show when={p.onSuche}><button class="kopf-suche" onClick={p.onSuche} title="Suche über alles (Strg+K)">🔍 <span>Suchen …</span><kbd>Strg K</kbd></button></Show>
       <span class="status kopf-status" role="status" title={p.status.text} classList={{ getrennt: p.status.art === 'getrennt', wartet: p.status.art === 'wartet' }}><i /><span class="nur-vorlesen">{p.status.text}</span></span>
-      <Show when={p.onHilfe}><button class="kopf-rund kopf-hilfe" aria-label="Hilfe zu dieser Seite" title="Hilfe zu dieser Seite" onClick={p.onHilfe}>?</button></Show>
+      <Show when={p.onHilfe}><button class="kopf-rund kopf-hilfe" aria-label="Hilfe zu dieser Seite" title={p.hilfeNeu ? `Hilfe zu dieser Seite · ${p.hilfeNeu} neu für dich` : 'Hilfe zu dieser Seite'} onClick={p.onHilfe}>?<Show when={p.hilfeNeu}><i class="kopf-neu" aria-label={`${p.hilfeNeu} neu`} /></Show></button></Show>
       <Show when={p.apps?.length}>
         <div class="menue">
           <button class="kopf-rund kopf-ohne-rand" aria-label="Apps" title="Zu einer anderen App" aria-haspopup="menu" aria-expanded={apps()} onClick={() => setApps(!apps())}><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><g fill="currentColor">{[4, 12, 20].flatMap((y) => [4, 12, 20].map((x) => <circle cx={x} cy={y} r="2.2" />))}</g></svg></button>

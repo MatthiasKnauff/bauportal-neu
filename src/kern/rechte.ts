@@ -1,17 +1,21 @@
-// Rollen ab Werk. Was eine Rolle darf, steht als Objekt „recht“ in der Datenbank
-// und wird dort durchgesetzt – nicht im Programmcode der Module.
+// Rollen ab Werk. Welche Rollen es gibt und was eine Rolle darf, steht als Objekte „rolle“ und „recht“ in der Datenbank
+// und wird dort durchgesetzt – nicht im Programmcode der Module. Rollen lassen sich wie bisher selbst anlegen (Entscheidung 28.11.2026);
+// diese fünf sind die Vorgabe, „admin“ ist fest und darf immer alles.
 
-export interface Rolle { name: string; titel: string; alleProjekte: boolean; erklaerung: string }
+export interface Rolle { name: string; id: string; titel: string; alleProjekte: boolean; erklaerung: string }
 
 export const ROLLEN: Rolle[] = [
-  { name: 'admin', titel: 'Administrator:in', alleProjekte: true, erklaerung: 'Darf alles, auch Benutzer und Rechte ändern.' },
-  { name: 'bueroleitung', titel: 'Büroleitung', alleProjekte: true, erklaerung: 'Sieht alle Projekte.' },
-  { name: 'bauleitung', titel: 'Bauleitung', alleProjekte: false, erklaerung: 'Sieht die Projekte, in denen sie Mitglied ist.' },
-  { name: 'mitarbeiter', titel: 'Mitarbeiter:in', alleProjekte: false, erklaerung: 'Sieht die Projekte, in denen sie Mitglied ist.' },
-  { name: 'gast', titel: 'Gast (extern)', alleProjekte: false, erklaerung: 'Sieht nur, was ausdrücklich freigegeben ist.' },
+  { name: 'admin', id: '00000000-0000-4000-8000-0000000a0001', titel: 'Administrator:in', alleProjekte: true, erklaerung: 'Darf alles, auch Benutzer und Rechte ändern.' },
+  { name: 'bueroleitung', id: '00000000-0000-4000-8000-0000000a0002', titel: 'Büroleitung', alleProjekte: true, erklaerung: 'Sieht alle Projekte.' },
+  { name: 'bauleitung', id: '00000000-0000-4000-8000-0000000a0003', titel: 'Bauleitung', alleProjekte: false, erklaerung: 'Sieht die Projekte, in denen sie Mitglied ist.' },
+  { name: 'mitarbeiter', id: '00000000-0000-4000-8000-0000000a0004', titel: 'Mitarbeiter:in', alleProjekte: false, erklaerung: 'Sieht die Projekte, in denen sie Mitglied ist.' },
+  { name: 'gast', id: '00000000-0000-4000-8000-0000000a0005', titel: 'Gast (extern)', alleProjekte: false, erklaerung: 'Sieht nur, was ausdrücklich freigegeben ist.' },
 ];
+/** Kennung der Rolle ab Werk (benutzer.rolle und recht.rolle verweisen darauf). */
+export const rolleId = (name: string): string => ROLLEN.find((r) => r.name === name)!.id;
+export const ADMIN_ROLLE = rolleId('admin');
 
-export const ROLLEN_OPTIONEN = ROLLEN.map((r) => ({ wert: r.name, titel: r.titel }));
+// Rechte ab Werk in den Beipackzetteln: je Objekt die Namen der Rollen (für neue Rollen gilt die Rolle, von der sie kopiert sind)
 export const ALLE = ROLLEN.map((r) => r.name);
 export const OHNE_GAST = ALLE.filter((r) => r !== 'gast');
 

@@ -9,7 +9,7 @@ import type { Werte } from '../kern/modell';
 import { ausfuehren, rueckgaengig, sicht } from './unterbau/abgleich';
 import { Dialog } from './baukasten/dialog';
 import { zeigeMenue } from './baukasten/kontextmenue';
-import { darf, ich, istAdmin, neueKennung, ruf, zustand } from './unterbau/api';
+import { darf, darfBereich, ich, neueKennung, ruf, zustand } from './unterbau/api';
 import { handyleistePlaetze } from './unterbau/geraet';
 import { designAus, meineWahl, schriftenNeu } from './unterbau/design';
 import { hinweis } from './unterbau/meldungen';
@@ -207,7 +207,7 @@ export function Darstellungsseite() {
 /** Plätze der Leiste unten wählen: Start, die Apps, Suche – angetippt kommt hinten dazu, nochmal tippen nimmt heraus. */
 function Handyleiste(p: { wert: string; onWert: (v: string | null) => void }) {
   const gewaehlt = () => handyleistePlaetze(p.wert).filter((k) => moeglich().some((m) => m.k === k));
-  const moeglich = () => [{ k: 'start', t: 'Start' }, ...zustand()!.module.filter((m) => m.ansichten.some((a) => !a.nurAdmin || istAdmin())).map((m) => ({ k: m.id, t: m.name })), { k: 'suche', t: 'Suche' }];
+  const moeglich = () => [{ k: 'start', t: 'Start' }, ...zustand()!.module.filter((m) => m.ansichten.some((a) => !a.bereich || darfBereich(a.bereich))).map((m) => ({ k: m.id, t: m.name })), { k: 'suche', t: 'Suche' }];
   const tippen = (k: string) => { const g = gewaehlt(); p.onWert(g.includes(k) ? g.filter((x) => x !== k).join(',') || null : g.length < 5 ? [...g, k].join(',') : g.join(',')); };
   return (
     <div class="darstellung-reihe">

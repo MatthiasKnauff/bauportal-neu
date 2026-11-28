@@ -14,9 +14,8 @@ import { Nachschlagen } from './baukasten/nachschlagen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
-import type { Rechtart } from '../kern/modell';
 import { ausfuehren, ausfuehrenMehrere, gemerkt, sicht, lebende, rueckgaengig, verlauf } from './unterbau/abgleich';
-import { ausdrucke, darf, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
+import { ausdrucke, darf, darfBereich, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { bauherrVon, gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { versionenBauen } from './baukasten/versionen';
 import type { Versionsweg } from '../kern/modul';
@@ -73,9 +72,10 @@ import { kontaktAuswahl } from './kontaktauswahl';
 import { PruefSchluessel } from './pruefki';
 import { MailVersand, NachrichtAnhaenge } from './versand';
 import { AvaSuche } from './avasuche';
+import { Rechte } from './rechte';
 import { karteImFenster, setKarteImFenster } from './kartendialog';
 
-const rolle = (name: unknown) => zustand()!.rollen.find((r) => r.name === name);
+const rolle = (id: unknown) => sicht.rolle?.[String(id ?? '')]?.werte;
 
 // ---------- Projekte: wer arbeitet mit ----------
 function Mitglieder(p: { projekt: Zeile }) {
@@ -96,11 +96,11 @@ function Mitglieder(p: { projekt: Zeile }) {
       <p class="still-text klein-text">Mitglieder sehen dieses Projekt und alles, was daran hängt.</p>
       <ul class="schaltliste">
         <For each={leute()}>{(b) => {
-          const alle = () => rolle(b.werte.rolle)?.alleProjekte === true;
+          const alle = () => rolle(b.werte.rolle)?.alle_projekte === true;
           const an = () => { const e = eintrag(b.id); return !!e && !e.geloescht; };
           return (
             <li>
-              <span><strong>{String(b.werte.name)}</strong><small>{rolle(b.werte.rolle)?.titel}{alle() ? ' – sieht alle Projekte' : ''}</small></span>
+              <span><strong>{String(b.werte.name)}</strong><small>{String(rolle(b.werte.rolle)?.titel ?? '')}{alle() ? ' – sieht alle Projekte' : ''}</small></span>
               <Show when={!alle()}>
                 <button type="button" role="switch" aria-checked={an()} aria-label={`${b.werte.name} ist Mitglied`} class="schalter" classList={{ aktiv: an() }} disabled={!darfAendern()} onClick={() => schalten(b)}><span /></button>
               </Show>
@@ -398,58 +398,6 @@ function KennwortSetzen(p: { benutzer: Zeile }) {
   );
 }
 
-// ---------- Verwaltung: Rechte je Rolle ----------
-const ARTEN: { art: Rechtart; titel: string }[] = [{ art: 'lesen', titel: 'Sehen' }, { art: 'schreiben', titel: 'Ändern' }, { art: 'loeschen', titel: 'Löschen' }];
-
-function Rechte() {
-  const rollen = () => zustand()!.rollen.filter((r) => r.name !== 'admin');
-  // Benutzer und Rechte selbst ändern immer nur Administrator:innen – hier stellt man nur das Sehen ein.
-  const zeilen = () => zustand()!.module.flatMap((m) => m.objekte.filter((o) => o.name !== 'recht').map((o) => ({ modul: m, objekt: o })));
-  const eintrag = (r: string, o: string) => lebende('recht').find((z) => z.werte.rolle === r && z.werte.objekt === o);
-  const schalten = (r: { name: string; titel: string }, o: { name: string; titelMehrzahl: string }, a: { art: Rechtart; titel: string }) => {
-    const e = eintrag(r.name, o.name);
-    if (!e) return;
-    const werte: Record<string, boolean> = { [a.art]: !e.werte[a.art] };
-    if (a.art === 'lesen' && e.werte.lesen) { werte.schreiben = false; werte.loeschen = false; }   // ohne Sehen kein Ändern
-    if (a.art !== 'lesen' && !e.werte[a.art]) werte.lesen = true;
-    ausfuehren({ objekt: 'recht', art: 'aendern', objektId: e.id, werte }, `Recht „${a.titel}“ – ${o.titelMehrzahl} – ${r.titel}`);
-  };
-  return (
-    <Rahmen schluessel="verwaltung.rechte" inhalt={<section class="blatt">
-      <h2>Rechte je Rolle</h2>
-      <p class="still-text">Ein Klick gilt sofort für alle Benutzer mit dieser Rolle – und lässt sich rückgängig machen. Administrator:innen dürfen immer alles.
-        Bei Projekten und allem, was daran hängt, gilt das Recht nur in den eigenen Projekten; Büroleitung und Administrator:innen sehen alle Projekte.</p>
-      <div class="tabelle-rollen">
-        <table class="matrix">
-          <thead>
-            <tr><th rowSpan={2}>Bereich</th><For each={rollen()}>{(r) => <th colSpan={3}>{r.titel}</th>}</For></tr>
-            <tr><For each={rollen()}>{() => <For each={ARTEN}>{(a) => <th class="klein">{a.titel}</th>}</For>}</For></tr>
-          </thead>
-          <tbody>
-            <For each={zeilen()}>{(z) => (
-              <tr>
-                <th scope="row">{z.objekt.titelMehrzahl}<small>{z.modul.name}</small></th>
-                <For each={rollen()}>{(r) => <For each={ARTEN}>{(a) => {
-                  const fest = () => z.objekt.name === 'benutzer' && a.art !== 'lesen' || !!z.objekt.einzeln && a.art === 'loeschen';
-                  const an = () => eintrag(r.name, z.objekt.name)?.werte[a.art] === true;
-                  return (
-                    <td>
-                      <Show when={!fest()} fallback={<span class="strich" title="Nur Administrator:innen">–</span>}>
-                        <button type="button" role="checkbox" aria-checked={an()} class="haken" classList={{ an: an() }}
-                          aria-label={`${r.titel}: ${z.objekt.titelMehrzahl} ${a.titel.toLowerCase()}`} onClick={() => schalten(r, z.objekt, a)}>{an() ? '✓' : ''}</button>
-                      </Show>
-                    </td>
-                  );
-                }}</For>}</For>
-              </tr>
-            )}</For>
-          </tbody>
-        </table>
-      </div>
-    </section>} />
-  );
-}
-
 // ---------- Verwaltung: Bürodaten (gibt es genau einmal) ----------
 function Buero() {
   const m = () => modell('buero');
@@ -459,7 +407,7 @@ function Buero() {
 
 // Für mich: eigenes Konto (Kennwort) und Darstellung (Design) – für jede:n, wie im bisherigen Bauportal
 function MeinKonto() {
-  const rolle = () => zustand()!.rollen.find((r) => r.name === ich().rolle)?.titel ?? ich().rolle;
+  const rolle = () => String(sicht.rolle?.[ich().rolle]?.werte.titel ?? '');
   return <Rahmen schluessel="verwaltung.konto" inhalt={<section class="blatt frei">
     <h2>{ich().name}</h2><p class="still-text">{rolle()} · angemeldet als {ich().anmeldename}</p>
     <Formular titel="Kennwort ändern" knopf="Kennwort ändern" pfad="/api/kennwort" text="Auf anderen Geräten wirst du dabei abgemeldet."
@@ -479,7 +427,7 @@ function Darstellung() {
   return <Rahmen schluessel="verwaltung.darstellung" inhalt={<Darstellungsseite />} />;
 }
 
-const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': Rechte, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.mail': MailVersand, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht, 'dateien.alle': AlleDateien, 'dateien.eingang': EingangAnsicht };
+const EIGENE: Record<string, () => JSX.Element> = { 'verwaltung.konto': MeinKonto, 'verwaltung.darstellung': Darstellung, 'verwaltung.rechte': () => <Rahmen schluessel="verwaltung.rechte" inhalt={<Rechte />} />, 'verwaltung.buero': Buero, 'verwaltung.ablage': AblageVerbindung, 'verwaltung.mail': MailVersand, 'verwaltung.updates': Updates, 'verwaltung.aufbau': AufbauAnsicht, 'verwaltung.uebernahme': Altdaten, 'dateien.dateien': DateienAnsicht, 'dateien.alle': AlleDateien, 'dateien.eingang': EingangAnsicht };
 // Was die Module an den Bausteinen einstellen – nur über die vorgesehenen Stellschrauben (baukasten/anpassung.ts).
 // Mehrere wählen: ein Feld für alle setzen und die Auswahl als Excel – dazu kommt vom Baustein der Papierkorb
 const ANPASSUNG: Record<string, Anpassung> = {
@@ -626,7 +574,7 @@ export const kartenZusatz = (objekt: string) => (z: Zeile): JSX.Element => <>
 export const karteVon = (objekt: string) => ({ zusatz: kartenZusatz(objekt), oben: ANPASSUNG[objekt]?.kartenOben, einschub: ANPASSUNG[objekt]?.kartenEinschub, reiter: ANPASSUNG[objekt]?.kartenReiter });
 
 export function sichtbar(a: Ansicht): boolean {
-  if (a.nurAdmin && !istAdmin()) return false;
+  if (a.bereich && !darfBereich(a.bereich)) return false;
   return a.objekt ? darf(a.objekt, 'lesen') : true;
 }
 

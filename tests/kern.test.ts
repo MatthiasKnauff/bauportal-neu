@@ -8,6 +8,8 @@ import { register } from '../src/module';
 import { kontakt } from '../src/module/adressen/beipackzettel';
 import { Eingabefehler, mengenSumme, pruefeWerte, type Werte } from '../src/kern/modell';
 import { sammelfilter } from '../src/kern/modul';
+import { rolleId } from '../src/kern/rechte';
+import { rollenregelnAnmelden } from '../src/server/bereich';
 import { bauteil } from '../src/module/gebaeudemodell/beipackzettel';
 import { anwenden, gegenbefehl, type Befehl, type Zeile } from '../src/kern/befehl';
 import { SYSTEM, alsBenutzer, schemaAnlegen, verbinden, type Absender, type Db } from '../src/server/db';
@@ -49,6 +51,7 @@ process.env.DATEN_PFAD = mkdtempSync(path.join(tmpdir(), 'bp-daten-'));
 versionsregelnAnmelden(register);
 gebaeudemodellRegelnAnmelden();
 erinnerungsregelnAnmelden();
+rollenregelnAnmelden();
 postfachregelnAnmelden();
 
 const BASIS = process.env.TEST_DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5433/postgres';
@@ -80,7 +83,7 @@ async function leute(db: Db): Promise<Record<'admin' | 'leitung' | 'bau' | 'mit'
   const aus: Record<string, Absender> = {};
   for (const [kurz, rolle] of [['admin', 'admin'], ['leitung', 'bueroleitung'], ['bau', 'bauleitung'], ['mit', 'mitarbeiter'], ['gast', 'gast']] as const) {
     const id = randomUUID();
-    await tun(db, SYSTEM, { objekt: 'benutzer', art: 'anlegen', objektId: id, werte: { name: kurz, anmeldename: kurz, rolle } });
+    await tun(db, SYSTEM, { objekt: 'benutzer', art: 'anlegen', objektId: id, werte: { name: kurz, anmeldename: kurz, rolle: rolleId(rolle) } });
     aus[kurz] = { id, name: kurz };
   }
   return aus as never;
@@ -167,6 +170,42 @@ test('Gleichzeitige Änderungen: verschiedene Felder fließen zusammen, gleiches
   } finally { await weg(); }
 });
 
+test('Rollen selbst anlegen, Ausnahme je Person, Bereiche der Verwaltung, alle Projekte je Rolle (28.11.2026)', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const { admin, leitung, mit } = await leute(db);
+    const darf = (wer: Absender, obj: string, art: string) => alsBenutzer(db, wer, async (c) => (await c.query('select bp_darf($1, $2, null) as ok', [obj, art])).rows[0].ok as boolean);
+    // Rollen ab Werk sind da, Bereiche ab Werk: Büroleitung ändert das Büro, sonst nur Administrator:innen
+    assert.equal((await db.query('select count(*)::int as n from o_rolle')).rows[0].n, 5);
+    assert.ok(await darf(leitung, 'bereich:buero', 'schreiben') && !(await darf(leitung, 'bereich:ablage', 'lesen')) && !(await darf(mit, 'bereich:buero', 'lesen')));
+    assert.ok(await darf(mit, 'app:bautagebuch', 'lesen'), 'Kachel ab Werk an');
+    // eigene Rolle als Kopie der Mitarbeiter:in – nur die Administrator:in
+    const pr = randomUUID();
+    await assert.rejects(tun(db, leitung, { objekt: 'rolle', art: 'anlegen', objektId: pr, werte: { titel: 'Praktikum' } }), /Recht/);
+    await tun(db, admin, { objekt: 'rolle', art: 'anlegen', objektId: pr, werte: { titel: 'Praktikum' } });
+    for (const r of (await db.query('select objekt, lesen, schreiben, loeschen from o_recht where rolle = $1 and not geloescht', [rolleId('mitarbeiter')])).rows)
+      await tun(db, admin, { objekt: 'recht', art: 'anlegen', werte: { rolle: pr, objekt: r.objekt, lesen: r.lesen, schreiben: r.schreiben, loeschen: r.loeschen } });
+    const p = randomUUID();
+    await tun(db, admin, { objekt: 'benutzer', art: 'anlegen', objektId: p, werte: { name: 'Pia', anmeldename: 'pia', rolle: pr } });
+    const pia = { id: p, name: 'Pia' };
+    assert.ok(await darf(pia, 'kontakt', 'schreiben'), 'Rechte der Kopie gelten');
+    await assert.rejects(tun(db, admin, { objekt: 'rolle', art: 'loeschen', objektId: pr }), /Benutzer/, 'Rolle mit Personen bleibt');
+    await assert.rejects(tun(db, admin, { objekt: 'rolle', art: 'loeschen', objektId: rolleId('gast') }), /ab Werk/);
+    // Ausnahme nur für Pia: Kontakte nicht ändern – die Rolle bleibt, wie sie ist
+    const aus = randomUUID();
+    await tun(db, admin, { objekt: 'recht', art: 'anlegen', objektId: aus, werte: { benutzer: p, objekt: 'kontakt', lesen: true, schreiben: false, loeschen: false } });
+    assert.ok(!(await darf(pia, 'kontakt', 'schreiben')) && await darf(pia, 'kontakt', 'lesen'));
+    await assert.rejects(tun(db, pia, { art: 'anlegen', werte: { name: 'x' } }), /Recht/);
+    await tun(db, admin, { objekt: 'recht', art: 'loeschen', objektId: aus });
+    assert.ok(await darf(pia, 'kontakt', 'schreiben'), 'ohne Ausnahme wieder wie die Rolle');
+    // Alle Projekte je Rolle (wie bisher „Alle Projekte sehen“)
+    const alle = (wer: Absender) => alsBenutzer(db, wer, async (c) => (await c.query('select bp_alle_projekte() as ok')).rows[0].ok as boolean);
+    assert.ok(!(await alle(pia)) && await alle(leitung) && await alle(admin));
+    await tun(db, admin, { objekt: 'rolle', objektId: pr, werte: { alle_projekte: true } });
+    assert.ok(await alle(pia));
+  } finally { await weg(); }
+});
+
 test('Rechte sitzen in der Datenbank: Rollen, Löschen, Benutzer und Rechte nur für Admins', async () => {
   const { db, weg } = await frischeDb();
   try {
@@ -182,8 +221,8 @@ test('Rechte sitzen in der Datenbank: Rollen, Löschen, Benutzer und Rechte nur 
     await tun(db, leitung, { art: 'loeschen', objektId: id });
 
     // Benutzer und Rechte: nur Admin
-    await assert.rejects(tun(db, leitung, { objekt: 'benutzer', objektId: mit.id, werte: { rolle: 'admin' } }), /Recht/);
-    await assert.rejects(tun(db, mit, { objekt: 'benutzer', objektId: mit.id, werte: { rolle: 'admin' } }), /Recht/);
+    await assert.rejects(tun(db, leitung, { objekt: 'benutzer', objektId: mit.id, werte: { rolle: rolleId('admin') } }), /Recht/);
+    await assert.rejects(tun(db, mit, { objekt: 'benutzer', objektId: mit.id, werte: { rolle: rolleId('admin') } }), /Recht/);
     const rechtId = festeKennung('recht:mitarbeiter:kontakt');
     await assert.rejects(tun(db, leitung, { objekt: 'recht', objektId: rechtId, werte: { loeschen: true } }), /Recht/);
     // Admin ändert das Recht – es gilt sofort, ohne Programmänderung
@@ -192,8 +231,8 @@ test('Rechte sitzen in der Datenbank: Rollen, Löschen, Benutzer und Rechte nur 
     await tun(db, mit, { art: 'loeschen', objektId: id });
 
     // Eindeutiger Anmeldename, letzter Admin bleibt, Gesperrte dürfen nichts
-    await assert.rejects(tun(db, admin, { objekt: 'benutzer', art: 'anlegen', werte: { name: 'Doppelt', anmeldename: 'MIT', rolle: 'gast' } }), Eingabefehler);
-    await assert.rejects(tun(db, admin, { objekt: 'benutzer', objektId: admin.id, werte: { rolle: 'mitarbeiter' } }), /Administrator/);
+    await assert.rejects(tun(db, admin, { objekt: 'benutzer', art: 'anlegen', werte: { name: 'Doppelt', anmeldename: 'MIT', rolle: rolleId('gast') } }), Eingabefehler);
+    await assert.rejects(tun(db, admin, { objekt: 'benutzer', objektId: admin.id, werte: { rolle: rolleId('mitarbeiter') } }), /Administrator/);
     await assert.rejects(tun(db, admin, { objekt: 'benutzer', objektId: admin.id, werte: { gesperrt: true } }), /Administrator/);
     await tun(db, admin, { objekt: 'benutzer', objektId: mit.id, werte: { gesperrt: true } });
     await assert.rejects(tun(db, mit, { art: 'anlegen', werte: { name: 'x' } }), /Recht/);
@@ -328,7 +367,7 @@ test('IFC: erster Plan legt an, neuer Planstand ändert nur, was nicht von Hand 
   const { db, weg } = await frischeDb();
   try {
     const { leitung } = await leute(db);
-    const wer = { ...leitung, anmeldename: 'leitung', rolle: 'bueroleitung' };
+    const wer = { ...leitung, anmeldename: 'leitung', rolle: rolleId('bueroleitung'), admin: false };
     const [p, v] = [randomUUID(), randomUUID()];
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
     await tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: v, werte: { projekt: p, bereich: 'gebaeudemodell', name: 'Vorentwurf' } });
@@ -419,7 +458,7 @@ test('Assistent: Schätzung aus den Angaben, Antworten am Gebäude, ein Plan ers
   const { db, weg } = await frischeDb();
   try {
     const { leitung } = await leute(db);
-    const wer = { ...leitung, anmeldename: 'leitung', rolle: 'bueroleitung' };
+    const wer = { ...leitung, anmeldename: 'leitung', rolle: rolleId('bueroleitung'), admin: false };
     const [p, v] = [randomUUID(), randomUUID()];
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus B' } });
     await tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: v, werte: { projekt: p, bereich: 'gebaeudemodell', name: 'Erste Idee' } });
@@ -470,7 +509,7 @@ test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man seh
   const { db, weg } = await frischeDb();
   try {
     const { leitung, mit, gast } = await leute(db);
-    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle });
+    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle: rolleId(rolle), admin: rolle === 'admin' });
     const [p, b] = [randomUUID(), randomUUID()];
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus <A> & Söhne' } });
     await tun(db, leitung, { objekt: 'buero', art: 'aendern', objektId: '00000000-0000-4000-8000-0000000b0e01', werte: { name: 'GK3', ort: 'Essen', plz: '45127' } });
@@ -543,7 +582,7 @@ test('KI: nach außen nur ohne Namen, im Büro unverändert, Protokoll ohne Inha
   const { db, weg } = await frischeDb();
   try {
     const { admin, mit, gast } = await leute(db);
-    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle });
+    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle: rolleId(rolle), admin: rolle === 'admin' });
     await tun(db, admin, { objekt: 'kontakt', art: 'anlegen', werte: { name: 'Rohbau Schmitz GmbH', ansprechpartner: 'Jörg Schmitz' } });
     const [buero, aussen, aus] = [randomUUID(), randomUUID(), randomUUID()];
     await tun(db, admin, { objekt: 'ki_anbindung', art: 'anlegen', objektId: buero, werte: { name: 'Büro-KI', art: 'ollama', adresse: 'http://ollama:11434', modell: 'llama', aktiv: true } });
@@ -585,7 +624,7 @@ test('Kataloge: aus dem Kanal mit Prüfsumme, Vorschau, eigene Einträge und Än
   const { db, weg } = await frischeDb();
   try {
     const { admin, leitung } = await leute(db);
-    const wer = { ...admin, anmeldename: 'admin', rolle: 'admin' };
+    const wer = { ...admin, anmeldename: 'admin', rolle: rolleId('admin'), admin: true };
     const lies = async () => (await schnappschuss(db, register, admin)).objekte.gewerk!.filter((x) => !x.geloescht);
     falsch = true;
     await assert.rejects(katalogPlanen(db, register, wer, 'gewerke'), /Prüfsumme/);
@@ -623,7 +662,7 @@ test('Wetter: Anschrift der Baustelle → Koordinaten → Werte für Tag und Stu
   const { db, weg } = await frischeDb();
   try {
     const { leitung, gast } = await leute(db);
-    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle });
+    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle: rolleId(rolle), admin: rolle === 'admin' });
     const [p, leer, fern] = [randomUUID(), randomUUID(), randomUUID()];
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A', strasse: 'Musterweg 1', plz: '45127', ort: 'Essen' } });
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: leer, werte: { name: 'ohne Anschrift' } });
@@ -644,7 +683,7 @@ test('Fotos: Vorschaubild im Bauportal, Original abgelegt, im Ausdruck eingebett
   const { db, weg } = await frischeDb();
   try {
     const { leitung, mit, gast } = await leute(db);
-    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle });
+    const als = (w: Absender, rolle: string) => ({ ...w, anmeldename: w.name, rolle: rolleId(rolle), admin: rolle === 'admin' });
     const [p, b] = [randomUUID(), randomUUID()];
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
     await tun(db, leitung, { objekt: 'tagesbericht', art: 'anlegen', objektId: b, werte: { projekt: p, nummer: 3, datum: '2026-11-24', titel: 'Sohle' } });
@@ -709,7 +748,7 @@ test('Übernahme aus dem alten Bautagebuch: Export → Objekte, wiederholbar, ni
   const { db, weg } = await frischeDb();
   try {
     const { admin, leitung } = await leute(db);
-    const wer = { ...admin, anmeldename: 'admin', rolle: 'admin' };
+    const wer = { ...admin, anmeldename: 'admin', rolle: rolleId('admin'), admin: true };
     // Den Kontakt gibt es schon (anders geschrieben), das Projekt auch
     const schon = randomUUID();
     await tun(db, admin, { objekt: 'kontakt', art: 'anlegen', objektId: schon, werte: { name: 'rohbau schmitz gmbh', ort: 'Essen' } });
@@ -792,7 +831,7 @@ test('Übernahme: Benutzer aus dem ersten Stand werden zu Objekten und können s
   try {
     const r = await app.inject({ method: 'POST', url: '/api/anmelden', payload: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } });
     assert.equal(r.statusCode, 200);
-    assert.equal(r.json().benutzer.rolle, 'admin');
+    assert.equal(r.json().benutzer.admin, true);
     assert.equal((await db.query("select to_regclass('kern_benutzer') as t")).rows[0].t, null);
   } finally { await app.close(); await weg(); }
 });
@@ -820,7 +859,7 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
     assert.equal((await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'falsch' } })).status, 401);
     const cookie = (await ruf('/api/anmelden', { body: { anmeldename: 'mk', kennwort: 'ein-langes-kennwort' } })).cookie!;
     const z = (await ruf('/api/zustand', { cookie })).daten;
-    assert.equal(z.benutzer.rolle, 'admin');
+    assert.equal(z.benutzer.admin, true);
     assert.deepEqual(z.module.map((m: any) => m.id), ['adressen', 'projekte', 'gebaeudemodell', 'dateien', 'bautagebuch', 'bauzeitenplan', 'ava', 'kataloge', 'verwaltung']);
     assert.equal(z.rechte.kontakt.loeschen, true);
     const s0 = (await ruf('/api/schnappschuss', { cookie })).daten;
@@ -830,7 +869,7 @@ test('Server: Einrichtungsassistent, Anmeldung, Kennwort, Befehle, gefilterter L
 
     // Kollegin anlegen (Befehl) und Kennwort setzen
     const kid = randomUUID();
-    const neu = await ruf('/api/befehle', { cookie, body: { befehle: [bef({ objekt: 'benutzer', art: 'anlegen', objektId: kid, werte: { name: 'Kollegin', anmeldename: 'kollegin', rolle: 'mitarbeiter' } })] } });
+    const neu = await ruf('/api/befehle', { cookie, body: { befehle: [bef({ objekt: 'benutzer', art: 'anlegen', objektId: kid, werte: { name: 'Kollegin', anmeldename: 'kollegin', rolle: rolleId('mitarbeiter') } })] } });
     assert.ok(neu.daten.ergebnis[0].seq);
     assert.equal((await ruf('/api/anmelden', { body: { anmeldename: 'kollegin', kennwort: 'noch-ein-kennwort' } })).status, 401, 'ohne Kennwort keine Anmeldung');
     assert.equal((await ruf('/api/kennwort', { cookie, body: { benutzerId: kid, kennwort: 'noch-ein-kennwort' } })).status, 200);
@@ -882,7 +921,7 @@ test('Bauzeitenplan: Plan der Gantt-App in eine Version übernehmen, wiederholba
   const { db, weg } = await frischeDb();
   try {
     const { leitung } = await leute(db);
-    const wer = { ...leitung, anmeldename: 'leitung', rolle: 'bueroleitung' };
+    const wer = { ...leitung, anmeldename: 'leitung', rolle: rolleId('bueroleitung'), admin: false };
     const [p, v] = [randomUUID(), randomUUID()];
     await tun(db, leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { name: 'Haus A' } });
     await tun(db, leitung, { objekt: 'version', art: 'anlegen', objektId: v, werte: { projekt: p, bereich: 'bauzeitenplan', name: 'Start' } });
@@ -1398,8 +1437,8 @@ test('Handbuch aus dem Programm: drei Stufen, Admin-Ansichten und Rechte nur fü
   const ad = handbuchHtml(MODULE, 'admin', { buero: 'GK3', version: 'v1', erzeugt: 'heute' });
   const en = handbuchHtml(MODULE, 'entwickler', { buero: 'GK3', version: 'v1', erzeugt: 'heute', aufbau: '# Aufbau <test>' });
   assert.match(a, /Handbuch für Anwender:innen/); assert.match(a, /<h2 id="bautagebuch">Bautagebuch<\/h2>/); assert.match(a, /Strg\+K/);
-  assert.ok(!a.includes('id="rollen"') && !a.includes('(nur Administrator:innen)</small>'), 'Anwender:innen: keine Rechte, keine Admin-Ansichten');
-  assert.ok(ad.includes('(nur Administrator:innen)</small>'));
+  assert.ok(!a.includes('id="rollen"') && !a.includes('(Verwaltung – nur mit Freigabe für den Bereich)</small>'), 'Anwender:innen: keine Rechte, keine Admin-Ansichten');
+  assert.ok(ad.includes('(Verwaltung – nur mit Freigabe für den Bereich)</small>'));
   assert.ok(ad.includes('id="rollen"') && !ad.includes('Aufbau des Programms'));
   assert.ok(en.includes('Aufbau des Programms') && en.includes('# Aufbau &lt;test&gt;') && en.includes('<code>kontakt.name</code>'), 'Entwickler:innen: Aufbau und technische Namen');
 });
@@ -2544,4 +2583,19 @@ test('Postfächer: Microsoft 365 (Anmeldung, Graph), eigenes Postfach nur für d
   const w = (an: string, postfach: string) => ({ id: randomUUID(), werte: { an, postfach, art: 'erinnerung', stand: 'wartet', betreff: 'E', text: 't' } });
   const p = pakete([w('a@b.de', ''), w('a@b.de', ''), w('a@b.de', 'pf1')], new Date('2026-11-28T10:00:00Z'), { buendeln: 'sofort' }).pakete;
   assert.deepEqual(p.map((x) => [x.an, x.postfach, x.ids.length]).sort(), [['a@b.de', '', 2], ['a@b.de', 'pf1', 1]]);
+});
+
+test('Was ist neu: Einträge gültig (App und Ansicht gibt es), Neues je Person, erstes Mal nur 14 Tage', async () => {
+  const { NEUIGKEITEN, neuFuer, neuesteZeit } = await import('../src/kern/neuigkeiten');
+  assert.equal(new Set(NEUIGKEITEN.map((n) => n.id)).size, NEUIGKEITEN.length, 'Kennungen eindeutig');
+  for (const n of NEUIGKEITEN) {
+    assert.match(n.zeit, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, n.id);
+    if (n.app) { const m = register.module.find((x) => x.id === n.app); assert.ok(m, `${n.id}: App ${n.app}`); if (n.ansicht) assert.ok(m!.ansichten.some((a) => a.id === n.ansicht), `${n.id}: Ansicht ${n.ansicht}`); }
+    else assert.ok(!n.ansicht, n.id);
+  }
+  const L = [{ id: 'a', zeit: '2026-11-01T10:00', titel: 'a', text: '' }, { id: 'b', zeit: '2026-11-27T10:00', titel: 'b', text: '' }, { id: 'c', zeit: '2026-11-28T09:00', titel: 'c', text: '' }];
+  const jetzt = new Date('2026-11-28T12:00:00Z');
+  assert.deepEqual(neuFuer(L, '', jetzt).map((n) => n.id), ['b', 'c'], 'erstes Mal: nur die letzten 14 Tage');
+  assert.deepEqual(neuFuer(L, '2026-11-27T10:00', jetzt).map((n) => n.id), ['c'], 'danach: was nach dem Gesehenen kam');
+  assert.equal(neuesteZeit(L), '2026-11-28T09:00');
 });

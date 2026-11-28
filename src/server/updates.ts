@@ -7,6 +7,7 @@ import type { Modulregister, Nachschlag } from '../kern/modul';
 import type { Befehl } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
+import { nurAdmin, pruefeBereich } from './bereich';
 import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
 import { abgleicher, merken, type Vorschau, type Zahl } from './uebernahme';
@@ -110,11 +111,10 @@ async function neuesteFreigabe() {
 }
 
 export function updateRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; version: string; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
-  const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
   const versuch = async <T>(tun: () => Promise<T>): Promise<{ wert: T } | { fehler: string }> => { try { return { wert: await tun() }; } catch (err) { if (err instanceof Ablehnung) return { fehler: err.message }; throw err; } };
 
   app.get('/api/updates/zustand', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'system', 'lesen');
     const da = new Map<string, { version: number; stand: string; eingespielt: string }>((await e.db.query('select id, version, stand, eingespielt from kern_katalog')).rows.map((r) => [r.id, r]));
     const [neueste, kanalAngebot] = await Promise.all([versuch(neuesteFreigabe), versuch(() => angebote(e.register))]);
     return {
@@ -125,7 +125,7 @@ export function updateRouten(app: FastifyInstance, e: { db: Db; register: Modulr
   });
 
   app.post('/api/updates/katalog/vorschau', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
-    admin(req);
+    nurAdmin(req);
     const { angebot, einspielen, ...plan } = await katalogPlanen(e.db, e.register, req.benutzer!, String(((req.body ?? {}) as { katalog?: string }).katalog ?? ''));
     const festhalten = async () => {
       await e.db.query('insert into kern_katalog (id, version, stand) values ($1,$2,$3) on conflict (id) do update set version = excluded.version, stand = excluded.stand, eingespielt = now()', [angebot.id, angebot.version, angebot.stand]);

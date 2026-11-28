@@ -1,6 +1,7 @@
 // Der Server: ein Programm für Oberfläche, Anmeldung, Befehle und Abgleich.
 import { erinnerungsregelnAnmelden } from './erinnerung';
 import { postfachRouten, postfachregelnAnmelden } from './postfach';
+import { rollenregelnAnmelden } from './bereich';
 import { randomUUID } from 'node:crypto';
 import { KONTO_FELDER } from '../module/verwaltung/beipackzettel';
 import { logoRouten } from './logo';
@@ -13,7 +14,6 @@ import type { Modulregister } from '../kern/modul';
 import { Eingabefehler } from '../kern/modell';
 import type { Protokolliert } from '../kern/befehl';
 import { SYSTEM, kennung, type Db } from './db';
-import { ROLLEN } from '../kern/rechte';
 import { ALLES_GESEHEN, Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss, stand } from './protokoll';
 import * as anm from './anmeldung';
 import { versionKopieren, versionsregelnAnmelden } from './versionen';
@@ -81,6 +81,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   gebaeudemodellRegelnAnmelden();
   erinnerungsregelnAnmelden();
   postfachregelnAnmelden();
+  rollenregelnAnmelden();
 
   // ---------- Live-Strom: neue Befehle gehen an alle verbundenen Geräte ----------
   interface Geraet { r: ServerResponse; wer: anm.Benutzer; pos: number }
@@ -146,7 +147,6 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
     eingerichtet: await anm.eingerichtet(db),
     benutzer: req.benutzer,
     module: register.module,
-    rollen: ROLLEN,
     ...(req.benutzer ? await anm.meineRechte(db, register, req.benutzer) : {}),
   }));
 
@@ -192,7 +192,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
     const ich = req.benutzer!;
     const ziel = k.benutzerId ?? ich.id;
     if (ziel !== ich.id) {
-      if (ich.rolle !== 'admin') return reply.code(403).send({ fehler: 'Das dürfen nur Administrator:innen' });
+      if (!ich.admin) return reply.code(403).send({ fehler: 'Das dürfen nur Administrator:innen' });
       if (!(await db.query('select 1 from o_benutzer where id = $1 and not geloescht', [ziel])).rowCount) throw new Ablehnung('Benutzer gibt es nicht');
     } else if (!(await anm.kennwortStimmt(db, ich.id, k.altesKennwort))) {
       throw new Eingabefehler({ altesKennwort: 'Das bisherige Kennwort stimmt nicht' });
@@ -215,7 +215,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
       try {
         const p = await befehlAusfuehren(db, register, req.benutzer!, roh);
         ergebnis.push({ id, seq: p.seq });
-        if (p.objekt === 'benutzer' || p.objekt === 'recht' || p.objekt === 'projekt_mitglied') rechteGeaendert = true;
+        if (p.objekt === 'benutzer' || p.objekt === 'recht' || p.objekt === 'rolle' || p.objekt === 'projekt_mitglied') rechteGeaendert = true;
       } catch (err) {
         if (err instanceof Eingabefehler) ergebnis.push({ id, fehler: err.message, felder: err.felder });
         else if (err instanceof Ablehnung) ergebnis.push({ id, fehler: err.message });

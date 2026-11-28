@@ -2,7 +2,7 @@
 // die Rechte ab Werk (aus den Beipackzetteln), die Bürodaten und die Übernahme älterer Stände.
 import { createHash, randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
-import { ROLLEN } from '../kern/rechte';
+import { ROLLEN, rolleId } from '../kern/rechte';
 import { SYSTEM, type Db } from './db';
 import { befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { ABLAGE_ID, BUERO_ID, MAILSERVER_ID } from '../module/verwaltung/beipackzettel';
@@ -24,21 +24,33 @@ export async function grundausstattung(db: Db, register: Modulregister): Promise
     const benutzer = await db.query("select * from kern_benutzer order by (rolle = 'admin') desc, erstellt");
     for (const b of benutzer.rows) {
       if ((await db.query('select 1 from o_benutzer where id = $1', [b.id])).rowCount) continue;
-      await system('benutzer', b.id, { name: b.name, anmeldename: b.anmeldename, rolle: b.rolle === 'admin' ? 'admin' : 'mitarbeiter' });
+      await system('benutzer', b.id, { name: b.name, anmeldename: b.anmeldename, rolle: rolleId(b.rolle === 'admin' ? 'admin' : 'mitarbeiter') });
       await db.query('insert into kern_kennwort (benutzer_id, kennwort) values ($1,$2) on conflict do nothing', [b.id, b.kennwort]);
     }
     await db.query('drop table kern_benutzer');
   }
 
+  // Rollen ab Werk (Entscheidung 28.11.2026: Rollen lassen sich selbst anlegen) – einmal; Umbenanntes bleibt, wie es ist
+  for (const r of ROLLEN) {
+    if ((await db.query('select 1 from o_rolle where id = $1', [r.id])).rowCount) continue;
+    await system('rolle', r.id, { titel: r.titel, erklaerung: r.erklaerung, alle_projekte: r.alleProjekte, kennung: r.name });
+  }
   // Rechte ab Werk: je Rolle und Objekt ein Eintrag. Vorhandene (vom Büro geänderte) bleiben, wie sie sind.
   const da = new Set((await db.query('select id from o_recht')).rows.map((z) => z.id as string));
-  for (const m of register.alleModelle) {
-    for (const r of ROLLEN) {
-      if (r.name === 'admin') continue;   // darf immer alles
-      const id = festeKennung(`recht:${r.name}:${m.name}`);
-      if (da.has(id)) continue;
-      await system('recht', id, { rolle: r.name, objekt: m.name, lesen: m.rechte.lesen.includes(r.name), schreiben: m.rechte.schreiben.includes(r.name), loeschen: m.rechte.loeschen.includes(r.name) });
+  const recht = async (r: string, objekt: string, w: { lesen: boolean; schreiben: boolean; loeschen: boolean }) => {
+    const id = festeKennung(`recht:${r}:${objekt}`);
+    if (!da.has(id)) await system('recht', id, { rolle: rolleId(r), objekt, ...w });
+  };
+  for (const r of ROLLEN) {
+    if (r.name === 'admin') continue;   // darf immer alles
+    for (const m of register.alleModelle) await recht(r.name, m.name, { lesen: m.rechte.lesen.includes(r.name), schreiben: m.rechte.schreiben.includes(r.name), loeschen: m.rechte.loeschen.includes(r.name) });
+    // Bereiche der Verwaltung: ab Werk „ändern“, wo die Rolle schon alle Objekte des Bereichs schreiben darf (z. B. Büroleitung: Büro), sonst –
+    for (const b of register.bereiche) {
+      const o = (b.objekte ?? []).map((n) => register.modell(n)!);
+      const aendern = o.length > 0 && o.every((m) => m.rechte.schreiben.includes(r.name));
+      await recht(r.name, `bereich:${b.id}`, { lesen: aendern, schreiben: aendern, loeschen: false });
     }
+    for (const z of register.module) await recht(r.name, `app:${z.id}`, { lesen: true, schreiben: false, loeschen: false });   // Kachel: ab Werk an
   }
   if (!(await db.query('select 1 from o_buero where id = $1', [BUERO_ID])).rowCount) await system('buero', BUERO_ID, {});
   if (!(await db.query('select 1 from o_ablage where id = $1', [ABLAGE_ID])).rowCount) await system('ablage', ABLAGE_ID, {});

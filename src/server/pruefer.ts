@@ -10,6 +10,7 @@ import type { Modulregister } from '../kern/modul';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { aufbauText, dateiText, diensteZustand, lies } from './aufbau';
 import { SYSTEM, type Db } from './db';
+import { pruefeBereich } from './bereich';
 import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 
 const pruefsumme = (t: string) => createHash('sha256').update(t).digest('hex');
@@ -35,9 +36,9 @@ export function prueferRouten(app: FastifyInstance, e: { db: Db; register: Modul
     throw new Ablehnung('sicht ist „daten“ oder „code“');
   };
 
-  // Für Administrator:innen: Schlüssel erzeugen (ein neuer ersetzt den alten)
+  // Für den Bereich Prüfung (ändern): Schlüssel erzeugen (ein neuer ersetzt den alten)
   app.post('/api/pruefer/schluessel', { preHandler: e.nurAngemeldet }, async (req) => {
-    if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen');
+    await pruefeBereich(e.db, req, 'pruefung', 'schreiben');
     const id = String((req.body as { zugang?: unknown } | null)?.zugang ?? '');
     if (!KENNUNG.test(id) || !(await e.db.query('select 1 from o_pruefzugang where id = $1 and not geloescht', [id])).rowCount) throw new Ablehnung('Den Zugang gibt es nicht');
     const geheim = randomBytes(24).toString('base64url');

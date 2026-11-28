@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import type { Modulregister } from '../kern/modul';
 import type { Quelltext } from '../kern/aufbaunetz';
 import type { Db } from './db';
+import { pruefeBereich } from './bereich';
 import { Ablehnung } from './protokoll';
 
 const DIENSTE = [
@@ -67,10 +68,9 @@ export interface Langsam { zeit: string; stelle: string; status: number; ms: num
 const GESTARTET = new Date().toISOString();
 
 export function aufbauRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; routen: string[]; langsam: Langsam[]; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
-  const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
 
   app.get('/api/aufbau', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'system', 'lesen');
     const dienste = await diensteZustand();
     const tabellen = (await e.db.query("select c.relname as name, greatest(c.reltuples, 0)::bigint as zeilen from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and (c.relname like 'kern\\_%' or c.relname like 'o\\_%') order by 1")).rows;
     return { quelltext: lies(), routen: e.routen, dienste, tabellen, gestartet: GESTARTET, langsam: e.langsam, db: { offen: e.db.totalCount, frei: e.db.idleCount, wartend: e.db.waitingCount } };
@@ -78,7 +78,7 @@ export function aufbauRouten(app: FastifyInstance, e: { db: Db; register: Modulr
 
   // Quelltext einer Datei des Programms – nur lesen, nur für Rollen mit eingeschaltetem Debugging-Modus (Verwaltung → Büro)
   app.get('/api/aufbau/quelltext', { preHandler: e.nurAngemeldet }, async (req, reply) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'system', 'lesen');
     const an = String((await e.db.query('select debugging from o_buero limit 1')).rows[0]?.debugging ?? '').split(',').includes(req.benutzer!.rolle);
     if (!an) throw new Ablehnung('Der Debugging-Modus ist für deine Rolle nicht eingeschaltet (Verwaltung → Büro & Standort)');
     const t = dateiText(String((req.query as { pfad?: string }).pfad ?? ''));
@@ -87,7 +87,7 @@ export function aufbauRouten(app: FastifyInstance, e: { db: Db; register: Modulr
   });
 
   app.get('/api/aufbau/text', { preHandler: e.nurAngemeldet }, async (req, reply) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'system', 'lesen');
     return reply.header('content-type', 'text/markdown; charset=utf-8').header('content-disposition', "attachment; filename*=UTF-8''Bauportal-Aufbau.md").send(aufbauText(e.register, lies(), e.routen));
   });
 }

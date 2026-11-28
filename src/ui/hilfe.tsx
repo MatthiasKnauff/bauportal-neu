@@ -8,12 +8,13 @@ import { istAdmin } from './unterbau/api';
 
 
 
-export function Hilfe(p: { modul?: Beipackzettel; ansicht?: Ansicht; onZu: () => void }) {
+export function Hilfe(p: { modul?: Beipackzettel; ansicht?: Ansicht; onZu: () => void; onWasNeu?: () => void; neu?: number }) {
   return (
     <Dialog titel={p.modul ? `Hilfe – ${p.modul.name}${p.ansicht ? ` · ${p.ansicht.titel}` : ''}` : 'Hilfe – Startseite'} onAbbrechen={p.onZu} knoepfe={<button class="knopf haupt" onClick={p.onZu}>Verstanden</button>}>
       <div class="hilfe">
         <p>{p.modul ? p.modul.beschreibung : 'Auf der Startseite wählst du die App, oben rechts das Projekt. Alles wird sofort gespeichert – auch ohne Verbindung, dann geht es später zum Server.'}</p>
         <Show when={p.ansicht?.hilfe}><For each={p.ansicht!.hilfe!.split(/\n\s*\n/)}>{(absatz) => <p>{absatz}</p>}</For></Show>
+        <Show when={p.onWasNeu}><p><button type="button" class="knopf" onClick={() => p.onWasNeu!()}>Was ist neu …</button><Show when={p.neu}> <b class="was-neu-marke">{p.neu} neu für dich</b></Show></p></Show>
         <h3>Überall gleich</h3>
         <dl class="hilfe-tasten"><For each={UEBERALL}>{([t, w]) => <><dt><kbd>{t}</kbd></dt><dd>{w}</dd></>}</For></dl>
         <h3>Handbuch</h3>

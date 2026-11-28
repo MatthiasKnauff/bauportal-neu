@@ -287,7 +287,19 @@ main { flex: 1; min-height: 0; display: flex; }
 .matrix th.klein { font-weight: 400; color: var(--text-still); font-size: 12px; }
 .matrix tbody th { text-align: left; font-weight: 600; white-space: nowrap; padding-right: 20px; }
 .matrix tbody th small { display: block; font-weight: 400; color: var(--text-still); }
-.matrix td:nth-child(3n+2) { border-left: 1px solid var(--rand); }
+.matrix.rechte td { border-left: 1px solid var(--rand); vertical-align: middle; }
+.matrix.rechte thead th small { display: block; font-weight: 400; color: var(--text-still); }
+.matrix.rechte tr.gruppe th { background: var(--still-hell); font-size: 13px; }
+.matrix.rechte tr.gruppe th small { display: inline; margin-left: 6px; }
+.matrix.rechte tr.art th { font-weight: 400; padding-left: 34px; }
+.matrix.rechte .klapp { border: 0; background: none; cursor: pointer; width: 20px; color: var(--text-still); }
+.matrix.rechte .ausnahme { font-style: normal; font-weight: 700; color: var(--akzent); margin-left: 4px; }
+.haken-drei { display: inline-flex; gap: 4px; }
+.auswahl.segment.klein button { min-height: 24px; font-size: 12px; padding: 0 8px; white-space: nowrap; }
+.rechte-kopf { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.wer-darf { margin: 8px 12px 0; padding: 8px 12px; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: var(--flaeche); font-size: 14px; }
+.wer-darf summary { cursor: pointer; }
+.wer-darf-liste { display: grid; grid-template-columns: max-content max-content; gap: 6px 14px; align-items: center; margin-top: 8px; }
 .haken { width: 28px; height: 28px; border: 1px solid var(--rand-stark); border-radius: calc(6px * var(--rund)); background: var(--flaeche); cursor: pointer; color: var(--auf-akzent); font-weight: 700; line-height: 1; }
 .haken.an { background: var(--akzent); border-color: var(--akzent); }
 .strich { color: var(--text-still); }
@@ -1837,3 +1849,14 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lvd-zeile { position: absolute; padding: 0; border: 0; background: transparent; cursor: pointer; font-size: 9px; text-align: left; overflow: hidden; white-space: nowrap; color: #222; border-radius: 2px; }
 .lvd-zeile:hover { background: rgba(37, 99, 235, .12); outline: 1px solid rgba(37, 99, 235, .5); }
 .lvd-zeile.genommen { background: rgba(46, 160, 67, .10); } .lvd-zeile.gezeigt { background: rgba(240, 140, 0, .22); outline: 1px solid rgba(240, 140, 0, .7); }
+/* Was ist neu (wie bisher „neu für dich“) */
+.kopf-hilfe { position: relative; }
+.kopf-neu { position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--akzent); box-shadow: 0 0 0 2px var(--kopf, #1f2937); }
+.was-neu { display: grid; gap: 14px; }
+.was-neu h3 { margin: 4px 0 6px; font-size: 15px; }
+.was-neu-eintrag { display: flex; gap: 12px; align-items: flex-start; padding: 8px 10px; border-radius: calc(8px * var(--rund)); }
+.was-neu-eintrag > div { flex: 1; min-width: 0; }
+.was-neu-eintrag strong { display: block; margin: 2px 0; }
+.was-neu-eintrag p { margin: 0; color: var(--text-still); line-height: 1.5; }
+.was-neu-eintrag.neu { background: var(--akzent-hell); }
+.was-neu-marke { color: var(--akzent); }

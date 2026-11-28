@@ -55,7 +55,7 @@ export function handbuchRouten(app: FastifyInstance, e: { db: Db; register: Modu
   app.get('/api/handbuch', { preHandler: e.nurAngemeldet }, async (req, reply) => {
     const q = req.query as { stufe?: string; format?: string };
     const stufe = (STUFEN.find((x) => x.wert === q.stufe)?.wert ?? 'anwender') as Handbuchstufe;
-    if (stufe !== 'anwender' && req.benutzer!.rolle !== 'admin') throw new Ablehnung('Dieses Handbuch ist nur für Administrator:innen');
+    if (stufe !== 'anwender' && !req.benutzer!.admin) throw new Ablehnung('Dieses Handbuch ist nur für Administrator:innen');
     const pdf = q.format === 'pdf', d = datei(stufe, pdf ? 'pdf' : 'html');
     if (!existsSync(d)) { await lauf(); if (!existsSync(d)) throw new Ablehnung('Das Handbuch wird gerade erzeugt – bitte gleich noch einmal'); }
     const name = `Bauportal-Handbuch-${stufe}.${pdf ? 'pdf' : 'html'}`;

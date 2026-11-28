@@ -6,6 +6,7 @@ import { PLATZHALTER_HINWEIS, anonymisieren, klartext } from '../kern/anonym';
 import { KENNUNG } from '../kern/modell';
 import { deckelErreicht, guthaben, kosten } from '../kern/kikosten';
 import { alsBenutzer, type Db } from './db';
+import { nurAdmin, pruefeBereich } from './bereich';
 import { geheimnisLesen, geheimnisSetzen } from './ablage';
 import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
@@ -112,7 +113,6 @@ export async function kiText(db: Db, wer: Benutzer, anbindungId: string, aufgabe
 
 export function kiRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
   const { db } = e;
-  const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
   type Ein = { anbindung?: string; schluessel?: string; aufgabe?: string; text?: string };
 
   app.get('/api/ki/aufgaben', { preHandler: e.nurAngemeldet }, async () => Object.entries(AUFGABEN).filter(([, a]) => !a.json).map(([wert, a]) => ({ wert, titel: a.titel, ...(a.eigen ? { eigen: true } : {}) })));
@@ -124,12 +124,12 @@ export function kiRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (req:
 
   // ---- Einrichten (nur Administrator:innen) ----
   app.post('/api/ki/zustand', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'ki', 'lesen');
     const a = await anbindung(db, req.benutzer!, String(((req.body ?? {}) as Ein).anbindung ?? ''));
     return { schluesselGesetzt: !!(await geheimnisLesen(db, `ki.${a.id}`)) };
   });
   app.post('/api/ki/schluessel', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'zugaenge', 'schreiben');
     const b = (req.body ?? {}) as Ein;
     const a = await anbindung(db, req.benutzer!, String(b.anbindung ?? ''));
     if (typeof b.schluessel !== 'string' || !b.schluessel.trim() || b.schluessel.length > 500) throw new Ablehnung('Der Zugangsschlüssel fehlt');
@@ -137,13 +137,13 @@ export function kiRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (req:
     return { ok: true };
   });
   app.post('/api/ki/modelle', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'ki', 'lesen');
     const a = await anbindung(db, req.benutzer!, String(((req.body ?? {}) as Ein).anbindung ?? ''));
     return dienst<{ modelle: string[] }>('/modelle', await zugang(db, a));
   });
   // Verbrauch einer Anbindung: dieser Monat (Tokens, €, Ø je Tag), Kostendeckel, Guthaben seit der letzten Aufladung
   app.post('/api/ki/verbrauch', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'ki', 'lesen');
     const a = await anbindung(db, req.benutzer!, String(((req.body ?? {}) as Ein).anbindung ?? ''));
     const m = await tokensSeit(db, a.id, monatsanfang());
     const euro = kosten(m.ein, m.aus, a), tage = new Date().getDate();
@@ -151,7 +151,7 @@ export function kiRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (req:
     return { monat: { ...m, euro, jeTag: euro / tage }, deckel: a.deckel, erreicht: deckelErreicht(euro, a.deckel), guthaben: seit ? guthaben(a.aufgeladen, kosten(seit.ein, seit.aus, a)) : null };
   });
   app.get('/api/ki/protokoll', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    nurAdmin(req);   // Klartext der Anfragen (wie bisher eigenes Recht „Datenschutz“, ab Werk nur oben)
     return (await db.query('select zeit, benutzer_name, anbindung, art, modell, aufgabe, extern, zeichen, ersetzt, tokens_ein, tokens_aus, fehler from kern_ki_ausgang order by id desc limit 200')).rows;
   });
 }

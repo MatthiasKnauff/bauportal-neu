@@ -1,11 +1,25 @@
 // Modul Verwaltung: Benutzer, Rechte, Bürodaten, Ablage, Druckeinstellungen, KI-Anbindungen, Updates, Aufbau.
 import type { Beipackzettel } from '../../kern/modul';
 import type { Feld, ObjektModell } from '../../kern/modell';
-import { ALLE, OHNE_GAST, ROLLEN_OPTIONEN } from '../../kern/rechte';
+import { ALLE, OHNE_GAST } from '../../kern/rechte';
 import { STIL } from '../../kern/design';
 
-// Benutzer und Rechte darf nur die Rolle „admin“ ändern – das setzt die Datenbank fest durch,
+// Benutzer, Rollen und Rechte darf nur die Rolle „admin“ ändern – das setzt die Datenbank fest durch,
 // unabhängig von den einstellbaren Rechten.
+export const rolle: ObjektModell = {
+  name: 'rolle',
+  titel: 'Rolle',
+  titelMehrzahl: 'Rollen',
+  anzeigeFeld: 'titel',
+  rechte: { lesen: ALLE, schreiben: [], loeschen: [] },
+  felder: [
+    { name: 'titel', titel: 'Name der Rolle', art: 'text', pflicht: true, eindeutig: true, inListe: true },
+    { name: 'erklaerung', titel: 'Erklärung', art: 'text', inListe: true },
+    { name: 'alle_projekte', titel: 'Sieht alle Projekte (auch ohne Mitgliedschaft)', art: 'ja_nein' },
+    { name: 'kennung', titel: 'Kennung ab Werk', art: 'text', verborgen: true },   // „admin“, „bueroleitung“ … – leer bei selbst angelegten
+  ],
+};
+
 export const benutzer: ObjektModell = {
   name: 'benutzer',
   titel: 'Benutzer',
@@ -15,17 +29,18 @@ export const benutzer: ObjektModell = {
   felder: [
     { name: 'name', titel: 'Name', art: 'text', pflicht: true, inListe: true, breite: 240, gruppe: 'Benutzer' },
     { name: 'anmeldename', titel: 'Anmeldename', art: 'text', pflicht: true, eindeutig: true, klein: true, inListe: true, breite: 220, gruppe: 'Benutzer' },
-    { name: 'rolle', titel: 'Rolle', art: 'auswahl', optionen: ROLLEN_OPTIONEN, inListe: true, breite: 170, gruppe: 'Benutzer' },
+    { name: 'rolle', titel: 'Rolle', art: 'verweis', ziel: 'rolle', pflicht: true, inListe: true, breite: 170, gruppe: 'Benutzer' },
     { name: 'gesperrt', titel: 'Gesperrt (kann sich nicht anmelden)', art: 'ja_nein', inListe: true, breite: 110, gruppe: 'Benutzer' },
     { name: 'email', titel: 'E-Mail (z. B. für „Kopie an mich“)', art: 'email', spalte: true, breite: 220, gruppe: 'Benutzer' },
     // wie bisher je Benutzer:in (Mein Konto): wer an Fristen erinnert wird, die man selbst setzt
     { name: 'erinnerung', titel: 'Erinnerungen zur Frist', art: 'auswahl', alsListe: true, gruppe: 'Benutzer',
       optionen: [{ wert: '', titel: 'nur an mich' }, { wert: 'bauleitung', titel: 'an mich und die Bauleitung des Projekts' }] },
     { name: 'schritte_aus', titel: 'Bei „Schritt für Schritt“ ausgelassen', art: 'text', verborgen: true },   // je Benutzer:in (wie bisher), „Wetter,Bilder“
+    { name: 'neu_gesehen', titel: '„Was ist neu“ gesehen bis', art: 'text', verborgen: true },   // Zeit des neuesten gesehenen Eintrags (kern/neuigkeiten)
   ],
 };
 /** Was jede:r am eigenen Konto selbst einstellt (server: /api/konto/einstellung) – sonst ändert Benutzer nur die Verwaltung. */
-export const KONTO_FELDER = ['erinnerung', 'schritte_aus'];
+export const KONTO_FELDER = ['erinnerung', 'schritte_aus', 'neu_gesehen'];
 
 export const recht: ObjektModell = {
   name: 'recht',
@@ -34,7 +49,9 @@ export const recht: ObjektModell = {
   anzeigeFeld: 'objekt',
   rechte: { lesen: ALLE, schreiben: [], loeschen: [] },
   felder: [
-    { name: 'rolle', titel: 'Rolle', art: 'auswahl', optionen: ROLLEN_OPTIONEN },
+    { name: 'rolle', titel: 'Rolle', art: 'verweis', ziel: 'rolle' },
+    { name: 'benutzer', titel: 'Ausnahme für', art: 'verweis', ziel: 'benutzer' },   // gesetzt: gilt für diese Person statt ihrer Rolle (wie bisher ＋/−)
+    // Art von Einträgen (Objektname), „app:<Modul>“ (Kachel: lesen = App zu sehen) oder „bereich:<Bereich der Verwaltung>“
     { name: 'objekt', titel: 'Objekt', art: 'text', pflicht: true },
     { name: 'lesen', titel: 'Sehen', art: 'ja_nein' },
     { name: 'schreiben', titel: 'Anlegen und ändern', art: 'ja_nein' },
@@ -74,7 +91,7 @@ export const buero: ObjektModell = {
     { name: 'aufmass_gelb_ab', titel: 'Aufmaß: Hinweis (gelb) ab % über der LV-Menge', art: 'zahl', kartenBreite: 3, gruppe: 'Abrechnung' },
     { name: 'aufmass_rot_ab', titel: 'rot ab % (VOB/B § 2 Abs. 3: 10)', art: 'zahl', kartenBreite: 3, gruppe: 'Abrechnung' },
     { name: 'nicht_aehnlich', titel: 'Adressen aufräumen: als nicht ähnlich gemerkte Werte', art: 'langtext', verborgen: true },   // {feld: ["a|b", …]}
-    { name: 'debugging', titel: 'Debugging-Modus: Quelltext im Aufbau sehen dürfen', art: 'mehrfach', optionen: ROLLEN_OPTIONEN, gruppe: 'Entwicklung' },
+    { name: 'debugging', titel: 'Debugging-Modus: Quelltext im Aufbau sehen dürfen', art: 'mehrfach', ziel: 'rolle', gruppe: 'Entwicklung' },
   ],
 };
 
@@ -295,24 +312,36 @@ export const verwaltung: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',
   braucht: [],
-  objekte: [benutzer, recht, buero, ablage, mailserver, postfach, nachricht, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
+  objekte: [rolle, benutzer, recht, buero, ablage, mailserver, postfach, nachricht, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
   abgesetzt: ['Für mich'],   // wie im bisherigen Bauportal: „Für mich – <Name>“ farbig abgesetzt
+  // Bereiche der Verwaltung (wie bisher je Rolle „– · sehen · ändern“, Entscheidung 28.11.2026); ab Werk nur Administrator:innen
+  bereiche: [
+    { id: 'mitarbeiter', titel: 'Benutzer & Rechte', erklaerung: 'Benutzer:innen, Rollen und Rechte – ändern nur Administrator:innen', stufen: 2 },
+    { id: 'buero', titel: 'Büro & Standort', erklaerung: 'Name, Anschrift, Logo, Bundesland, Einstellungen fürs ganze Büro', stufen: 3, objekte: ['buero'] },
+    { id: 'ablage', titel: 'Ablage & Server', erklaerung: 'Verbindung zum Dateiserver, Ordner der Projektordner', stufen: 3, objekte: ['ablage'] },
+    { id: 'mail', titel: 'Mail & Versand', erklaerung: 'Mailserver, Absender, Bündeln der Erinnerungen', stufen: 3, objekte: ['mailserver'] },
+    { id: 'postausgang', titel: 'Postausgang', erklaerung: 'alle Mails des Bauportals ansehen', stufen: 2 },
+    { id: 'ki', titel: 'KI', erklaerung: 'KI-Anbindungen an/aus, Modell, Kostendeckel – die Schlüssel setzt, wer „Zugänge“ hat', stufen: 3, objekte: ['ki_anbindung'] },
+    { id: 'pruefung', titel: 'Prüfung', erklaerung: 'Ratschläge und Zugänge der Prüf-KI', stufen: 3, objekte: ['pruefrat', 'pruefzugang'] },
+    { id: 'system', titel: 'System', erklaerung: 'Updates, Aufbau, Übernahme aus dem alten Bauportal – ändern nur Administrator:innen', stufen: 2 },
+    { id: 'zugaenge', titel: 'Zugänge: Schlüssel & Kennwörter', erklaerung: 'Kennwörter von Dateiserver und Mailserver, KI-Schlüssel neu setzen – den Wert sieht niemand', stufen: 1 },
+  ],
   ansichten: [
     // „Für mich“: für jede:n – eigenes Konto und Darstellung (wie im bisherigen Bauportal)
     { id: 'konto', titel: 'Mein Konto', abschnitt: 'Für mich', zeichen: 'schluessel', hilfe: 'Dein Name, deine Anmeldung und dein Kennwort. Kennwort ändern: altes und neues Kennwort eintragen.' },
     { id: 'darstellung', titel: 'Darstellung', abschnitt: 'Für mich', zeichen: 'kacheln', hilfe: 'Wie das Bauportal für dich aussieht: hell oder dunkel, Akzentfarbe (auch eine eigene Farbe), Design, Schrift und Schriftgröße, Ecken, Handyleiste. Gilt sofort und nur für dich.' },
-    { id: 'buero', titel: 'Büro & Standort', abschnitt: 'Büro', zeichen: 'einstellungen', einstellungen: 'buero', hilfe: 'Name, Anschrift, Telefon und E-Mail des Büros, Bundesland für die Feiertage und das Logo für den Briefkopf der Ausdrucke.' },
+    { id: 'buero', titel: 'Büro & Standort', abschnitt: 'Büro', zeichen: 'einstellungen', einstellungen: 'buero', bereich: 'buero', hilfe: 'Name, Anschrift, Telefon und E-Mail des Büros, Bundesland für die Feiertage und das Logo für den Briefkopf der Ausdrucke.' },
     { id: 'projekte', titel: 'Projekte', abschnitt: 'Büro', zeichen: 'projekte', objekt: 'projekt', baum: ['status'] },
-    { id: 'benutzer', titel: 'Benutzer', abschnitt: 'Einstellungen', zeichen: 'personen', objekt: 'benutzer', baum: ['rolle'] },
-    { id: 'rechte', titel: 'Rechte', abschnitt: 'Einstellungen', zeichen: 'schluessel', nurAdmin: true, hilfe: 'Wer darf was: je Rolle sehen, ändern, löschen – für jede Art von Eintrag.' },
-    { id: 'ablage', titel: 'Ablage & Server', abschnitt: 'Einstellungen', zeichen: 'dateien', nurAdmin: true, einstellungen: 'ablage', hilfe: 'Verbindung zum Dateiserver (Freigabe, Benutzer, Kennwort) für Pläne & Dateien und die Projektordner.' },
-    { id: 'mail', titel: 'Mail & Versand', abschnitt: 'Einstellungen', zeichen: 'senden', nurAdmin: true, einstellungen: 'mailserver', hilfe: 'Die zentrale Versandstelle: Mailserver (SMTP, Kennwort), Absender und wie zurückhaltend Erinnerungen gebündelt werden.' },
-    { id: 'postausgang', titel: 'Postausgang', abschnitt: 'Büro', zeichen: 'senden', objekt: 'nachricht', baum: ['stand'], hilfe: 'Alle Mails des Bauportals – was wartet, was verschickt ist, was nicht ging. Nichts verlässt das Bauportal an dieser Stelle vorbei.' },
-    { id: 'ki', titel: 'KI', abschnitt: 'Einstellungen', zeichen: 'assistent', objekt: 'ki_anbindung', nurAdmin: true },
-    { id: 'ratschlaege', titel: 'Ratschläge', abschnitt: 'Prüfung', zeichen: 'liste_aufgaben', objekt: 'pruefrat', nurAdmin: true, baum: ['stand'] },
-    { id: 'pruefki', titel: 'Prüf-KI', abschnitt: 'Prüfung', zeichen: 'pruefung', objekt: 'pruefzugang', nurAdmin: true },
-    { id: 'updates', titel: 'Updates', abschnitt: 'System', zeichen: 'aktualisieren', nurAdmin: true, hilfe: 'Kataloge einspielen und aktualisieren (Leistungen, Positionen, Gewerke, Baupreisindex) und der Stand des Programms.' },
-    { id: 'aufbau', titel: 'Aufbau', abschnitt: 'System', zeichen: 'bausteine', nurAdmin: true },
-    { id: 'uebernahme', titel: 'Übernahme', abschnitt: 'System', zeichen: 'import', nurAdmin: true },
+    { id: 'benutzer', titel: 'Benutzer', abschnitt: 'Einstellungen', zeichen: 'personen', objekt: 'benutzer', baum: ['rolle'], bereich: 'mitarbeiter' },
+    { id: 'rechte', titel: 'Rollen & Rechte', abschnitt: 'Einstellungen', zeichen: 'schluessel', bereich: 'mitarbeiter', hilfe: 'Wer darf was: je Rolle und App „an · nur lesen · aus“, aufklappbar je Art von Eintrag sehen, ändern, löschen. Unter „Wer darf was?“ Ausnahmen für einzelne Personen (＋ zusätzlich, − entzogen). Unter „Verwaltung“ je Rolle, welche Bereiche der Verwaltung sie sehen oder ändern darf. Rollen lassen sich anlegen (als Kopie einer vorhandenen), umbenennen und löschen, solange niemand sie hat.' },
+    { id: 'ablage', titel: 'Ablage & Server', abschnitt: 'Einstellungen', zeichen: 'dateien', bereich: 'ablage', einstellungen: 'ablage', hilfe: 'Verbindung zum Dateiserver (Freigabe, Benutzer, Kennwort) für Pläne & Dateien und die Projektordner.' },
+    { id: 'mail', titel: 'Mail & Versand', abschnitt: 'Einstellungen', zeichen: 'senden', bereich: 'mail', einstellungen: 'mailserver', hilfe: 'Die zentrale Versandstelle: Mailserver (SMTP, Kennwort), Absender und wie zurückhaltend Erinnerungen gebündelt werden.' },
+    { id: 'postausgang', titel: 'Postausgang', abschnitt: 'Büro', zeichen: 'senden', objekt: 'nachricht', baum: ['stand'], bereich: 'postausgang', hilfe: 'Alle Mails des Bauportals – was wartet, was verschickt ist, was nicht ging. Nichts verlässt das Bauportal an dieser Stelle vorbei.' },
+    { id: 'ki', titel: 'KI', abschnitt: 'Einstellungen', zeichen: 'assistent', objekt: 'ki_anbindung', bereich: 'ki' },
+    { id: 'ratschlaege', titel: 'Ratschläge', abschnitt: 'Prüfung', zeichen: 'liste_aufgaben', objekt: 'pruefrat', bereich: 'pruefung', baum: ['stand'] },
+    { id: 'pruefki', titel: 'Prüf-KI', abschnitt: 'Prüfung', zeichen: 'pruefung', objekt: 'pruefzugang', bereich: 'pruefung' },
+    { id: 'updates', titel: 'Updates', abschnitt: 'System', zeichen: 'aktualisieren', bereich: 'system', hilfe: 'Kataloge einspielen und aktualisieren (Leistungen, Positionen, Gewerke, Baupreisindex) und der Stand des Programms.' },
+    { id: 'aufbau', titel: 'Aufbau', abschnitt: 'System', zeichen: 'bausteine', bereich: 'system' },
+    { id: 'uebernahme', titel: 'Übernahme', abschnitt: 'System', zeichen: 'import', bereich: 'system' },
   ],
 };

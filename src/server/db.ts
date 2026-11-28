@@ -4,7 +4,7 @@ import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import type { Feld } from '../kern/modell';
-import { ROLLEN } from '../kern/rechte';
+import { ADMIN_ROLLE, ROLLEN, rolleId } from '../kern/rechte';
 
 pg.types.setTypeParser(20, Number);     // bigint  -> Zahl (Protokollnummern)
 pg.types.setTypeParser(1700, Number);   // numeric -> Zahl
@@ -81,20 +81,25 @@ const RECHTE_SQL = `
 create or replace function bp_ich() returns uuid language sql stable as $f$
   select nullif(current_setting('bp.benutzer', true), '')::uuid $f$;
 
--- Rolle des handelnden Benutzers; gesperrte und gelöschte Benutzer haben keine.
-create or replace function bp_rolle() returns text language sql stable security definer set search_path = public as $f$
+-- Rolle des handelnden Benutzers (Objekt „rolle“); gesperrte und gelöschte Benutzer haben keine.
+drop function if exists bp_rolle();
+create function bp_rolle() returns uuid language sql stable security definer set search_path = public as $f$
   select rolle from o_benutzer where id = bp_ich() and not gesperrt and not geloescht $f$;
 
-create or replace function bp_alle_projekte() returns boolean language sql stable as $f$
-  select coalesce(bp_rolle() in (${ROLLEN.filter((r) => r.alleProjekte).map((r) => `'${r.name}'`).join(',')}), false) $f$;
+-- Alle Projekte sieht, wessen Rolle es so eingestellt hat (wie bisher „Alle Projekte sehen“) – Administrator:innen immer.
+create or replace function bp_alle_projekte() returns boolean language sql stable security definer set search_path = public as $f$
+  select coalesce((select r.alle_projekte or r.id = '${ADMIN_ROLLE}' from o_rolle r where r.id = bp_rolle() and not r.geloescht), false) $f$;
 
 -- Die eine Stelle, die entscheidet: Darf der Benutzer das? p = Projekt, zu dem das Objekt gehört (oder null).
 create or replace function bp_darf(obj text, art text, p uuid) returns boolean language sql stable security definer set search_path = public as $f$
   select case
     when bp_rolle() is null then false
-    when bp_rolle() = 'admin' then true
-    else exists (select 1 from o_recht r where r.rolle = bp_rolle() and r.objekt = obj and not r.geloescht
-           and case art when 'lesen' then r.lesen when 'schreiben' then r.schreiben else r.loeschen end)
+    when bp_rolle() = '${ADMIN_ROLLE}' then true
+    -- eine Ausnahme für diese Person (wie bisher ＋/−) gilt statt der Rolle
+    else coalesce((select case art when 'lesen' then r.lesen when 'schreiben' then r.schreiben else r.loeschen end
+                   from o_recht r where r.benutzer = bp_ich() and r.objekt = obj and not r.geloescht limit 1),
+           exists (select 1 from o_recht r where r.rolle = bp_rolle() and r.benutzer is null and r.objekt = obj and not r.geloescht
+           and case art when 'lesen' then r.lesen when 'schreiben' then r.schreiben else r.loeschen end))
       and (p is null or bp_alle_projekte()
            or exists (select 1 from o_projekt_mitglied m where m.projekt = p and m.benutzer = bp_ich() and not m.geloescht))
   end $f$;
@@ -115,7 +120,7 @@ begin
   if current_setting('bp.system', true) = 'an' then return new; end if;
   if pf <> '' then p := (neu->>pf)::uuid; end if;
   if ef <> '' and (neu->>ef)::uuid is distinct from bp_ich() then raise exception 'kein Recht' using errcode = 'BP001'; end if;
-  if obj in ('benutzer', 'recht') and coalesce(bp_rolle(), '') <> 'admin' then
+  if obj in ('benutzer', 'recht', 'rolle') and bp_rolle() is distinct from '${ADMIN_ROLLE}' then
     raise exception 'kein Recht' using errcode = 'BP001';
   end if;
   if tg_op = 'INSERT' then
@@ -139,7 +144,7 @@ end $f$;
 create or replace function bp_admin_bleibt() returns trigger language plpgsql security definer set search_path = public as $f$
 begin
   if exists (select 1 from o_benutzer where not geloescht)
-     and not exists (select 1 from o_benutzer where rolle = 'admin' and not gesperrt and not geloescht) then
+     and not exists (select 1 from o_benutzer where rolle = '${ADMIN_ROLLE}' and not gesperrt and not geloescht) then
     raise exception 'kein Admin mehr' using errcode = 'BP002';
   end if;
   return null;
@@ -229,6 +234,19 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
       if exists (select 1 from information_schema.columns where table_name = 'o_tagesbericht' and column_name = 'bauleitung' and data_type = 'uuid') then
         drop index if exists "o_tagesbericht_bauleitung_verweis";
         alter table o_tagesbericht alter column bauleitung type text using coalesce(bauleitung::text, ''), alter column bauleitung set default '', alter column bauleitung set not null;
+      end if; end $u$`);
+    // Umstellung 28.11.2026: Rollen sind Objekte (selbst anlegen wie bisher) – benutzer.rolle, recht.rolle und der Debugging-Modus verweisen darauf
+    const rolleFall = (spalte: string, sonst: string) => `case ${spalte} ${ROLLEN.map((r) => `when '${r.name}' then '${r.id}'`).join(' ')} else ${sonst} end`;
+    await c.query(`do $u$ begin
+      if exists (select 1 from information_schema.columns where table_name = 'o_benutzer' and column_name = 'rolle' and data_type = 'text') then
+        alter table o_benutzer alter column rolle drop default, alter column rolle drop not null;
+        alter table o_benutzer alter column rolle type uuid using (${rolleFall('rolle', `'${rolleId('mitarbeiter')}'`)})::uuid;
+        perform set_config('bp.system', 'an', true);   -- Umstellung durch das Programm selbst (wie die Grundausstattung)
+        update o_buero set debugging = coalesce((select string_agg(${rolleFall('x', 'null')}, ',') from unnest(string_to_array(debugging, ',')) as x), '') where debugging <> '';
+      end if;
+      if exists (select 1 from information_schema.columns where table_name = 'o_recht' and column_name = 'rolle' and data_type = 'text') then
+        alter table o_recht alter column rolle drop default, alter column rolle drop not null;
+        alter table o_recht alter column rolle type uuid using (${rolleFall('rolle', 'null')})::uuid;
       end if; end $u$`);
     // Umstellung 26.11.2026: der Fotos-Unterordner ist fest „Bautagebuch/Fotos“ – die Einstellung entfällt
     await c.query(`alter table o_ablage drop column if exists fotos_ordner; update o_ablage set _stand = _stand - 'fotos_ordner' where _stand ? 'fotos_ordner'`);

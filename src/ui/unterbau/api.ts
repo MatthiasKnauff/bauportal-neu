@@ -4,19 +4,21 @@ import { createSignal } from 'solid-js';
 import { nurAnsehen } from './geraet';
 import type { Beipackzettel } from '../../kern/modul';
 import type { Rechtart } from '../../kern/modell';
-import type { Rechte, Rolle } from '../../kern/rechte';
+import type { Rechte } from '../../kern/rechte';
 
-export interface Benutzer { id: string; name: string; anmeldename: string; rolle: string }
+export interface Benutzer { id: string; name: string; anmeldename: string; rolle: string; admin: boolean }   // rolle: Kennung des Objekts „rolle“
 export interface Zustand {
   version: string; umgebung: string; kennung: string; eingerichtet: boolean;
-  benutzer: Benutzer | null; module: Beipackzettel[]; rollen: Rolle[];
+  benutzer: Benutzer | null; module: Beipackzettel[];
   rechte?: Rechte; projekte?: string[]; sichtKennung?: string;
 }
 
 /** Der Zustand des Programms für diesen Benutzer – eine Stelle für die ganze Oberfläche. */
 export const [zustand, setZustand] = createSignal<Zustand | null>(null);
 export const ich = () => zustand()!.benutzer!;
-export const istAdmin = () => zustand()?.benutzer?.rolle === 'admin';
+export const istAdmin = () => zustand()?.benutzer?.admin === true;
+/** Bereich der Verwaltung sehen („lesen“) oder ändern („schreiben“) – Administrator:innen immer. */
+export const darfBereich = (bereich: string, art: 'lesen' | 'schreiben' = 'lesen') => istAdmin() || zustand()?.rechte?.[`bereich:${bereich}`]?.[art] === true;
 /** Für die Oberfläche: Knopf zeigen oder nicht. Entschieden wird in der Datenbank. */
 // Am Handy in Apps, die dort nur zum Ansehen sind, gilt kein Recht zum Ändern – so blenden alle Bausteine das Bearbeiten von selbst aus.
 export const darf = (objekt: string, art: Rechtart) => zustand()?.rechte?.[objekt]?.[art] === true && (art === 'lesen' || !nurAnsehen());

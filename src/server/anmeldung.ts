@@ -4,7 +4,7 @@ import { createHash, pbkdf2, randomBytes, randomUUID, scrypt, timingSafeEqual } 
 import { promisify } from 'node:util';
 import { Eingabefehler } from '../kern/modell';
 import type { Modulregister } from '../kern/modul';
-import type { Rechte } from '../kern/rechte';
+import { ADMIN_ROLLE, type Rechte } from '../kern/rechte';
 import { SYSTEM, alsBenutzer, type Db } from './db';
 import { befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
@@ -12,7 +12,7 @@ import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 const scryptP = promisify(scrypt) as (pw: string, salz: Buffer, laenge: number, o?: { N: number; r: number; p: number; maxmem: number }) => Promise<Buffer>;
 const pbkdf2P = promisify(pbkdf2);
 
-export interface Benutzer { id: string; name: string; anmeldename: string; rolle: string }
+export interface Benutzer { id: string; name: string; anmeldename: string; rolle: string; admin: boolean }   // rolle: Kennung des Objekts „rolle“
 
 async function hash(kennwort: string): Promise<string> {
   const salz = randomBytes(16);
@@ -85,7 +85,7 @@ export async function ersteinrichtung(db: Db, register: Modulregister, e: Einric
     const id = randomUUID();
     const p = await befehlAusfuehren(db, register, SYSTEM, {
       id: randomUUID(), objekt: 'benutzer', art: 'anlegen', objektId: id, gesehen: ALLES_GESEHEN,
-      werte: { name: e.name, anmeldename: e.anmeldename, rolle: 'admin' },
+      werte: { name: e.name, anmeldename: e.anmeldename, rolle: ADMIN_ROLLE },
     });
     await kennwortSetzen(db, id, kennwort);
     const ich = { id, name: String(p.werte!.name), system: true };
@@ -106,7 +106,7 @@ export async function ersteinrichtung(db: Db, register: Modulregister, e: Einric
       await anlegen('kontakt', { name: 'Dachdeckerei Beispiel', art: 'firma', gewerk: 'Dachdecker', ort: 'Bochum', telefon: '0234 000002' });
       await anlegen('kontakt', { name: 'Bauamt Musterstadt', art: 'behoerde', ort: 'Essen', telefon: '0201 000003' });
     }
-    return { id, name: ich.name, anmeldename: String(p.werte!.anmeldename), rolle: 'admin' };
+    return { id, name: ich.name, anmeldename: String(p.werte!.anmeldename), rolle: ADMIN_ROLLE, admin: true };
   } finally {
     await c.query('select pg_advisory_unlock(727003)');
     c.release();
@@ -121,14 +121,14 @@ export async function sitzungAnlegen(db: Db, benutzerId: string): Promise<string
 
 export async function anmelden(db: Db, anmeldename: unknown, kennwort: unknown): Promise<{ benutzer: Benutzer; token: string } | null> {
   const r = await db.query(
-    `select b.id, b.name, b.anmeldename, b.rolle, k.kennwort from o_benutzer b left join kern_kennwort k on k.benutzer_id = b.id
+    `select b.id, b.name, b.anmeldename, b.rolle, (b.rolle = '${ADMIN_ROLLE}') as admin, k.kennwort from o_benutzer b left join kern_kennwort k on k.benutzer_id = b.id
      where b.anmeldename = $1 and ${AKTIV}`, [String(anmeldename ?? '').trim().toLowerCase()]);
   const z = r.rows[0];
   // Auch ohne Treffer rechnen, damit die Antwortzeit nichts über vorhandene Namen verrät.
   const ok = await passt(String(kennwort ?? ''), z?.kennwort ?? 'scrypt$AAAAAAAAAAAAAAAAAAAAAA==$' + 'A'.repeat(86) + '==');
   if (!z?.kennwort || !ok) return null;
   if (String(z.kennwort).startsWith(ALT)) await db.query('update kern_kennwort set kennwort = $2, geaendert = now() where benutzer_id = $1', [z.id, await hash(String(kennwort))]);   // ab jetzt im eigenen Format
-  return { benutzer: { id: z.id, name: z.name, anmeldename: z.anmeldename, rolle: z.rolle }, token: await sitzungAnlegen(db, z.id) };
+  return { benutzer: { id: z.id, name: z.name, anmeldename: z.anmeldename, rolle: z.rolle, admin: z.admin }, token: await sitzungAnlegen(db, z.id) };
 }
 
 export const SITZUNG_TAGE = 30;
@@ -138,7 +138,7 @@ export async function sitzungBenutzer(db: Db, token: string | undefined): Promis
   const r = await db.query(
     `update kern_sitzung s set zuletzt = now() from o_benutzer b
      where s.token_hash = $1 and b.id = s.benutzer_id and ${AKTIV} and s.zuletzt > now() - make_interval(days => $2)
-     returning b.id, b.name, b.anmeldename, b.rolle`,
+     returning b.id, b.name, b.anmeldename, b.rolle, (b.rolle = '${ADMIN_ROLLE}') as admin`,
     [tokenHash(token), SITZUNG_TAGE],
   );
   return (r.rows[0] as Benutzer | undefined) ?? null;
@@ -156,12 +156,13 @@ export async function andereSitzungenBeenden(db: Db, benutzerId: string, behalte
   await db.query('delete from kern_sitzung where benutzer_id = $1 and token_hash <> $2', [benutzerId, behalten ? tokenHash(behalten) : '']);
 }
 
-/** Was der Benutzer darf – für die Oberfläche (Knöpfe zeigen oder nicht). Entschieden wird in der Datenbank. */
+/** Was der Benutzer darf – für die Oberfläche (Knöpfe zeigen oder nicht; dazu „bereich:…“ der Verwaltung und „app:…“ für die Kacheln).
+ *  Entschieden wird in der Datenbank. */
 export async function meineRechte(db: Db, register: Modulregister, wer: Benutzer): Promise<{ rechte: Rechte; projekte: string[]; sichtKennung: string }> {
   return alsBenutzer(db, wer, async (c) => {
     const r = await c.query(
       `select o, bp_darf(o, 'lesen', null) as lesen, bp_darf(o, 'schreiben', null) as schreiben, bp_darf(o, 'loeschen', null) as loeschen
-       from unnest($1::text[]) as o`, [register.alleModelle.map((m) => m.name)]);
+       from unnest($1::text[]) as o`, [[...register.alleModelle.map((m) => m.name), ...register.bereiche.map((b) => `bereich:${b.id}`), ...register.module.map((m) => `app:${m.id}`)]]);
     const rechte: Rechte = {};
     for (const z of r.rows) rechte[z.o] = { lesen: z.lesen, schreiben: z.schreiben, loeschen: z.loeschen };
     const p = await c.query('select id from o_projekt order by id');

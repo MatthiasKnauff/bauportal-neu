@@ -33,7 +33,7 @@ function felder(o: ObjektModell, stufe: Handbuchstufe): string {
 /** Das Handbuch als HTML-Seite – druckbar (A4) und im Browser lesbar. aufbau: der Aufbau des Programms als Text (nur Entwickler:innen). */
 export function handbuchHtml(module: Beipackzettel[], stufe: Handbuchstufe, e: { buero: string; version: string; erzeugt: string; aufbau?: string }): string {
   const admin = stufe !== 'anwender';
-  const apps = module.map((m) => ({ m, ansichten: m.ansichten.filter((a) => admin || !a.nurAdmin) })).filter((x) => x.ansichten.length);
+  const apps = module.map((m) => ({ m, ansichten: m.ansichten.filter((a) => admin || !a.bereich) })).filter((x) => x.ansichten.length);
   const objekt = (n: string) => module.flatMap((m) => m.objekte).find((o) => o.name === n);
   const teile: string[] = [];
   teile.push(`<section><h2 id="bedienung">Bedienung – überall gleich</h2><p>Jede App ist gleich aufgebaut: oben die Kopfleiste mit Projekt, darunter die Menüleiste (Rückgängig am Anfang), links die Gliederung, in der Mitte der Inhalt, rechts die Details. Links und rechts lassen sich ausblenden. Alles wird sofort gespeichert – auch ohne Verbindung, dann geht es später zum Server.</p>
@@ -42,7 +42,7 @@ export function handbuchHtml(module: Beipackzettel[], stufe: Handbuchstufe, e: {
   for (const { m, ansichten } of apps) {
     teile.push(`<section><h2 id="${anker(m.id)}">${s(m.name)}</h2>${absaetze(m.beschreibung)}${ansichten.map((a) => {
       const o = a.objekt ? objekt(a.objekt) : undefined;
-      return `<h3 id="${anker(`${m.id}-${a.id}`)}">${s(a.titel)}${a.nurAdmin ? ' <small>(nur Administrator:innen)</small>' : ''}</h3>${a.hilfe ? absaetze(a.hilfe) : ''}${o ? felder(o, stufe) : ''}`;
+      return `<h3 id="${anker(`${m.id}-${a.id}`)}">${s(a.titel)}${a.bereich ? ' <small>(Verwaltung – nur mit Freigabe für den Bereich)</small>' : ''}</h3>${a.hilfe ? absaetze(a.hilfe) : ''}${o ? felder(o, stufe) : ''}`;
     }).join('')}</section>`);
   }
   if (admin) {

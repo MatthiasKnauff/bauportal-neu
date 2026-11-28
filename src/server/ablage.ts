@@ -10,6 +10,7 @@ import { Eingabefehler } from '../kern/modell';
 import { ABLAGE_ID } from '../module/verwaltung/beipackzettel';
 import type { Modulregister } from '../kern/modul';
 import { alsBenutzer, spalte, tabelle, type Db, type Verbindung } from './db';
+import { pruefeBereich } from './bereich';
 import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
@@ -171,7 +172,6 @@ export function ablageRouten(app: FastifyInstance, e: { db: Db; umgebung: string
     if (err instanceof Dienstfehler) return reply.code(err.status).send({ fehler: err.message });
     throw err;
   };
-  const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
   /** Ordner des Projekts – nur, wenn der Benutzer das Projekt sehen darf (das entscheidet die Datenbank). */
   const projektordner = async (wer: Benutzer, projekt: unknown): Promise<string> => {
     const z = await alsBenutzer(db, wer, async (c) => (await c.query('select ordner from o_projekt where id = $1 and not geloescht', [String(projekt ?? '').match(/^[0-9a-f-]{36}$/i) ? projekt : null])).rows[0]);
@@ -219,7 +219,7 @@ export function ablageRouten(app: FastifyInstance, e: { db: Db; umgebung: string
   });
 
   app.post('/api/ablage/kennwort', { preHandler: e.nurAngemeldet }, async (req) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'zugaenge', 'schreiben');
     const k = (req.body as { kennwort?: unknown } | null)?.kennwort;
     if (typeof k !== 'string' || !k) throw new Eingabefehler({ kennwort: 'Bitte das Kennwort eintragen' });
     await geheimnisSetzen(db, 'ablage.kennwort', k);
@@ -227,7 +227,7 @@ export function ablageRouten(app: FastifyInstance, e: { db: Db; umgebung: string
   });
 
   app.post('/api/ablage/pruefen', { preHandler: e.nurAngemeldet }, async (req, reply) => {
-    admin(req);
+    await pruefeBereich(e.db, req, 'ablage', 'lesen');
     try {
       const r = (await (await dienst('/liste', { zugang: await zugang(db), pfad: '' })).json()) as { eintraege: Eintrag[] };
       return { ok: true, ordner: r.eintraege.filter((x) => x.ordner).length, dateien: r.eintraege.filter((x) => !x.ordner).length };

@@ -12,7 +12,9 @@ import { handy, handystufe, nurAnsehen, setHandyPlus } from '../unterbau/geraet'
 import { zustand } from '../unterbau/api';
 
 /** Was das Portal jeder Ansicht mitgibt: die Reiter der App und Rückgängig/Wiederholen. */
-export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => string; onReiter: (id: string) => void; rueckgaengig: Rueckgaengig }>();
+export const AppUmgebung = createContext<{ reiter: () => Reiter[]; aktiv: () => string; onReiter: (id: string) => void; rueckgaengig: Rueckgaengig;
+  /** Stellschraube der App: unter der Menüleiste jeder ihrer Ansichten (z. B. in der Verwaltung „Wer darf hier hinein?“) */
+  unterMenue?: () => JSX.Element }>();
 
 export interface RahmenSteuer { detailsZeigen: () => void; detailsZuklappen: () => void; heftzweckeRechts: () => JSX.Element }   // die eine Heftzwecke der rechten Seite – auch im Kopf der Karte
 
@@ -161,6 +163,7 @@ export function Rahmen(p: {
           <Zeichen name={oben() === 0 ? 'anheften' : 'loesen'} groesse={HEFT_GROESSE} />
         </button>} mitteTitel={p.menueMitteTitel}>{p.menueMitte}</Menueleiste>
       <Show when={nurAnsehen()}><p class="handy-hinweis" role="note">Am Handy nur zum Ansehen – bearbeiten am Rechner.</p></Show>
+      {app?.unterMenue?.()}
       {p.unterMenue}
       <div class="plaetze" classList={{ 'mit-details': !!p.details && !rechtsWeg(), 'baum-offen': baumAmHandy() }}
         style={{ '--links-breite': `${linksBreite()}px`, '--rechts-breite': `${rechtsBreite()}px` }}>

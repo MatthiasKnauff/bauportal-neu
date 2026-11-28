@@ -12,6 +12,8 @@ const json = { 'content-type': 'application/json' };
 const ein = await fetch(`${BASIS}/api/einrichtung`, { method: 'POST', headers: json, body: JSON.stringify({ name: 'Pipeline', anmeldename: 'pipeline', kennwort: KENNWORT, bueroname: 'Testbüro' }) });
 if (!ein.ok) throw new Error(`Einrichtung fehlgeschlagen: ${ein.status} ${await ein.text()}`);
 const cookie = ein.headers.get('set-cookie').split(';')[0];
+// „Was ist neu“ als gesehen merken – sonst kommt es nach dem Anmelden von selbst (wie bisher) und liegt über der Startseite
+await fetch(`${BASIS}/api/konto/einstellung`, { method: 'POST', headers: { ...json, cookie }, body: JSON.stringify({ feld: 'neu_gesehen', wert: '9999' }) });
 const gewerke = ['Rohbau', 'Dachdecker', 'Elektro', 'Sanitär', 'Heizung', 'Maler', 'Estrich', 'Fliesen', 'Tischler', 'Gerüst'];
 const orte = ['Essen', 'Bochum', 'Mülheim', 'Duisburg', 'Dortmund'];
 for (let p = 0; p < 4; p++) {

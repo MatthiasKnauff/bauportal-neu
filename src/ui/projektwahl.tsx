@@ -5,7 +5,8 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { ausfuehren, sicht, lebende } from './unterbau/abgleich';
-import { darf, ich, modell, neueKennung, ruf, zustand } from './unterbau/api';
+import { darf, ich, istAdmin, modell, neueKennung, ruf } from './unterbau/api';
+import { rolleId } from '../kern/rechte';
 import { Detailkarte, NeuFenster } from './baukasten/detailkarte';
 import { Schwebefenster } from './baukasten/schwebefenster';
 import { bauherrVon, projektId, setProjektId } from './projekt';
@@ -65,7 +66,7 @@ function WahlFenster(p: { unter?: HTMLElement; kartenZusatz: (z: Zeile) => JSX.E
   let rahmen!: HTMLDivElement;
   onMount(() => { const ro = new ResizeObserver(() => setBreit(rahmen.clientWidth > 640)); ro.observe(rahmen); onCleanup(() => ro.disconnect()); });
   // Neue Projekte: nur Rollen, die alle Projekte sehen (wie in der Datenbank)
-  const anlegen = darf('projekt', 'schreiben') && !!zustand()!.rollen.find((r) => r.name === ich().rolle)?.alleProjekte;
+  const anlegen = darf('projekt', 'schreiben') && (istAdmin() || sicht.rolle?.[ich().rolle]?.werte.alle_projekte === true);
   onMount(() => { if (anlegen) ruf<{ ordner: string[] }>('/api/ablage/ordner').then((r) => setOrdner(r.ordner)).catch(() => { /* Ablage nicht eingerichtet */ }); });
 
   const passt = (x: Zeile) => { const t = [x.werte.nummer, x.werte.name, x.werte.strasse, x.werte.plz, x.werte.ort, bauherrVon(x.werte, sicht.kontakt)].join(' ').toLowerCase(); return q().trim().toLowerCase().split(/\s+/).every((w) => t.includes(w)); };
@@ -110,7 +111,7 @@ function WahlFenster(p: { unter?: HTMLElement; kartenZusatz: (z: Zeile) => JSX.E
   let liste!: HTMLDivElement;
   const rollen = () => queueMicrotask(() => liste.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' }));
   const bauleitung = (id: string) => lebende('projekt_mitglied').filter((m) => m.werte.projekt === id).map((m) => sicht.benutzer?.[String(m.werte.benutzer)])
-    .filter((b) => b && b.werte.rolle === 'bauleitung').map((b) => String(b!.werte.name)).join(', ');
+    .filter((b) => b && b.werte.rolle === rolleId('bauleitung')).map((b) => String(b!.werte.name)).join(', ');
   const karte = (x: Zeile) => `https://www.google.com/maps?q=${encodeURIComponent(adresse(x) || String(x.werte.name))}&hl=de&z=14&output=embed`;
 
   return (
