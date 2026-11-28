@@ -20,7 +20,7 @@ export const neuFuerMich = (apps: string[]) => neuFuer(neuigkeiten(apps), gesehe
 
 const tag = (z: string) => new Date(`${z.slice(0, 10)}T12:00`).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 
-export function WasIstNeu(p: { apps: string[]; onZeigen: (app: string, ansicht: string) => void; onZu: () => void }) {
+export function WasIstNeu(p: { apps: string[]; onZeigen: (n: Neuigkeit, alle: Neuigkeit[]) => void; onZu: () => void }) {
   const alle = createMemo(() => neuigkeiten(p.apps));
   const neu = createMemo(() => new Set(neuFuerMich(p.apps).map((n) => n.id)));
   // je Stand (Push) eine Gruppe, neueste zuerst
@@ -46,7 +46,7 @@ export function WasIstNeu(p: { apps: string[]; onZeigen: (app: string, ansicht: 
               <div class="was-neu-eintrag" classList={{ neu: neu().has(n.id) }}>
                 <div><small class="still-text">{appName(n.app)}<Show when={neu().has(n.id)}> · <b class="was-neu-marke">neu für dich</b></Show></small>
                   <strong>{n.titel}</strong><p>{n.text}</p></div>
-                <Show when={n.app}><button type="button" class="knopf klein still" onClick={() => { gesehenSetzen(); p.onZeigen(n.app!, n.ansicht ?? ''); }}>Zeigen ›</button></Show>
+                <Show when={n.app}><button type="button" class="knopf klein still" onClick={() => { gesehenSetzen(); p.onZeigen(n, alle()); }}>Zeigen ›</button></Show>
               </div>
             )}</For>
           </section>

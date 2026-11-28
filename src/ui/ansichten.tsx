@@ -14,7 +14,7 @@ import { Nachschlagen } from './baukasten/nachschlagen';
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Ansicht, Beipackzettel } from '../kern/modul';
 import type { Zeile } from '../kern/befehl';
-import { ausfuehren, ausfuehrenMehrere, gemerkt, sicht, lebende, rueckgaengig, verlauf } from './unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, gemerkt, sicht, lebende, rueckgaengig, verlauf, verweisname } from './unterbau/abgleich';
 import { ausdrucke, darf, darfBereich, ich, istAdmin, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { bauherrVon, gewaehlteVersion, projektId, waehleVersion } from './projekt';
 import { versionenBauen } from './baukasten/versionen';
@@ -28,7 +28,7 @@ import { AVA_OBEN, AvaProjektKopf } from './avakopf';
 import { KatasterHolen } from './kataster';
 import { TUER_SAETZE, TuerlisteOben, gewaehlteListe, neueZeileVorgabe, tuerKnoepfe } from './tuerliste';
 import { AUSSTATTUNG } from '../module/ava/tueren';
-import { Detailkarte } from './baukasten/detailkarte';
+import { Detailkarte, inEigenemFenster } from './baukasten/detailkarte';
 import { Rahmen } from './baukasten/rahmen';
 import { ObjektAnsicht } from './objektansicht';
 import { AlleDateien, DateienAnsicht, OrdnerFenster } from './dateien';
@@ -294,6 +294,26 @@ function KontaktProjekte(p: { kontakt: Zeile }) {
   );
 }
 
+// ---------- Adressen: Schriftverkehr mit einem Kontakt (wie bisher Reiter „Schriftverkehr“) – alle Mails der Versandstelle an ihn ----------
+function KontaktSchriftverkehr(p: { kontakt: Zeile }) {
+  const adressen = () => new Set([p.kontakt.werte.email, ...lebende('kontaktweg').filter((w) => w.werte.kontakt === p.kontakt.id).flatMap((w) => [w.werte.art === 'email' ? w.werte.wert : '', w.werte.email])]
+    .map((x) => String(x ?? '').trim().toLowerCase()).filter((x) => x.includes('@')));
+  const zeit = (n: Zeile) => String(n.werte.verschickt_am || n.werte.faellig || '');
+  const liste = () => lebende('nachricht').filter((n) => n.werte.kontakt === p.kontakt.id || adressen().has(String(n.werte.an ?? '').trim().toLowerCase())).sort((a, b) => zeit(b).localeCompare(zeit(a)));
+  const stand = (w: unknown) => modell('nachricht').felder.find((f) => f.name === 'stand')?.optionen?.find((o) => o.wert === w)?.titel ?? '';
+  return (
+    <fieldset>
+      <legend>Schriftverkehr<span class="anzahl">{liste().length}</span></legend>
+      <Show when={liste().length} fallback={<p class="still-text klein-text">Noch keine Mails an diesen Kontakt (Bieteranfragen, Erinnerungen, Mail an alle …).</p>}>
+        <ul class="kontakt-projekte"><For each={liste()}>{(n) => (
+          <li><button class="verweis" onClick={() => inEigenemFenster(modell('nachricht'), n.id)}>{String(n.werte.betreff ?? '')}</button>
+            <span class="still-text klein-text">{[zeit(n).slice(0, 10).split('-').reverse().join('.'), stand(n.werte.stand), n.werte.projekt ? verweisname('projekt', String(n.werte.projekt)) : ''].filter(Boolean).join(' · ')}</span></li>
+        )}</For></ul>
+      </Show>
+    </fieldset>
+  );
+}
+
 // ---------- Projekte: Ordner auf dem Dateiserver zuordnen ----------
 function OrdnerWahl(p: { projekt: Zeile }) {
   const [offen, setOffen] = createSignal(false);
@@ -495,8 +515,8 @@ const ANPASSUNG: Record<string, Anpassung> = {
     // weitere Kontaktwege jeweils unter dem ersten Eintrag ihrer Art; ohne Gruppe Ansprechpartner:in (Privatperson) stehen Ansprechpartner:innen unter der Anschrift
     kartenEinschub: { 'Ansprechpartner:in': (z) => <Kontaktwege kontakt={z} art="person" />, mobil: (z) => <Kontaktwege kontakt={z} art="telefon" />, web: (z) => <Kontaktwege kontakt={z} art="email" />,
       Anschrift: (z) => <><Kontaktwege kontakt={z} art="anschrift" /><Show when={!mitAnsprechpartner(z)}><Kontaktwege kontakt={z} art="person" /></Show></> },
-    kartenReiter: (z) => [{ titel: 'Projekte', inhalt: () => <KontaktProjekte kontakt={z} /> }],
-    knoepfe: () => [...(darf('kontakt', 'schreiben') ? [{ titel: 'Einlesen …', zeichen: 'datei_hoch', gruppe: 'Liste', tun: () => adressenEinlesen() }] : []), ...(darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: () => aufraeumenOeffnen() }] : [])],
+    kartenReiter: (z) => [{ titel: 'Projekte', inhalt: () => <KontaktProjekte kontakt={z} /> }, ...(darf('nachricht', 'lesen') ? [{ titel: 'Schriftverkehr', inhalt: () => <KontaktSchriftverkehr kontakt={z} /> }] : [])],
+    knoepfe: () => [...(darf('kontakt', 'schreiben') ? [{ titel: 'Einlesen …', zeichen: 'datei_hoch', gruppe: 'Datei', rechts: true, tun: () => adressenEinlesen() }] : []), ...(darf('kontakt', 'loeschen') ? [{ titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Liste', tun: () => aufraeumenOeffnen() }] : [])],
     auswahl: kontaktAuswahl,   // mehrere wählen: Projekt, Ändern, Ausgeben, Zusammenführen
   },
   vorgang: { mitte: (m) => <Balkenplan {...m} />, kartenEinschub: { Termine: (z) => <Abhaengigkeiten vorgang={z} /> } },

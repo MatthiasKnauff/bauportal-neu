@@ -7,8 +7,10 @@ import { Projektwahl } from './projektwahl';
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCleanup, onMount, untrack } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { MERKER, Netzfehler, Serverfehler, darf, ich, istAdmin, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
-import { abgelaufen, geraetLeeren, lage, rueckgaengig, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
+import { abgelaufen, geraetLeeren, lage, letzteSchritte, rueckgaengig, rueckgaengigBis, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
 import { WasIstNeu, neuFuerMich } from './wasistneu';
+import { Scheinwerfer, type Schritt } from './baukasten/scheinwerfer';
+import { Verlauf } from './baukasten/verlauf';
 import { WerDarfHier } from './rechte';
 import { AnsichtZeigen, FENSTER, HANDY_APPS, KarteImFensterZeigen, karteVon, kartenZusatz, sichtbar } from './ansichten';
 import { Kontextmenue } from './baukasten/kontextmenue';
@@ -215,6 +217,8 @@ function Portal() {
   const [hilfe, setHilfe] = createSignal(false);
   // Was ist neu (wie bisher): nach dem Anmelden einmal von selbst, wenn es für dich Neues gibt – sonst über „?“ und das Benutzermenü
   const [wasNeu, setWasNeu] = createSignal(false);
+  const [rundgang, setRundgang] = createSignal<Schritt[] | null>(null);
+  const [aeltere, setAeltere] = createSignal<string | null>(null);   // Rückgängig ▾ → „Ältere Stände …“ der Objektart der Ansicht
   const appIds = () => module().map((m) => m.modul.id);
   const neuAnzahl = () => neuFuerMich(appIds()).length;
   createEffect(() => {
@@ -304,7 +308,8 @@ function Portal() {
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
         <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.filter((a) => a.imMenue !== false || a.id === ansicht()?.id).map((a) => ({ id: a.id, titel: a.titel, abschnitt: a.abschnitt, zeichen: a.zeichen, abgesetzt: !!a.abschnitt && !!modul()?.modul.abgesetzt?.includes(a.abschnitt) })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: ansichtWaehlen,
-          rueckgaengig: { zurueck: () => verlauf().zurueck > 0, vor: () => verlauf().vor > 0, onZurueck: rueckgaengig, onVor: wiederholen },
+          rueckgaengig: { zurueck: () => verlauf().zurueck > 0, vor: () => verlauf().vor > 0, onZurueck: rueckgaengig, onVor: wiederholen, zahl: () => verlauf().zurueck, letzte: letzteSchritte, onBis: rueckgaengigBis,
+            get aeltere() { const o = ansicht()?.objekt; return o ? () => setAeltere(o) : undefined; } },   // je Ansicht neu gelesen (Getter)
           unterMenue: () => <Show when={ansicht()?.bereich}>{(b) => <WerDarfHier bereich={b()} />}</Show> }}>
           <Show when={schluessel()} keyed fallback={
             <div class="start"><div class="start-innen">
@@ -335,7 +340,14 @@ function Portal() {
       </nav>
       <Show when={suche()}><Suche onTreffer={springe} onZu={() => setSuche(false)} seiten={seiten()} onSeite={zurSeite} /></Show>
       <Show when={hilfe()}><Hilfe modul={modul()?.modul} ansicht={ansicht()} onZu={() => setHilfe(false)} neu={neuAnzahl()} onWasNeu={() => { setHilfe(false); setWasNeu(true); }} /></Show>
-      <Show when={wasNeu()}><WasIstNeu apps={appIds()} onZu={() => setWasNeu(false)} onZeigen={(app, an) => { setWasNeu(false); oeffne(app, an); }} /></Show>
+      <Show when={wasNeu()}><WasIstNeu apps={appIds()} onZu={() => setWasNeu(false)} onZeigen={(n, alle) => {
+        // Rundgang (wie bisher): in die App, dann Schritt für Schritt durch ihre Neuigkeiten – ab der gewählten, neueste zuerst
+        setWasNeu(false); oeffne(n.app!, n.ansicht ?? '');
+        const l = alle.filter((x) => x.app === n.app && x.ansicht === n.ansicht), ab = l.findIndex((x) => x.id === n.id);
+        setRundgang([...l.slice(ab), ...l.slice(0, ab)].map((x) => ({ titel: x.titel, text: x.text, ziel: x.ziel, ueber: `Was ist neu · ${x.zeit.slice(8, 10)}.${x.zeit.slice(5, 7)}. ${x.zeit.slice(11, 16)}` })));
+      }} /></Show>
+      <Show when={rundgang()}>{(r) => <Scheinwerfer schritte={r()} onZu={() => setRundgang(null)} />}</Show>
+      <Show when={aeltere()} keyed>{(o) => <Verlauf alle objekt={o} id="" titel={`Ältere Stände – ${modell(o).titelMehrzahl}`} steuerung={{ offen: () => true, zu: () => setAeltere(null) }} />}</Show>
     </div>
   );
 }

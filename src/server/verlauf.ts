@@ -70,6 +70,13 @@ export function verlaufRouten(app: FastifyInstance, e: { db: Db; register: Modul
     });
   });
 
+  // Ältere Stände einer ganzen Art (wie bisher Rückgängig ▾ → „Ältere Stände …“): die letzten Änderungen an allen Einträgen, die man sehen darf
+  app.post('/api/verlauf/alle', { preHandler: e.nurAngemeldet }, async (req): Promise<Verlaufseintrag[]> => {
+    const m = e.register.modell(String((req.body as { objekt?: string } | null)?.objekt ?? ''));
+    if (!m) throw new Ablehnung('Was gezeigt werden soll, fehlt');
+    return alsBenutzer(e.db, req.benutzer!, async (c) => (await c.query('select seq, zeit, benutzer_name, objekt, art, objekt_id, werte, herkunft from kern_befehl where objekt = $1 order by seq desc limit 300', [m.name])).rows
+      .map((r) => ({ seq: Number(r.seq), zeit: (r.zeit as Date).toISOString(), wer: r.benutzer_name as string, objekt: r.objekt as string, art: r.art as string, objektId: r.objekt_id as string, werte: r.werte, herkunft: r.herkunft })));
+  });
   app.post('/api/verlauf', { preHandler: e.nurAngemeldet }, async (req): Promise<Verlaufseintrag[]> => {
     const b = (req.body ?? {}) as { objekt?: string; id?: string; unter?: { objekt?: string; feld?: string }[] };
     const { unter } = auswahl(b);

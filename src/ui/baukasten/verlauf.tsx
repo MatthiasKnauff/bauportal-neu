@@ -3,9 +3,9 @@
 // alles (bis auf die Objektarten in „ohne“, z. B. Fotos) wird so, wie es nach dieser Änderung war; ein Rückgängig nimmt es zurück.
 import { For, Show, createResource, createSignal, type JSX } from 'solid-js';
 import { HERKUNFT } from '../../kern/befehl';
-import { ausfuehrenMehrere, geaendert } from '../unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, geaendert, sicht, verweisname } from '../unterbau/abgleich';
 import { hinweis } from '../unterbau/meldungen';
-import { modell, ruf } from '../unterbau/api';
+import { darf, modell, ruf } from '../unterbau/api';
 import { Dialog } from './dialog';
 import { anzeige } from './feld';
 
@@ -15,13 +15,14 @@ const ART: Record<string, string> = { anlegen: 'angelegt', aendern: 'geändert',
 export function Verlauf(p: { objekt: string; id: string; unter?: { objekt: string; feld: string }[]; zurueck?: { ohne?: string[]; hinweis?: string };
   vorne?: (liste: Eintrag[] | undefined) => JSX.Element;   // vorne: steht vor dem Knopf und sieht die Liste (neueste zuerst), z. B. „Seit dem Export geändert“
   titel?: string;                                          // Überschrift des Fensters (ab Werk „Verlauf“)
+  alle?: boolean;                                          // alle Einträge der Art statt eines (Ältere Stände …): je Zeile der Name, Gelöschtes wiederherstellen
   steuerung?: { offen: () => boolean; zu: () => void } }) {   // ohne eigenen Knopf: geöffnet von außen (z. B. aus einem Menü)
   const [eigenOffen, setEigenOffen] = createSignal(false);
   const offen = () => (p.steuerung ? p.steuerung.offen() : eigenOffen());
   const setOffen = (w: boolean) => { if (p.steuerung) { if (!w) p.steuerung.zu(); } else setEigenOffen(w); };
   // neu laden, wenn sich an diesen Objektarten etwas ändert
   const [liste] = createResource(() => ({ id: p.id, n: [p.objekt, ...(p.unter ?? []).map((u) => u.objekt)].map((o) => geaendert(o)).join() }),
-    ({ id }) => ruf<Eintrag[]>('/api/verlauf', { objekt: p.objekt, id, unter: p.unter ?? [] }));
+    ({ id }) => (p.alle ? ruf<Eintrag[]>('/api/verlauf/alle', { objekt: p.objekt }) : ruf<Eintrag[]>('/api/verlauf', { objekt: p.objekt, id, unter: p.unter ?? [] })));
   const was = (e: Eintrag) => {
     const m = modell(e.objekt);
     const felder = Object.entries(e.werte ?? {}).map(([k, w]) => ({ f: m?.felder.find((f) => f.name === k), w })).filter((x) => x.f && !x.f.verborgen && x.f.art !== 'verweis');
@@ -48,7 +49,9 @@ export function Verlauf(p: { objekt: string; id: string; unter?: { objekt: strin
         <Dialog titel={p.titel ?? 'Verlauf'} breit onAbbrechen={() => setOffen(false)} knoepfe={<button class="knopf haupt" onClick={() => setOffen(false)}>Schließen</button>}>
           <Show when={liste()?.length} fallback={<p class="still-text">{liste.loading ? 'Wird geladen …' : 'Noch nichts geändert.'}</p>}>
             <Show when={p.zurueck}><p class="still-text klein-text">„Auf diesen Stand“ bringt alles dahin zurück, wie es nach dieser Änderung war{p.zurueck!.hinweis ? ` – ${p.zurueck!.hinweis}` : ''}. Rückgängig wie jede Änderung.</p></Show>
-            <ul class="verlauf-liste"><For each={liste()}>{(e, i) => <li><span class="still-text">{zeit(e.zeit)} · {e.wer}</span><span>{was(e)}</span>
+            <ul class="verlauf-liste"><For each={liste()}>{(e, i) => <li><span class="still-text">{zeit(e.zeit)} · {e.wer}</span><span><Show when={p.alle}><b>{verweisname(e.objekt, e.objektId) || String(e.werte?.[modell(e.objekt)?.anzeigeFeld ?? ''] ?? '')}</b> · </Show>{was(e)}</span>
+              <Show when={p.alle && e.art === 'loeschen' && sicht[e.objekt]?.[e.objektId]?.geloescht && darf(e.objekt, 'loeschen')}><button type="button" class="knopf klein still" title="Wieder da wie vor dem Löschen (Rückgängig möglich)"
+                onClick={() => ausfuehren({ objekt: e.objekt, art: 'wiederherstellen', objektId: e.objektId }, `„${String(sicht[e.objekt]![e.objektId]!.werte[modell(e.objekt).anzeigeFeld] ?? '')}“ wiederherstellen`)}>Wiederherstellen</button></Show>
               <Show when={p.zurueck && i() > 0}><button type="button" class="knopf klein still" disabled={laeuft()} title="Alles so, wie es nach dieser Änderung war" onClick={() => void aufStand(e)}>Auf diesen Stand</button></Show></li>}</For></ul>
           </Show>
         </Dialog>

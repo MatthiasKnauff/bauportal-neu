@@ -5,8 +5,11 @@ import { zeigeMenue } from './baukasten/kontextmenue';
 import { For, Show, createSignal } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { gilt, type Feld } from '../kern/modell';
-import { ausfuehren, gemerkt, lebende } from './unterbau/abgleich';
-import { darf, modell, neueKennung } from './unterbau/api';
+import { ausfuehren, gemerkt, lebende, rueckgaengig, sicht } from './unterbau/abgleich';
+import { darf, modell, neueKennung, ruf } from './unterbau/api';
+import { hinweis } from './unterbau/meldungen';
+import { Dialog } from './baukasten/dialog';
+import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { FeldEingabe } from './baukasten/feld';
 import { feldAendern, loesche } from './baukasten/detailkarte';
 
@@ -54,8 +57,44 @@ export function KontaktOben(p: { kontakt: Zeile }) {
       {knopf('email', '✉ E-Mail')}
       <Show when={anschrift()}><a class="knopf klein" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(anschrift())}&travelmode=driving`} target="_blank" rel="noopener noreferrer" title="Route in Google Maps planen">🧭 Route</a></Show>
       <a class="knopf klein" href={`/api/kontakt/${p.kontakt.id}.vcf`} title="Visitenkarte – auf dem Handy öffnet sie sich als neuer Kontakt zum Speichern">Ins Handy</a>
+      <Show when={darf('kontakt', 'schreiben')}><NetzSuche kontakt={p.kontakt} /></Show>
     </div>
   );
+}
+
+/** Vorschläge aus dem Netz (wie bisher, OpenStreetMap): zum Namen, nahe dem Ort – ein Klick ergänzt, was am Kontakt noch leer ist
+ *  (Herkunft „aus dem Netz“, Rückgängig wie überall). */
+const NETZ_FELDER = ['strasse', 'plz', 'ort', 'telefon', 'email', 'web'] as const;
+function NetzSuche(p: { kontakt: Zeile }) {
+  const [liste, setListe] = createSignal<Record<string, string>[] | null>(null), [laeuft, setLaeuft] = createSignal(false);
+  const suchen = async () => {
+    setLaeuft(true);
+    try { setListe((await ruf<{ vorschlaege: Record<string, string>[] }>('/api/kontakt/netz', { name: p.kontakt.werte.name, ort: p.kontakt.werte.ort || sicht.buero?.[BUERO_ID]?.werte.ort || '' })).vorschlaege); }
+    catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
+    finally { setLaeuft(false); }
+  };
+  const neu = (v: Record<string, string>) => Object.fromEntries(NETZ_FELDER.filter((f) => v[f] && !String(p.kontakt.werte[f] ?? '').trim()).map((f) => [f, v[f]!]));
+  const nehmen = (v: Record<string, string>) => {
+    const w = neu(v); setListe(null);
+    if (!Object.keys(w).length) { hinweis('Am Kontakt steht schon alles, was der Vorschlag hat.'); return; }
+    ausfuehren({ objekt: 'kontakt', art: 'aendern', objektId: p.kontakt.id, werte: w, herkunft: 'netz' }, `„${String(p.kontakt.werte.name)}“ aus dem Netz ergänzt`);
+    hinweis('Übernommen – bitte prüfen.', { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
+  };
+  return (<>
+    <button type="button" class="knopf klein" disabled={laeuft()} title="Anschrift, Telefon, E-Mail und Internet aus dem Netz (OpenStreetMap) ergänzen" onClick={() => void suchen()}>{laeuft() ? 'Suche …' : '🔎 Im Netz'}</button>
+    <Show when={liste()}>{(l) => (
+      <Dialog titel={`Vorschläge aus dem Netz – ${String(p.kontakt.werte.name)}`} onAbbrechen={() => setListe(null)} knoepfe={<button type="button" class="knopf" onClick={() => setListe(null)}>Schließen</button>}>
+        <Show when={l().length} fallback={<p class="still-text">Nichts gefunden. Mit dem Ort am Kontakt sucht es genauer.</p>}>
+          <p class="still-text klein-text">Ein Klick ergänzt, was am Kontakt noch leer ist – Vorhandenes bleibt.</p>
+          <ul class="netz-liste"><For each={l()}>{(v) => (
+            <li><button type="button" class="verweis-knopf" onClick={() => nehmen(v)}><strong>{v.name}</strong>
+              <small class="still-text">{[[v.strasse, [v.plz, v.ort].filter(Boolean).join(' ')].filter(Boolean).join(', '), v.telefon, v.email, v.web].filter(Boolean).join(' · ')}</small>
+              <Show when={!Object.keys(neu(v)).length}><small class="still-text"> – nichts Neues</small></Show></button></li>
+          )}</For></ul>
+        </Show>
+      </Dialog>
+    )}</Show>
+  </>);
 }
 
 /** Hat die Karte die Gruppe „Ansprechpartner:in“ (Firma, Amt …)? Sonst stehen weitere Ansprechpartner:innen unter der Anschrift. */

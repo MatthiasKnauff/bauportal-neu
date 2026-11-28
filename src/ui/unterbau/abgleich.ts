@@ -279,6 +279,15 @@ export function rueckgaengig(): void {
   batch(() => { for (const g of s.gegen) eigenAnwenden(g); });
   hinweis(`Rückgängig: ${s.titel}`);
 }
+/** Die letzten Schritte zum Zurücknehmen, neuester zuerst (Rückgängig ▾ wie bisher). */
+export const letzteSchritte = (n: number): string[] => zurueck.slice(-n).reverse().map((s) => s.titel);
+/** Bis einschließlich zum n-ten Schritt zurück (1 = nur der letzte) – jeder bleibt einzeln wiederholbar. */
+export function rueckgaengigBis(n: number): void {
+  const k = Math.min(n, zurueck.length);
+  for (let i = 0; i < k; i++) { const s = zurueck.pop()!; vor.push(s); batch(() => { for (const g of s.gegen) eigenAnwenden(g); }); }
+  setVerlauf({ zurueck: zurueck.length, vor: vor.length });
+  if (k) hinweis(k === 1 ? `Rückgängig: ${vor[vor.length - 1]!.titel}` : `${k} Schritte rückgängig`);
+}
 export function wiederholen(): void {
   const s = vor.pop();
   if (!s) return;

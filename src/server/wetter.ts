@@ -25,11 +25,11 @@ export async function ortSuchen(anschrift: string, genau = false): Promise<{ lat
   return genau ? ort : { ...ort, lat: r(ort.lat), lon: r(ort.lon) };
 }
 
-async function holen<T>(adresse: string): Promise<T> {
+async function holen<T>(adresse: string, dienst = 'Der Wetterdienst'): Promise<T> {
   let r: Response;
-  try { r = await fetch(adresse, { signal: AbortSignal.timeout(20000), headers: { accept: 'application/json', 'user-agent': 'Bauportal (Wetter zum Tagesbericht)' } }); }
-  catch { throw new Ablehnung('Der Wetterdienst ist gerade nicht erreichbar'); }
-  if (!r.ok) throw new Ablehnung(`Der Wetterdienst meldet Fehler ${r.status}`);
+  try { r = await fetch(adresse, { signal: AbortSignal.timeout(20000), headers: { accept: 'application/json', 'user-agent': 'Bauportal (Wetter zum Tagesbericht, Adressen ergänzen)' } }); }
+  catch { throw new Ablehnung(`${dienst} ist gerade nicht erreichbar`); }
+  if (!r.ok) throw new Ablehnung(`${dienst} meldet Fehler ${r.status}`);
   return (await r.json()) as T;
 }
 
@@ -71,7 +71,26 @@ export async function wetterFuer(db: Db, wer: Benutzer, projektId: string, datum
   };
 }
 
+/** Vorschläge aus dem Netz zu einem Kontakt (wie bisher, OpenStreetMap): Name, nahe der Baustelle bzw. dem Ort – mit Anschrift, Telefon, E-Mail, Internet. */
+export interface NetzVorschlag { name: string; strasse: string; plz: string; ort: string; telefon: string; email: string; web: string }
+export async function netzVorschlaege(name: string, ort: string): Promise<NetzVorschlag[]> {
+  const q = [name, ort].filter(Boolean).join(', ');
+  const t = await holen<{ name?: string; display_name: string; address?: Record<string, string>; extratags?: Record<string, string> }[]>(
+    `${geo()}/search?format=jsonv2&limit=6&addressdetails=1&extratags=1&countrycodes=de,at,ch,lu&q=${encodeURIComponent(q)}`, 'Die Kartensuche (OpenStreetMap)');
+  return t.map((x) => { const a = x.address ?? {}, e = x.extratags ?? {};
+    return { name: x.name || x.display_name.split(',')[0]!, strasse: [a.road, a.house_number].filter(Boolean).join(' '), plz: a.postcode ?? '', ort: a.city ?? a.town ?? a.village ?? a.municipality ?? '',
+      telefon: e.phone ?? e['contact:phone'] ?? '', email: e.email ?? e['contact:email'] ?? '', web: e.website ?? e['contact:website'] ?? '' }; })
+    .filter((v, i, l) => l.findIndex((w) => w.name === v.name && w.strasse === v.strasse) === i);
+}
+
 export function wetterRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> }): void {
+  app.post('/api/kontakt/netz', { preHandler: e.nurAngemeldet }, async (req) => {
+    const b = (req.body ?? {}) as { name?: unknown; ort?: unknown };
+    const name = String(b.name ?? '').trim().slice(0, 120);
+    if (name.length < 3) throw new Ablehnung('Bitte zuerst den Namen eintragen');
+    return { vorschlaege: await netzVorschlaege(name, String(b.ort ?? '').trim().slice(0, 80)) };
+  });
+
   // Bundesland der Baustelle – für die Feiertage im Bauzeitenplan
   app.post('/api/projekt/land', { preHandler: e.nurAngemeldet }, async (req) => {
     const id = String((req.body as { projekt?: string } | undefined)?.projekt ?? '');

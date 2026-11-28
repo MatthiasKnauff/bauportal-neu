@@ -1860,3 +1860,24 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .was-neu-eintrag p { margin: 0; color: var(--text-still); line-height: 1.5; }
 .was-neu-eintrag.neu { background: var(--akzent-hell); }
 .was-neu-marke { color: var(--akzent); }
+/* Baustein Scheinwerfer (Rundgang „Was ist neu“, wie bisher) */
+.scheinwerfer { position: fixed; inset: 0; z-index: 2400; }
+.scheinwerfer-dunkel { position: fixed; inset: 0; background: rgba(20, 20, 25, .45); }
+.scheinwerfer-licht { position: fixed; border-radius: calc(10px * var(--rund)); box-shadow: 0 0 0 9999px rgba(20, 20, 25, .5); outline: 2px solid var(--akzent); outline-offset: 3px; pointer-events: none; transition: all .25s; }
+.scheinwerfer-karte { position: fixed; width: min(480px, calc(100vw - 24px)); box-sizing: border-box; background: var(--flaeche); color: var(--text); border-radius: calc(14px * var(--rund)); box-shadow: 0 18px 48px rgba(0, 0, 0, .32); padding: 18px 20px; display: grid; gap: 10px; }
+.scheinwerfer-karte.mitte { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.scheinwerfer-karte h3 { margin: 0; font-size: 19px; }
+.scheinwerfer-karte p { margin: 0; color: var(--text-still); line-height: 1.55; }
+.scheinwerfer-ueber { color: var(--akzent); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 12px; }
+.scheinwerfer-knoepfe { display: flex; gap: 8px; align-items: center; }
+.scheinwerfer-punkte { flex: 1; display: flex; gap: 5px; }
+.scheinwerfer-punkte i { width: 8px; height: 8px; border-radius: 50%; background: var(--rand); }
+.scheinwerfer-punkte i.an { background: var(--akzent); }
+/* Rückgängig ▾ n (wie bisher): die letzten Schritte, bis zu einem zurück */
+.band-schritte { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 26px; padding: 2px 4px; border: 0; background: none; color: var(--akzent); font-size: 11px; line-height: 1.1; cursor: pointer; border-radius: calc(6px * var(--rund)); }
+.band-schritte small { color: var(--text-still); font-size: 11px; }
+.band-schritte:disabled { color: var(--text-still); opacity: .5; cursor: default; }
+.band-schritte:not(:disabled):hover { background: var(--still-hell); }
+.netz-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.netz-liste button { display: grid; gap: 2px; width: 100%; text-align: left; padding: 6px 8px; border-radius: calc(6px * var(--rund)); }
+.netz-liste button:hover { background: var(--still-hell); }

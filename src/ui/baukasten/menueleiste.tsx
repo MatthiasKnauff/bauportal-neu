@@ -1,11 +1,15 @@
 // Baustein „Menüleiste“: ein Band wie im bisherigen Bauportal – Knöpfe mit Symbol über dem Text, in Gruppen mit kleiner
 // Überschrift. Ganz links immer RÜCKGÄNGIG, in der Mitte die Suche der Ansicht (FINDEN), rechts Ausgabe und Teilen.
 // Für jede App gleich aufgebaut. Am Handy: nur Symbole, darunter die Ansichten als Reiter (links ist dort kein Platz).
+import { HOECHSTENS, zeigeMenue } from './kontextmenue';
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { Zeichen, istZeichen } from './zeichen';
 
 export interface Reiter { id: string; titel: string; abschnitt?: string; zeichen?: string; abgesetzt?: boolean }
-export interface Rueckgaengig { zurueck: () => boolean; vor: () => boolean; onZurueck: () => void; onVor: () => void }
+export interface Rueckgaengig { zurueck: () => boolean; vor: () => boolean; onZurueck: () => void; onVor: () => void;
+  /** wie bisher „▾ n“: so viele Schritte gibt es zurück, die letzten (neueste zuerst) und bis zu welchem zurück */
+  zahl?: () => number; letzte?: (n: number) => string[]; onBis?: (n: number) => void;
+  aeltere?: () => void }   // „Ältere Stände …“ am Ende der Liste (Verlauf aller Einträge der Ansicht)
 export interface Knopf {
   titel: string; tun: (e: MouseEvent) => void;   // das Ereignis z. B. für ein Menü am Knopf
   zeichen?: string;            // Symbol (Baustein Zeichen)
@@ -67,6 +71,11 @@ export function Menueleiste(p: { rueckgaengig?: Rueckgaengig; reiter?: Reiter[];
         <Gruppe titel="Rückgängig" class="band-verlauf">
           <Bandknopf k={{ titel: 'Zurück', zeichen: 'zurueck', gesperrt: !r().zurueck(), tun: r().onZurueck }} />
           <Bandknopf k={{ titel: 'Wieder', zeichen: 'wieder', gesperrt: !r().vor(), tun: r().onVor }} />
+          <Show when={r().letzte}>
+            <button type="button" class="band-schritte" aria-label="Letzte Schritte" title="Letzte Schritte – bis zu einem zurück" disabled={!r().zahl?.() && !r().aeltere} aria-haspopup="menu"
+              onClick={(e) => { const l = r().letzte!(r().aeltere ? HOECHSTENS - 1 : HOECHSTENS);
+                zeigeMenue(e, [...l.map((t, i) => ({ titel: i ? `${t} (und ${i} danach)` : t, tun: () => r().onBis!(i + 1) })), ...(r().aeltere ? [{ titel: 'Ältere Stände …', tun: r().aeltere }] : [])]); }}>▾<small>{r().zahl?.() ?? 0}</small></button>
+          </Show>
         </Gruppe>
       )}</Show>
       <For each={sichtbar()}>{(g) => <Gruppe titel={g.titel}><For each={g.knoepfe}>{(k) => <Bandknopf k={k} neu={NEU.test(g.titel)} />}</For></Gruppe>}</For>
