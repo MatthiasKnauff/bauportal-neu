@@ -330,7 +330,7 @@ function Unterlagen(p: { lv: Zeile; stand: string }): JSX.Element {
   };
   const mitZahl = () => 1 + (l().werte.versand_ohne_x83 === true ? 0 : 1) + docs().filter((d) => !ohne().has(d.id)).length;
   // wie bisher: hineingezogene Dateien werden Unterlagen dieses LV
-  createEffect(() => setAblageZiel(darf('dokument', 'schreiben') ? zu() : undefined)); onCleanup(() => setAblageZiel(undefined));
+  createEffect(() => setAblageZiel(darf('dokument', 'schreiben') ? { titel: `Unterlage für die Bieter:innen · ${zu().titel}`, dateien: (f) => dokumenteAblegen(f, { zu: zu() }) } : undefined)); onCleanup(() => setAblageZiel(undefined));
   return (
     <section class="vr-unterlagen" aria-label="Unterlagen für die Bieter:innen">
       <h3>Unterlagen für die Bieter:innen · {mitZahl()} {mitZahl() === 1 ? 'Datei' : 'Dateien'}</h3>

@@ -62,6 +62,7 @@ import { GewerkeFirmen } from './gewerke';
 import { springeZu } from './sprung';
 import { ArbeitszeitFenster, ProjektinfoFenster } from './arbeitszeit';
 import { BerichtDetails, BerichtLinks, Berichtsseite, berichtDetailsDa } from './bautagebuch';
+import { neuerBericht } from '../module/bautagebuch/beipackzettel';
 import { aufraeumenOeffnen } from './aufraeumen';
 import { adressenEinlesen } from './adresseneinlesen';
 import { rechnungEinlesen } from './rechnungeinlesen';
@@ -504,7 +505,7 @@ const ANPASSUNG: Record<string, Anpassung> = {
   } satisfies Anpassung])),
   tagesbericht: {
     // nächste Nummer im Projekt, heutiges Datum und Uhrzeit, Bauleitung: wer den Bericht anlegt
-    neuVorgabe: (vorhandene) => ({ nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: new Date().toLocaleDateString('sv'), uhrzeit: new Date().toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' }), bauleitung: ich().id }),
+    neuVorgabe: (vorhandene) => neuerBericht(vorhandene, ich().id),
     mitte: (m) => <Berichtsseite {...m} />,
     links: (m) => <BerichtLinks {...m} />,
     // wie im bisherigen Bautagebuch: oben links das Projekt und wie viele Berichte es hat

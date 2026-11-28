@@ -19,7 +19,9 @@ export const tagesbericht: ObjektModell = {
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
     { name: 'nummer', titel: 'Nr.', art: 'zahl', inListe: true, breite: 70, gruppe: 'Bericht' },
     { name: 'datum', titel: 'Datum', art: 'datum', pflicht: true, inListe: true, breite: 120, gruppe: 'Bericht' },
-    { name: 'uhrzeit', titel: 'Uhrzeit', art: 'text', inListe: true, breite: 90, gruppe: 'Bericht' },
+    // wie bisher: Viertelstunden von 5 bis 21:45 Uhr zum Wählen, „Andere Zeit …“ zum Eintippen
+    { name: 'uhrzeit', titel: 'Uhrzeit', art: 'auswahl', eigeneWerte: true, eigenerWert: { titel: 'Andere Zeit …', beispiel: 'Uhrzeit, z. B. 7:20' }, inListe: true, breite: 90, gruppe: 'Bericht',
+      optionen: [{ wert: '', titel: '–' }, ...Array.from({ length: 68 }, (_, i) => { const t = `${String(5 + Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`; return { wert: t, titel: t }; })] },
     { name: 'titel', titel: 'Kurzbeschreibung', art: 'text', verborgen: true },   // braucht der Tagesbericht nicht (26.11.2026) – bleibt für alte Einträge in der Datenbank
     { name: 'bauleitung', titel: 'Bauleitung', art: 'verweis', ziel: 'benutzer', inListe: true, breite: 160, gruppe: 'Bericht' },
     { name: 'wetter', titel: 'Wetter', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Wetter', optionen: [
@@ -45,13 +47,20 @@ export const tagesbericht: ObjektModell = {
   ],
 };
 
+/** Ein neuer Bericht (wie bisher): nächste Nummer im Projekt, heutiges Datum und Uhrzeit, Bauleitung: wer ihn anlegt. */
+export function neuerBericht(vorhandene: { werte: Record<string, unknown> }[], wer: string): Record<string, string | number> {
+  const jetzt = new Date();
+  return { nummer: Math.max(0, ...vorhandene.map((z) => Number(z.werte.nummer) || 0)) + 1, datum: jetzt.toLocaleDateString('sv'),
+    uhrzeit: jetzt.toLocaleTimeString('de', { hour: '2-digit', minute: '2-digit' }), bauleitung: wer };
+}
+
 // Was in einem Bericht steht: Anwesende, Notizen, Mängel, Aufgaben, Weisungen – je ein Eintrag.
 // Mängel, Aufgaben und Weisungen sind zugleich die projektweiten Listen (Ansichten unten).
 export const EINTRAGSARTEN = [
   { wert: 'anwesend', titel: 'Anwesend', mehrzahl: 'Anwesende' }, { wert: 'notiz', titel: 'Notiz', mehrzahl: 'Notizen' }, { wert: 'mangel', titel: 'Mangel', mehrzahl: 'Mängel' },
   { wert: 'aufgabe', titel: 'Zu erledigen', mehrzahl: 'Zu erledigen' }, { wert: 'weisung', titel: 'Weisung', mehrzahl: 'Weisungen' },
 ];
-const MIT_FRIST = ['notiz', 'mangel', 'aufgabe', 'weisung'];
+export const MIT_FRIST = ['notiz', 'mangel', 'aufgabe', 'weisung'];
 /** Einträge, die sich abhaken lassen (Schalter „Erledigt“) – überall dieselbe Liste. */
 export const MIT_ERLEDIGT = ['mangel', 'aufgabe', 'weisung'];
 export const berichtEintrag: ObjektModell = {
@@ -72,8 +81,11 @@ export const berichtEintrag: ObjektModell = {
     { name: 'personen', titel: 'Personen', art: 'zahl', gruppe: 'Eintrag', wenn: { art: ['anwesend'] } },
     // erwartet laut Bauzeitenplan, aber nicht gekommen – der Text ist dann die Begründung; zählt für die Terminrüge
     { name: 'nicht_da', titel: 'Nicht da', art: 'ja_nein', gruppe: 'Eintrag', wenn: { art: ['anwesend'] } },
-    { name: 'frist', titel: 'Frist', art: 'datum', inListe: true, breite: 120, gruppe: 'Erledigung', wenn: { art: MIT_FRIST } },
+    // wie bisher: Heute · Morgen · +1 Woche zum Antippen
+    { name: 'frist', titel: 'Frist', art: 'datum', inListe: true, breite: 120, gruppe: 'Erledigung', wenn: { art: MIT_FRIST },
+      datumVorschlaege: [{ titel: 'Heute', tage: 0 }, { titel: 'Morgen', tage: 1 }, { titel: '+1 Woche', wochen: 1 }] },
     { name: 'erledigt', titel: 'Erledigt', art: 'ja_nein', inListe: true, breite: 100, gruppe: 'Erledigung', wenn: { art: MIT_ERLEDIGT } },
+    { name: 'erinnern', titel: 'Erinnerung zur Frist an', art: 'verweis', ziel: 'benutzer', verborgen: true },   // wer die Frist gesetzt hat (server/erinnerung.ts)
     { name: 'reihe', titel: 'Reihenfolge im Bericht', art: 'zahl', verborgen: true },
     { name: 'kennung', titel: 'Kennung aus der Übernahme', art: 'text', verborgen: true },
   ],

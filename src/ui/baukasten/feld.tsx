@@ -24,12 +24,12 @@ function EigeneAuswahl(p: { id: string; feld: Feld; wert: string; objekt?: strin
     if (p.wert) alle.add(p.wert);
     return [...alle].filter((w) => w && !da.has(w)).sort((a, b) => a.localeCompare(b, 'de'));
   };
-  const optionen = () => [...fest(), ...eigene().map((w) => ({ wert: w, titel: w })), ...(p.gesperrt ? [] : [{ wert: EIGEN, titel: `eigene ${p.feld.titel} …` }])];
+  const optionen = () => [...fest(), ...eigene().map((w) => ({ wert: w, titel: w })), ...(p.gesperrt ? [] : [{ wert: EIGEN, titel: p.feld.eigenerWert?.titel ?? `eigene ${p.feld.titel} …` }])];
   const uebernehmen = (t: string) => { setEingabe(false); const w = t.replace(/\s+/g, ' ').trim(); if (w && w !== p.wert) p.onWert(w); };
   return (
     <Show when={eingabe()} fallback={<div class="eigene-auswahl" onPointerDown={() => setAngefasst(true)} onFocusIn={() => setAngefasst(true)} onKeyDown={() => setAngefasst(true)}>
       <Auswahlliste id={p.id} titel={p.feld.titel} optionen={optionen()} wert={p.wert} blass={p.blass} gesperrt={p.gesperrt} onWert={(w) => (w === EIGEN ? setEingabe(true) : p.onWert(w))} /></div>}>
-      <input id={p.id} type="text" maxLength={60} autocomplete="off" placeholder={`Eigene ${p.feld.titel}, z. B. Planer:in, Versorger – Enter übernimmt`} aria-label={`Eigene ${p.feld.titel}`}
+      <input id={p.id} type="text" maxLength={60} autocomplete="off" placeholder={`${p.feld.eigenerWert?.beispiel ?? `Eigene ${p.feld.titel}, z. B. Planer:in, Versorger`} – Enter übernimmt`} aria-label={`Eigene ${p.feld.titel}`}
         ref={(el) => queueMicrotask(() => el.focus())}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); uebernehmen(e.currentTarget.value); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEingabe(false); } }}
         onBlur={(e) => uebernehmen(e.currentTarget.value)} />

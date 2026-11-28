@@ -57,3 +57,35 @@ export function erwartet(plan: Plan, tag: string, eingetragen: Set<string>, ausg
   }
   return { firmen: [...firmen.values()], ohne: [...ohne.values()] };
 }
+
+/** Naheliegende Tätigkeit je Gewerk (Stichwort im Gewerk oder Namen der Firma → Text). */
+const NACH_GEWERK: [string, string][] = [
+  ['rohbau', 'Rohbauarbeiten'], ['maurer', 'Maurerarbeiten'], ['beton', 'Betonarbeiten'], ['tiefbau', 'Tiefbauarbeiten'], ['erd', 'Erdarbeiten'],
+  ['abbruch', 'Abbrucharbeiten'], ['gerüst', 'Gerüstbau'], ['zimmer', 'Zimmererarbeiten'], ['holzbau', 'Holzbauarbeiten'], ['dach', 'Dacharbeiten'],
+  ['klempner', 'Klempnerarbeiten'], ['spengler', 'Klempnerarbeiten'], ['fenster', 'Fenstermontage'], ['elektro', 'Elektroinstallation'],
+  ['sanitär', 'Sanitärinstallation'], ['heizung', 'Heizungsinstallation'], ['lüftung', 'Lüftungsinstallation'], ['shk', 'Sanitär- und Heizungsinstallation'],
+  ['hls', 'Haustechnik-Installation'], ['trockenbau', 'Trockenbauarbeiten'], ['putz', 'Putzarbeiten'], ['estrich', 'Estricharbeiten'], ['fliese', 'Fliesenarbeiten'],
+  ['maler', 'Malerarbeiten'], ['tapez', 'Tapezierarbeiten'], ['parkett', 'Parkettarbeiten'], ['boden', 'Bodenbelagsarbeiten'], ['tischler', 'Tischlerarbeiten'],
+  ['schreiner', 'Schreinerarbeiten'], ['metallbau', 'Metallbauarbeiten'], ['schlosser', 'Schlosserarbeiten'], ['treppe', 'Treppenmontage'], ['aufzug', 'Aufzugsmontage'],
+  ['wdvs', 'Fassadendämmung'], ['fassade', 'Fassadenarbeiten'], ['dämm', 'Dämmarbeiten'], ['galabau', 'Garten- und Landschaftsbau'], ['garten', 'Garten- und Landschaftsbau'],
+  ['pflaster', 'Pflasterarbeiten'], ['reinigung', 'Bauendreinigung'], ['abdicht', 'Abdichtungsarbeiten'], ['vermess', 'Vermessung'], ['schornstein', 'Schornsteinarbeiten'],
+];
+
+/** „Art der Tätigkeit“ für eine von Hand eingetragene Firma (wie bisher): ihre Leistungen laut Bauzeitenplan am Tag, sonst die zeitlich
+ *  nächsten (bis 14 Tage), sonst naheliegend nach dem Gewerk. */
+export function taetigkeitVorschlag(plan: Plan | null, tag: string, firma: string, gewerk: string, name: string): string {
+  if (plan) {
+    const t0 = tagAus(tag);
+    const je = plan.reihe.flatMap((v) => { const t = plan.erg.termine.get(v.id);
+      if (!t || t.gruppe || t.f <= t.s || String(v.werte.firma ?? '') !== firma || Number(v.werte.fortschritt ?? 0) >= 100) return [];
+      const abstand = tag < t.anfang ? tagAus(t.anfang) - t0 : tag > t.ende ? t0 - tagAus(t.ende) : 0;
+      return abstand <= 14 ? [{ name: String(v.werte.name ?? ''), abstand }] : []; });
+    const best = Math.min(...je.map((x) => x.abstand));
+    if (je.length) return je.filter((x) => x.abstand === best).map((x) => x.name).join(', ').slice(0, 300);
+  }
+  const low = `${gewerk} ${name}`.toLowerCase();
+  const treffer = NACH_GEWERK.find(([k]) => low.includes(k));
+  if (treffer) return treffer[1];
+  const g = gewerk.trim();
+  return g && !g.includes(' ') && !/(arbeiten|bau)$/i.test(g) ? `${g}arbeiten` : g;
+}

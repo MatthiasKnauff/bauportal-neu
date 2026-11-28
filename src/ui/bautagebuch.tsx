@@ -8,11 +8,11 @@ import { appOeffnen, springeZu } from './sprung';
 import { For, Show, createEffect, createMemo, createResource, createRoot, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Feld, Wert } from '../kern/modell';
-import { ausfuehren, ausfuehrenMehrere, rueckgaengig, sicht, lebende } from './unterbau/abgleich';
-import { RUEGE_AB, erwartet, laufendAm, type Laufend } from '../module/bautagebuch/soll';
-import { MIT_ERLEDIGT } from '../module/bautagebuch/beipackzettel';
+import { ausfuehren, ausfuehrenMehrere, rueckgaengig, sicht, lebende, wartendAnzahl } from './unterbau/abgleich';
+import { RUEGE_AB, erwartet, laufendAm, taetigkeitVorschlag, type Laufend } from '../module/bautagebuch/soll';
+import { MIT_ERLEDIGT, neuerBericht } from '../module/bautagebuch/beipackzettel';
 import { planDerVersion, planVersionen } from './plandaten';
-import { ausdrucke, darf, holeDatei, modell, neueKennung, ruf } from './unterbau/api';
+import { ausdrucke, darf, holeDatei, ich, modell, neueKennung, ruf } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import type { Mitte } from './baukasten/anpassung';
 import { Bilder, FotoGross, fotosHochladen } from './baukasten/bilder';
@@ -26,6 +26,7 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { Verlauf } from './baukasten/verlauf';
 import { Diktieren } from './diktat';
 import { druckOeffnen } from './druck';
+import { setAblageZiel } from './dokumentablage';
 import { Zeichen, type Zeichenname } from './baukasten/zeichen';
 import { Dialog } from './baukasten/dialog';
 import { handy } from './unterbau/geraet';
@@ -235,6 +236,9 @@ function Anwesende(p: { bericht: Zeile }) {
     .sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0));
   const name = (z: Zeile) => { const k = z.werte.firma ? sicht.kontakt?.[String(z.werte.firma)] : undefined; return k ? String(k.werte.name ?? '') : String(z.werte.text ?? ''); };
   const neu = (w: Record<string, Wert>, titel: string) => ausfuehren({ objekt: 'bericht_eintrag', art: 'anlegen', objektId: neueKennung(), werte: neuWerte(p.bericht, w) }, titel);
+  /** Von Hand eingetragene Firma (wie bisher): Tätigkeit laut Bauzeitenplan, sonst nach Gewerk, und eine Person vorgeschlagen. */
+  const vonHand = (k: string) => { const w = sicht.kontakt?.[k]?.werte;
+    neu({ firma: k, personen: 1, text: taetigkeitVorschlag(planZumBericht(p.bericht), String(p.bericht.werte.datum ?? ''), k, String(w?.gewerk ?? ''), String(w?.name ?? '')) }, 'Firma eintragen'); };
   // laufende Leistungen je Firma (Fortschritt) – Leistungen ohne Firma gehören nicht zu den Anwesenden
   const laufend = createMemo(() => { const pl = planZumBericht(p.bericht), t = String(p.bericht.werte.datum ?? ''); return pl && t ? laufendAm(pl, t) : []; });
   return (
@@ -259,8 +263,8 @@ function Anwesende(p: { bericht: Zeile }) {
       )}</For>
       <Vorschlaege bericht={p.bericht} neu={neu} />
       <Show when={schreiben()}>
-        <Auswahlliste titel="Firma hinzufügen" platzhalter="＋ Firma hinzufügen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)().optionen} weitere={firmenFuer(p.bericht.werte.projekt)().weitere} neu={verweisNeu(firmaFeld(), (k) => neu({ firma: k, personen: 1, text: '' }, 'Firma eintragen'))}
-          onWert={(k) => { if (k) neu({ firma: k, personen: 1, text: '' }, 'Firma eintragen'); }} />
+        <Auswahlliste titel="Firma hinzufügen" platzhalter="＋ Firma hinzufügen …" wert={null} optionen={firmenFuer(p.bericht.werte.projekt)().optionen} weitere={firmenFuer(p.bericht.werte.projekt)().weitere} neu={verweisNeu(firmaFeld(), (k) => vonHand(k))}
+          onWert={(k) => { if (k) vonHand(k); }} />
       </Show>
     </div>
   );
@@ -270,6 +274,11 @@ const fotosAnEintrag = async (z: Zeile, d: File[], lage: (t: string) => void = (
   if (!d.length) { hinweis('Nur Fotos lassen sich an einen Eintrag hängen.'); return; }
   if (!darf('foto', 'schreiben')) { hinweis('Dazu fehlt dir das Recht.'); return; }
   await fotosHochladen('/api/foto', { projekt: z.werte.projekt ?? null, bericht: z.werte.bericht ?? null, eintrag: z.id }, d, lage);
+};
+/** Fotos gleich beim Anlegen eines Eintrags: erst wenn der Eintrag beim Server ist (sonst kennt er ihn noch nicht), dann hoch. */
+const fotosZumNeuen = async (b: Zeile, id: string, d: File[]) => {
+  for (let i = 0; i < 150 && wartendAnzahl() > 0; i++) await new Promise((r) => setTimeout(r, 100));
+  await fotosAnEintrag({ id, geloescht: false, werte: { projekt: b.werte.projekt ?? null, bericht: b.id } }, d);
 };
 /** Fotos zu einem Eintrag (wie bisher): klein in der Zeile, groß unter „Bilder“; die Kamera nimmt eins dazu. */
 function EintragFotos(p: { eintrag: Zeile }): JSX.Element {
@@ -294,15 +303,16 @@ const personen = (bericht: string) => lebende('bericht_eintrag').filter((e) => e
 function listen(bericht: Zeile, seite: boolean): Record<string, () => JSX.Element> {
   const fest = (art: string) => ({ projekt: bericht.werte.projekt ?? null, bericht: bericht.id, art });
   const wahl = { ...(seite ? { ohneTitel: true, onWahl: (id: string) => { setBearbeiten(false); setFoto(null); setEintrag(id); } } : {}), zusatz: (z: Zeile) => <EintragFotos eintrag={z} />,
-    onDateien: (z: Zeile, d: File[]) => void fotosAnEintrag(z, d.filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name))) };
+    onDateien: (z: Zeile, d: File[]) => void fotosAnEintrag(z, d.filter((f) => /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name))),
+    ...(darf('foto', 'schreiben') ? { neuFotos: (id: string, d: File[]) => void fotosZumNeuen(bericht, id, d) } : {}) };
   return {
     anwesend: () => <Anwesende bericht={bericht} />,
-    notiz: () => <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
+    notiz: () => <Unterliste titel="Notizen" objekt="bericht_eintrag" fest={fest('notiz')} haupt="text" neben={['frist']} platzhalter="Notiz eingeben" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
     fotos: () => <Show when={darf('foto', 'lesen')}><Bilder titel="Bilder" ohneTitel={seite} objekt="foto" fest={{ projekt: bericht.werte.projekt ?? null, bericht: bericht.id }} beschriftung="beschriftung" hochladen="/api/foto"
       {...(seite ? { gewaehlt: foto(), onWahl: (id: string) => { setEintrag(null); setBearbeiten(false); setFoto(id); } } : {})} /></Show>,
-    mangel: () => <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
-    aufgabe: () => <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
-    weisung: () => <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Weisung eingeben und Enter" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
+    mangel: () => <Unterliste titel="Mängel" objekt="bericht_eintrag" fest={fest('mangel')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Mangel eingeben" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
+    aufgabe: () => <Unterliste titel="Zu erledigen" objekt="bericht_eintrag" fest={fest('aufgabe')} haupt="text" haken="erledigt" neben={['frist']} platzhalter="Aufgabe eingeben" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
+    weisung: () => <Unterliste titel="Weisungen" objekt="bericht_eintrag" fest={fest('weisung')} haupt="text" haken="erledigt" neben={['firma', 'frist']} platzhalter="Weisung eingeben" {...wahl} gewaehlt={seite ? eintrag() : undefined} />,
   };
 }
 
@@ -434,7 +444,35 @@ function Abschnitt(p: { a: (typeof ABSCHNITTE)[number]; bericht: Zeile; inhalt: 
   );
 }
 
+/** Ältere Berichte, die man in dieser Sitzung bewusst ändert (wie bisher: einmal je Bericht fragen). */
+const altOk = new Set<string>();
+
 export function Berichtsseite(p: Mitte) {
+  /** Ein Bericht je Tag (wie bisher): Neues – Eintrag, Foto, Diktat, Schritt für Schritt – kommt in den Bericht von heute; fehlt er, wird er angelegt. */
+  const heuteHolen = (dann: () => void) => {
+    const h = p.alle().filter((z) => z.werte.datum === heute()).sort((a, b) => Number(b.werte.nummer ?? 0) - Number(a.werte.nummer ?? 0))[0];
+    let id = h?.id;
+    if (!id) {
+      if (!darf('tagesbericht', 'schreiben') || !projektId()) { dann(); return; }
+      id = neueKennung();
+      ausfuehren({ objekt: 'tagesbericht', art: 'anlegen', objektId: id, werte: { projekt: projektId()!, ...neuerBericht(p.alle(), ich().id) } }, 'Tagesbericht für heute anlegen');
+      hinweis('Neuer Bericht für heute angelegt.');
+    }
+    if (id === p.gewaehlt()) { dann(); return; }
+    p.onWahl(id); setTimeout(dann, 30);
+  };
+  // Ein älterer Bericht wird nur nach Rückfrage geändert (einmal je Bericht und Sitzung) – Tippen in Felder, Schalter, Knöpfe der Einträge
+  const [frage, setFrage] = createSignal<{ weiter: () => void } | null>(null);
+  const alt = () => { const b = bericht(); return !!b && !!b.werte.datum && String(b.werte.datum) < heute() && !altOk.has(b.id) && darf('tagesbericht', 'schreiben'); };
+  const FELDER = 'input:not([type=file]):not([type=checkbox]), textarea, select';   // beim Hineintippen
+  const KNOEPFE = 'input[type=checkbox], [role=switch], [role=checkbox], .bt-plus, .zaehler-feld button, .soll-knoepfe button, .aw-zeile button.knopf, .anwesende .auswahlliste-knopf';   // beim Klicken
+  const pruefen = (e: Event) => {
+    const t = e.target as HTMLElement;
+    if (!alt() || frage() || !t.closest?.(e.type === 'focusin' ? FELDER : KNOEPFE) || t.closest('[role=dialog]')) return;
+    e.preventDefault(); e.stopPropagation(); if (e.type === 'focusin') t.blur();
+    const ziel = (t.closest(e.type === 'focusin' ? FELDER : KNOEPFE) as HTMLElement);
+    setFrage({ weiter: () => { altOk.add(bericht()!.id); setFrage(null); if (e.type === 'focusin') ziel.focus(); else ziel.click(); } });
+  };
   // Ohne Wahl: der neueste Bericht – wie beim Aufschlagen des Bautagebuchs
   createEffect(() => {
     if (p.gewaehlt() && sicht.tagesbericht?.[p.gewaehlt()!] && !sicht.tagesbericht[p.gewaehlt()!]!.geloescht) return;
@@ -444,24 +482,43 @@ export function Berichtsseite(p: Mitte) {
   createEffect(on(() => p.gewaehlt(), () => { setEintrag(null); setBearbeiten(false); setFoto(null); setFokus(null); }, { defer: true }));
   const bericht = () => (p.gewaehlt() ? sicht.tagesbericht?.[p.gewaehlt()!] : undefined);
   const werkzeuge: Werkzeuge = {};
+  // Hineingezogene Fotos (wie bisher): sonst wohin im Bericht → unter „Bilder“ dieses Berichts (auf einen Eintrag: an den Eintrag, Unterliste)
+  createEffect(() => {
+    const b = bericht();
+    setAblageZiel(b && darf('foto', 'schreiben') ? { titel: `Bilder · Tagesbericht Nr. ${String(b.werte.nummer ?? '')} vom ${datumText(b.werte.datum)}`, dateien: (f) => {
+      const bilder = f.filter((x) => /^image\//.test(x.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(x.name));
+      if (bilder.length < f.length) hinweis('Hier gehen nur Fotos – der Rest wurde übergangen.');
+      if (bilder.length) void fotosHochladen('/api/foto', { projekt: b.werte.projekt ?? null, bericht: b.id }, bilder, () => {});
+    } } : undefined);
+  });
+  onCleanup(() => setAblageZiel(undefined));
   // Menüleiste wie im bisherigen Bauportal: NEU Eintrag, Foto, Mangel, Diktieren · BERICHT Schritt für Schritt, Löschen · AUSGABE PDF
   createEffect(() => {
     const b = bericht();
     p.setKnoepfe([{ titel: 'Standort', zeichen: 'standort', gruppe: 'Finden', tun: () => void projektNachStandort() }, ...(b ? [
       // am Handy das ＋ unten: Blatt mit den Abschnitten (Foto, Notiz, Mangel …)
-      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Foto, Notiz, Mangel … hinzufügen', zeichen: 'neu', gruppe: 'Neu', nurHandy: true, handyPlus: true, tun: () => setHinzu(true) }] : []),
-      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Eintrag', zeichen: 'notiz', gruppe: 'Neu', tun: () => neuIn.get('notiz')?.() }] : []),
-      ...(darf('foto', 'schreiben') ? [{ titel: 'Foto', zeichen: 'foto', gruppe: 'Neu', tun: () => neuIn.get('fotos')?.() }] : []),
-      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Mangel', zeichen: 'mangel', gruppe: 'Neu', tun: () => neuIn.get('mangel')?.() },
-        { titel: 'Diktieren', zeichen: 'diktieren', gruppe: 'Neu', tun: () => werkzeuge.diktat?.() },
-        { titel: 'Schritt für Schritt', zeichen: 'schrittweise', gruppe: 'Bericht', tun: () => werkzeuge.schritte?.() }] : []),
+      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Foto, Notiz, Mangel … hinzufügen', zeichen: 'neu', gruppe: 'Neu', nurHandy: true, handyPlus: true, tun: () => heuteHolen(() => setHinzu(true)) }] : []),
+      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Eintrag', zeichen: 'notiz', gruppe: 'Neu', tun: () => heuteHolen(() => neuIn.get('notiz')?.()) }] : []),
+      ...(darf('foto', 'schreiben') ? [{ titel: 'Foto', zeichen: 'foto', gruppe: 'Neu', tun: () => heuteHolen(() => neuIn.get('fotos')?.()) }] : []),
+      ...(darf('bericht_eintrag', 'schreiben') ? [{ titel: 'Mangel', zeichen: 'mangel', gruppe: 'Neu', tun: () => heuteHolen(() => neuIn.get('mangel')?.()) },
+        { titel: 'Diktieren', zeichen: 'diktieren', gruppe: 'Neu', tun: () => heuteHolen(() => werkzeuge.diktat?.()) },
+        { titel: 'Schritt für Schritt', zeichen: 'schrittweise', gruppe: 'Bericht', tun: () => heuteHolen(() => werkzeuge.schritte?.()) }] : []),
       ...(darf('tagesbericht', 'loeschen') ? [{ titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bericht', tun: () => loesche(modell('tagesbericht'), b) }] : []),
       ...ausdrucke('tagesbericht').map((a) => ({ titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => druckOeffnen(a.id, b.id) })),
     ] : [])]);
   });
   return (
-    <div class="bt-seite">
-      <Show when={bericht()} fallback={<p class="leer">{p.alle().length ? 'Links einen Bericht wählen.' : darf('tagesbericht', 'schreiben') ? 'Noch kein Tagesbericht. Mit „+ Tagesbericht“ legst du den ersten an.' : 'Noch kein Tagesbericht.'}</p>}>{(b) => {
+    <div class="bt-seite" ref={(el) => { el.addEventListener('focusin', pruefen, true); el.addEventListener('click', pruefen, true); }}>
+      <Show when={frage()}>{(f) => (
+        <Dialog titel="Bericht nicht von heute" onAbbrechen={() => setFrage(null)} knoepfe={<>
+          <button class="knopf" onClick={() => setFrage(null)}>Abbrechen</button>
+          <button class="knopf" onClick={() => f().weiter()}>Bericht vom {datumText(bericht()?.werte.datum)} ändern</button>
+          <button class="knopf haupt" onClick={() => { setFrage(null); heuteHolen(() => undefined); }}>Bericht für heute</button></>}>
+          <p>Das ist der Bericht vom {datumText(bericht()?.werte.datum)} – nicht von heute. Neues gehört in den Bericht von heute. Den Bericht vom {datumText(bericht()?.werte.datum)} nur ändern, wenn du das wirklich willst.</p>
+        </Dialog>)}</Show>
+      <Show when={bericht()?.id} keyed fallback={<p class="leer">{p.alle().length ? 'Links einen Bericht wählen.' : darf('tagesbericht', 'schreiben') ? 'Noch kein Tagesbericht. Mit „+ Tagesbericht“ legst du den ersten an.' : 'Noch kein Tagesbericht.'}</p>}>{(id) => {
+        // je Bericht neu aufgebaut: die Abschnitte gehören zu genau diesem Bericht
+        const b = () => sicht.tagesbericht![id]!;
         const l = listen(b(), true);
         return (<>
           <Show when={handy() ? fokus() : null} keyed fallback={<>

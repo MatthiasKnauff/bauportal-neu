@@ -17,6 +17,7 @@ import { kennwortSetzen, pruefwertUebernehmen } from '../src/server/anmeldung';
 import { baueServer } from '../src/server/server';
 import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen';
 import { gebaeudemodellRegelnAnmelden } from '../src/server/gebaeudemodell';
+import { erinnerungsregelnAnmelden } from '../src/server/erinnerung';
 import { kostengruppeNummer } from '../src/module/gebaeudemodell/beipackzettel';
 import { uWert } from '../src/module/gebaeudemodell/bauphysik';
 import { geheimnisLesen, geheimnisSetzen } from '../src/server/ablage';
@@ -46,6 +47,7 @@ process.env.DATEN_PFAD = mkdtempSync(path.join(tmpdir(), 'bp-daten-'));
 
 versionsregelnAnmelden(register);
 gebaeudemodellRegelnAnmelden();
+erinnerungsregelnAnmelden();
 
 const BASIS = process.env.TEST_DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5433/postgres';
 
@@ -2445,4 +2447,45 @@ test('Ausschreibung: mehrere LVs in einer Mail ({lv}, Fristen je LV) und Protoko
     { pfad: '04 Ausschreibung/Maler/Angebotsbesprechung Farben Abel.docx', geaendert: '2026-11-22' },
     { pfad: 'Fotos/IMG_1.jpg', geaendert: '2026-11-23' }], 'Farben Abel GmbH', 'Malerarbeiten');
   assert.deepEqual(f.map((x) => x.name), ['Angebotsbesprechung Farben Abel.pdf', 'Protokoll Farben Abel.pdf']);
+});
+
+test('Bautagebuch: Tätigkeit für eine von Hand eingetragene Firma und ein neuer Bericht', async () => {
+  const { taetigkeitVorschlag } = await import('../src/module/bautagebuch/soll');
+  assert.equal(taetigkeitVorschlag(null, '2026-11-28', 'x', 'Maler', 'Farben Abel'), 'Malerarbeiten');
+  assert.equal(taetigkeitVorschlag(null, '2026-11-28', 'x', '', 'Elektro Kunz GmbH'), 'Elektroinstallation');
+  assert.equal(taetigkeitVorschlag(null, '2026-11-28', 'x', 'Glaser', 'Müller'), 'Glaserarbeiten');
+  assert.equal(taetigkeitVorschlag(null, '2026-11-28', 'x', '', 'Müller'), '');
+  const { neuerBericht } = await import('../src/module/bautagebuch/beipackzettel');
+  const n = neuerBericht([{ werte: { nummer: 3 } }, { werte: { nummer: 7 } }], 'ich');
+  assert.equal(n.nummer, 8); assert.equal(n.bauleitung, 'ich'); assert.match(String(n.datum), /^\d{4}-\d\d-\d\d$/);
+});
+
+test('Bautagebuch: Erinnerung zur Frist wartet im Postausgang und folgt dem Eintrag', async () => {
+  const { db, weg } = await frischeDb();
+  try {
+    const l = await leute(db);
+    await tun(db, SYSTEM, { objekt: 'benutzer', art: 'aendern', objektId: l.mit.id, werte: { email: 'mit@buero.de' } });
+    const p = randomUUID(), b = randomUUID(), e = randomUUID();
+    await tun(db, l.leitung, { objekt: 'projekt', art: 'anlegen', objektId: p, werte: { nummer: 'P-7', name: 'Halle' } });
+    for (const x of [l.mit, l.bau]) await tun(db, l.leitung, { objekt: 'projekt_mitglied', art: 'anlegen', objektId: randomUUID(), werte: { projekt: p, benutzer: x.id } });
+    await tun(db, l.mit, { objekt: 'tagesbericht', art: 'anlegen', objektId: b, werte: { projekt: p, nummer: 4, datum: '2026-11-20' } });
+    await tun(db, l.mit, { objekt: 'bericht_eintrag', art: 'anlegen', objektId: e, werte: { projekt: p, bericht: b, art: 'mangel', text: 'Fuge offen\nAchse 3', frist: '2026-12-01' } });
+    const n = async () => (await db.query("select an, faellig, stand, betreff, text, art from o_nachricht where quelle = $1 order by faellig", [`bericht_eintrag|${e}`])).rows;
+    let r = await n();
+    assert.equal(r.length, 1); assert.equal(r[0].an, 'mit@buero.de'); assert.equal(r[0].faellig, '2026-12-01'); assert.equal(r[0].stand, 'wartet'); assert.equal(r[0].art, 'erinnerung');
+    assert.match(r[0].betreff, /Mangel „Fuge offen“/); assert.match(r[0].text, /P-7 Halle – Mangel: Fuge offen\nFrist 01\.12\.2026 · aus dem Bautagebuch Nr\. 4 vom 20\.11\.2026/);
+    await tun(db, l.mit, { objekt: 'bericht_eintrag', art: 'aendern', objektId: e, werte: { frist: '2026-12-03' } });
+    r = await n(); assert.equal(r.length, 1); assert.equal(r[0].faellig, '2026-12-03', 'neue Frist: dieselbe Erinnerung, neuer Tag');
+    await tun(db, l.mit, { objekt: 'bericht_eintrag', art: 'aendern', objektId: e, werte: { erledigt: true } });
+    r = await n(); assert.equal(r[0].stand, 'verworfen', 'erledigt: Erinnerung verworfen');
+    await tun(db, l.mit, { objekt: 'bericht_eintrag', art: 'aendern', objektId: e, werte: { text: 'Fuge offen, Achse 3' } });
+    assert.equal((await n()).length, 1, 'Textänderung legt keine neue an');
+    await tun(db, l.mit, { objekt: 'bericht_eintrag', art: 'aendern', objektId: e, werte: { erledigt: false } });
+    r = await n(); assert.equal(r.filter((x) => x.stand === 'wartet').length, 1, 'wieder offen: neue Erinnerung');
+    await tun(db, l.bau, { objekt: 'bericht_eintrag', art: 'loeschen', objektId: e });
+    assert.equal((await n()).filter((x) => x.stand === 'wartet').length, 0, 'gelöscht: verworfen');
+    const ohne = randomUUID();
+    await tun(db, l.bau, { objekt: 'bericht_eintrag', art: 'anlegen', objektId: ohne, werte: { projekt: p, bericht: b, art: 'aufgabe', text: 'Plan schicken', frist: '2026-12-02' } });
+    assert.equal((await db.query('select 1 from o_nachricht where quelle = $1', [`bericht_eintrag|${ohne}`])).rowCount, 0, 'ohne E-Mail-Adresse keine Erinnerung');
+  } finally { await weg(); }
 });

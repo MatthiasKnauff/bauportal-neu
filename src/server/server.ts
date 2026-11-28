@@ -1,4 +1,5 @@
 // Der Server: ein Programm für Oberfläche, Anmeldung, Befehle und Abgleich.
+import { erinnerungsregelnAnmelden } from './erinnerung';
 import { logoRouten } from './logo';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
@@ -75,6 +76,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   const dbKennung = await kennung(db);
   versionsregelnAnmelden(register);
   gebaeudemodellRegelnAnmelden();
+  erinnerungsregelnAnmelden();
 
   // ---------- Live-Strom: neue Befehle gehen an alle verbundenen Geräte ----------
   interface Geraet { r: ServerResponse; wer: anm.Benutzer; pos: number }

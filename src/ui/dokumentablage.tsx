@@ -36,8 +36,8 @@ const [warteschlange, setWarteschlange] = createSignal<Offen[]>([]);
 const [modelle, setModelle] = createSignal<ObjektModell[]>([]);
 
 /** Dateien zum Ablegen geben (Hineinziehen, Eingangsordner): eine nach der anderen. */
-/** Stellschraube der Seite: wohin hineingezogene Dateien gehören (z. B. die Unterlagen eines LV) – sonst in die allgemeine Ablage. */
-export const [ablageZiel, setAblageZiel] = createSignal<Woher['zu']>();
+/** Stellschraube der Seite: wohin hineingezogene Dateien gehören (z. B. Unterlagen eines LV, Fotos des Tagesberichts) – sonst in die allgemeine Ablage. */
+export const [ablageZiel, setAblageZiel] = createSignal<{ titel: string; dateien: (f: File[]) => void }>();
 
 export function dokumenteAblegen(dateien: File[], woher: Woher = {}): void {
   const passend = dateien.filter((d) => ENDUNGEN.test(d.name));
@@ -68,18 +68,22 @@ export function DokumentAblage(p: { module: Beipackzettel[]; modul?: Beipackzett
   const raus = (e: DragEvent) => { if (!mitDateien(e)) return; tiefe = Math.max(0, tiefe - 1); if (!tiefe) setZieht(false); };
   const fallen = (e: DragEvent) => {
     if (!mitDateien(e)) return;
-    e.preventDefault(); tiefe = 0; setZieht(false);
+    e.preventDefault();
+    const z = ablageZiel(), f = [...(e.dataTransfer?.files ?? [])];
+    if (z) { z.dateien(f); return; }   // das Ziel setzt die Seite nur, wenn man dort ablegen darf
     if (!darf('dokument', 'schreiben')) { hinweis('Zum Ablegen fehlt dir das Recht.', { art: 'fehler' }); return; }
-    const zu = ablageZiel(); dokumenteAblegen([...(e.dataTransfer?.files ?? [])], zu ? { zu } : {});
+    dokumenteAblegen(f);
   };
-  onMount(() => { addEventListener('dragenter', rein); addEventListener('dragover', ueber); addEventListener('dragleave', raus); addEventListener('drop', fallen); });
-  onCleanup(() => { removeEventListener('dragenter', rein); removeEventListener('dragover', ueber); removeEventListener('dragleave', raus); removeEventListener('drop', fallen); });
+  // der Rahmen geht weg, wo immer losgelassen wird – auch wenn ein Teil der Seite die Dateien selbst nimmt (z. B. ein Eintrag im Bautagebuch)
+  const ende = () => { tiefe = 0; setZieht(false); };
+  onMount(() => { addEventListener('dragenter', rein); addEventListener('dragover', ueber); addEventListener('dragleave', raus); addEventListener('drop', ende, true); addEventListener('drop', fallen); });
+  onCleanup(() => { removeEventListener('dragenter', rein); removeEventListener('dragover', ueber); removeEventListener('dragleave', raus); removeEventListener('drop', ende, true); removeEventListener('drop', fallen); });
   const arten = createMemo(() => artenAus(p.module));
   // vorbelegt: die Art der Seite, sonst die erste der App, sonst „Sonstiges Dokument“
   const vorbelegt = () => arten().find((a) => a.modul === p.modul?.id && a.ansichten?.includes(p.ansicht?.id ?? '')) ?? arten().find((a) => a.modul === p.modul?.id) ?? arten().find((a) => !a.objekt)!;
   return (
     <>
-      <Show when={zieht()}><div class="ablage-ziel" aria-hidden="true"><div>Loslassen zum Ablegen<small>{ablageZiel() ? `${arten().find((a) => a.art === ablageZiel()!.art)?.titel ?? ''} · ${ablageZiel()!.titel}` : `${vorbelegt()?.titel} · PDF, Scan oder Foto`}</small></div></div></Show>
+      <Show when={zieht()}><div class="ablage-ziel" aria-hidden="true"><div>Loslassen zum Ablegen<small>{ablageZiel()?.titel ?? `${vorbelegt()?.titel} · PDF, Scan oder Foto`}</small></div></div></Show>
       <Show when={warteschlange()[0]} keyed>{(o) => <Ablegen o={o} arten={arten()} rollen={p.module.flatMap((m) => m.ablagerollen ?? [])} vor={o.woher.zu ? arten().find((a) => a.art === o.woher.zu!.art)! : o.woher.ohneSeite ? arten().find((a) => !a.objekt)! : vorbelegt()} rest={warteschlange().length - 1} />}</Show>
     </>
   );
