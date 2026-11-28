@@ -71,3 +71,18 @@ export function vorab(lauf: Lauf, angebote: E[]): E[] {
     return !!a.werte.angeschrieben;
   });
 }
+
+/** Mehrere LVs auf einmal (wie bisher „An Bieter:innen senden (n LVs)“): eine Mail je Firma mit allen ihren LVs. Der Text der
+ *  Angebotsanfrage bleibt; {lv}, {abgabe} und {rueckmeldung} füllt der Mail-Dialog je Firma aus deren LVs (sammelWerte). */
+export function sammelText(projekt: Werte | undefined, buero: Werte | undefined): { betreff: string; text: string } {
+  const v = werteFuer({}, projekt, buero), offen = new Set(['lv', 'abgabe', 'rueckmeldung', 'anrede']);
+  const fuell = (x: string) => x.replace(/\{(\w+)\}/g, (g, n: string) => (!offen.has(n) && n in v ? v[n]! : g));
+  return { betreff: fuell(LAEUFE.versand.betreff), text: fuell(LAEUFE.versand.text).replace('Das Leistungsverzeichnis liegt', 'Die Leistungsverzeichnisse liegen') };
+}
+/** {lv}: „LV 01 Rohbau und LV 02 Abbruch“; Fristen: gleiche einmal, verschiedene je LV. */
+export function sammelWerte(lvs: Werte[]): Record<string, string> {
+  const name = (l: Werte) => `LV ${[l.nummer, l.name].filter(Boolean).join(' ')}`.trim();
+  const und = (n: string[]) => (n.length < 2 ? n.join('') : `${n.slice(0, -1).join(', ')} und ${n.at(-1)}`);
+  const frist = (f: string) => { const t = lvs.map((l) => tag(l[f])); return new Set(t).size === 1 ? t[0]! : und(lvs.map((l, i) => `${t[i]} (${name(l)})`)); };
+  return { lv: und(lvs.map(name)), abgabe: frist('abgabe'), rueckmeldung: frist('rueckmeldung_bis') };
+}

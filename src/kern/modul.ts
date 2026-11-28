@@ -28,6 +28,9 @@ export interface Beipackzettel {
   /** Was die App am Handy kann (wie im bisherigen Bauportal): voll – alles · eigen – eigene Handyansicht, alles ·
    *  ansicht – ansehen und kleine Handgriffe, nichts Neues anlegen · lesen – nur ansehen · keine – am Handy nur ein Hinweis. Ohne Angabe: lesen. */
   handy?: Handystufe;
+  /** Weitere Kacheln auf der Startseite, die gleich eine Ansicht dieser App öffnen (wie bisher „Nachverfolgen“ der Ausschreibung) –
+   *  sichtbar, wer die App sehen darf; Rechte bleiben die der App. */
+  kacheln?: { ansicht: string; titel: string; beschreibung: string; zeichen: string }[];
 }
 /** Eine Art Dokument (PDF, Scan, Foto), die sich ins Fenster ziehen lässt: woran man sie erkennt, wohin das Original kommt
  *  und welcher Eintrag daraus wird. Die Erkennung (kern/dokumenterkennung) und der Ablegen-Dialog richten sich ganz danach. */
@@ -167,6 +170,7 @@ export class Modulregister {
     // Dokumentarten: Objekt, Felder und Ansichten müssen es geben; Merkmale müssen gültige Ausdrücke sein
     const arten = new Set<string>(), rollen = new Set<string>();
     for (const z of module) for (const r of z.ablagerollen ?? []) { if (rollen.has(r.id)) throw new Error(`Ablagerolle doppelt: ${r.id}`); rollen.add(r.id); }
+    for (const z of module) for (const k of z.kacheln ?? []) if (!z.ansichten.some((x) => x.id === k.ansicht)) throw new Error(`Kachel „${k.titel}“: Ansicht „${k.ansicht}“ fehlt in ${z.id}`);
     for (const z of module) for (const d of z.dokumentarten ?? []) {
       if (arten.has(d.art)) throw new Error(`Dokumentart doppelt: ${d.art}`);
       arten.add(d.art);

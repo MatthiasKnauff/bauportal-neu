@@ -298,6 +298,7 @@ function Portal() {
                 <p class="still-text">Womit möchtest du arbeiten?</p>
                 <div class="kacheln" role="list" aria-label="Module">
                   <For each={module()}>{(m) => <button class="kachel app-kachel" role="listitem" onClick={() => { setModulId(m.modul.id); setAnsichtId(''); }}><AppSymbol id={m.modul.id} zeichen={m.modul.zeichen} /><span class="app-kachel-text"><strong>{m.modul.name}</strong><span title={m.modul.beschreibung}>{m.modul.beschreibung}</span></span></button>}</For>
+                  <For each={module().flatMap((m) => (m.modul.kacheln ?? []).map((k) => ({ m, k })))}>{(x) => <button class="kachel app-kachel" role="listitem" onClick={() => oeffne(x.m.modul.id, x.k.ansicht)}><AppSymbol id={x.m.modul.id} zeichen={x.k.zeichen} /><span class="app-kachel-text"><strong>{x.k.titel}</strong><span title={x.k.beschreibung}>{x.k.beschreibung}</span></span></button>}</For>
                 </div>
                 <Show when={projektId() && sicht.projekt?.[projektId()!] && !sicht.projekt[projektId()!]!.geloescht}><Projektkacheln projekt={projektId()!} onApp={(id, a) => oeffne(id, a ?? '')} /></Show>
               </Show>

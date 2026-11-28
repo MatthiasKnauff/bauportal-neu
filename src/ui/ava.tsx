@@ -6,11 +6,12 @@ import type { Zeile } from '../kern/befehl';
 import { nachfassenFaellig, ruecklaufZaehlen, nachtragNetto, ozVergleich, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
 import type { Feld, ObjektModell, Werte } from '../kern/modell';
 import { Tabelle } from './baukasten/tabelle';
+import { auswahlAnlegen } from './baukasten/auswahl';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
 import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
-import { lvVon } from './avakopf';
+import { lvFolge, lvVon } from './avakopf';
 import { springeZu } from './sprung';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
 import { darf, ich, modell, neueKennung, ruf, zustand } from './unterbau/api';
@@ -30,11 +31,12 @@ import { zahlText } from './lvbearbeiten';
 import { DokumentListe, dokumenteAblegen } from './dokumentablage';
 import { OrdnerFenster } from './dateien';
 import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
-import { LAEUFE, laufText, textMerken, vorab, type Lauf } from '../module/ava/bieterversand';
+import { LAEUFE, laufText, sammelText, sammelWerte, textMerken, vorab, type Lauf } from '../module/ava/bieterversand';
 import { BieterTabelle, adresseVon, anredeVonAngebot, datum } from './bietertabelle';
 import { STUFEN, lvLage } from '../module/ava/lvlage';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { mailSchreiben } from './versand';
+import type { Anhang } from '../module/verwaltung/versand';
 
 const eur = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** Karte eines LV: die Summen – geschätzt, Angebote (günstigstes), Auftrag, abgerechnet. */
@@ -276,19 +278,25 @@ const unterlagenVon = (l: Zeile) => lebende('dokument').filter((d) => d.werte.be
 /** Was davon nicht mitgeht (je LV gemerkt, Kennungen „a,b“). */
 const ohneUnterlage = (l: Zeile) => new Set(String(l.werte.versand_ohne ?? '').split(',').filter(Boolean));
 
+/** Was mit einem LV an die Bieter:innen geht: LV als PDF, GAEB X83 (abschaltbar) und die Unterlagen, die mitgehen sollen. */
+function lvAnhaenge(l: Zeile): { titel: string; anhang: Anhang }[] {
+  const dateiname = [l.werte.nummer, l.werte.name].filter(Boolean).join(' ');
+  return [{ titel: `LV ${dateiname}.pdf`, anhang: { art: 'druck', ausdruck: 'ava.lv', id: l.id } },
+    ...(l.werte.versand_ohne_x83 === true ? [] : [{ titel: `LV ${dateiname}.X83`, anhang: { art: 'x83' as const, id: l.id } }]),
+    ...unterlagenVon(l).filter((d) => !ohneUnterlage(l).has(d.id)).map((d) => ({ titel: String(d.werte.name ?? 'Dokument'), anhang: { art: 'dokument' as const, id: d.id } }))];
+}
+
 /** Mail-Dialog für einen Lauf (Versand, Erinnern, Nachversand) – nur: diese Firmen (einzeln, z. B. aus dem Nachverfolgen). */
 export function versandOeffnen(l: Zeile, lauf: Lauf, nur?: Zeile[]): void {
   const b = angeboteVon(l.id), pw = sicht.projekt?.[String(l.werte.projekt)]?.werte, bw = sicht.buero?.[BUERO_ID]?.werte;
-  const t = laufText(lauf, l.werte, pw, bw), dateiname = [l.werte.nummer, l.werte.name].filter(Boolean).join(' ');
+  const t = laufText(lauf, l.werte, pw, bw);
   const von = (k: string) => b.find((a) => a.werte.bieter === k);
   mailSchreiben({ titel: nur?.length === 1 ? `${LAEUFE[lauf].titel}: ${name(nur[0]!.werte.bieter)}` : LAEUFE[lauf].titel, projekt: String(l.werte.projekt ?? '') || undefined, betreff: t.betreff, text: t.text,
     ids: (nur ?? b).map((a) => String(a.werte.bieter)), vorab: (nur ?? vorab(lauf, b)).map((a) => String(a.werte.bieter)),
     an: (k) => { const a = von(k); return a ? adresseVon(a) : undefined; }, anrede: (k) => { const a = von(k); return a ? anredeVonAngebot(a) : undefined; },
     vorlage: laufText(lauf, l.werte, pw, bw, true),
     merken: darf('lv', 'schreiben') ? { titel: 'Text für dieses LV merken', tun: (bt, tx) => [{ objekt: 'lv', art: 'aendern', objektId: l.id, werte: { versand_texte: textMerken(lauf, l.werte, pw, bw, bt, tx) } }] } : undefined,
-    anhaenge: LAEUFE[lauf].unterlagen ? [{ titel: `LV ${dateiname}.pdf`, anhang: { art: 'druck', ausdruck: 'ava.lv', id: l.id } },
-      ...(l.werte.versand_ohne_x83 === true ? [] : [{ titel: `LV ${dateiname}.X83`, anhang: { art: 'x83' as const, id: l.id } }]),
-      ...unterlagenVon(l).filter((d) => !ohneUnterlage(l).has(d.id)).map((d) => ({ titel: String(d.werte.name ?? 'Dokument'), anhang: { art: 'dokument' as const, id: d.id } }))] : undefined,
+    anhaenge: LAEUFE[lauf].unterlagen ? lvAnhaenge(l) : undefined,
     quelle: (k) => `angebot|${von(k)?.id ?? ''}`,
     dazu: lauf === 'versand' ? (ks) => b.filter((a) => ks.includes(String(a.werte.bieter)) && !a.werte.angeschrieben)
       .map((a) => ({ objekt: 'angebot', art: 'aendern' as const, objektId: a.id, werte: { angeschrieben: heute() } })) : undefined });
@@ -367,6 +375,12 @@ export function Versand(p: Mitte): JSX.Element {
   const bieter = createMemo(() => (lv() ? angeboteVon(lv()!.id) : []));
   const z = createMemo(() => ruecklaufZaehlen(bieter()));
   const [dazu, setDazu] = createSignal(false);
+  /** Häkchen an den LVs im Baum (wie bisher): ab zwei die Bieter:innen aller zusammen – eine Mail je Firma. Das erste Häkchen nimmt das offene LV mit. */
+  const [mehr, setMehr] = createSignal<string[]>([]);
+  const haken = { an: (id: string) => mehr().includes(id), onHaken: (id: string, an: boolean) => setMehr((m) => {
+    const n = m.filter((x) => x !== id); if (!an) return n;
+    return [...(n.length === 0 && lv() && lv()!.id !== id ? [lv()!.id] : n), id].slice(0, 12);
+  }) };
   const feld = (n: string) => modell('lv').felder.find((f) => f.name === n)!;
   /** Wie bisher je Datei: noch nicht verschickt · wartet im Postausgang · verschickt am … (aus den Nachrichten mit diesen Unterlagen) */
   const unterlagenStand = createMemo(() => {
@@ -392,7 +406,8 @@ export function Versand(p: Mitte): JSX.Element {
     } }] : []),
   ]));
   return (
-    <LvListe m={p} zusatz={(l) => { const n = angeboteVon(l.id).length; return n ? `${n} ${n === 1 ? 'Bieter:in' : 'Bieter:innen'}` : ''; }}>
+    <LvListe m={p} haken={darf('nachricht', 'schreiben') ? haken : undefined} zusatz={(l) => { const n = angeboteVon(l.id).length; return n ? `${n} ${n === 1 ? 'Bieter:in' : 'Bieter:innen'}` : ''; }}>
+      <Show when={mehr().length < 2} fallback={<MehrereVersand ids={mehr()} onAufheben={() => setMehr([])} />}>
       <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – unter „Leistungsverzeichnis“ mit „LV“ anlegen.</p>}>
         <div class="vr-kopf">
           <div class="vr-termine">
@@ -418,7 +433,61 @@ export function Versand(p: Mitte): JSX.Element {
         {/* wie bisher die Adressen mit ihren Filtern, darunter wählen – nach dem Übernehmen wieder weg */}
         <Show when={dazu()}><BieterWahl lv={lv()!} onZu={() => setDazu(false)} /></Show>
       </Show>
+      </Show>
     </LvListe>
+  );
+}
+
+/** Mehrere LVs in einem Versand (wie bisher): Firma je Zeile, je LV eine Spalte (☑ steht drin · ＋ auch dafür anfragen). Gesendet wird über
+ *  den einen Mail-Dialog – je Firma eine Mail mit allen ihren LVs und deren Unterlagen; „angeschrieben am“ setzt derselbe Schritt je LV. */
+function MehrereVersand(p: { ids: string[]; onAufheben: () => void }): JSX.Element {
+  const lvs = createMemo(() => p.ids.map((id) => sicht.lv?.[id]).filter((l): l is Zeile => !!l && !l.geloescht).sort(lvFolge));
+  const lvName = (l: Zeile) => [l.werte.nummer, l.werte.name].filter(Boolean).join(' ');
+  /** je Firma: ihr Angebot je LV */
+  const firmen = createMemo(() => {
+    const f = new Map<string, Map<string, Zeile>>();
+    for (const l of lvs()) for (const a of angeboteVon(l.id)) { const k = String(a.werte.bieter); if (!f.has(k)) f.set(k, new Map()); f.get(k)!.set(l.id, a); }
+    return [...f.entries()].map(([k, je]) => ({ k, je })).sort((a, b) => name(a.k).localeCompare(name(b.k), 'de'));
+  });
+  const erstes = (je: Map<string, Zeile>) => [...je.values()][0]!;
+  const MODELL = createMemo((): ObjektModell => ({ name: 'ava_versand_mehrere', titel: 'Firma', titelMehrzahl: 'Firmen', anzeigeFeld: 'firma', sortierFeld: 'firma', rechte: { lesen: [], schreiben: [], loeschen: [] },
+    felder: [{ name: 'firma', titel: 'Firma', art: 'text', inListe: true, breite: 220 }, { name: 'email', titel: 'E-Mail', art: 'text', inListe: true, breite: 190 },
+      ...lvs().map((l) => ({ name: `lv_${l.id}`, titel: lvName(l).slice(0, 18), art: 'text' as const, inListe: true, breite: 90 }))] }));
+  const zeilen = createMemo((): Zeile[] => firmen().map((x) => ({ id: x.k, geloescht: false, werte: { firma: name(x.k), email: adresseVon(erstes(x.je)) } })));
+  const auswahl = auswahlAnlegen();
+  // vorgewählt (wie bisher): mit E-Mail und einem LV, das noch nicht raus ist
+  createEffect(() => { if (auswahl.anzahl()) return; auswahl.alle(firmen().filter((x) => adresseVon(erstes(x.je)).includes('@')
+    && [...x.je.values()].some((a) => !a.werte.angeschrieben && a.werte.rueckmeldung !== 'gibt_nicht_ab')).map((x) => x.k), true); });
+  const anfragen = (l: Zeile, k: string) => ausfuehren({ objekt: 'angebot', art: 'anlegen', objektId: neueKennung(), werte: { projekt: l.werte.projekt ?? null, lv: l.id, bieter: k } }, `${name(k)} auch für ${lvName(l)} anfragen`);
+  const zelle = (f: Feld, z: Zeile): JSX.Element | undefined => {
+    if (!f.name.startsWith('lv_')) return undefined;
+    const l = lvs().find((x) => `lv_${x.id}` === f.name)!, a = firmen().find((x) => x.k === z.id)?.je.get(l.id);
+    return a ? <span class="vm-drin" title={`steht in ${lvName(l)}`}>☑{a.werte.angeschrieben ? <small> ✉ {datum(a.werte.angeschrieben)}</small> : null}</span>
+      : <button type="button" class="knopf klein" title={`Firma auch für ${lvName(l)} anfragen`} disabled={!darf('angebot', 'schreiben')} onClick={(e) => { e.stopPropagation(); anfragen(l, z.id); }}>＋</button>;
+  };
+  const senden = () => {
+    const ks = firmen().filter((x) => auswahl.hat(x.k)), pw = sicht.projekt?.[String(lvs()[0]!.werte.projekt)]?.werte, bw = sicht.buero?.[BUERO_ID]?.werte;
+    const je = (k: string) => lvs().filter((l) => firmen().find((x) => x.k === k)?.je.has(l.id));
+    const t = sammelText(pw, bw);
+    mailSchreiben({ titel: `Angebotsanfrage an Bieter:innen – ${lvs().length} LVs`, projekt: String(lvs()[0]!.werte.projekt ?? '') || undefined, betreff: t.betreff, text: t.text,
+      ids: ks.map((x) => x.k), vorab: ks.map((x) => x.k),
+      an: (k) => { const x = firmen().find((y) => y.k === k); return x ? adresseVon(erstes(x.je)) : undefined; },
+      anrede: (k) => { const x = firmen().find((y) => y.k === k); return x ? anredeVonAngebot(erstes(x.je)) : undefined; },
+      anhaengeJe: (k) => je(k).flatMap(lvAnhaenge), platzhalter: (k) => sammelWerte(je(k).map((l) => l.werte)),
+      quelle: (k) => `angebot|${firmen().find((y) => y.k === k)?.je.get(je(k)[0]?.id ?? '')?.id ?? ''}`,
+      dazu: (gesendet) => firmen().filter((x) => gesendet.includes(x.k)).flatMap((x) => [...x.je.values()].filter((a) => !a.werte.angeschrieben))
+        .map((a) => ({ objekt: 'angebot', art: 'aendern' as const, objektId: a.id, werte: { angeschrieben: heute() } })) });
+  };
+  return (
+    <div class="vm">
+      <div class="hinweis-kasten vm-kopf"><span><b>Gemeinsamer Versand · {lvs().length} LVs</b><small> Eine Firma, die in mehreren LVs steht, bekommt <b>eine</b> Mail mit allen ihren LVs und Unterlagen.</small></span>
+        <button type="button" class="knopf" onClick={p.onAufheben}>Auswahl aufheben</button></div>
+      <div class="vm-lvs"><For each={lvs()}>{(l) => <span><b>LV {lvName(l)}</b><small>Abgabe {l.werte.abgabe ? datum(l.werte.abgabe) : 'kein Termin'} · {unterlagenVon(l).filter((d) => !ohneUnterlage(l).has(d.id)).length} Unterlagen</small></span>}</For></div>
+      <Tabelle modell={MODELL()} zeilen={zeilen()} gewaehlt={null} onWahl={() => undefined} auswahl={auswahl} zelle={zelle}
+        leer="Die gewählten LVs haben noch keine Bieter:innen – erst je LV Firmen hinzufügen (Häkchen nur an einem LV lassen)." />
+      <div class="hinweis-kasten vr-jetzt"><span><b>{auswahl.anzahl()} {auswahl.anzahl() === 1 ? 'Firma' : 'Firmen'} gewählt</b><small> ＋ = Firma auch für dieses LV anfragen. Fristen bleiben je LV und stehen so im Text.</small></span>
+        <button type="button" class="knopf haupt" disabled={!auswahl.anzahl()} onClick={senden}>✉ An {auswahl.anzahl()} {auswahl.anzahl() === 1 ? 'Bieter:in' : 'Bieter:innen'} senden ({lvs().length} LVs) …</button></div>
+    </div>
   );
 }
 

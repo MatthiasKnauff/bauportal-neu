@@ -428,6 +428,7 @@ export const bauvertrag: ObjektModell = {
 export const ava: Beipackzettel = {
   id: 'ava',
   handy: 'eigen',   // eigene Handyansicht (nur ansehen): LVs, Aufträge, Aufmaß, Rechnungen
+  kacheln: [{ ansicht: 'nachverfolgen', titel: 'Nachverfolgen', beschreibung: 'Bieter:innen anrufen und erinnern – alle verschickten LVs', zeichen: 'telefon' }],   // wie bisher eigene Kachel (Entscheidung 28.11.2026: kein eigenes Recht)
   zeichen: 'ausschreibung',
   farbe: '#f08c00',
   name: 'Ausschreibung',

@@ -10,7 +10,7 @@ import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { Rahmen } from './baukasten/rahmen';
 import { ausfuehrenMehrere, sicht } from './unterbau/abgleich';
-import { darf, modell, neueKennung, ruf, zustand } from './unterbau/api';
+import { darf, ich, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import { springeZu } from './sprung';
 
@@ -71,6 +71,9 @@ export interface MailAuftrag {
   vorlage?: { betreff: string; text: string };
   /** „Text merken“ (z. B. für dieses LV) – wird beim Senden gerufen, wenn der Haken sitzt und sich etwas geändert hat */
   merken?: { titel: string; tun: (betreff: string, text: string) => Vorlage[] };
+  /** je Kontakt eigene Anhänge und Platzhalter (z. B. mehrere LVs auf einmal: jede Firma ihre LVs, {lvs} als Liste) */
+  anhaengeJe?: (kontaktId: string) => { titel: string; anhang: Anhang }[];
+  platzhalter?: (kontaktId: string) => Record<string, string>;
 }
 const [mailAn, setMailAn] = createSignal<MailAuftrag | null>(null);
 /** „Mail an alle“ für gewählte Kontakte öffnen (je Kontakt eine eigene Mail, {anrede} wird ersetzt). */
@@ -89,19 +92,20 @@ function MailDialog(p: { a: MailAuftrag; onZu: () => void }) {
   const adresse = (k: Zeile) => String(a.an?.(k.id) || k.werte.email || ''), anrede = (k: Zeile) => a.anrede?.(k.id) || anredeVon(k.werte);
   const mitAdresse = () => kontakte().filter((k) => adresse(k).includes('@')), ohne = () => kontakte().filter((k) => !adresse(k).includes('@'));
   const [merk, setMerk] = createSignal(true), [kopie, setKopie] = createSignal(false);
-  const bueroMail = () => String(sicht.buero?.[BUERO_ID]?.werte.email ?? '');
+  const meineMail = () => String(sicht.benutzer?.[ich().id]?.werte.email ?? '');   // „Kopie an mich“ (E-Mail in Verwaltung → Benutzer)
   const [gewaehlt, setGewaehlt] = createSignal(new Set(a.vorab ?? a.ids));
   const mit = () => mitAdresse().filter((k) => gewaehlt().has(k.id));
   const umschalten = (id: string) => setGewaehlt((g) => { const n = new Set(g); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const ok = () => {
     if (!betreff().trim()) { hinweis('Bitte einen Betreff eintragen.', { art: 'fehler' }); return; }
-    const anhaenge = (a.anhaenge ?? []).map((x) => anhangText(x.anhang)).join('\n') || null;
+    const anhaengeFuer = (k: Zeile) => (a.anhaengeJe?.(k.id) ?? a.anhaenge ?? []).map((x) => anhangText(x.anhang)).join('\n') || null;
+    const fuellen = (t: string, k: Zeile) => Object.entries(a.platzhalter?.(k.id) ?? {}).reduce((x, [n, w]) => x.replaceAll(`{${n}}`, w), t.replaceAll('{anrede}', anrede(k)));
     const erste = mit()[0];
     ausfuehrenMehrere([...mit().map((k) => ({ objekt: 'nachricht', art: 'anlegen' as const, objektId: neueKennung(), werte: { an: adresse(k), kontakt: k.id, betreff: betreff().trim(),
-      text: text().replaceAll('{anrede}', anrede(k)), art: 'mitteilung', stand: 'wartet', projekt: a.projekt ?? null, quelle: a.quelle?.(k.id) ?? `kontakt|${k.id}`, anhaenge } })),
-    // Kopie ans Büro (wie bisher „Kopie an mich“): eine Mail wie die erste, ohne Anhänge
-    ...(kopie() && erste && bueroMail().includes('@') ? [{ objekt: 'nachricht', art: 'anlegen' as const, objektId: neueKennung(), werte: { an: bueroMail(), betreff: `Kopie: ${betreff().trim()}`,
-      text: `Kopie der Mail an ${mit().length} ${mit().length === 1 ? 'Empfänger:in' : 'Empfänger:innen'} (${mit().map((k) => String(k.werte.name ?? '')).join(', ')}):\n\n${text().replaceAll('{anrede}', anrede(erste))}`, art: 'mitteilung', stand: 'wartet', projekt: a.projekt ?? null, quelle: 'kopie' } }] : []),
+      text: fuellen(text(), k), art: 'mitteilung', stand: 'wartet', projekt: a.projekt ?? null, quelle: a.quelle?.(k.id) ?? `kontakt|${k.id}`, anhaenge: anhaengeFuer(k) } })),
+    // Kopie an mich (wie bisher): eine Mail wie die erste, ohne Anhänge
+    ...(kopie() && erste && meineMail().includes('@') ? [{ objekt: 'nachricht', art: 'anlegen' as const, objektId: neueKennung(), werte: { an: meineMail(), betreff: `Kopie: ${betreff().trim()}`,
+      text: `Kopie der Mail an ${mit().length} ${mit().length === 1 ? 'Empfänger:in' : 'Empfänger:innen'} (${mit().map((k) => String(k.werte.name ?? '')).join(', ')}):\n\n${fuellen(text(), erste)}`, art: 'mitteilung', stand: 'wartet', projekt: a.projekt ?? null, quelle: 'kopie' } }] : []),
     ...(a.merken && merk() && (betreff() !== (a.betreff ?? '') || text() !== (a.text ?? '')) ? a.merken.tun(betreff(), text()) : []),
     ...(a.dazu?.(mit().map((k) => k.id)) ?? [])], `${a.titel}: ${mit().length} Mails`);
     hinweis(`${mit().length} ${mit().length === 1 ? 'Mail steht' : 'Mails stehen'} im Postausgang – rückgängig mit Strg+Z, solange sie noch nicht verschickt sind.`);
@@ -121,10 +125,11 @@ function MailDialog(p: { a: MailAuftrag; onZu: () => void }) {
         <div class="feld"><label for="mail-text">Text</label><textarea id="mail-text" rows={10} value={text()} onInput={(e) => setText(e.currentTarget.value)} /></div>
         <div class="reihe mail-optionen">
           <Show when={a.merken}><label><input type="checkbox" checked={merk()} onChange={(e) => setMerk(e.currentTarget.checked)} /> {a.merken!.titel}</label></Show>
-          <label title={bueroMail() ? `Eine Kopie geht an ${bueroMail()}` : 'Dafür fehlt die E-Mail-Adresse des Büros (Verwaltung → Büro)'}><input type="checkbox" disabled={!bueroMail().includes('@')} checked={kopie()} onChange={(e) => setKopie(e.currentTarget.checked)} /> Kopie ans Büro</label>
+          <label title={meineMail() ? `Eine Kopie geht an ${meineMail()}` : 'Dafür fehlt deine E-Mail-Adresse (Verwaltung → Benutzer)'}><input type="checkbox" disabled={!meineMail().includes('@')} checked={kopie()} onChange={(e) => setKopie(e.currentTarget.checked)} /> Kopie an mich</label>
           <Show when={a.vorlage}><button type="button" class="knopf klein still" onClick={() => { setBetreff(a.vorlage!.betreff); setText(a.vorlage!.text); }}>↺ Text der Vorlage</button></Show>
         </div>
         <Show when={a.anhaenge?.length}><p class="still-text klein-text">Anhänge (entstehen beim Versand aus dem dann aktuellen Stand): <b>{a.anhaenge!.map((x) => x.titel).join(' · ')}</b></p></Show>
+        <Show when={a.anhaengeJe && mit().length}><p class="still-text klein-text">Anhänge je Firma (entstehen beim Versand): <For each={mit().slice(0, 6)}>{(k, i) => <>{i() ? ' · ' : ''}<b>{String(k.werte.name ?? '')}</b>: {a.anhaengeJe!(k.id).length} Dateien</>}</For>{mit().length > 6 ? ' …' : ''}</p></Show>
         <Show when={ohne().length}><p class="still-text klein-text">Ohne E-Mail-Adresse, bekommen nichts ({ohne().length}): <For each={ohne().slice(0, 10)}>{(k, i) => <>{i() ? ', ' : ''}{String(k.werte.name ?? '')}</>}</For>{ohne().length > 10 ? ' …' : ''}</p></Show>
       </div>
     </Dialog>

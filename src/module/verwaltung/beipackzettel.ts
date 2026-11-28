@@ -17,6 +17,7 @@ export const benutzer: ObjektModell = {
     { name: 'anmeldename', titel: 'Anmeldename', art: 'text', pflicht: true, eindeutig: true, klein: true, inListe: true, breite: 220, gruppe: 'Benutzer' },
     { name: 'rolle', titel: 'Rolle', art: 'auswahl', optionen: ROLLEN_OPTIONEN, inListe: true, breite: 170, gruppe: 'Benutzer' },
     { name: 'gesperrt', titel: 'Gesperrt (kann sich nicht anmelden)', art: 'ja_nein', inListe: true, breite: 110, gruppe: 'Benutzer' },
+    { name: 'email', titel: 'E-Mail (z. B. für „Kopie an mich“)', art: 'email', spalte: true, breite: 220, gruppe: 'Benutzer' },
   ],
 };
 
