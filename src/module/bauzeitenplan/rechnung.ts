@@ -9,13 +9,14 @@ export const ARTEN: { wert: Art; titel: string }[] = [
   { wert: 'ea', titel: 'Ende → Anfang (EA)' }, { wert: 'aa', titel: 'Anfang → Anfang (AA)' }, { wert: 'ee', titel: 'Ende → Ende (EE)' }, { wert: 'ae', titel: 'Anfang → Ende (AE)' },
 ];
 export interface Abschnitt { dauer: number; pause: number }   // pause: Arbeitstage vor diesem Abschnitt (beim ersten 0)
-export interface Eingang { id: string; ebene: number; dauer: number; abschnitte?: Abschnitt[] | null; anfangNichtVor?: string | null }
+export interface Eingang { id: string; ebene: number; dauer: number; abschnitte?: Abschnitt[] | null; anfangNichtVor?: string | null; ueberzug?: number }
 export interface Verbindung { id: string; von: string; nach: string; art: Art; abstand: number; vonAbschnitt?: number | null; nachAbschnitt?: number | null }
 export interface Termin {
   s: number; f: number;               // Arbeitstage
   anfang: string; ende: string;       // Datum (ISO), Ende = letzter Arbeitstag
   gruppe: boolean; kritisch: boolean; puffer: number;
   abschnitte: { s: number; f: number }[];
+  ueberzug: number;                   // so viele Arbeitstage später fertig als geplant (am Ende des letzten Abschnitts)
   nr: number; eltern: string | null;
 }
 export interface Ergebnis { termine: Map<string, Termin>; ende: number; endeDatum: string; zyklen: string[] }
@@ -60,6 +61,9 @@ export function rechnen(vorgaenge: Eingang[], verbindungen: Verbindung[], k: Kal
   const abschn = vorgaenge.map((v, i) => (gruppe[i] ? null : v.abschnitte && v.abschnitte.length > 1 ? v.abschnitte : null));
   const dauer = vorgaenge.map((v, i) => (abschn[i] ? abschn[i]!.reduce((s, x) => s + x.dauer, 0) : Math.max(0, Math.round(Number(v.dauer) || 0))));
   const vs = vorgaenge.map((_, i) => versatz(abschn[i]!, dauer[i]!));
+  // später fertig als geplant: verlängert den letzten Abschnitt, Nachfolger rücken mit (nicht bei Gruppen und Meilensteinen)
+  const ue = vorgaenge.map((v, i) => (gruppe[i] || !dauer[i] ? 0 : Math.max(0, Math.round(Number(v.ueberzug) || 0))));
+  vs.forEach((x, i) => { if (ue[i]) x[x.length - 1]!.e += ue[i]!; });
   const spanne = vs.map((x) => x[x.length - 1]!.e);
 
   // Bedingungen zwischen Blättern: nach.s ≥ von.s + c
@@ -124,7 +128,7 @@ export function rechnen(vorgaenge: Eingang[], verbindungen: Verbindung[], k: Kal
     termine.set(v.id, {
       s: sG[i]!, f: fG[i]!, anfang: k.anfangsdatum(sG[i]!), ende: k.endedatum(sG[i]!, fG[i]!),
       gruppe: gruppe[i]!, kritisch: !gruppe[i] && puffer <= 0, puffer,
-      abschnitte: gruppe[i] ? [{ s: sG[i]!, f: fG[i]! }] : vs[i]!.map((x) => ({ s: s[i]! + x.a, f: s[i]! + x.e })),
+      abschnitte: gruppe[i] ? [{ s: sG[i]!, f: fG[i]! }] : vs[i]!.map((x) => ({ s: s[i]! + x.a, f: s[i]! + x.e })), ueberzug: ue[i]!,
       nr: i + 1, eltern: eltern[i] === null ? null : vorgaenge[eltern[i]!]!.id,
     });
   });

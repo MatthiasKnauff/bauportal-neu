@@ -490,6 +490,8 @@ const ANPASSUNG: Record<string, Anpassung> = {
   },
   aufbau: { kartenZusatz: (z) => <AufbauSchichten aufbau={z} /> },
   nachricht: { kartenZusatz: (z) => <NachrichtAnhaenge nachricht={z} /> },
+  // Fehler & Fragen: das Bildschirmfoto der Meldung (verkleinert, nur für den Bereich „System“)
+  meldung: { kartenZusatz: (z) => <Show when={z.werte.bild === true}><img class="meldung-bild" src={`/api/meldung/${z.id}/bild`} alt="Bildschirmfoto zur Meldung" /></Show> },
   // Ausschreibung: Summen in den Karten
   lv: { kartenOben: (z) => <LvUeberblick lv={z} />, kartenEinschub: { vergabenummer: (z) => <VergabenummerVorschlag lv={z} /> } },
   lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), kartenEinschub: { ep: (z) => <ZuschlagAuf pos={z} />, mengen_rechenweg: (z) => <MengeAusRechenweg pos={z} />, langtext: (z) => <PositionBilder pos={z} /> }, neuVorgabe: (vorh, schon) => {

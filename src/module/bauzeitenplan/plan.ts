@@ -32,7 +32,7 @@ export function planAus(e: { vorgaenge: Eintrag[]; links: Eintrag[]; zeitplan?: 
   const farben = gewerkFarbenAus(e.zeitplan);
   const reihe = [...e.vorgaenge].sort((a, b) => Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0));
   const links = e.links.map((l) => ({ id: l.id, von: String(l.werte.von), nach: String(l.werte.nach), art: (l.werte.art || 'ea') as Art, abstand: Number(l.werte.abstand ?? 0), vonAbschnitt: l.werte.von_abschnitt as number | null, nachAbschnitt: l.werte.nach_abschnitt as number | null }));
-  const erg = rechnen(reihe.map((v) => ({ id: v.id, ebene: Number(v.werte.ebene ?? 0), dauer: Number(v.werte.dauer ?? 0), abschnitte: abschnitteLesen(v.werte.unterbrechung as string), anfangNichtVor: (v.werte.anfang_nicht_vor as string | null) ?? null })), links, kal);
+  const erg = rechnen(reihe.map((v) => ({ id: v.id, ebene: Number(v.werte.ebene ?? 0), dauer: Number(v.werte.dauer ?? 0), abschnitte: abschnitteLesen(v.werte.unterbrechung as string), anfangNichtVor: (v.werte.anfang_nicht_vor as string | null) ?? null, ueberzug: Number(v.werte.ueberzug ?? 0) })), links, kal);
   const nr = (id: string) => erg.termine.get(id)?.nr ?? 0;
   const zeilen: Druckzeile[] = reihe.map((v) => ({
     id: v.id, nr: nr(v.id), name: String(v.werte.name ?? ''), ebene: Number(v.werte.ebene ?? 0), termin: erg.termine.get(v.id)!,

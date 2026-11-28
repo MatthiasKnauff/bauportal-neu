@@ -62,6 +62,10 @@ test('Terminrechnung: Arten, Abstände, Gruppen, Unterbrechung, kritischer Weg, 
   const z = rechnen(v, [...l, { id: 'zurueck', von: 'elektro', nach: 'mauern', art: 'ea', abstand: 0 }], k);
   assert.equal(z.zyklen.length, 1, 'Zirkelbezug erkannt, die Rechnung läuft trotzdem');
   assert.equal(rechnen(v, [...l, { id: 'eigen', von: 'rohbau', nach: 'mauern', art: 'ea', abstand: 0 }], k).zyklen.length, 0, 'Gruppe → eigener Teil ist kein Zirkelbezug');
+  // später fertig als geplant: Mauern 3 AT länger – Decke rückt nach, der Überzug steht am Ende
+  const u = rechnen(v.map((x) => (x.id === 'mauern' ? { ...x, ueberzug: 3 } : x)), l, k);
+  assert.deepEqual([u.termine.get('mauern')!.f, u.termine.get('mauern')!.ueberzug, u.termine.get('decke')!.s], [13, 3, 13]);
+  assert.equal(rechnen(v.map((x) => (x.id === 'start' ? { ...x, ueberzug: 3 } : x)), l, k).termine.get('start')!.ueberzug, 0, 'Meilenstein: kein Überzug');
 });
 
 test('Bearbeiten: einfügen in die Kette, löschen überbrückt, Vorgänger, gliedern, verschieben', async () => {
@@ -166,4 +170,19 @@ test('Planungsassistent: Empfehlung, Bauweise, Überbrücken, Dauern aus Mengen,
   assert.ok(p.zeilen.some((z) => z.werte.name === 'Wohnung 3 fertiggestellt'));
   const hat = (von: string, nach: string) => p.links.some((l) => l.von === `assistent:${von}` && l.nach === `assistent:${nach}`);
   assert.ok(hat('maler@0', 'maler@1') && !hat('estr_tr@0', 'estr_tr@1') && hat('mauer@-1', 'estrich@2'));
+});
+
+test('Löschen: Dauer auf die Hauptleistung umlegen (gleiches Gewerk in der Gruppe, sonst Vorgänger)', async () => {
+  const { umlegenVorschlag, umlegen } = await import('../src/module/bauzeitenplan/bearbeiten');
+  const v = [
+    { id: 'g', reihe: 1, ebene: 0, dauer: 0 },
+    { id: 'a', reihe: 2, ebene: 1, dauer: 5, gewerk: 'Maler' },
+    { id: 'b', reihe: 3, ebene: 1, dauer: 2, gewerk: 'Maler' },
+    { id: 'c', reihe: 4, ebene: 1, dauer: 3, gewerk: 'Fliesen', unterbrechung: '1+(2)+2' },
+    { id: 'd', reihe: 5, ebene: 1, dauer: 1, gewerk: 'Elektro' },
+  ];
+  const l = [{ id: 'l1', von: 'c', nach: 'd', art: 'ea' as const, abstand: 0 }];
+  assert.deepEqual(umlegenVorschlag(v, l, ['b', 'd']), [{ id: 'b', dauer: 2, ziel: 'a' }, { id: 'd', dauer: 1, ziel: 'c' }]);
+  assert.deepEqual(umlegen(v, [{ dauer: 2, ziel: 'a' }, { dauer: 1, ziel: 'c' }, { dauer: 4, ziel: null }]).map((b) => b.werte),
+    [{ dauer: 7 }, { unterbrechung: '1+(2)+3', dauer: 4 }]);
 });

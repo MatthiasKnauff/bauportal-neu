@@ -49,6 +49,11 @@ export const vorgang: ObjektModell = {
     { name: 'anfang_nicht_vor', titel: 'Anfang nicht früher als', art: 'datum', gruppe: 'Termine' },
     { name: 'unterbrechung', titel: 'Abschnitte (z. B. 3+(2)+4: 3 Tage, 2 Tage Pause, 4 Tage)', art: 'text', gruppe: 'Termine' },
     { name: 'fortschritt', titel: '% abgeschlossen', art: 'zahl', inListe: true, breite: 80, gruppe: 'Termine' },
+    // Zeit und Stand wie bisher: fertig später als geplant, mit Grund (Auswahl oder eigener Text)
+    { name: 'ueberzug', titel: 'Später fertig um … Arbeitstage', art: 'zahl', gruppe: 'Termine' },
+    { name: 'ueberzug_grund', titel: 'Grund', art: 'auswahl', eigeneWerte: true, alsListe: true, gruppe: 'Termine', optionen: [
+      { wert: '', titel: '–' }, { wert: 'leistung', titel: 'liegt an der Leistung' }, { wert: 'wetter', titel: 'Wetter' },
+      { wert: 'firma', titel: 'Firma kam nicht / zu wenig Leute' }, { wert: 'bauherr', titel: 'Bauherrschaft / Änderungen' }, { wert: 'anders', titel: 'anderes' }] },
     { name: 'gewerk', titel: 'Gewerk', art: 'text', inListe: true, breite: 150, gruppe: 'Ausführung', vorschlagen: true },
     { name: 'vob', spalte: true, titel: 'Gewerk nach VOB/C', art: 'verweis', ziel: 'gewerk', gruppe: 'Ausführung' },
     { name: 'unternehmer', titel: 'Unternehmer', art: 'text', gruppe: 'Ausführung', vorschlagen: true },

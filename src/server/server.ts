@@ -5,6 +5,7 @@ import { rollenregelnAnmelden } from './bereich';
 import { randomUUID } from 'node:crypto';
 import { KONTO_FELDER } from '../module/verwaltung/beipackzettel';
 import { logoRouten } from './logo';
+import { meldungRouten, meldungsregelnAnmelden } from './meldung';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import statisch from '@fastify/static';
@@ -82,6 +83,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   erinnerungsregelnAnmelden();
   postfachregelnAnmelden();
   rollenregelnAnmelden();
+  meldungsregelnAnmelden();
 
   // ---------- Live-Strom: neue Befehle gehen an alle verbundenen Geräte ----------
   interface Geraet { r: ServerResponse; wer: anm.Benutzer; pos: number }
@@ -238,6 +240,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   ifcRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
   netzRouten(app, { db, nurAngemeldet });
   logoRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
+  meldungRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
   avaRouten(app, { db, register, nurAngemeldet });
   assistentRouten(app, { db, register, nurAngemeldet });
   druckRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });

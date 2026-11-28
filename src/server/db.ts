@@ -173,6 +173,7 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
       create table if not exists kern_altbild (datei text primary key, bericht text not null, beschriftung text not null default '', reihe int not null default 0, foto uuid);
       create table if not exists kern_vorschau (id uuid primary key, bild bytea not null, erstellt timestamptz not null default now());
       create table if not exists kern_logo (id int primary key, bild bytea not null, geaendert timestamptz not null default now());
+      create table if not exists kern_meldung_bild (id uuid primary key, bild bytea not null);
       create table if not exists kern_schrift (familie text primary key, css text not null, geholt timestamptz not null default now());
       create table if not exists kern_schriftdatei (id uuid primary key, familie text not null, daten bytea not null);
       create table if not exists kern_kennwort (benutzer_id uuid primary key, kennwort text not null, geaendert timestamptz not null default now());

@@ -8,12 +8,13 @@ import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onCle
 import { createStore } from 'solid-js/store';
 import { MERKER, Netzfehler, Serverfehler, darf, ich, istAdmin, merkeZustand, modell, ruf, setZustand, wartetLange, zustand, type Zustand } from './unterbau/api';
 import { abgelaufen, geraetLeeren, lage, letzteSchritte, rueckgaengig, rueckgaengigBis, sicht, starte, verlauf, wartendAnzahl, wiederholen } from './unterbau/abgleich';
+import { MeldenFenster, meineFragen } from './melden';
 import { WasIstNeu, neuFuerMich } from './wasistneu';
 import { Scheinwerfer, type Schritt } from './baukasten/scheinwerfer';
 import { Verlauf } from './baukasten/verlauf';
 import { WerDarfHier } from './rechte';
 import { AnsichtZeigen, FENSTER, HANDY_APPS, KarteImFensterZeigen, karteVon, kartenZusatz, sichtbar } from './ansichten';
-import { Kontextmenue } from './baukasten/kontextmenue';
+import { Kontextmenue, type Menuepunkt } from './baukasten/kontextmenue';
 import { Detailkarte } from './baukasten/detailkarte';
 import { Abfolgeleiste } from './baukasten/abfolgeleiste';
 import { Kopfleiste } from './baukasten/kopfleiste';
@@ -217,6 +218,18 @@ function Portal() {
   const [hilfe, setHilfe] = createSignal(false);
   // Was ist neu (wie bisher): nach dem Anmelden einmal von selbst, wenn es für dich Neues gibt – sonst über „?“ und das Benutzermenü
   const [wasNeu, setWasNeu] = createSignal(false);
+  // „?“ wie bisher als Menü: Hilfe zu dieser App · Was ist neu · Frage stellen · Erkenntnis fürs Wiki · Fehler melden
+  const [melden, setMelden] = createSignal<'fehler' | 'frage' | null>(null);
+  const [antworten, setAntworten] = createSignal(0);
+  const antwortenZaehlen = () => { void meineFragen().then((l) => setAntworten(l.filter((f) => f.antwort && !f.gelesen).length)).catch(() => undefined); };
+  onMount(antwortenZaehlen);
+  const hilfeMenue = (): Menuepunkt[] => [
+    { zeichen: '📖', titel: 'Hilfe zu dieser App', tun: () => setHilfe(true) },
+    { zeichen: '✨', titel: 'Was ist neu', hinweis: neuAnzahl() ? `${neuAnzahl()} neu für dich` : undefined, tun: () => setWasNeu(true) },
+    { zeichen: '💬', titel: 'Frage stellen', hinweis: antworten() ? `${antworten()} ${antworten() === 1 ? 'Antwort' : 'Antworten'}` : 'Nachricht mit Foto ans Büro', tun: () => setMelden('frage') },
+    { zeichen: '💡', titel: 'Erkenntnis fürs Wiki', hinweis: 'kommt mit der Wiki-App', gesperrt: true },
+    { zeichen: '🐞', titel: 'Fehler melden', hinweis: 'kurz beschreiben, gern mit Bildschirmfoto', tun: () => setMelden('fehler') },
+  ];
   const [rundgang, setRundgang] = createSignal<Schritt[] | null>(null);
   const [aeltere, setAeltere] = createSignal<string | null>(null);   // Rückgängig ▾ → „Ältere Stände …“ der Objektart der Ansicht
   const appIds = () => module().map((m) => m.modul.id);
@@ -301,10 +314,10 @@ function Portal() {
       <Kopfleiste marke="Bauportal" aktuell={modul()?.modul.name} onStart={() => { setModulId(''); setAnsichtId(''); }}
         status={{ text: status(), art: lage() === 'getrennt' ? 'getrennt' : wartendAnzahl() > 0 ? 'wartet' : 'gut' }}
         projekt={<Show when={projekte().length || darf('projekt', 'schreiben')}><Projektwahl kartenZusatz={kartenZusatz('projekt')} /></Show>}
-        onSuche={() => setSuche(true)} onHilfe={() => setHilfe(true)} hilfeNeu={neuAnzahl()}
+        onSuche={() => setSuche(true)} hilfe={hilfeMenue} hilfeNeu={neuAnzahl() + antworten()}
         apps={module().map((m) => ({ id: m.modul.id, titel: m.modul.name, zeichen: m.modul.zeichen }))} projektName={projektId() && sicht.projekt?.[projektId()!] ? String(sicht.projekt[projektId()!]!.werte.name ?? '') : ''} onApp={(id) => oeffne(id)}
         benutzer={ich().name} menueFuss={`${String(sicht.rolle?.[ich().rolle]?.werte.titel ?? '')} · Version ${z().version}`}
-        benutzerMenue={[{ titel: 'Hilfe zu dieser Seite', tun: () => setHilfe(true) }, { titel: neuAnzahl() ? `Was ist neu · ${neuAnzahl()} neu für dich` : 'Was ist neu', tun: () => setWasNeu(true) }, { titel: 'Mein Konto · Kennwort …', tun: () => oeffne('verwaltung', 'konto') }, { titel: 'Darstellung …', tun: () => oeffne('verwaltung', 'darstellung') }, { titel: 'Abmelden', tun: abmelden }]} />
+        benutzerMenue={[{ titel: 'Mein Konto · Kennwort …', tun: () => oeffne('verwaltung', 'konto') }, { titel: 'Darstellung …', tun: () => oeffne('verwaltung', 'darstellung') }, { titel: 'Abmelden', tun: abmelden }]} />
       <main>
         {/* Schlüssel ist der Name der Ansicht: sie bleibt stehen (Auswahl, Suche), auch wenn sich Rechte oder Zustand ändern. */}
         <AppUmgebung.Provider value={{ reiter: () => modul()?.ansichten.filter((a) => a.imMenue !== false || a.id === ansicht()?.id).map((a) => ({ id: a.id, titel: a.titel, abschnitt: a.abschnitt, zeichen: a.zeichen, abgesetzt: !!a.abschnitt && !!modul()?.modul.abgesetzt?.includes(a.abschnitt) })) ?? [], aktiv: () => ansicht()?.id ?? '', onReiter: ansichtWaehlen,
@@ -339,6 +352,9 @@ function Portal() {
           : <button classList={{ an: k === 'start' ? !modulId() : modulId() === k }} onClick={() => (k === 'suche' ? setSuche(true) : oeffne(k === 'start' ? '' : k))}><Symbol name={k} />{platzTitel(k)}</button>)}</For>
       </nav>
       <Show when={suche()}><Suche onTreffer={springe} onZu={() => setSuche(false)} seiten={seiten()} onSeite={zurSeite} /></Show>
+      <Show when={melden()}>{(art) => <MeldenFenster art={art()} app={modul()?.modul.name ?? ''} version={z().version}
+        projekt={projektId() && sicht.projekt?.[projektId()!] ? [sicht.projekt[projektId()!]!.werte.nummer, sicht.projekt[projektId()!]!.werte.name].filter(Boolean).join(' ') : ''}
+        onZu={() => { setMelden(null); antwortenZaehlen(); }} onGelesen={antwortenZaehlen} />}</Show>
       <Show when={hilfe()}><Hilfe modul={modul()?.modul} ansicht={ansicht()} onZu={() => setHilfe(false)} neu={neuAnzahl()} onWasNeu={() => { setHilfe(false); setWasNeu(true); }} /></Show>
       <Show when={wasNeu()}><WasIstNeu apps={appIds()} onZu={() => setWasNeu(false)} onZeigen={(n, alle) => {
         // Rundgang (wie bisher): in die App, dann Schritt für Schritt durch ihre Neuigkeiten – ab der gewählten, neueste zuerst

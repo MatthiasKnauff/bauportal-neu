@@ -20,11 +20,13 @@ import { abschnitteLesen, abschnitteSchreiben, type Art, type Termin } from '../
 import { balkenFarbe, gewerkFarbenAus, naechsterMontag as montag, planAus } from '../module/bauzeitenplan/plan';
 import { dauerLesen, vorgaengerLesen, vorgaengerSchreiben } from '../module/bauzeitenplan/schreibweise';
 import { masterNachziehen } from '../module/bauzeitenplan/master';
-import { teilAendern, ablageAus, gruppeUm, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
+import { umlegen, umlegenVorschlag, teilAendern, ablageAus, gruppeUm, unterbrechen as unterbrechenAm, ueberfluessigeLinks, ablageEinfuegen, bloeckeVon, block, type GV, einfuegen, gliedern, loeschen, verschiebenAlle, verschiebenNach, vorgaengerSetzen, type Ablage, type L, type VM, type Vorlage } from '../module/bauzeitenplan/bearbeiten';
 import { DuplizierenFenster } from './duplizieren';
 import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
-import { darf, neueKennung, ruf } from './unterbau/api';
+import { Dialog } from './baukasten/dialog';
+import { Auswahlliste } from './baukasten/auswahlliste';
+import { darf, modell, neueKennung, ruf } from './unterbau/api';
 import type { Mitte } from './baukasten/anpassung';
 import { hinweis } from './unterbau/meldungen';
 import { zeigeMenue } from './baukasten/kontextmenue';
@@ -432,10 +434,19 @@ export function Balkenplan(p: Mitte) {
     const id = markiert(); const weg = links().filter((l) => l.werte.von === id || l.werte.nach === id);
     if (weg.length) ausfuehrenMehrere(weg.map((l) => ({ objekt: 'verknuepfung', art: 'loeschen' as const, objektId: l.id })), 'Verknüpfungen lösen');
   };
-  const entfernen = (ids = gewaehlt()) => {
+  // Löschen wie bisher mit Rückfrage: Gesamtzeit verkürzen oder die Dauer auf eine Hauptleistung umlegen (abschaltbar, je Gerät gemerkt)
+  const [loeschFragen, setLoeschFragen] = createSignal<boolean>(holen('bzp.loeschfragen', true));
+  createEffect(() => merken('bzp.loeschfragen', loeschFragen()));
+  const UV = () => vorgaenge().map((v) => ({ id: v.id, reihe: Number(v.werte.reihe ?? 0), ebene: Number(v.werte.ebene ?? 0), dauer: Number(v.werte.dauer ?? 0), gewerk: String(v.werte.gewerk ?? ''), unterbrechung: (v.werte.unterbrechung as string | null) ?? null }));
+  const [umlegeFrage, setUmlegeFrage] = createSignal<{ ids: string[]; posten: { id: string; dauer: number; ziel: string | null }[] } | null>(null);
+  const entfernen = (ids = gewaehlt(), zuordnung?: { dauer: number; ziel: string | null }[]) => {
     if (!ids.length || !darf('vorgang', 'loeschen')) return;
+    if (!zuordnung && loeschFragen()) {
+      const posten = umlegenVorschlag(UV(), L_(), ids);
+      if (posten.some((x) => x.ziel)) { setUmlegeFrage({ ids, posten }); return; }
+    }
     const i = zeileIndex(), name = ids.length === 1 ? `„${String(vorgaenge().find((v) => v.id === ids[0])?.werte.name ?? '')}“` : anzahlText(ids.length);
-    tun(loeschen(V_(), L_(), ids, zu(), neueKennung, autom()), `${name} löschen`);
+    tun([...(zuordnung ? umlegen(UV(), zuordnung) : []), ...loeschen(V_(), L_(), ids, zu(), neueKennung, autom())], `${name} löschen`);
     queueMicrotask(() => waehle(i));
   };
   // Aufklappen öffnet nur die nächste Stufe: Untergruppen der aufgeklappten Gruppe bleiben zu
@@ -656,8 +667,12 @@ export function Balkenplan(p: Mitte) {
         { titel: 'Kopieren', tun: kopieren },
         ...(darf('vorgang', 'loeschen') ? [{ titel: 'Ausschneiden', tun: ausschneiden }] : []),
         { titel: 'Einfügen darunter', gesperrt: !ablage(), tun: ablageEinfuegenHier },
-        { titel: 'Hier unterbrechen …', gesperrt: erg().termine.get(v.id)!.gruppe || Number(v.werte.dauer ?? 0) < 2, tun: () => teilenAn(e, v) },
-        { titel: 'Anfang wieder automatisch', gesperrt: !v.werte.anfang_nicht_vor, tun: () => ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { anfang_nicht_vor: null } }, 'Anfang wieder automatisch') },
+        { titel: 'Duplizieren …', tun: duplizieren },
+        // wie bisher höchstens 9 Punkte: Unterbrechen und Entfernen teilen sich einen Platz, „Anfang wieder automatisch“ nur, wenn er fest ist
+        abschnitteLesen(v.werte.unterbrechung as string)
+          ? { titel: 'Unterbrechungen entfernen', tun: () => { const ab = abschnitteLesen(v.werte.unterbrechung as string)!; ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { unterbrechung: '', dauer: ab.reduce((x, a) => x + a.dauer, 0) } }, `Unterbrechungen von „${String(v.werte.name ?? '')}“ entfernen`); } }
+          : { titel: 'Hier unterbrechen …', gesperrt: erg().termine.get(v.id)!.gruppe || Number(v.werte.dauer ?? 0) < 2, tun: () => teilenAn(e, v) },
+        ...(v.werte.anfang_nicht_vor ? [{ titel: 'Anfang wieder automatisch', tun: () => ausfuehren({ objekt: 'vorgang', art: 'aendern', objektId: v.id, werte: { anfang_nicht_vor: null } }, 'Anfang wieder automatisch') }] : []),
       ] : []),
       ...(darf('vorgang', 'loeschen') ? [{ titel: 'Löschen', gefahr: true, tun: () => entfernen([v.id]) }] : []),
     ]);
@@ -685,6 +700,7 @@ export function Balkenplan(p: Mitte) {
     return l;
   });
   const heute = () => (tagAus(new Date().toLocaleDateString('sv')) - achse().t0) * px();
+  const grundText = (g: unknown) => { const o = modell('vorgang').felder.find((f) => f.name === 'ueberzug_grund')?.optionen?.find((x) => x.wert === g); return g ? (o?.titel ?? String(g)) : ''; };
 
 
   return (
@@ -710,6 +726,7 @@ export function Balkenplan(p: Mitte) {
           </div>
           <svg class="bzp-balken" width={breiteR()} height={flaechenZeilen() * H} style={{ left: `${breiteT()}px`, top: `${KOPF}px` }}
             onPointerDown={aufziehen} onPointerMove={bewegen} onPointerUp={loslassen}>
+            <defs><pattern id="bzp-schraffur" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--gefahr-hell)" /><line x1="0" y1="0" x2="0" y2="6" stroke="var(--gefahr)" stroke-width="2" /></pattern></defs>
             <For each={freieTage()}>{(f) => <rect x={f.x} y={0} width={px()} height="100%" class={f.feiertag ? 'bzp-feiertag' : 'bzp-wochenende'}>{f.feiertag ? <title>{f.feiertag}</title> : null}</rect>}</For>
             <For each={sichtbar()}>{(v, i) => <rect x={0} y={i() * H} width="100%" height={H} class="bzp-streifen" classList={{ gewaehlt: v.id === markiert() || istGewaehlt(v.id) }} />}</For>
             <line x1={heute()} x2={heute()} y1={0} y2="100%" class="bzp-heute" />
@@ -741,6 +758,10 @@ export function Balkenplan(p: Mitte) {
                         )}</For>
                         <Show when={vgl()?.je.get(v.id)?.soll}>{(so) => (
                           <rect x={(tagAus(so().anfang) - achse().t0) * px()} y={y() + 23} height={4} rx={2} width={Math.max(2, (tagAus(so().ende) + 1 - tagAus(so().anfang)) * px())} class="bzp-soll"><title>{`Soll: ${kurz(so().anfang)} – ${kurz(so().ende)}`}</title></rect>)}</Show>
+                        <Show when={tt().ueberzug > 0}>{(_) => { const la = () => tt().abschnitte[tt().abschnitte.length - 1]!; return (
+                          // später fertig als geplant: das Stück am Ende schraffiert (wie bisher), mit Grund als Hinweis
+                          <rect x={xEnde(la().s, la().f - tt().ueberzug) + verschiebung(v.id)} y={y() + 6} height={18} width={Math.max(2, xEnde(la().s, la().f) - xEnde(la().s, la().f - tt().ueberzug))} class="bzp-ueberzug">
+                            <title>{`Fertig ${tt().ueberzug} AT später als geplant${grundText(v.werte.ueberzug_grund) ? ` – ${grundText(v.werte.ueberzug_grund)}` : ''}`}</title></rect>); }}</Show>
                         <Show when={Number(v.werte.fortschritt ?? 0) > 0}>
                           <rect x={x(tt().s) + verschiebung(v.id)} y={y() + 13} height={4} width={(xEnde(tt().s, tt().f) - x(tt().s)) * Math.min(100, Number(v.werte.fortschritt)) / 100} class="bzp-fortschritt" />
                         </Show>
@@ -831,6 +852,8 @@ export function Balkenplan(p: Mitte) {
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
+      <Show when={umlegeFrage()}>{(f) => <UmlegenFenster posten={f().posten} vorgaenge={vorgaenge()} gesperrt={new Set(f().ids)} fragen={loeschFragen()} onFragen={setLoeschFragen}
+        onZu={() => setUmlegeFrage(null)} onLos={(z) => { setUmlegeFrage(null); entfernen(f().ids, z); }} />}</Show>
       <Show when={dupl()}>{(ids) => <DuplizierenFenster v={V_()} l={L_()} ids={ids()} vorgaenge={vorgaenge()} links={links()} plan={plan()} probe={probe} werteVon={werteVon} zu={zu()} neu={neueKennung}
         onZu={() => setDupl(null)} onFertig={(b, tops, t) => { tun(b, t); setDupl(null); wahl.mehrere(tops); }} />}</Show>
       <Show when={sollFenster() === 'fest'}><SollFesthalten bisher={sollJetzt()} zusammenhang={zu()} ist={istZeilen} onZu={() => setSollFenster(null)} /></Show>
@@ -846,4 +869,31 @@ function kw(t: number): number {
   const d = t + 3 - wochentag(t);   // Donnerstag derselben Woche
   const j = Number(isoAus(d).slice(0, 4));
   return 1 + Math.floor((d - tagAus(`${j}-01-01`)) / 7);
+}
+
+/** Rückfrage beim Löschen (wie bisher): je gelöschter Leistung mit Dauer das Ziel, auf das ihre Dauer umgelegt wird – oder „entfällt“. */
+function UmlegenFenster(p: { posten: { id: string; dauer: number; ziel: string | null }[]; vorgaenge: Zeile[]; gesperrt: Set<string>; fragen: boolean; onFragen: (an: boolean) => void;
+  onZu: () => void; onLos: (z: { dauer: number; ziel: string | null }[]) => void }) {
+  const [ziele, setZiele] = createSignal(p.posten.map((x) => x.ziel ?? ''));
+  const name = (id: string) => String(p.vorgaenge.find((v) => v.id === id)?.werte.name ?? '');
+  // wählbar: Leistungen mit Dauer, die bleiben (keine Gruppen)
+  const optionen = () => [{ wert: '', titel: '– entfällt –' }, ...p.vorgaenge.filter((v, i) => !p.gesperrt.has(v.id) && Number(v.werte.dauer ?? 0) > 0
+    && !(i + 1 < p.vorgaenge.length && Number(p.vorgaenge[i + 1]!.werte.ebene ?? 0) > Number(v.werte.ebene ?? 0))).map((v) => ({ wert: v.id, titel: String(v.werte.name ?? '') }))];
+  const summe = () => p.posten.reduce((a, x) => a + x.dauer, 0);
+  return (
+    <Dialog titel="Leistungen löschen" breite={700} onAbbrechen={p.onZu}
+      knoepfe={<><button class="knopf" onClick={p.onZu}>Abbrechen</button>
+        <span class="knopf-paar"><button class="knopf" onClick={() => p.onLos([])}>Gesamtzeit verkürzen</button>
+        <button class="knopf haupt" onClick={() => p.onLos(p.posten.map((x, i) => ({ dauer: x.dauer, ziel: ziele()[i] || null })))}>Dauer umlegen</button></span></>}>
+      <p>{p.posten.length === 1 ? 'Die Leistung wird' : `${p.posten.length} Leistungen werden`} gelöscht – zusammen <b>{summe()} T</b> Arbeit. Soll sich die Gesamtzeit verkürzen oder wird die Dauer auf die Hauptleistung umgelegt?</p>
+      <table class="einlesen-tabelle">
+        <thead><tr><th>Gelöschte Leistung</th><th style={{ width: '80px' }}>Dauer</th><th>Dauer umlegen auf</th></tr></thead>
+        <tbody><For each={p.posten}>{(x, i) => (
+          <tr><td>{name(x.id)}</td><td>{x.dauer} T</td>
+            <td><Auswahlliste titel={`${name(x.id)}: Dauer umlegen auf`} wert={ziele()[i()] ?? ''} optionen={optionen()} onWert={(w: string) => setZiele(ziele().map((z, k) => (k === i() ? w : z)))} /></td></tr>
+        )}</For></tbody>
+      </table>
+      <label class="haken-zeile"><input type="checkbox" checked={!p.fragen} onChange={(e) => p.onFragen(!e.currentTarget.checked)} /> nicht mehr fragen (immer verkürzen) – wieder einschalten unter „Darstellung“</label>
+    </Dialog>
+  );
 }

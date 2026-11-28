@@ -195,6 +195,32 @@ export const nachricht: ObjektModell = {
   ],
 };
 
+// Fehler melden und Frage stellen (wie bisher am „?“): jede:r darf melden – angelegt vom Server (/api/meldung), lesen und
+// antworten nur, wer den Bereich „System“ sieht. Das Bildschirmfoto liegt verkleinert in kern_meldung_bild, nicht hier.
+export const MELDUNG_STAENDE = [{ wert: 'neu', titel: 'neu' }, { wert: 'in_arbeit', titel: 'in Arbeit' }, { wert: 'beantwortet', titel: 'beantwortet' }, { wert: 'erledigt', titel: 'erledigt' }];
+export const meldung: ObjektModell = {
+  name: 'meldung',
+  titel: 'Meldung',
+  titelMehrzahl: 'Fehler & Fragen',
+  anzeigeFeld: 'kurz',
+  sortierFeld: 'zeit',
+  rechte: { lesen: [], schreiben: [], loeschen: [] },
+  felder: [
+    { name: 'art', titel: 'Art', art: 'auswahl', inListe: true, breite: 110, kartenBreite: 2, gruppe: 'Meldung', optionen: [{ wert: 'fehler', titel: 'Fehler' }, { wert: 'frage', titel: 'Frage' }] },
+    { name: 'kurz', titel: 'Kurz', art: 'text', inListe: true, breite: 320, gruppe: 'Meldung' },
+    { name: 'text', titel: 'Beschreibung', art: 'langtext', gruppe: 'Meldung' },
+    { name: 'stand', titel: 'Stand', art: 'auswahl', optionen: MELDUNG_STAENDE, inListe: true, breite: 120, kartenBreite: 2, gruppe: 'Meldung' },
+    { name: 'antwort', titel: 'Antwort (sieht, wer gefragt hat)', art: 'langtext', gruppe: 'Antwort' },
+    { name: 'von', titel: 'Von', art: 'verweis', ziel: 'benutzer', inListe: true, breite: 160, gruppe: 'Herkunft' },
+    { name: 'zeit', titel: 'Gemeldet am', art: 'text', inListe: true, breite: 150, gruppe: 'Herkunft' },
+    { name: 'app', titel: 'App', art: 'text', inListe: true, breite: 140, gruppe: 'Herkunft' },
+    { name: 'projekt', titel: 'Projekt', art: 'text', spalte: true, breite: 180, gruppe: 'Herkunft' },
+    { name: 'kontext', titel: 'Automatisch mitgeschickt', art: 'langtext', gruppe: 'Herkunft' },
+    { name: 'bild', titel: 'Bildschirmfoto', art: 'ja_nein', verborgen: true },
+    { name: 'gelesen', titel: 'Antwort gelesen', art: 'ja_nein', verborgen: true },
+  ],
+};
+
 // Was das Büro an einem Ausdruck eingestellt hat – je Stelle ein Eintrag (Druckwerk, kern/druck.ts).
 export const druckeinstellung: ObjektModell = {
   name: 'druckeinstellung',
@@ -312,7 +338,7 @@ export const verwaltung: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',
   braucht: [],
-  objekte: [rolle, benutzer, recht, buero, ablage, mailserver, postfach, nachricht, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
+  objekte: [rolle, benutzer, recht, buero, ablage, mailserver, postfach, nachricht, meldung, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
   abgesetzt: ['Für mich'],   // wie im bisherigen Bauportal: „Für mich – <Name>“ farbig abgesetzt
   // Bereiche der Verwaltung (wie bisher je Rolle „– · sehen · ändern“, Entscheidung 28.11.2026); ab Werk nur Administrator:innen
   bereiche: [
@@ -323,7 +349,7 @@ export const verwaltung: Beipackzettel = {
     { id: 'postausgang', titel: 'Postausgang', erklaerung: 'alle Mails des Bauportals ansehen', stufen: 2 },
     { id: 'ki', titel: 'KI', erklaerung: 'KI-Anbindungen an/aus, Modell, Kostendeckel – die Schlüssel setzt, wer „Zugänge“ hat', stufen: 3, objekte: ['ki_anbindung'] },
     { id: 'pruefung', titel: 'Prüfung', erklaerung: 'Ratschläge und Zugänge der Prüf-KI', stufen: 3, objekte: ['pruefrat', 'pruefzugang'] },
-    { id: 'system', titel: 'System', erklaerung: 'Updates, Aufbau, Übernahme aus dem alten Bauportal – ändern nur Administrator:innen', stufen: 2 },
+    { id: 'system', titel: 'System', erklaerung: 'Updates, Aufbau, Übernahme aus dem alten Bauportal, Fehler & Fragen – ändern nur Administrator:innen', stufen: 2, objekte: ['meldung'] },
     { id: 'zugaenge', titel: 'Zugänge: Schlüssel & Kennwörter', erklaerung: 'Kennwörter von Dateiserver und Mailserver, KI-Schlüssel neu setzen – den Wert sieht niemand', stufen: 1 },
   ],
   ansichten: [
@@ -340,6 +366,7 @@ export const verwaltung: Beipackzettel = {
     { id: 'ki', titel: 'KI', abschnitt: 'Einstellungen', zeichen: 'assistent', objekt: 'ki_anbindung', bereich: 'ki' },
     { id: 'ratschlaege', titel: 'Ratschläge', abschnitt: 'Prüfung', zeichen: 'liste_aufgaben', objekt: 'pruefrat', bereich: 'pruefung', baum: ['stand'] },
     { id: 'pruefki', titel: 'Prüf-KI', abschnitt: 'Prüfung', zeichen: 'pruefung', objekt: 'pruefzugang', bereich: 'pruefung' },
+    { id: 'meldungen', titel: 'Fehler & Fragen', abschnitt: 'System', zeichen: 'liste_aufgaben', objekt: 'meldung', baum: ['stand'], bereich: 'system', hilfe: 'Was über „?“ → „Fehler melden“ und „Frage stellen“ hereinkommt – mit Bildschirmfoto und den automatisch mitgeschickten Angaben. Eine Antwort sieht, wer gefragt hat.' },
     { id: 'updates', titel: 'Updates', abschnitt: 'System', zeichen: 'aktualisieren', bereich: 'system', hilfe: 'Kataloge einspielen und aktualisieren (Leistungen, Positionen, Gewerke, Baupreisindex) und der Stand des Programms.' },
     { id: 'aufbau', titel: 'Aufbau', abschnitt: 'System', zeichen: 'bausteine', bereich: 'system' },
     { id: 'uebernahme', titel: 'Übernahme', abschnitt: 'System', zeichen: 'import', bereich: 'system' },

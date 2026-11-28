@@ -461,3 +461,31 @@ export function teilAendern(ab: Abschnitt[], k: number, art: 'schieben' | 'anfan
   if (neu.some((a, i) => i > 0 && a.pause < 1)) return 'Die Teile dürfen sich nicht berühren – für eine durchgehende Leistung die Unterbrechung in der Karte entfernen.';
   return { abschnitte: neu, anfang };
 }
+
+/** Beim Löschen (wie bisher): Dauer der gelöschten Leistungen auf eine Hauptleistung umlegen statt die Gesamtzeit zu verkürzen.
+ *  Vorschlag je gelöschter Leistung mit Dauer: gleiches Gewerk in derselben Gruppe (die nächste Zeile), sonst ein Vorgänger in der Gruppe. */
+export interface UmlegeV extends V { dauer: number; gewerk?: string; unterbrechung?: string | null }
+export function umlegenVorschlag(v: UmlegeV[], l: L[], ids: string[]): { id: string; dauer: number; ziel: string | null }[] {
+  const weg = new Set<string>();
+  for (const id of ids) { const i = v.findIndex((x) => x.id === id); if (i >= 0) for (let k = i; k < block(v, i); k++) weg.add(v[k]!.id); }
+  const blatt = (j: number) => !istGruppe(v, j) && v[j]!.dauer > 0 && !weg.has(v[j]!.id);
+  return v.map((x, k) => ({ x, k })).filter(({ x, k }) => weg.has(x.id) && !istGruppe(v, k) && x.dauer > 0).map(({ x, k }) => {
+    let p = k - 1; while (p >= 0 && v[p]!.ebene >= x.ebene) p--;
+    const von = p + 1, bis = p >= 0 ? block(v, p) : v.length;
+    let ziel: number | null = null;
+    if (x.gewerk) for (let j = von; j < bis; j++) if (j !== k && blatt(j) && v[j]!.gewerk === x.gewerk && v[j]!.ebene === x.ebene && (ziel === null || Math.abs(j - k) < Math.abs(ziel - k))) ziel = j;
+    if (ziel === null) for (const vg of l.filter((y) => y.nach === x.id)) { const j = v.findIndex((y) => y.id === vg.von); if (j >= von && j < bis && blatt(j)) { ziel = j; break; } }
+    return { id: x.id, dauer: x.dauer, ziel: ziel === null ? null : v[ziel]!.id };
+  });
+}
+/** Die Dauer wirklich umlegen: je Ziel die Summe dazu (bei unterbrochenen Leistungen auf den letzten Abschnitt). */
+export function umlegen(v: UmlegeV[], zuordnung: { dauer: number; ziel: string | null }[]): Vorlage[] {
+  const plus = new Map<string, number>();
+  for (const z of zuordnung) if (z.ziel) plus.set(z.ziel, (plus.get(z.ziel) ?? 0) + z.dauer);
+  return [...plus].flatMap(([id, d]) => {
+    const t = v.find((x) => x.id === id); if (!t) return [];
+    const ab = abschnitteLesen(t.unterbrechung);
+    const werte: Record<string, Wert> = ab ? { unterbrechung: abschnitteSchreiben([...ab.slice(0, -1), { ...ab[ab.length - 1]!, dauer: ab[ab.length - 1]!.dauer + d }]), dauer: t.dauer + d } : { dauer: t.dauer + d };
+    return [{ objekt: 'vorgang', art: 'aendern' as const, objektId: id, werte }];
+  });
+}

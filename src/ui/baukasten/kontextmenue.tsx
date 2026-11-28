@@ -6,9 +6,16 @@ export interface Menuepunkt {
   titel: string; tun?: () => void; gefahr?: boolean; gesperrt?: boolean;
   an?: boolean;              // ✓ davor (z. B. die Art, die die Position schon hat)
   unter?: Menuepunkt[];      // Untermenü (▸): ersetzt das Menü an derselben Stelle – so bleibt jedes bei höchstens 9 Punkten
+  zeichen?: string;          // kleines Zeichen davor (z. B. im Hilfemenü wie bisher 📖 ✨ 💬)
+  hinweis?: string;          // leiser Zusatz hinter dem Titel (z. B. „neu für dich“)
 }
 const [menue, setMenue] = createSignal<{ x: number; y: number; punkte: Menuepunkt[] } | null>(null);
 
+/** Menü unter einem Knopf (z. B. „?“ in der Kopfleiste), rechtsbündig daran. */
+export function zeigeMenueUnter(el: Element, punkte: Menuepunkt[]): void {
+  const r = el.getBoundingClientRect();
+  oeffnen(Math.max(8, r.right - 360), r.bottom + 6, punkte);
+}
 export function zeigeMenue(e: MouseEvent, punkte: Menuepunkt[]): void {
   e.preventDefault();
   oeffnen(e.clientX, e.clientY, punkte);
@@ -33,7 +40,8 @@ export function Kontextmenue() {
       <div class="kontextmenue" role="menu" style={{ left: `${m().x}px`, top: `${m().y}px` }} onContextMenu={(e) => e.preventDefault()}>
         <For each={m().punkte}>{(p) => (
           <button role="menuitem" classList={{ gefahr: p.gefahr, an: p.an }} aria-haspopup={p.unter ? 'menu' : undefined} disabled={p.gesperrt}
-            onClick={() => { if (p.unter) { oeffnen(m().x, m().y, p.unter); return; } zu(); p.tun?.(); }}>{p.an ? '✓ ' : ''}{p.titel}{p.unter ? ' ▸' : ''}</button>
+            onClick={() => { if (p.unter) { oeffnen(m().x, m().y, p.unter); return; } zu(); p.tun?.(); }}>
+            <Show when={p.zeichen}><span class="km-zeichen" aria-hidden="true">{p.zeichen}</span></Show>{p.an ? '✓ ' : ''}{p.titel}{p.unter ? ' ▸' : ''}<Show when={p.hinweis}> <small class="km-hinweis">{p.hinweis}</small></Show></button>
         )}</For>
       </div>
     )}</Show>
