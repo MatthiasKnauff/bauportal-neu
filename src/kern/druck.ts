@@ -82,6 +82,13 @@ export interface Ausdruck {
   vorlageTitel?: string;
   stil?: 'formular';       // Formular: Tabellen mit Rahmen und grauem Kopf, Zeilen abwechselnd hinterlegt
   rand?: Partial<Rand>;    // Seitenränder in mm, wenn anders als ab Werk (z. B. 25 mm links zum Abheften)
+  /** Teile, die man für einen einzelnen Ausdruck weglassen kann (wie bisher „mit Fotos“) – je Teil die Blöcke aller Vorlagen. */
+  teile?: { titel: string; bloecke: string[] }[];
+}
+
+/** Einstellungen für diesen einen Ausdruck: die weggelassenen Teile aus (das Büro behält seine Einstellungen). */
+export function ohneTeile(a: Ausdruck, ohne: string[]): Einstellungen {
+  return Object.fromEntries((a.teile ?? []).filter((t) => ohne.includes(t.titel)).flatMap((t) => t.bloecke.map((b) => [`${b}.aus`, 'ja'])));
 }
 
 /** Die gewählte Vorlage eines Ausdrucks: Blöcke, Fußzeile, Stil, Ränder. */

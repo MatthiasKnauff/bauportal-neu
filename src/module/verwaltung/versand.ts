@@ -6,13 +6,13 @@ import type { Werte } from '../../kern/modell';
 type E = { id: string; werte: Werte };
 export interface Paket { an: string; ids: string[]; betreff: string; text: string; anhaenge?: Anhang[]; postfach: string /* '' = Büro */ }
 /** Anhang einer Nachricht – entsteht erst beim Versand aus dem dann aktuellen Stand, mit den Rechten der Person, die sie angelegt hat.
- *  Gespeichert je Zeile: „druck|<Ausdruck>|<Kennung>“ (PDF des Druckwerks), „x83|<LV>“ (LV als GAEB ohne Preise) oder
+ *  Gespeichert je Zeile: „druck|<Ausdruck>|<Kennung>[|<weggelassene Teile, mit ; getrennt>]“ (PDF des Druckwerks), „x83|<LV>“ (LV als GAEB ohne Preise) oder
  *  „dokument|<Kennung>“ (ein abgelegtes Dokument – Plan, Datei aus dem Projektordner, vom Rechner – im Original). */
-export type Anhang = { art: 'druck'; ausdruck: string; id: string } | { art: 'x83'; id: string } | { art: 'dokument'; id: string };
-export const anhangText = (a: Anhang) => (a.art === 'druck' ? `druck|${a.ausdruck}|${a.id}` : `${a.art}|${a.id}`);
+export type Anhang = { art: 'druck'; ausdruck: string; id: string; ohne?: string[] } | { art: 'x83'; id: string } | { art: 'dokument'; id: string };
+export const anhangText = (a: Anhang) => (a.art === 'druck' ? `druck|${a.ausdruck}|${a.id}${a.ohne?.length ? `|${a.ohne.join(';')}` : ''}` : `${a.art}|${a.id}`);
 export function anhaengeVon(w: Werte): Anhang[] {
   return String(w.anhaenge ?? '').split('\n').map((z) => z.trim().split('|')).flatMap((t): Anhang[] =>
-    t[0] === 'druck' && t[1] && t[2] ? [{ art: 'druck', ausdruck: t[1], id: t[2] }] : (t[0] === 'x83' || t[0] === 'dokument') && t[1] ? [{ art: t[0], id: t[1] }] : []);
+    t[0] === 'druck' && t[1] && t[2] ? [{ art: 'druck', ausdruck: t[1], id: t[2], ...(t[3] ? { ohne: t[3].split(';') } : {}) }] : (t[0] === 'x83' || t[0] === 'dokument') && t[1] ? [{ art: t[0], id: t[1] }] : []);
 }
 export interface Einstellung { buendeln?: string; uhrzeit?: string; letzter?: string }
 

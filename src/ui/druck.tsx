@@ -3,7 +3,7 @@
 // Die Vorschau entsteht auf dem Gerät aus den Daten, die schon da sind – sofort und auch ohne Netz.
 import { For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
 import { DRUCKQUELLEN } from '../module/druckquellen';
-import { CSS, SCHRIFT, alleBloecke, druckInhalt, passt, vorlageVon, fusszeile, listenfolge, platzhalter, querformat, schriftgroesse, spaltenFeld, verweisSpalten, verzeichnisSpalten, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
+import { CSS, SCHRIFT, alleBloecke, dateiname, druckInhalt, ohneTeile, passt, vorlageVon, fusszeile, listenfolge, platzhalter, querformat, schriftgroesse, spaltenFeld, verweisSpalten, verzeichnisSpalten, type Ausdruck, type Druckdaten, type Einstellungen } from '../kern/druck';
 import type { Feld, ObjektModell, Wert } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { ausfuehren, lebende, sicht, verweisname } from './unterbau/abgleich';
@@ -11,6 +11,7 @@ import { darf, ladeDatei, druckeDatei, modell, neueKennung, ruf, zustand } from 
 import { Dialog } from './baukasten/dialog';
 import { FeldEingabe } from './baukasten/feld';
 import { hinweis } from './unterbau/meldungen';
+import { mailSchreiben } from './versand';
 
 /** Was ein Verzeichnis drucken kann: z. B. die Auswahl, die gefilterte Liste, alle – je mit Einträgen in ihrer Reihenfolge. */
 /** Das Büro-Logo in der Vorschau – die Adresse ändert sich mit seinem Stand (dann lädt der Browser es neu). */
@@ -72,6 +73,34 @@ function stellschrauben(a: Ausdruck, m: ObjektModell, stelle: string): { titel: 
   return { titel: b.art === 'briefkopf' ? 'Briefkopf' : b.art === 'haken' ? 'Kontrollen' : 'Angaben', felder: [zeigen(b.id)] };
 }
 
+/** Druckdaten eines einzelnen Objekts (Vorschau, Dateiname) – aus dem, was das Gerät schon hat. */
+function objektDaten(a: Ausdruck, m: ObjektModell, objekt: string): Druckdaten | null {
+  const z = sicht[a.objekt]?.[objekt];
+  if (!z || z.geloescht) return null;
+  const pid = m.projektFeld && m.projektFeld !== 'id' ? String(z.werte[m.projektFeld] ?? '') : '';
+  return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: pid ? verweisname('projekt', pid) : '', projektwerte: pid ? { ...(sicht.projekt?.[pid]?.werte ?? {}) } : undefined, verweis: verweisname, modell,
+    kinder: (blockId) => {
+      const lv = blockId.endsWith('.bilder') ? alleBloecke(a).find((x) => `${x.id}.bilder` === blockId) : undefined;
+      if (lv?.art === 'lv' && lv.bilder) { const q = lv.bilder; const ids = new Set(Object.values(sicht[lv.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[lv.ueber] === objekt).map((k) => k.id));
+        return lebende(q.objekt).filter((k) => ids.has(String(k.werte[q.bezug] ?? ''))).map((k) => ({ id: k.id, werte: { ...k.werte } })); }
+      const b = alleBloecke(a).find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder' && b?.art !== 'lv' && b?.art !== 'kasten') return [];
+      return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === objekt && (b.art !== 'lv' || !b.ohne || k.werte[b.ohne] == null || k.werte[b.ohne] === '') && passt(b, k.werte)).sort(listenfolge).map((k) => ({ id: k.id, werte: { ...k.werte } })); },
+    bild: (id, objekt = 'foto') => `/api/${objekt}/vorschau/${id}`,
+    berechnet: (blockId) => { const b = alleBloecke(a).find((x) => x.id === blockId); const q = b?.art === 'berechnet' ? DRUCKQUELLEN[b.quelle] : undefined;
+      return q ? q.tabellen((o, f, w) => lebende(o).filter((k) => (f === 'id' ? k.id : String(k.werte[f] ?? '')) === w), { id: z.id, werte: { ...z.werte } }) : []; } };
+}
+
+/** Ausdruck per Mail (wie bisher „Senden“ und aus der Druckvorschau): an Beteiligte des Projekts, das PDF entsteht beim Versand aus dem dann aktuellen Stand. */
+export function perMailSenden(ausdruckId: string, objekt: string, ohne: string[] = []) {
+  const a = zustand()!.module.flatMap((x) => x.ausdrucke ?? []).find((x) => x.id === ausdruckId);
+  if (!a) return;
+  const m = modell(a.objekt), d = objektDaten(a, m, objekt), datei = d ? dateiname(a, m, d) : `${a.titel}.pdf`;
+  const pid = m.projektFeld && m.projektFeld !== 'id' ? String(sicht[a.objekt]?.[objekt]?.werte[m.projektFeld] ?? '') : '';
+  const ids = [...new Set(lebende('projekt_kontakt').filter((z) => z.werte.projekt === pid).map((z) => String(z.werte.kontakt ?? '')).filter(Boolean))];
+  mailSchreiben({ titel: `${a.titel} per Mail senden`, projekt: pid || undefined, ids, vorab: [], betreff: datei.replace(/\.pdf$/, ''),
+    anhaenge: [{ titel: datei, anhang: { art: 'druck', ausdruck: a.id, id: objekt, ...(ohne.length ? { ohne } : {}) } }] });
+}
+
 function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang[]; mehrere?: string[] }) {
   const a = p.ausdruck;
   const [umfangNr, setUmfangNr] = createSignal(0);
@@ -83,6 +112,10 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   const test = () => zustand()!.umgebung === 'test';   // der Testserver legt nichts im Projektordner ab
   const da = createMemo(() => eintraege(a.id));
   const e = createMemo((): Einstellungen => Object.fromEntries(Object.entries(da()).map(([k, v]) => [k, v.wert])));
+  // „Was mitdrucken?“ (wie bisher „mit Fotos“): gilt nur für diesen Ausdruck, die Einstellungen des Büros bleiben
+  const [ohne, setOhne] = createSignal<string[]>([]);
+  const umschalten = (t: string) => setOhne((o) => (o.includes(t) ? o.filter((x) => x !== t) : [...o, t]));
+  const mitTeilen = createMemo((): Einstellungen => ({ ...e(), ...ohneTeile(a, ohne()) }));
   const daten = createMemo((): Druckdaten | null => {
     if (a.verzeichnis) {   // viele Einträge: die übergebenen, in ihrer Reihenfolge
       const zeilen = (umfang()?.ids ?? []).map((id) => sicht[a.objekt]?.[id]).filter((z) => z && !z.geloescht).map((z) => ({ id: z!.id, werte: { ...z!.werte } }));
@@ -90,19 +123,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
         kinder: (blockId) => (alleBloecke(a).find((x) => x.id === blockId)?.art === 'verzeichnis' ? zeilen : []),
         extra: { anzahl: `${zeilen.length} ${zeilen.length === 1 ? m.titel : m.titelMehrzahl}`, filter: umfang()?.filter ?? '', datum: new Date().toLocaleDateString('de-DE') } };
     }
-    const z = sicht[a.objekt]?.[p.objekt];
-    if (!z || z.geloescht) return null;
-    const pid = m.projektFeld && m.projektFeld !== 'id' ? String(z.werte[m.projektFeld] ?? '') : '';
-    return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: pid ? verweisname('projekt', pid) : '', projektwerte: pid ? { ...(sicht.projekt?.[pid]?.werte ?? {}) } : undefined, verweis: verweisname, modell,
-      kinder: (blockId) => {
-        const lv = blockId.endsWith('.bilder') ? alleBloecke(a).find((x) => `${x.id}.bilder` === blockId) : undefined;
-        if (lv?.art === 'lv' && lv.bilder) { const q = lv.bilder; const ids = new Set(Object.values(sicht[lv.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[lv.ueber] === p.objekt).map((k) => k.id));
-          return lebende(q.objekt).filter((k) => ids.has(String(k.werte[q.bezug] ?? ''))).map((k) => ({ id: k.id, werte: { ...k.werte } })); }
-        const b = alleBloecke(a).find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder' && b?.art !== 'lv' && b?.art !== 'kasten') return [];
-        return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && (b.art !== 'lv' || !b.ohne || k.werte[b.ohne] == null || k.werte[b.ohne] === '') && passt(b, k.werte)).sort(listenfolge).map((k) => ({ id: k.id, werte: { ...k.werte } })); },
-      bild: (id, objekt = 'foto') => `/api/${objekt}/vorschau/${id}`,
-      berechnet: (blockId) => { const b = alleBloecke(a).find((x) => x.id === blockId); const q = b?.art === 'berechnet' ? DRUCKQUELLEN[b.quelle] : undefined;
-        return q ? q.tabellen((o, f, w) => lebende(o).filter((k) => (f === 'id' ? k.id : String(k.werte[f] ?? '')) === w), { id: z.id, werte: { ...z.werte } }) : []; } };
+    return objektDaten(a, m, p.objekt);
   });
 
   // Die Vorschau lebt in einem abgeschirmten Kasten: Die Schrift des Ausdrucks und die der Oberfläche stören sich nicht.
@@ -116,13 +137,13 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
     const d = daten();
     const wurzel = blatt.shadowRoot ?? blatt.attachShadow({ mode: 'open' });
     if (!d) { wurzel.innerHTML = ''; return; }
-    wurzel.innerHTML = `<style>${CSS(schriftgroesse(e()))}
+    wurzel.innerHTML = `<style>${CSS(schriftgroesse(mitTeilen()))}
       .bogen { zoom: ${breite() ? Math.min(1, (breite() - 28) / (quer() ? 1123 : 794)) : 1}; box-sizing: border-box; width: ${quer() ? '297mm' : '210mm'}; min-height: ${quer() ? '210mm' : '297mm'}; margin: 0 auto; padding: ${vorlage().rand.oben}mm ${vorlage().rand.rechts}mm ${vorlage().rand.unten}mm ${vorlage().rand.links}mm; background: #fff; box-shadow: 0 2px 14px rgba(0,0,0,.18); display: flex; flex-direction: column; }
       .seite { flex: 1; }
       .aus { opacity: .3; text-decoration: line-through; }
       .leer { opacity: .45; }
       ${einstellen() ? '[data-stelle] { cursor: pointer; border-radius: 2px; } [data-stelle]:hover { outline: 1.5px dashed #2a5bd7; outline-offset: 2px; } [data-stelle].gewaehlt { outline: 2px solid #2a5bd7; outline-offset: 2px; }' : ''}
-    </style><div class="bogen"><div class="seite${vorlage().stil ? ` ${vorlage().stil}` : ''}">${druckInhalt(a, m, d, e(), einstellen())}</div><div class="fuss" data-stelle="seite">${fusszeile(a, m, d, e()).replace(/[&<>]/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[x]!)}&nbsp;</div></div>`;
+    </style><div class="bogen"><div class="seite${vorlage().stil ? ` ${vorlage().stil}` : ''}">${druckInhalt(a, m, d, mitTeilen(), einstellen() && !ohne().length)}</div><div class="fuss" data-stelle="seite">${fusszeile(a, m, d, mitTeilen()).replace(/[&<>]/g, (x) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[x]!)}&nbsp;</div></div>`;
     wurzel.querySelector(`[data-stelle="${stelle()}"]`)?.classList.add('gewaehlt');
   });
   const klick = (ev: MouseEvent) => {
@@ -143,7 +164,7 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   const wertSetzen = (f: Feld & { stelle: string; vorgabe?: string }, w: Wert) =>
     setzen(f.stelle, f.art === 'ja_nein' ? ((f.stelle.endsWith('.aus') ? !w : !!w) ? 'ja' : '') : (String(w ?? '') === (f.vorgabe ?? '') ? '' : String(w ?? '')));
 
-  const anfrage = () => (a.verzeichnis ? { ausdruck: a.id, ids: umfang()?.ids ?? [], filter: umfang()?.filter ?? '' } : p.mehrere ? { ausdruck: a.id, ids: p.mehrere } : { ausdruck: a.id, objekt: p.objekt });
+  const anfrage = () => ({ ...(a.verzeichnis ? { ausdruck: a.id, ids: umfang()?.ids ?? [], filter: umfang()?.filter ?? '' } : p.mehrere ? { ausdruck: a.id, ids: p.mehrere } : { ausdruck: a.id, objekt: p.objekt }), ohne: ohne() });
   const drucken = async () => {
     setLaeuft(true);
     try { await druckeDatei('/api/druck/pdf', anfrage()); }
@@ -158,20 +179,26 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
   };
   const ablegen = async () => {
     setLaeuft(true);
-    try { const r = await ruf<{ pfad: string }>('/api/druck/ablegen', { ausdruck: a.id, objekt: p.objekt }); hinweis(`Im Projektordner abgelegt: ${r.pfad}`); }
+    try { const r = await ruf<{ pfad: string }>('/api/druck/ablegen', { ausdruck: a.id, objekt: p.objekt, ohne: ohne() }); hinweis(`Im Projektordner abgelegt: ${r.pfad}`); }
     catch (err) { hinweis((err as Error).message, { art: 'fehler' }); }
     finally { setLaeuft(false); }
   };
+  const projektId = () => (m.projektFeld && m.projektFeld !== 'id' ? String(sicht[a.objekt]?.[p.objekt]?.werte[m.projektFeld] ?? '') : '');
+  const perMail = () => { const id = p.objekt, teile = ohne(); setOffen(null); perMailSenden(a.id, id, teile); };
   const schrauben = createMemo(() => stellschrauben(a, m, stelle()));
   // Angeklickt ist ein Verzeichnis (Überschrift oder Spalte): dann lassen sich die Spalten frei wählen und ordnen
   const verzeichnisBlock = () => { const b = alleBloecke(a).find((x) => x.id === stelle().split('.')[0]); return b?.art === 'verzeichnis' ? b : undefined; };
   return (
     <Dialog titel={`${a.titel}${p.mehrere ? ` – ${p.mehrere.length} in einem PDF, Vorschau des ersten` : ' – Druckvorschau'}`} gross onAbbrechen={() => setOffen(null)}
-      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.rolle && !p.mehrere}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><button class="knopf" disabled={laeuft() || !daten()} onClick={pdf}>PDF herunterladen</button><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={drucken}>{laeuft() ? 'PDF wird erzeugt …' : 'Drucken'}</button></>}>
+      knoepfe={<><button class="knopf" onClick={() => setOffen(null)}>Schließen</button><Show when={a.rolle && !p.mehrere}><button class="knopf" disabled={laeuft() || !daten() || test()} title={test() ? 'Der Testserver darf den Dateiserver nur lesen – ablegen geht auf dem Produktivserver' : ''} onClick={ablegen}>Im Projektordner ablegen</button></Show><Show when={projektId() && !p.mehrere && !a.verzeichnis}><button class="knopf" disabled={laeuft() || !daten()} onClick={perMail}>Per Mail senden …</button></Show><button class="knopf" disabled={laeuft() || !daten()} onClick={pdf}>PDF herunterladen</button><button class="knopf haupt" disabled={laeuft() || !daten()} onClick={drucken}>{laeuft() ? 'PDF wird erzeugt …' : 'Drucken'}</button></>}>
       <div class="druck">
         <div class="druck-blatt" onClick={klick}><div ref={blatt} /></div>
-        <Show when={einstellen() || (p.umfaenge?.length ?? 0) > 1}>
+        <Show when={einstellen() || (p.umfaenge?.length ?? 0) > 1 || a.teile?.length}>
           <div class="druck-seite">
+            <Show when={a.teile?.length}>
+              <h3>Was mitdrucken?</h3>
+              <For each={a.teile}>{(t) => <FeldEingabe feld={{ name: `teil_${t.titel}`, titel: `mit ${t.titel}`, art: 'ja_nein' }} wert={!ohne().includes(t.titel)} onWert={() => umschalten(t.titel)} />}</For>
+            </Show>
             <Show when={(p.umfaenge?.length ?? 0) > 1}>
               <h3>Was drucken?</h3>
               <div class="auswahl senkrecht" role="radiogroup" aria-label="Was drucken">
@@ -221,6 +248,7 @@ function SpaltenWahl(p: { block: { id: string; spalten: string[] }; m: ObjektMod
 }
 
 export function Druck() {
-  const ausdruck = () => { const o = offen(); return o ? zustand()!.module.flatMap((x) => x.ausdrucke ?? []).find((a) => a.id === o.ausdruck) : undefined; };
-  return <Show when={ausdruck()}>{(a) => <Druckfenster ausdruck={a()} objekt={offen()!.objekt} umfaenge={offen()!.umfaenge} mehrere={offen()!.mehrere} />}</Show>;
+  // je geöffnetem Auftrag ein eigenes Fenster (keyed): beim Schließen liest nichts mehr den leeren Auftrag
+  const finden = (id: string) => zustand()!.module.flatMap((x) => x.ausdrucke ?? []).find((x) => x.id === id);
+  return <Show when={offen()} keyed>{(o) => <Show when={finden(o.ausdruck)}>{(a) => <Druckfenster ausdruck={a()} objekt={o.objekt} umfaenge={o.umfaenge} mehrere={o.mehrere} />}</Show>}</Show>;
 }

@@ -6,7 +6,7 @@ import { wirksam } from '../kern/erben';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
-import { alleBloecke, dateiname, druckSeite, druckSeiten, listenfolge, passt, verzeichnisSpalten, type Druckdaten, type Einstellungen } from '../kern/druck';
+import { alleBloecke, ohneTeile, dateiname, druckSeite, druckSeiten, listenfolge, passt, verzeichnisSpalten, type Druckdaten, type Einstellungen } from '../kern/druck';
 import { KENNUNG, type ObjektModell, type Werte } from '../kern/modell';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { alsBenutzer, spalte, tabelle, type Absender, type Db } from './db';
@@ -19,7 +19,7 @@ import type { Benutzer } from './anmeldung';
 export const werteAus = (m: ObjektModell, z: Record<string, unknown> | undefined): Werte =>
   Object.fromEntries(m.felder.map((f) => [f.name, f.art === 'zahl' && z?.[f.name] != null ? Number(z[f.name]) : ((z?.[f.name] ?? null) as Werte[string])]));
 
-export async function seiteBauen(db: Db, register: Modulregister, wer: Absender, ausdruckId: string, objektId: string): Promise<{ html: string; name: string; projekt: string | null; projektordner: string | null; ordner: string; d: Druckdaten; e: Einstellungen }> {
+export async function seiteBauen(db: Db, register: Modulregister, wer: Absender, ausdruckId: string, objektId: string, ohne: string[] = []): Promise<{ html: string; name: string; projekt: string | null; projektordner: string | null; ordner: string; d: Druckdaten; e: Einstellungen }> {
   const a = register.ausdrucke.find((x) => x.id === ausdruckId);
   if (!a) throw new Ablehnung('Diesen Ausdruck gibt es nicht');
   const m = register.modell(a.objekt)!;
@@ -39,10 +39,12 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
     }
     // Verweise der gedruckten Felder vorab auflösen
     const namen = new Map<string, string>();
-    for (const f of m.felder.filter((x) => x.art === 'verweis' && werte[x.name])) {
+    for (const f of m.felder.filter((x) => (x.art === 'verweis' || (x.art === 'mehrfach' && x.ziel)) && werte[x.name])) {   // auch mehrere Verweise („a,b“)
       const ziel = register.modell(f.ziel!)!;
-      const z = (await c.query(`select * from ${tabelle(ziel.name)} where id = $1`, [werte[f.name]])).rows[0];
-      namen.set(`${ziel.name}:${werte[f.name]}`, String(z?.[ziel.anzeigeFeld] ?? ''));
+      for (const id of String(werte[f.name]).split(',').filter(Boolean)) {
+        const z = (await c.query(`select * from ${tabelle(ziel.name)} where id = $1`, [id])).rows[0];
+        namen.set(`${ziel.name}:${id}`, String(z?.[ziel.anzeigeFeld] ?? ''));
+      }
     }
     // Listen: die Einträge, die am Objekt hängen – gelesen als der Benutzer, in der Reihenfolge des Berichts
     const kinder = new Map<string, { id: string; werte: Werte }[]>();
@@ -86,6 +88,7 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
     const e: Einstellungen = {};
     // bei doppelten Einträgen (zwei Geräte ohne Netz) gilt überall derselbe: der mit der kleinsten Kennung
     for (const r of (await c.query('select stelle, wert from o_druckeinstellung where ausdruck = $1 and not geloescht order by id desc', [a.id])).rows) e[r.stelle] = r.wert;
+    Object.assign(e, ohneTeile(a, ohne));   // für diesen Ausdruck weggelassene Teile (z. B. ohne Fotos, für die Bauherr:in)
     const projektId = m.projektFeld && m.projektFeld !== 'id' ? (werte[m.projektFeld] as string | null) : null;
     const pz = projektId ? (await c.query('select * from o_projekt where id = $1', [projektId])).rows[0] : undefined;
     const projektordner = (pz?.ordner as string | undefined) || null;
@@ -111,12 +114,12 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
 }
 
 /** Mehrere Einträge in einem PDF (z. B. ausgewählte Tagesberichte) – jeder wie einzeln gedruckt, nacheinander. */
-export async function seitenBauen(db: Db, register: Modulregister, wer: Benutzer, ausdruckId: string, ids: string[]): Promise<{ html: string; name: string }> {
+export async function seitenBauen(db: Db, register: Modulregister, wer: Benutzer, ausdruckId: string, ids: string[], ohne: string[] = []): Promise<{ html: string; name: string }> {
   const a = register.ausdrucke.find((x) => x.id === ausdruckId);
   if (!a) throw new Ablehnung('Diesen Ausdruck gibt es nicht');
   const m = register.modell(a.objekt)!;
   const teile: Seite[] = [];
-  for (const id of ids) teile.push(await seiteBauen(db, register, wer, ausdruckId, id));
+  for (const id of ids) teile.push(await seiteBauen(db, register, wer, ausdruckId, id, ohne));
   if (teile.length === 1) return { html: teile[0]!.html, name: teile[0]!.name };
   return { html: druckSeiten(a, m, teile.map((t) => t.d), teile[0]!.e), name: `${m.titelMehrzahl} (${teile.length}).pdf` };
 }
@@ -169,15 +172,18 @@ async function vermerken(db: Db, register: Modulregister, wer: Benutzer, ausdruc
   await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: a.objekt, art: 'aendern', objektId, werte: { [a.vermerk]: `${name} · ${zeit}${abgelegt ? ' · im Projektordner' : ''}` } });
 }
 
+/** Weggelassene Teile aus der Anfrage (Titel der Teile des Ausdrucks). */
+const ohneAus = (b: { ohne?: unknown }) => (Array.isArray(b.ohne) ? b.ohne.map(String).slice(0, 30) : []);
+
 export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulregister; umgebung: string; nurAngemeldet: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>; nachBefehlen: () => void }): void {
   app.post('/api/druck/pdf', { preHandler: e.nurAngemeldet }, async (req, reply) => {
-    const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string; ids?: unknown; filter?: unknown };
+    const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string; ids?: unknown; filter?: unknown; ohne?: unknown };
     if (Array.isArray(b.ids)) {   // Verzeichnis: viele Einträge als Liste – sonst mehrere Einträge nacheinander in einem PDF
       const ids = b.ids.map(String).filter((x) => KENNUNG.test(x)).slice(0, 10000);
       if (!ids.length) throw new Ablehnung('Was gedruckt werden soll, fehlt');
       if (!e.register.ausdrucke.find((x) => x.id === b.ausdruck)?.verzeichnis) {
         if (ids.length > 200) throw new Ablehnung('Höchstens 200 Einträge auf einmal');
-        const v = await seitenBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), ids);
+        const v = await seitenBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), ids, ohneAus(b));
         return reply.header('content-type', 'application/pdf').header('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(v.name)}`).send(await pdfAus(v.html));
       }
       const v = await verzeichnisBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), ids, String(b.filter ?? ''));
@@ -185,7 +191,7 @@ export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulre
       return reply.header('content-type', 'application/pdf').header('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(v.name)}`).send(pdf);
     }
     if (!KENNUNG.test(b.objekt ?? '')) throw new Ablehnung('Was gedruckt werden soll, fehlt');
-    const { html, name } = await seiteBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!);
+    const { html, name } = await seiteBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!, ohneAus(b));
     const pdf = await pdfAus(html);
     await vermerken(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!, name, false);
     e.nachBefehlen();
@@ -194,9 +200,9 @@ export function druckRouten(app: FastifyInstance, e: { db: Db; register: Modulre
 
   // Das PDF in den Projektordner legen – als neue Datei; nur Ausdrucke mit „ersetzen“ (GEPRÜFT) ersetzen eine ältere Fassung
   app.post('/api/druck/ablegen', { preHandler: e.nurAngemeldet }, async (req, reply) => {
-    const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string };
+    const b = (req.body ?? {}) as { ausdruck?: string; objekt?: string; ohne?: unknown };
     if (!KENNUNG.test(b.objekt ?? '')) throw new Ablehnung('Was gedruckt werden soll, fehlt');
-    const s = await seiteBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!);
+    const s = await seiteBauen(e.db, e.register, req.benutzer!, String(b.ausdruck ?? ''), b.objekt!, ohneAus(b));
     if (!s.projekt) throw new Ablehnung('Dieser Ausdruck gehört zu keinem Projekt');
     const hindernis = await ablageHindernis(e.db, e.umgebung, s.projektordner);
     if (hindernis) throw new Ablehnung(hindernis);

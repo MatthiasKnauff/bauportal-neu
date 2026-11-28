@@ -25,7 +25,7 @@ import { Zaehler } from './baukasten/zaehler';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { Verlauf } from './baukasten/verlauf';
 import { Diktieren } from './diktat';
-import { druckOeffnen } from './druck';
+import { druckOeffnen, perMailSenden } from './druck';
 import { setAblageZiel } from './dokumentablage';
 import { Zeichen, type Zeichenname } from './baukasten/zeichen';
 import { Dialog } from './baukasten/dialog';
@@ -353,18 +353,33 @@ function listen(bericht: Zeile, seite: boolean): Record<string, () => JSX.Elemen
   };
 }
 
+/** Wetter für die Projektadresse zum Datum und zur Uhrzeit des Berichts eintragen (Herkunft „vom Wetterdienst“, Rückgängig wie überall). */
+async function wetterEintragen(b: Zeile, still = false) {
+  try {
+    const { ort, ...w } = await ruf<{ ort: string; wetter: string; temperatur: number; luftfeuchte: number; wind: number; niederschlag: number }>('/api/wetter', { projekt: b.werte.projekt, datum: b.werte.datum, uhrzeit: b.werte.uhrzeit });
+    ausfuehren({ objekt: 'tagesbericht', art: 'aendern', objektId: b.id, werte: w, herkunft: 'wetterdienst' }, 'Wetter eintragen');
+    hinweis(`Wetter für ${ort} am ${datumText(b.werte.datum)} ${still ? 'automatisch ' : ''}eingetragen.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
+  } catch (e) { if (!still) hinweis((e as Error).message, { art: 'fehler' }); }
+}
+
 export function WetterHolen(p: { bericht: Zeile }) {
   const [laeuft, setLaeuft] = createSignal(false);
-  const holen = async () => {
-    setLaeuft(true);
-    try {
-      const { ort, ...w } = await ruf<{ ort: string; wetter: string; temperatur: number; luftfeuchte: number; wind: number; niederschlag: number }>('/api/wetter', { projekt: p.bericht.werte.projekt, datum: p.bericht.werte.datum, uhrzeit: p.bericht.werte.uhrzeit });
-      ausfuehren({ objekt: 'tagesbericht', art: 'aendern', objektId: p.bericht.id, werte: w, herkunft: 'wetterdienst' }, 'Wetter eintragen');
-      hinweis(`Wetter für ${ort} eingetragen.`, { aktion: { titel: 'Rückgängig', tun: rueckgaengig } });
-    } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
-    finally { setLaeuft(false); }
-  };
+  const holen = async () => { setLaeuft(true); try { await wetterEintragen(p.bericht); } finally { setLaeuft(false); } };
   return <Show when={darf('tagesbericht', 'schreiben')}><button class="knopf klein still" title="Wetter vom Standort der Baustelle holen" disabled={laeuft()} onClick={holen}>{laeuft() ? 'Wetter wird geholt …' : '📍 Standort'}</button></Show>;
+}
+
+/** Wie bisher: Ein Bericht ohne Wetter (z. B. nachträglich angelegt) bekommt das Wetter zu seinem Datum automatisch – einmal je Bericht und Sitzung;
+ *  ändern sich Datum oder Uhrzeit und kam das Wetter vom Wetterdienst, wird es nachgezogen. Von Hand Eingetragenes bleibt. */
+const wetterVersucht = new Set<string>();
+const WETTERFELDER = ['wetter', 'temperatur', 'luftfeuchte', 'wind', 'niederschlag'];
+function wetterAutomatisch(b: () => Zeile) {
+  createEffect(on(() => [String(b().werte.datum ?? ''), String(b().werte.uhrzeit ?? '')] as const, ([datum], vorher) => {
+    const z = b(), pw = sicht.projekt?.[String(z.werte.projekt ?? '')]?.werte;
+    if (!darf('tagesbericht', 'schreiben') || !datum || datum > new Date().toLocaleDateString('sv') || !(pw?.ort || pw?.plz)) return;
+    if (vorher) { if (WETTERFELDER.some((k) => z.herkunft?.[k] === 'wetterdienst')) void wetterEintragen(z, true); return; }
+    if (wetterVersucht.has(z.id) || WETTERFELDER.some((k) => z.werte[k] != null && z.werte[k] !== '')) return;
+    wetterVersucht.add(z.id); void wetterEintragen(z, true);
+  }));
 }
 
 /** „Schritt für Schritt“ durch einen Bericht – am Handy auf der Baustelle. */
@@ -554,6 +569,8 @@ export function Berichtsseite(p: Mitte) {
         { titel: 'Schritt für Schritt', zeichen: 'schrittweise', gruppe: 'Bericht', tun: () => heuteHolen(() => werkzeuge.schritte?.()) }] : []),
       ...(darf('tagesbericht', 'loeschen') ? [{ titel: 'Löschen', zeichen: 'loeschen', rot: true, gruppe: 'Bericht', tun: () => loesche(modell('tagesbericht'), b) }] : []),
       ...ausdrucke('tagesbericht').map((a) => ({ titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => druckOeffnen(a.id, b.id) })),
+      // wie bisher „Teilen → Senden“: der Bericht als PDF per Mail an Beteiligte
+      ...ausdrucke('tagesbericht').slice(0, 1).map((a) => ({ titel: 'Senden', zeichen: 'senden', gruppe: 'Teilen', rechts: true, tun: () => perMailSenden(a.id, b.id) })),
     ] : [])]);
   });
   return (
@@ -569,6 +586,7 @@ export function Berichtsseite(p: Mitte) {
         // je Bericht neu aufgebaut: die Abschnitte gehören zu genau diesem Bericht
         const b = () => sicht.tagesbericht![id]!;
         const l = listen(b(), true);
+        wetterAutomatisch(b);
         return (<>
           <Show when={handy() ? fokus() : null} keyed fallback={<>
             <Kopf bericht={b()} werkzeuge={werkzeuge} />

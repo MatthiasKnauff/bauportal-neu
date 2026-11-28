@@ -27,7 +27,7 @@ export async function anhaengeBauen(db: Db, register: Modulregister, wer: Absend
   const aus = [];
   for (const a of liste) {
     if (a.art === 'druck') {
-      const s = await seiteBauen(db, register, wer, a.ausdruck, a.id);
+      const s = await seiteBauen(db, register, wer, a.ausdruck, a.id, a.ohne);
       aus.push({ filename: s.name, content: await pdfAus(s.html), contentType: 'application/pdf' });
       continue;
     }

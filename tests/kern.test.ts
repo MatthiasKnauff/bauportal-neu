@@ -1785,6 +1785,18 @@ test('Druckwerk: mehrere Einträge in einem PDF – je eigene Seiten und Fußzei
   assert.ok(html.includes('.seite + .seite { break-before: page; }'));
 });
 
+test('Druckwerk: Teile weglassen (wie bisher „mit Fotos“) – nur für diesen Ausdruck, auch als Mail-Anhang', async () => {
+  const { ohneTeile } = await import('../src/kern/druck');
+  const { anhaengeVon, anhangText } = await import('../src/module/verwaltung/versand');
+  const a = register.ausdrucke.find((x) => x.id === 'bautagebuch.tagesbericht')!;
+  assert.deepEqual(ohneTeile(a, ['Fotos']), { 'a_fotos.aus': 'ja', 'c_fotos.aus': 'ja', 'fotos.aus': 'ja' });
+  assert.deepEqual(ohneTeile(a, []), {});
+  const t = anhangText({ art: 'druck', ausdruck: a.id, id: 'b1', ohne: ['Fotos'] });
+  assert.equal(t, 'druck|bautagebuch.tagesbericht|b1|Fotos');
+  assert.deepEqual(anhaengeVon({ anhaenge: t }), [{ art: 'druck', ausdruck: a.id, id: 'b1', ohne: ['Fotos'] }]);
+  assert.deepEqual(anhaengeVon({ anhaenge: 'druck|x|b2' }), [{ art: 'druck', ausdruck: 'x', id: 'b2' }]);
+});
+
 test('Fenster- & Türliste: gleiche Ausführung = eine Position, Systembeschreibung je Gruppe, Abgleich mit dem LV', async () => {
   const t = { ...(await import('../src/module/ava/tueren')), ...(await import('../src/module/ava/lvplan')) };
   const tuer = (id: string, w: Record<string, unknown>) => ({ id, werte: { liste: 'L', ...w } as Werte });

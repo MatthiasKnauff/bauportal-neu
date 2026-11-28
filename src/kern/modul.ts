@@ -198,6 +198,7 @@ export class Modulregister {
       for (const b of bloecke) if (b.art === 'kasten') for (const n of [b.ueber, ...(b.erledigt ? [b.erledigt] : []), ...b.quellen.flatMap((q) => Object.keys(q.wenn))]) {
         if (!this.modelle.get(b.objekt)?.felder.some((f) => f.name === n)) throw new Error(`Ausdruck „${a.id}“: Kasten „${b.id}“ – Feld „${b.objekt}.${n}“ fehlt`);
       }
+      for (const n of (a.teile ?? []).flatMap((t) => t.bloecke)) if (!bloecke.some((b) => b.id === n)) throw new Error(`Ausdruck „${a.id}“: Teil nennt den Block „${n}“, den es nicht gibt`);
       for (const b of bloecke) if (b.art === 'verzeichnis') for (const n of b.spalten) if (!spaltenFeld(m, n, (o) => this.modelle.get(o))) throw new Error(`Ausdruck „${a.id}“: Spalte „${n}“ fehlt`);
       for (const b of bloecke) if (b.art === 'liste' || b.art === 'bilder' || b.art === 'lv') {
         const k = this.modelle.get(b.objekt);

@@ -12,6 +12,7 @@ import { Auswahlliste } from './auswahlliste';
 import { feldAendern } from './detailkarte';
 import { FeldEingabe } from './feld';
 import { kiAnbindungen, kiOeffnen } from './ki';
+import { hinweis } from '../unterbau/meldungen';
 
 export function Unterliste(p: {
   titel: string;
@@ -47,7 +48,15 @@ export function Unterliste(p: {
   const lang = () => feld(p.haupt).art === 'langtext';
   const wachse = (el: HTMLTextAreaElement) => { el.style.height = 'auto'; el.style.height = `${el.scrollHeight + 2}px`; };
   let neuFeld: HTMLInputElement | HTMLTextAreaElement | undefined, fotoWahl!: HTMLInputElement;
-  const anlegen = () => { const t = neuFeld?.value.trim(); if (!t) return; neu({ [p.haupt]: t }); neuFeld!.value = ''; if (neuFeld instanceof HTMLTextAreaElement) wachse(neuFeld); };
+  const anlegen = () => { const t = neuFeld?.value.trim(); if (!t) return; neu({ [p.haupt]: t }); neuFeld!.value = ''; setGetippt(false); if (neuFeld instanceof HTMLTextAreaElement) wachse(neuFeld); };
+  // Eingabe verwerfen (wie bisher): Text und schon gewählte Fotos weg – mit Rückgängig kommen beide zurück
+  const [getippt, setGetippt] = createSignal(false);
+  const verwerfen = () => {
+    const t = neuFeld?.value ?? '', f = fotos();
+    if (neuFeld) { neuFeld.value = ''; if (neuFeld instanceof HTMLTextAreaElement) wachse(neuFeld); }
+    setFotos([]); setGetippt(false);
+    if (t.trim() || f.length) hinweis('Eingabe verworfen.', { aktion: { titel: 'Rückgängig', tun: () => { if (neuFeld) { neuFeld.value = t; if (neuFeld instanceof HTMLTextAreaElement) wachse(neuFeld); neuFeld.focus(); } setFotos(f); setGetippt(!!t.trim()); } } });
+  };
   const weg = (z: Zeile) => ausfuehren({ objekt: p.objekt, art: 'loeschen', objektId: z.id }, `${p.titel}: Eintrag entfernen`);
   const zeilentitel = (z: Zeile) => (p.neuUeber && z.werte[p.neuUeber] ? verweisname(feld(p.neuUeber).ziel!, String(z.werte[p.neuUeber])) : String(z.werte[p.haupt] ?? ''));
   const neben = (z: Zeile) => (p.neben ?? []).map(feld).filter((f) => gilt(f, z.werte, m()));
@@ -99,14 +108,15 @@ export function Unterliste(p: {
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); anlegen(); } }} />}>
             <div class="unterliste-neu-zeile">
               <textarea class="unterliste-neu" ref={(el) => (neuFeld = el)} rows={2} aria-label={`${p.titel}: neuer Eintrag`} placeholder={p.platzhalter}
-                onInput={(e) => wachse(e.currentTarget)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); anlegen(); } }} />
+                onInput={(e) => { wachse(e.currentTarget); setGetippt(!!e.currentTarget.value.trim()); }} onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); anlegen(); } else if (e.key === 'Escape' && (getippt() || fotos().length)) { e.preventDefault(); verwerfen(); } }} />
               <Show when={p.neuFotos}>
                 <button type="button" class="knopf klein still" title="Foto dazu – geht mit dem neuen Eintrag hoch" aria-label={`${p.titel}: Foto zum neuen Eintrag`} onClick={() => fotoWahl.click()}>📷{fotos().length ? ` ${fotos().length}` : ''}</button>
                 <input ref={fotoWahl} type="file" accept="image/*,.heic,.heif" multiple hidden onChange={(e) => { setFotos([...fotos(), ...(e.currentTarget.files ?? [])]); e.currentTarget.value = ''; }} />
               </Show>
+              <Show when={getippt() || fotos().length}><button type="button" class="knopf klein still" aria-label={`${p.titel}: Eingabe verwerfen`} title="Eingabe verwerfen (Esc) – mit Rückgängig" onClick={verwerfen}>×</button></Show>
               <button type="button" class="knopf klein" aria-label={`${p.titel}: hinzufügen`} title="Hinzufügen (Strg+Enter)" onClick={anlegen}>＋</button>
             </div>
-            <small class="still-text klein-text">Enter = neue Zeile · Strg+Enter = hinzufügen{fotos().length ? ` · ${fotos().length} ${fotos().length === 1 ? 'Foto' : 'Fotos'} dabei` : ''}</small>
+            <small class="still-text klein-text">Enter = neue Zeile · Strg+Enter = hinzufügen · Esc = verwerfen{fotos().length ? ` · ${fotos().length} ${fotos().length === 1 ? 'Foto' : 'Fotos'} dabei` : ''}</small>
           </Show></>}>
           <Auswahlliste titel={p.platzhalter} platzhalter={p.platzhalter} wert={null} onWert={(w) => { if (w) neu({ [p.neuUeber!]: w }); }}
             optionen={(() => { const drin = new Set(eintraege().map((z) => z.werte[p.neuUeber!])); return (p.angebot?.() ?? []).filter((o) => !drin.has(o.wert)); })()} />

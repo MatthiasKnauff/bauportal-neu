@@ -137,6 +137,7 @@ export const bautagebuch: Beipackzettel = {
   ausdrucke: [{
     id: 'bautagebuch.tagesbericht', titel: 'Tagesbericht', objekt: 'tagesbericht',
     dateiname: 'Tagesbericht {nummer} {datum} {projekt}', rolle: 'bautagebuch', vermerk: 'pdf',
+    teile: [{ titel: 'Fotos', bloecke: ['a_fotos', 'c_fotos', 'fotos'] }],   // wie bisher „mit Fotos“ beim Drucken
     // Ab Werk das Formular des bisherigen Bauportals (Entscheidung 27.11.2026): Kästen, 25 mm Heftrand, Fotos auf eigener Seite
     vorlageTitel: 'Wie bisher (Formular)', stil: 'formular', rand: { oben: 14, links: 25, rechts: 12, unten: 18 },
     fuss: `{projekt} · Bautagebuch Nr. {nummer} · {datum}\n{buero}[ · {buero.strasse}][ · {buero.plz} {buero.ort}][ · Tel. {buero.telefon}][ · {buero.email}][ · {buero.web}]`,
