@@ -186,3 +186,24 @@ test('Löschen: Dauer auf die Hauptleistung umlegen (gleiches Gewerk in der Grup
   assert.deepEqual(umlegen(v, [{ dauer: 2, ziel: 'a' }, { dauer: 1, ziel: 'c' }, { dauer: 4, ziel: null }]).map((b) => b.werte),
     [{ dauer: 7 }, { unterbrechung: '1+(2)+3', dauer: 4 }]);
 });
+
+test('Änderungssätze ohne KI: länger, auf, später, % fertig, nach – Leistung über den Namen', async () => {
+  const { satzVerstehen, istAenderungssatz } = await import('../src/module/bauzeitenplan/saetze');
+  const v = [
+    { id: 'm', name: 'Malerarbeiten innen', dauer: 5, fortschritt: 0, gruppe: false, anfang: '2026-12-01', vorgaenger: [] },
+    { id: 'f', name: 'Fliesenarbeiten', dauer: 4, fortschritt: 0, gruppe: false, anfang: '2026-12-07', vorgaenger: [] },
+    { id: 'e', name: 'Estrich', dauer: 3, fortschritt: 0, gruppe: false, anfang: '2026-11-25', vorgaenger: [] },
+  ];
+  const tag = (iso: string, n: number) => `${iso}+${n}`;
+  let k = 0; const neu = () => `n${++k}`;
+  const s = (t: string) => satzVerstehen(t, v, tag, { projekt: 'p', version: 'x' }, neu);
+  assert.deepEqual((s('Maler 5 Tage länger') as { befehle: { werte?: unknown }[] }).befehle.map((b) => b.werte), [{ dauer: 10 }]);
+  assert.deepEqual((s('Estrich auf 8 AT') as { befehle: { werte?: unknown }[] }).befehle.map((b) => b.werte), [{ dauer: 8 }]);
+  assert.deepEqual((s('Fliesen 1 Woche später') as { befehle: { werte?: unknown }[] }).befehle.map((b) => b.werte), [{ anfang_nicht_vor: '2026-12-07+5' }]);
+  assert.deepEqual((s('Estrich 50 % fertig') as { befehle: { werte?: unknown }[] }).befehle.map((b) => b.werte), [{ fortschritt: 50 }]);
+  const n = s('Maler nach Fliesen') as { befehle: { objekt: string; werte?: Record<string, unknown> }[] };
+  assert.deepEqual([n.befehle[0]!.objekt, n.befehle[0]!.werte!.von, n.befehle[0]!.werte!.nach], ['verknuepfung', 'f', 'm']);
+  assert.deepEqual(s('Dach 2 Tage länger'), { fehler: 'Keine Leistung „Dach“ im Plan gefunden.' });
+  assert.equal(s('Hallo Welt'), null);
+  assert.ok(istAenderungssatz('Fliesen 1 Woche später') && !istAenderungssatz('Wann ist der Estrich fertig?'));
+});

@@ -15,6 +15,16 @@ export interface Neuigkeit {
 }
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  { id: '2026-11-28-bzp-darstellung', zeit: '2026-11-28T19:00', app: 'bauzeitenplan', ansicht: 'plan', ziel: '[role=toolbar][aria-label="Menüleiste"] [aria-label="Darstellung"]', titel: 'Darstellung wie bisher',
+    text: 'Unter „Darstellung“: Beschriftung der Balken links · im Balken · rechts (Leistung, Firma, Gewerk, Dauer, Termine, %), Pfeile, Dauer der Gruppen (Zeitspanne, Summe oder beides), Zeilen (farbig, Bänderung, nur aktive Zeile), alle auf-/zuklappen und „beim Löschen fragen“.' },
+  { id: '2026-11-28-bzp-satz', zeit: '2026-11-28T19:00', app: 'bauzeitenplan', ansicht: 'plan', ziel: '[role=toolbar][aria-label="Menüleiste"] [aria-label="In einem Satz"]', titel: 'Plan in einem Satz ändern',
+    text: 'Wie bisher unter „Fragen und Antworten“, jetzt als „In einem Satz“ in der Menüleiste: „Malerarbeiten 5 Tage länger“, „Estrich auf 8 AT“, „Fliesen 1 Woche später“, „Maler nach Fliesen“, „Estrich 50 % fertig“ – mit Vorschau und neuem Projektende, ausgeführt als ein Schritt.' },
+  { id: '2026-11-28-bzp-ablauf', zeit: '2026-11-28T19:00', app: 'bauzeitenplan', ansicht: 'ablauf', ziel: '.ablauf-flaeche', titel: 'Ablauf der Teile',
+    text: 'Neue Seite links unter Terminplan: je Gebäudeteil eine Kiste mit Zeitraum, Pfeile zeigen die Reihenfolge. Vom Punkt rechts auf eine andere Kiste ziehen verknüpft, Rechtsklick auf den Pfeil löst.' },
+  { id: '2026-11-28-bzp-mehrere', zeit: '2026-11-28T19:00', app: 'bauzeitenplan', ansicht: 'plan', titel: 'Mehrere Leistungen auf einmal ändern',
+    text: 'Mehrere Zeilen markieren (Strg/Umschalt), Rechtsklick → „n ändern …“: Gewerk, Firma, Dauer, Fortschritt usw. für alle zugleich – dieselbe Maske wie überall.' },
+  { id: '2026-11-28-katalog-zurueck', zeit: '2026-11-28T19:00', app: 'bauzeitenplan', ansicht: 'leistungen', titel: 'Leistungskatalog: Zurücksetzen …',
+    text: 'Für Administrator:innen: setzt die Leistungen auf den Stand ab Werk zurück – erst die Vorschau, dann übernehmen. Eigene Leistungen des Büros bleiben; Rückgängig nimmt alles zurück.' },
   { id: '2026-11-28-hilfemenue', zeit: '2026-11-28T17:00', app: '', ziel: '.kopf-hilfe', titel: '„?“ wieder als Menü – mit Fehler melden und Frage stellen',
     text: 'Wie bisher: Hilfe zu dieser App · Was ist neu · Frage stellen · Erkenntnis fürs Wiki (kommt mit der Wiki-App) · Fehler melden. Beim Melden kurz beschreiben und gern ein Bildschirmfoto dazu (aufnehmen, wählen oder Strg+V). Alles landet in Verwaltung → Fehler & Fragen; eine Antwort steht dann bei der Frage und kommt per Mail.' },
   { id: '2026-11-28-meldungen', zeit: '2026-11-28T17:00', app: 'verwaltung', ansicht: 'meldungen', titel: 'Verwaltung: Fehler & Fragen',

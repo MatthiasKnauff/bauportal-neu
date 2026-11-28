@@ -158,6 +158,7 @@ Einfg fügt unter der Markierung ein, ebenso „Leistung“ in der Menüleiste; 
 Mit der Maus: Balken ziehen verschiebt, rechte Kante ziehen ändert die Dauer, den Punkt am Balkenende auf eine andere Leistung ziehen verknüpft. Rechtsklick auf einen Balken: unterbrechen, Anfang wieder automatisch; auf einen Pfeil: Art ändern, löschen. Strg+Mausrad zoomt.
 
 „✦ Assistent“ macht einen Plan aus dem Gebäudemodell; „Drucken / PDF“ bis A0; „Export / Import“ für Excel, MS Project und Sicherungen.` },
+    { id: 'ablauf', titel: 'Ablauf der Teile', abschnitt: 'Terminplan', zeichen: 'ablauf', objekt: 'vorgang', brauchtProjekt: true, hilfe: 'Je Gebäudeteil eine Kiste mit Zeitraum und Leistungen; Pfeile zeigen, welcher Teil auf welchen folgt. Vom Punkt rechts an einer Kiste auf eine andere ziehen verknüpft sie (Ende → Anfang), Rechtsklick auf einen Pfeil löst ihn. Klick auf eine Kiste zeigt ihre erste Leistung.' },
     { id: 'beteiligte', titel: 'Gewerke & Firmen', abschnitt: 'Beteiligte', zeichen: 'personen', objekt: 'projekt_kontakt', brauchtProjekt: true },
     { id: 'leistungen', titel: 'Leistungskatalog', abschnitt: 'Vorlagen', zeichen: 'katalog', objekt: 'leistungsvorlage', baum: ['abschnitt'] },
     { id: 'abhaengigkeiten', titel: 'Abhängigkeiten', abschnitt: 'Vorlagen', zeichen: 'ablauf', objekt: 'leistungsvorlage',

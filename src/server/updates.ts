@@ -69,7 +69,7 @@ async function nachschlagEinspielen(db: Db, n: Nachschlag, eintraege: { schluess
 }
 
 /** Holt einen Katalog, prüft die Prüfsumme und vergleicht ihn mit dem, was da ist. */
-export async function katalogPlanen(db: Db, register: Modulregister, wer: Benutzer, id: string): Promise<{ je: Record<string, Zahl>; hinweise: string[]; liste: Befehl[]; eintraege?: number; angebot: Angebot; einspielen?: () => Promise<void> }> {
+export async function katalogPlanen(db: Db, register: Modulregister, wer: Benutzer, id: string, zuruecksetzen = false): Promise<{ je: Record<string, Zahl>; hinweise: string[]; liste: Befehl[]; eintraege?: number; angebot: Angebot; einspielen?: () => Promise<void> }> {
   const k = register.kataloge.find((x) => x.id === id);
   const a = (await angebote(register)).find((x) => x.id === id);
   if (!k || !a) throw new Ablehnung('Diesen Katalog bietet der Kanal nicht an');
@@ -85,12 +85,14 @@ export async function katalogPlanen(db: Db, register: Modulregister, wer: Benutz
   }
   const objekt = k.objekt!;
   return alsBenutzer(db, wer, async (c) => {
-    const { liste, je, abgleichen } = abgleicher(c, register, {}, 'katalog', ['katalog']);
+    // Zurücksetzen (wie bisher „↺ Zurücksetzen …“ im Leistungskatalog): auch vom Büro geänderte Werte gehen zurück auf ab Werk
+    const { liste, je, abgleichen } = abgleicher(c, register, {}, 'katalog', zuruecksetzen ? ['katalog', ''] : ['katalog']);
     // Zum Katalog gehört, was eine Kennung hat; eigene Einträge des Büros (ohne Kennung) bleiben unberührt.
     await abgleichen(objekt, eintraege.map((e) => ({ kennung: e.schluessel, werte: e.werte })), () => true);
     const z = je[objekt]!;
     const hinweise = [
-      !liste.length && 'Der Katalog im Bauportal entspricht schon diesem Stand – es gibt nichts zu übernehmen.',
+      !liste.length && (zuruecksetzen ? 'Nichts weicht vom Stand ab Werk ab – es gibt nichts zurückzusetzen.' : 'Der Katalog im Bauportal entspricht schon diesem Stand – es gibt nichts zu übernehmen.'),
+      zuruecksetzen && liste.length && `${z.geaendert} ${z.geaendert === 1 ? 'Eintrag geht' : 'Einträge gehen'} zurück auf den Stand ab Werk – auch, was das Büro geändert hat. Rückgängig nimmt alles zurück.`,
       z.behalten && `${z.behalten} ${z.behalten === 1 ? 'Eintrag hat' : 'Einträge haben'} vom Büro geänderte Werte. Sie bleiben, wie sie eingetragen sind.`,
       z.entfernt && `${z.entfernt} ${z.entfernt === 1 ? 'Eintrag steht' : 'Einträge stehen'} nicht mehr im Katalog und ${z.entfernt === 1 ? 'entfällt' : 'entfallen'} (lässt sich zurückholen).`,
       'Eigene Einträge des Büros bleiben unberührt.',
@@ -126,7 +128,8 @@ export function updateRouten(app: FastifyInstance, e: { db: Db; register: Modulr
 
   app.post('/api/updates/katalog/vorschau', { preHandler: e.nurAngemeldet }, async (req): Promise<Vorschau> => {
     nurAdmin(req);
-    const { angebot, einspielen, ...plan } = await katalogPlanen(e.db, e.register, req.benutzer!, String(((req.body ?? {}) as { katalog?: string }).katalog ?? ''));
+    const body = (req.body ?? {}) as { katalog?: string; zuruecksetzen?: boolean };
+    const { angebot, einspielen, ...plan } = await katalogPlanen(e.db, e.register, req.benutzer!, String(body.katalog ?? ''), body.zuruecksetzen === true);
     const festhalten = async () => {
       await e.db.query('insert into kern_katalog (id, version, stand) values ($1,$2,$3) on conflict (id) do update set version = excluded.version, stand = excluded.stand, eingespielt = now()', [angebot.id, angebot.version, angebot.stand]);
     };

@@ -41,7 +41,7 @@ import { Preisspiegel, psAngebot, setPsAngebot } from './preisspiegel';
 import { Auftraege } from './auftraege';
 import { AufmassKarte, Aufmasspruefung } from './aufmasspruefung';
 import { LvBearbeiten, lvBlaettern, lvZeiger, setLvZeiger } from './lvbearbeiten';
-import { Updates } from './updates';
+import { Updates, katalogZuruecksetzen } from './updates';
 import { AufbauAnsicht } from './aufbau';
 import { Altdaten } from './altdaten';
 import { KiEinrichten } from './baukasten/ki';
@@ -59,6 +59,7 @@ import { gewaehlteRechnung, setRechnungWahl } from './rechnungpruefen';
 import { naechsteOz, vergabenummer } from '../module/ava/rechnung';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { Balkenplan } from './balkenplan';
+import { PlanAblauf } from './planablauf';
 import { GewerkeFirmen } from './gewerke';
 import { springeZu } from './sprung';
 import { ArbeitszeitFenster, ProjektinfoFenster } from './arbeitszeit';
@@ -553,6 +554,9 @@ export function KarteImFensterZeigen() {
 }
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
+  // wie bisher „↺ Zurücksetzen …“: Leistungen des Katalogs zurück auf den Stand ab Werk (eigene Einträge bleiben) – nur Administrator:innen
+  'bauzeitenplan.leistungen': { knoepfe: () => (istAdmin() ? [{ titel: 'Zurücksetzen …', zeichen: 'zurueck', gruppe: 'Katalog', tun: () => katalogZuruecksetzen('leistungen', 'Leistungen für den Bauzeitenplan') }] : []) },
+  'bauzeitenplan.ablauf': { mitte: (m) => <PlanAblauf {...m} />, detailsHinweis: 'Eine Kiste anklicken – hier steht dann ihre erste Leistung.' },
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
   'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, neuTitel: 'LV',
     detailsHinweis: 'Eine Zeile anklicken – hier stehen dann alle Angaben der Position (Kurz- und Langtext, Menge, Einheit, Preis), direkt änderbar.',

@@ -25,6 +25,8 @@ import { DuplizierenFenster } from './duplizieren';
 import { GruppierenFenster } from './gruppieren';
 import { nachEigenemSchritt, ausfuehren, ausfuehrenMehrere, geaendert, sicht } from './unterbau/abgleich';
 import { Dialog } from './baukasten/dialog';
+import { feldSetzenOeffnen } from './baukasten/feldsetzen';
+import { PlanSatz } from './plansatz';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { darf, modell, neueKennung, ruf } from './unterbau/api';
 import type { Mitte } from './baukasten/anpassung';
@@ -91,13 +93,21 @@ export function Balkenplan(p: Mitte) {
   const [autom, setAutom] = createSignal<boolean>(holen('bzp.autom', true));
   createEffect(() => { merken('bzp.zoom', zoom()); merken('bzp.pfeile', pfeile()); merken('bzp.kritisch', kritisch()); merken('bzp.autom', autom()); });
   const px = () => ZOOM[zoom()] ?? 12;
+  // Darstellung wie bisher (je Gerät gemerkt): Beschriftung der Balken links · im Balken · rechts, Dauer der Gruppen, Zeilen,
+  // beim Löschen fragen (Gesamtzeit verkürzen oder die Dauer auf eine Hauptleistung umlegen)
+  const [beschriftung, setBeschriftung] = createSignal<{ l: string; m: string; r: string }>({ l: '', m: 'pct', r: 'name_firma', ...holen<Partial<{ l: string; m: string; r: string }>>('bzp.beschriftung', {}) });
+  const [gruppenDauer, setGruppenDauer] = createSignal<'spanne' | 'summe' | 'beides'>(holen('bzp.gruppendauer', 'spanne'));
+  const [zeilenArt, setZeilenArt] = createSignal<'' | 'band' | 'linie'>(holen('bzp.zeilen', ''));
+  const [loeschFragen, setLoeschFragen] = createSignal<boolean>(holen('bzp.loeschfragen', true));
+  createEffect(() => { merken('bzp.beschriftung', beschriftung()); merken('bzp.gruppendauer', gruppenDauer()); merken('bzp.zeilen', zeilenArt()); merken('bzp.loeschfragen', loeschFragen()); });
+  const [darstellung, setDarstellung] = createSignal(false);
+  const [satz, setSatz] = createSignal(false);
   const [drucken, setDrucken] = createSignal(false);
   const [assi, setAssi] = createSignal(false);
   // Export als Datei (im Browser erzeugt) und Plan aus einer Datei einlesen (Vorschau wie jede Übernahme)
   const titel = () => { const pr = sicht.projekt?.[z().projekt]?.werte; return `Bauzeitenplan ${[pr?.nummer, pr?.name].filter(Boolean).join(' ')} ${sicht.version?.[z().version]?.werte.name ?? ''}`.trim(); };
   const speichern = (inhalt: string, endung: string, typ: string) => herunterladen(inhalt, `${titel()} ${new Date().toLocaleDateString('sv')}.${endung}`, typ);
   // Befehle des Balkenplans in der Menüleiste (Band) – wie im bisherigen Bauportal
-  const PFEILE = [{ wert: 'markiert', titel: 'bei markierter' }, { wert: 'kritisch', titel: 'kritischer Weg' }, { wert: 'alle', titel: 'alle' }, { wert: 'keine', titel: 'keine' }] as const;
   p.setNeu(() => neuDarunter());
   // Bearbeiten und Gliederung im Band wie im bisherigen Bauportal – dieselben Befehle wie Tastatur und Kontextmenü
   // mit Mehrfachauswahl: jede oberste gewählte Zeile mit allem darunter; hoch/runter rücken alle gewählten zusammen
@@ -129,6 +139,7 @@ export function Balkenplan(p: Mitte) {
       { titel: 'Lösen', zeichen: 'entkoppeln', gruppe: 'Planen', gesperrt: !links().some((l) => l.werte.von === markiert() || l.werte.nach === markiert()), tun: verknuepfungenLoesen },
       { titel: 'Unterbrechen', zeichen: 'unterbrechen', gruppe: 'Planen', an: teilen(), gesperrt: !vorgaenge().length, tun: () => setTeilen(!teilen()) },
       { titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Planen', gesperrt: !links().length, tun: aufraeumen },
+      { titel: 'In einem Satz', zeichen: 'assistent', gruppe: 'Planen', gesperrt: !vorgaenge().length, tun: () => setSatz(true) },   // wie bisher „Fragen und Antworten“: „Fliesen 1 Woche später“ …
       { titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
     // Fortschritt der gewählten Leistungen: Stufen und Schieber (Baustein Prozent) wie bisher (bei einer Gruppe: alle Leistungen darunter)
@@ -145,7 +156,7 @@ export function Balkenplan(p: Mitte) {
     { titel: 'Zur Leistung', zeichen: 'zielen', gruppe: 'Ansicht', gesperrt: !markiert(), tun: zurLeistung },
     { titel: 'Krit. Weg', zeichen: 'kritisch', gruppe: 'Ansicht', an: kritisch(), tun: () => setKritisch(!kritisch()) },
     ...(sollJetzt() ? [{ titel: 'Soll', zeichen: 'version', gruppe: 'Ansicht', an: !sollAus(), tun: () => setSollAus(!sollAus()) }] : []),
-    { titel: 'Darstellung', zeichen: 'pfeile', gruppe: 'Ansicht', tun: (e) => zeigeMenue(e, PFEILE.map((x) => ({ titel: `${x.wert === pfeile() ? '✓ ' : ''}Pfeile ${x.titel}`, tun: () => setPfeile(x.wert) }))) },
+    { titel: 'Darstellung', zeichen: 'pfeile', gruppe: 'Ansicht', tun: () => setDarstellung(true) },
     { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: (e) => austauschMenue(e) },
     ...(schreiben() ? [{ titel: 'Einlesen', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => einlesen() }] : []),
     { titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => setDrucken(true) },
@@ -299,12 +310,43 @@ export function Balkenplan(p: Mitte) {
     }));
     spw.allePassend((n) => vorgaenge().map((v) => wert(v, n as Spalte['id'])), getComputedStyle(zelle).font, `600 13px ${getComputedStyle(flaeche).fontFamily}`, zusatzMessen(zellen, getComputedStyle(zelle).font));
   };
+  // Summe der Arbeit je Gruppe (Dauer ihrer Leistungen) – für „Dauer der Gruppen: Summe“
+  const summen = createMemo(() => {
+    const m = new Map<string, number>();
+    for (const v of vorgaenge()) {
+      const t = erg().termine.get(v.id); if (!t || t.gruppe) continue;
+      const d = abschnitteLesen(v.werte.unterbrechung as string)?.reduce((a, b) => a + b.dauer, 0) ?? Number(v.werte.dauer ?? 0);
+      for (let e = t.eltern; e; e = erg().termine.get(e)?.eltern ?? null) m.set(e, (m.get(e) ?? 0) + d);
+    }
+    return m;
+  });
+  // Text an einem Balken (Beschriftung links / im Balken / rechts)
+  const beschrift = (v: Zeile, k: string): string => {
+    const t = erg().termine.get(v.id);
+    switch (k) {
+      case 'name': return String(v.werte.name ?? '');
+      case 'name_firma': return `${String(v.werte.name ?? '')}${v.werte.unternehmer ? ` · ${v.werte.unternehmer}` : ''}`;
+      case 'unternehmer': return String(v.werte.unternehmer ?? '');
+      case 'gewerk': return String(v.werte.gewerk ?? '');
+      case 'dauer': return wert(v, 'dauer');
+      case 'anfang': return kurz(t?.anfang ?? '');
+      case 'ende': return kurz(t?.ende ?? '');
+      case 'daten': return t ? `${kurz(t.anfang)} – ${kurz(t.ende)}` : '';
+      case 'pct': return `${Math.round(Number(v.werte.fortschritt ?? 0))} %`;
+      default: return '';
+    }
+  };
   const wert = (v: Zeile, s: Spalte['id']): string => {
     const t = erg().termine.get(v.id);
     switch (s) {
       case 'nr': return String(t?.nr ?? '');
       case 'name': return String(v.werte.name ?? '');
-      case 'dauer': return t ? `${t.gruppe ? t.f - t.s : abschnitteLesen(v.werte.unterbrechung as string)?.reduce((a, b) => a + b.dauer, 0) ?? Number(v.werte.dauer ?? 0)} T` : '';
+      case 'dauer': {
+        if (!t) return '';
+        if (!t.gruppe) return `${abschnitteLesen(v.werte.unterbrechung as string)?.reduce((a, b) => a + b.dauer, 0) ?? Number(v.werte.dauer ?? 0)} T`;
+        const gd = gruppenDauer(), sum = summen().get(v.id) ?? 0;
+        return gd === 'summe' ? `${sum} T` : gd === 'beides' ? `${sum} T · ${t.f - t.s} T` : `${t.f - t.s} T`;
+      }
       case 'anfang': return kurz(t?.anfang ?? '');
       case 'ende': return kurz(t?.ende ?? '');
       case 'vorg': return vorgaengerText(v.id);
@@ -434,9 +476,6 @@ export function Balkenplan(p: Mitte) {
     const id = markiert(); const weg = links().filter((l) => l.werte.von === id || l.werte.nach === id);
     if (weg.length) ausfuehrenMehrere(weg.map((l) => ({ objekt: 'verknuepfung', art: 'loeschen' as const, objektId: l.id })), 'Verknüpfungen lösen');
   };
-  // Löschen wie bisher mit Rückfrage: Gesamtzeit verkürzen oder die Dauer auf eine Hauptleistung umlegen (abschaltbar, je Gerät gemerkt)
-  const [loeschFragen, setLoeschFragen] = createSignal<boolean>(holen('bzp.loeschfragen', true));
-  createEffect(() => merken('bzp.loeschfragen', loeschFragen()));
   const UV = () => vorgaenge().map((v) => ({ id: v.id, reihe: Number(v.werte.reihe ?? 0), ebene: Number(v.werte.ebene ?? 0), dauer: Number(v.werte.dauer ?? 0), gewerk: String(v.werte.gewerk ?? ''), unterbrechung: (v.werte.unterbrechung as string | null) ?? null }));
   const [umlegeFrage, setUmlegeFrage] = createSignal<{ ids: string[]; posten: { id: string; dauer: number; ziel: string | null }[] } | null>(null);
   const entfernen = (ids = gewaehlt(), zuordnung?: { dauer: number; ziel: string | null }[]) => {
@@ -654,6 +693,7 @@ export function Balkenplan(p: Mitte) {
       wahl.zeiger(v.id);
       const n = anzahlText(auswahl().size);
       return zeigeMenue(e, [
+        ...(schreiben() ? [{ titel: `${n} ändern …`, tun: () => feldSetzenOeffnen('vorgang', gewaehlt(), ['projekt', 'version'], 'gewählt') }] : []),   // wie bisher „Mehrere Leistungen bearbeiten“
         { titel: `${n} kopieren`, tun: kopieren },
         ...(schreiben() ? [{ titel: `${n} duplizieren …`, tun: duplizieren }, { titel: 'Einfügen darunter', gesperrt: !ablage(), tun: ablageEinfuegenHier }] : []),
         ...(schreiben() && darf('vorgang', 'loeschen') ? [{ titel: `${n} ausschneiden`, tun: ausschneiden }, { titel: `${n} löschen`, gefahr: true, tun: () => entfernen() }] : []),
@@ -707,7 +747,7 @@ export function Balkenplan(p: Mitte) {
     <div class="bzp">
       <Show when={erg().zyklen.length}><p class="feld-fehler bzp-warnung">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</p></Show>
       <div class="bzp-rahmen">
-      <div class="bzp-flaeche" classList={{ teilen: teilen() }} ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
+      <div class="bzp-flaeche" classList={{ teilen: teilen(), 'zeilen-band': zeilenArt() === 'band', 'zeilen-linie': zeilenArt() === 'linie' }} ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
         style={{ '--bzp-t': `${breiteT()}px`, '--bzp-tx': `${-tabX()}px` }}
         onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); zoomBei(e.clientX, e.deltaY < 0 ? 1 : -1); } else if (e.clientX - flaeche.getBoundingClientRect().left < breiteT()) tabRollen(e); }}>
         <div class="bzp-innen" style={{ width: `${breiteT() + breiteR()}px`, height: `${KOPF + flaechenZeilen() * H}px` }}>
@@ -728,7 +768,7 @@ export function Balkenplan(p: Mitte) {
             onPointerDown={aufziehen} onPointerMove={bewegen} onPointerUp={loslassen}>
             <defs><pattern id="bzp-schraffur" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--gefahr-hell)" /><line x1="0" y1="0" x2="0" y2="6" stroke="var(--gefahr)" stroke-width="2" /></pattern></defs>
             <For each={freieTage()}>{(f) => <rect x={f.x} y={0} width={px()} height="100%" class={f.feiertag ? 'bzp-feiertag' : 'bzp-wochenende'}>{f.feiertag ? <title>{f.feiertag}</title> : null}</rect>}</For>
-            <For each={sichtbar()}>{(v, i) => <rect x={0} y={i() * H} width="100%" height={H} class="bzp-streifen" classList={{ gewaehlt: v.id === markiert() || istGewaehlt(v.id) }} />}</For>
+            <For each={sichtbar()}>{(v, i) => <rect x={0} y={i() * H} width="100%" height={H} class="bzp-streifen" classList={{ gewaehlt: v.id === markiert() || istGewaehlt(v.id), band: i() % 2 === 1 }} />}</For>
             <line x1={heute()} x2={heute()} y1={0} y2="100%" class="bzp-heute" />
             <For each={sichtbar()}>{(v, i) => {
               const t = (): Termin | undefined => erg().termine.get(v.id);
@@ -765,8 +805,8 @@ export function Balkenplan(p: Mitte) {
                         <Show when={Number(v.werte.fortschritt ?? 0) > 0}>
                           <rect x={x(tt().s) + verschiebung(v.id)} y={y() + 13} height={4} width={(xEnde(tt().s, tt().f) - x(tt().s)) * Math.min(100, Number(v.werte.fortschritt)) / 100} class="bzp-fortschritt" />
                         </Show>
-                        <Show when={xEnde(tt().s, tt().f) - x(tt().s) >= 30}>
-                          <text x={x(tt().s) + verschiebung(v.id) + 3} y={y() + 19} class="bzp-pct">{Math.round(Number(v.werte.fortschritt ?? 0))} %</text>
+                        <Show when={beschriftung().m && xEnde(tt().s, tt().f) - x(tt().s) >= 30}>
+                          <text x={x(tt().s) + verschiebung(v.id) + 3} y={y() + 19} class="bzp-pct">{beschrift(v, beschriftung().m)}</text>
                         </Show>
                         <rect x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + teilVersatz(v.id, tt().abschnitte.length - 1, true).w * Number(ziehen()?.teil != null) - 5} y={y() + 4} width={10} height={22} class="bzp-griff" onPointerDown={(e) => startZiehen(e, v, 'dauer', y(), tt().abschnitte.length > 1 ? tt().abschnitte.length - 1 : null)}><title>Ziehen ändert die Dauer</title></rect>
                       </Show>
@@ -778,7 +818,8 @@ export function Balkenplan(p: Mitte) {
                       <For each={tt().abschnitte.length > 1 ? tt().abschnitte.slice(0, -1) : []}>{(a, k) => (
                         <circle cx={xEnde(a.s, a.f) + verschiebung(v.id) + 4} cy={y() + H / 2 - 9} r={5} class="bzp-punkt" onPointerDown={(e) => startZiehen(e, v, 'link', y(), k())}><title>{`Teil ${k() + 1} auf eine andere Leistung ziehen: verknüpfen`}</title></circle>
                       )}</For></Show>
-                    <text x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 18} y={y() + 19} class="bzp-text">{String(v.werte.name ?? '')}{v.werte.unternehmer ? ` · ${v.werte.unternehmer}` : ''}<Show when={vgl()?.je.get(v.id)}>{(g) => <Show when={g().art === 'neu' || g().tage}><tspan class="bzp-soll-text" classList={{ spaet: g().tage > 0, frueh: g().tage < 0 }}>{g().art === 'neu' ? '  neu' : `  ${g().tage > 0 ? '+' : ''}${g().tage} T`}</tspan></Show>}</Show></text>
+                    <text x={xEnde(tt().s, tt().f) + verschiebung(v.id) + verlaengerung(v.id) + 18} y={y() + 19} class="bzp-text">{beschrift(v, beschriftung().r)}<Show when={vgl()?.je.get(v.id)}>{(g) => <Show when={g().art === 'neu' || g().tage}><tspan class="bzp-soll-text" classList={{ spaet: g().tage > 0, frueh: g().tage < 0 }}>{g().art === 'neu' ? '  neu' : `  ${g().tage > 0 ? '+' : ''}${g().tage} T`}</tspan></Show>}</Show></text>
+                    <Show when={beschriftung().l}><text x={x(tt().s) + verschiebung(v.id) - 6} y={y() + 19} class="bzp-text bzp-text-links">{beschrift(v, beschriftung().l)}</text></Show>
                   </g>
                 )}</Show>
               );
@@ -852,8 +893,12 @@ export function Balkenplan(p: Mitte) {
       <Show when={assi()}><PlanAssistent projekt={z().projekt} version={z().version} gespeichert={String(zp()?.werte.assistent ?? '')} onZu={() => setAssi(false)} /></Show>
       <Show when={drucken()}><PlanDrucken plan={plan()} projekt={z().projekt} version={z().version} onZu={() => setDrucken(false)} /></Show>
       <Show when={!vorgaenge().length}><p class="still-text bzp-leer">Noch keine Leistungen. Mit „✦ Assistent“ entsteht ein Plan aus dem Gebäudemodell – oder unten in „+ Neue Leistung“ tippen: Dauer „5“, „2w“; Vorgänger „3;4AA+2t“.</p></Show>
+      <Show when={satz()}><PlanSatz vorgaenge={vorgaenge()} links={links()} plan={plan()} probe={probe} zu={zu()} neu={neueKennung} onAusfuehren={(b, t) => tun(b, t)} onZu={() => setSatz(false)} /></Show>
+      <Show when={darstellung()}><DarstellungFenster beschriftung={beschriftung()} onBeschriftung={setBeschriftung} pfeile={pfeile()} onPfeile={setPfeile}
+        gruppenDauer={gruppenDauer()} onGruppenDauer={setGruppenDauer} zeilen={zeilenArt()} onZeilen={setZeilenArt} loeschFragen={loeschFragen()} onLoeschFragen={setLoeschFragen}
+        onAlle={(auf) => setEingeklappt(new Set(auf ? [] : gruppenIds().map((g) => g.id)))} onZu={() => setDarstellung(false)} /></Show>
       <Show when={umlegeFrage()}>{(f) => <UmlegenFenster posten={f().posten} vorgaenge={vorgaenge()} gesperrt={new Set(f().ids)} fragen={loeschFragen()} onFragen={setLoeschFragen}
-        onZu={() => setUmlegeFrage(null)} onLos={(z) => { setUmlegeFrage(null); entfernen(f().ids, z); }} />}</Show>
+        onZu={() => setUmlegeFrage(null)} onLos={(z) => { const ids = f().ids; setUmlegeFrage(null); entfernen(ids, z); }} />}</Show>
       <Show when={dupl()}>{(ids) => <DuplizierenFenster v={V_()} l={L_()} ids={ids()} vorgaenge={vorgaenge()} links={links()} plan={plan()} probe={probe} werteVon={werteVon} zu={zu()} neu={neueKennung}
         onZu={() => setDupl(null)} onFertig={(b, tops, t) => { tun(b, t); setDupl(null); wahl.mehrere(tops); }} />}</Show>
       <Show when={sollFenster() === 'fest'}><SollFesthalten bisher={sollJetzt()} zusammenhang={zu()} ist={istZeilen} onZu={() => setSollFenster(null)} /></Show>
@@ -894,6 +939,35 @@ function UmlegenFenster(p: { posten: { id: string; dauer: number; ziel: string |
         )}</For></tbody>
       </table>
       <label class="haken-zeile"><input type="checkbox" checked={!p.fragen} onChange={(e) => p.onFragen(!e.currentTarget.checked)} /> nicht mehr fragen (immer verkürzen) – wieder einschalten unter „Darstellung“</label>
+    </Dialog>
+  );
+}
+
+const BESCHRIFTUNG = [{ wert: '', titel: '– keine –' }, { wert: 'name', titel: 'Leistung' }, { wert: 'name_firma', titel: 'Leistung · Unternehmer:in' }, { wert: 'unternehmer', titel: 'Unternehmer:in' },
+  { wert: 'gewerk', titel: 'Gewerk' }, { wert: 'dauer', titel: 'Dauer' }, { wert: 'anfang', titel: 'Anfang' }, { wert: 'ende', titel: 'Ende' }, { wert: 'daten', titel: 'Anfang – Ende' }, { wert: 'pct', titel: '% abgeschlossen' }];
+/** Darstellung wie bisher: Beschriftung der Balken, Pfeile, Dauer der Gruppen, Zeilen, Gruppen auf/zu, beim Löschen fragen – wirkt sofort. */
+function DarstellungFenster(p: { beschriftung: { l: string; m: string; r: string }; onBeschriftung: (b: { l: string; m: string; r: string }) => void; pfeile: string; onPfeile: (w: 'markiert' | 'alle' | 'kritisch' | 'keine') => void;
+  gruppenDauer: string; onGruppenDauer: (w: 'spanne' | 'summe' | 'beides') => void; zeilen: string; onZeilen: (w: '' | 'band' | 'linie') => void; loeschFragen: boolean; onLoeschFragen: (an: boolean) => void;
+  onAlle: (auf: boolean) => void; onZu: () => void }) {
+  const feld = (titel: string, wert: string, optionen: { wert: string; titel: string }[], setzen: (w: string) => void) => (
+    <div class="feld"><label>{titel}</label><Auswahlliste titel={titel} wert={wert} optionen={optionen} onWert={setzen} /></div>);
+  return (
+    <Dialog titel="Darstellung" breite={620} onAbbrechen={p.onZu} knoepfe={<button class="knopf haupt" onClick={p.onZu}>Fertig</button>}>
+      <h3>Beschriftung der Balken</h3>
+      <div class="raster drei">
+        {feld('Links', p.beschriftung.l, BESCHRIFTUNG, (w) => p.onBeschriftung({ ...p.beschriftung, l: w }))}
+        {feld('Im Balken', p.beschriftung.m, BESCHRIFTUNG, (w) => p.onBeschriftung({ ...p.beschriftung, m: w }))}
+        {feld('Rechts', p.beschriftung.r, BESCHRIFTUNG, (w) => p.onBeschriftung({ ...p.beschriftung, r: w }))}
+      </div>
+      <h3>Anzeige</h3>
+      <div class="raster">
+        {feld('Verknüpfungspfeile', p.pfeile, [{ wert: 'alle', titel: 'alle anzeigen' }, { wert: 'markiert', titel: 'nur bei markierten Leistungen' }, { wert: 'kritisch', titel: 'nur kritischer Weg' }, { wert: 'keine', titel: 'keine anzeigen' }], (w) => p.onPfeile(w as 'alle'))}
+        {feld('Dauer der Gruppen', p.gruppenDauer, [{ wert: 'spanne', titel: 'Zeitspanne (wie MS Project)' }, { wert: 'summe', titel: 'Summe der Leistungen' }, { wert: 'beides', titel: 'Summe und Zeitspanne' }], (w) => p.onGruppenDauer(w as 'spanne'))}
+        {feld('Zeilen', p.zeilen, [{ wert: '', titel: 'Markierte Zeilen farbig' }, { wert: 'band', titel: 'Bänderung – jede zweite Zeile getönt' }, { wert: 'linie', titel: 'Nur die aktive Zeile – dünner roter Rahmen' }], (w) => p.onZeilen(w as ''))}
+      </div>
+      <h3>Gruppen</h3>
+      <p><button class="knopf" onClick={() => p.onAlle(true)}>alle aufklappen</button> <button class="knopf" onClick={() => p.onAlle(false)}>alle zuklappen</button></p>
+      <label class="haken-zeile"><input type="checkbox" checked={p.loeschFragen} onChange={(e) => p.onLoeschFragen(e.currentTarget.checked)} /> Beim Löschen fragen, ob die Dauer auf eine Hauptleistung umgelegt wird</label>
     </Dialog>
   );
 }

@@ -216,6 +216,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .fragen { border: 0; padding: 0; margin: 16px 0 0; }
 .fragen legend { font-weight: 600; padding: 0 0 6px; }
 .raster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.raster.drei { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .raster > .ganz, .raster .feld:has(.auswahl-kacheln) { grid-column: 1 / -1; }   /* über die ganze Breite (z. B. Gebäudeteile, Kacheln) */
 .benutzer { list-style: none; margin: 0; padding: 0; }
 .benutzer li { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rand); }
@@ -538,7 +539,12 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .bzp-griff:hover { fill: color-mix(in srgb, var(--akzent) 30%, transparent); }   /* breiter zu greifen, als er aussieht – beim Darüberfahren sichtbar */
 .bzp-punkt { fill: var(--flaeche); stroke: var(--akzent); stroke-width: 1.5; cursor: crosshair; opacity: 0; }
 .bzp-vorgang:hover .bzp-punkt { opacity: 1; }
-.bzp-text { font-size: 11px; fill: var(--text-still); pointer-events: none; }
+.bzp-text { font-size: 11px; fill: var(--text-still); pointer-events: none; } .bzp-text-links { text-anchor: end; }
+.bzp-flaeche.zeilen-band .bzp-zeilen .bzp-zeile:nth-child(even):not(.gewaehlt), .bzp-flaeche.zeilen-band .bzp-zeilen .bzp-zeile:nth-child(even):not(.gewaehlt) .bzp-zelle { background: var(--still-hell); }
+.bzp-flaeche.zeilen-band .bzp-streifen.band:not(.gewaehlt) { fill: var(--still-hell); }
+.bzp-flaeche.zeilen-linie .bzp-zeile.gewaehlt, .bzp-flaeche.zeilen-linie .bzp-zeile.gewaehlt .bzp-zelle { background: var(--flaeche); }
+.bzp-flaeche.zeilen-linie .bzp-zeile.gewaehlt { outline: 1px dashed var(--gefahr); outline-offset: -1px; }
+.bzp-flaeche.zeilen-linie .bzp-streifen.gewaehlt { fill: transparent; stroke: var(--gefahr); stroke-dasharray: 4 3; }
 .bzp-pfeil path { fill: none; stroke: var(--text-still); stroke-width: 1.2; } .bzp-pfeil .bzp-spitze { fill: var(--text-still); stroke: none; }
 .bzp-pfeil.kritisch path { stroke: var(--gefahr); } .bzp-pfeil.kritisch .bzp-spitze { fill: var(--gefahr); }
 .bzp-zieh { stroke: var(--akzent); stroke-dasharray: 4 3; }
@@ -1910,3 +1916,17 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .melden-fragen li { border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); padding: 8px 10px; } .melden-fragen li.neu { border-color: var(--akzent); }
 .melden-antwort { margin: 6px 0 0; white-space: pre-wrap; }
 .meldung-bild { max-width: 100%; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); }
+/* Ablauf der Teile (planablauf.tsx) */
+.ablauf { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--flaeche); }
+.ablauf-flaeche { flex: 1; min-height: 0; overflow: auto; }
+.ablauf-kiste rect { fill: var(--flaeche); stroke: var(--rand-stark); stroke-width: 1.2; cursor: pointer; }
+.ablauf-kiste.gewaehlt rect { stroke: var(--akzent); stroke-width: 2; fill: var(--akzent-hell); }
+.ablauf-name { font-size: 14px; font-weight: 600; fill: var(--text); pointer-events: none; }
+.ablauf-text { font-size: 12px; fill: var(--text-still); pointer-events: none; }
+.ablauf-punkt { fill: var(--flaeche); stroke: var(--akzent); stroke-width: 1.5; cursor: crosshair; }
+.ablauf-pfeil path { fill: none; stroke: var(--text-still); stroke-width: 1.5; }
+.ablauf-pfeil .ablauf-pfeil-breit { stroke: transparent; stroke-width: 12; cursor: context-menu; }
+.ablauf-pfeil:hover path:not(.ablauf-pfeil-breit) { stroke: var(--akzent); }
+#ablauf-spitze path { fill: var(--text-still); }
+.ablauf-zieh { stroke: var(--akzent); stroke-dasharray: 4 3; }
+.ablauf-fuss { padding: 6px 12px; border-top: 1px solid var(--rand); margin: 0; }

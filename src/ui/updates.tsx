@@ -13,6 +13,11 @@ interface Zustand {
 }
 const tag = (t: string) => new Date(t).toLocaleDateString('de', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+/** Katalog zurück auf den Stand ab Werk (auch, was das Büro geändert hat) – erst die Vorschau, dann übernehmen; eigene Einträge bleiben. */
+export const katalogZuruecksetzen = (id: string, titel: string) => void vorschauZeigen(
+  { titel: `„${titel}“ zurücksetzen`, wartetext: 'Der Katalog wird geholt und mit dem Bestand verglichen …', fertig: `„${titel}“ steht wieder auf dem Stand ab Werk.` },
+  () => ruf<Vorschau>('/api/updates/katalog/vorschau', { katalog: id, zuruecksetzen: true }));
+
 export function Updates() {
   const [z, { refetch }] = createResource(() => ruf<Zustand>('/api/updates/zustand'));
   const aktualisieren = (k: Zustand['kataloge'][number]) => void vorschauZeigen(
