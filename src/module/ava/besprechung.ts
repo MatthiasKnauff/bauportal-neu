@@ -2,7 +2,7 @@
 // Projekt, Büro, Adressen (Bieter:in), Angebot, LV und Bauzeitenplan; die Vertragsgrundlagen sind die Vorgaben ab Werk.
 // Reine Rechnung auf Werten – im Browser (Anlegen, Abgleich) und in den Tests gleich. Solange das Protokoll ein Entwurf ist,
 // folgen Felder mit der Herkunft „daten“ ihrer Quelle; von Hand geänderte bleiben und bekommen einen Hinweis.
-import { FRIST_WORT, vertragsbedingungenText } from './rechnung';
+import { FRIST_WORT, UST, vertragsbedingungenText } from './rechnung';
 import type { Werte } from '../../kern/modell';
 import { istText } from '../../kern/lvarten';
 
@@ -31,6 +31,7 @@ export interface Quellen {
   gewerkName?: string; kostengruppe?: string;   // Namen der Verweise des LV
   termine?: { beginn?: string; fertig?: string; unterbrechung?: string; plan?: string };   // aus dem Bauzeitenplan (ISO bzw. Text)
   klaerung?: string;   // Klärungspunkte aus dem Preisspiegel (klaerungspunkte)
+  netto?: number;      // Angebotssumme nach Prüfung (netto, aus dem Preisspiegel)
 }
 
 type E = { id: string; werte: Werte };
@@ -64,6 +65,7 @@ export function ausDenDaten(q: Quellen): Werte {
     gueltig: l.bindefrist ? `ja, gebunden bis ${de(l.bindefrist)}` : '',
     angebot_vom: de(a.eingang),
     gewerke: [q.gewerkName || l.name, q.kostengruppe ? `KG ${q.kostengruppe}` : ''].filter(Boolean).join(' · '),
+    summe: q.netto ? `€ ${eur(q.netto)} netto zuzüglich MwSt. (brutto € ${eur(Math.round(q.netto * (1 + UST) * 100) / 100)})` : '',
     nachlass: a.nachlass ? `${String(a.nachlass).replace('.', ',')} %` : '',
     skonto: a.skonto ? `${String(a.skonto).replace('.', ',')} %${a.skonto_tage ? ` binnen ${String(a.skonto_tage)} ${FRIST_WORT[String(a.skonto_art ?? 'kt')] ?? 'Tagen'}` : ''}` : '',
     preis: PREIS_VORGABE,

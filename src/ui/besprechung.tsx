@@ -6,8 +6,8 @@ import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
 import { GRUNDLAGEN, abgleich, ausDenDaten, klaerungspunkte, rueckweg, type Quellen } from '../module/ava/besprechung';
 import { Dialog } from './baukasten/dialog';
-import { nachOz, zahl } from '../module/ava/rechnung';
-import { angeboteVon, preiseVon } from './avadaten';
+import { nachOz, wertung, zahl } from '../module/ava/rechnung';
+import { angeboteVon, positionenVon, preiseVon } from './avadaten';
 import { vertragAusDaten } from '../module/ava/vertrag';
 import { lvZahlen } from './avadaten';
 import { einsatzAus } from '../module/bauzeitenplan/gewerke';
@@ -36,6 +36,7 @@ function quellen(angebot: Werte): Quellen {
   const lvId = String(angebot.lv ?? ''), eigenes = angeboteVon(lvId).find((x) => x.werte.bieter === angebot.bieter && x.werte.lv === angebot.lv);
   if (eigenes) {
     const ang = angeboteVon(lvId), pr = preiseVon(ang);
+    q.netto = wertung(positionenVon(lvId), ang, (a, p) => { const x = pr.get(`${a}:${p}`)?.werte.ep; return x == null || x === '' ? null : zahl(x); }).find((w) => w.angebot === eigenes.id)?.netto || undefined;
     q.klaerung = klaerungspunkte(nachOz(lebende('lv_position').filter((x) => x.werte.lv === lvId && !x.werte.nachtrag)), ang, eigenes.id,
       (a, p) => { const x = pr.get(`${a}:${p}`)?.werte.ep; return x == null || x === '' ? null : zahl(x); });
   }

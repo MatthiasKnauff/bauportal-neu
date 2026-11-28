@@ -139,7 +139,7 @@ export function Balkenplan(p: Mitte) {
       { titel: 'Lösen', zeichen: 'entkoppeln', gruppe: 'Planen', gesperrt: !links().some((l) => l.werte.von === markiert() || l.werte.nach === markiert()), tun: verknuepfungenLoesen },
       { titel: 'Unterbrechen', zeichen: 'unterbrechen', gruppe: 'Planen', an: teilen(), gesperrt: !vorgaenge().length, tun: () => setTeilen(!teilen()) },
       { titel: 'Aufräumen', zeichen: 'aufraeumen', gruppe: 'Planen', gesperrt: !links().length, tun: aufraeumen },
-      { titel: 'In einem Satz', zeichen: 'assistent', gruppe: 'Planen', gesperrt: !vorgaenge().length, tun: () => setSatz(true) },   // wie bisher „Fragen und Antworten“: „Fliesen 1 Woche später“ …
+      { titel: 'In einem Satz', zeichen: 'satz', gruppe: 'Planen', gesperrt: !vorgaenge().length, tun: () => setSatz(true) },   // wie bisher „Fragen und Antworten“: „Fliesen 1 Woche später“ …
       { titel: 'Assistent', zeichen: 'assistent', gruppe: 'Planen', tun: () => setAssi(true) },
       { titel: 'Auto', zeichen: 'ablauf', gruppe: 'Planen', an: autom(), tun: () => setAutom(!autom()) }] : []),
     // Fortschritt der gewählten Leistungen: Stufen und Schieber (Baustein Prozent) wie bisher (bei einer Gruppe: alle Leistungen darunter)
@@ -159,7 +159,7 @@ export function Balkenplan(p: Mitte) {
     { titel: 'Darstellung', zeichen: 'pfeile', gruppe: 'Ansicht', tun: () => setDarstellung(true) },
     { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, tun: (e) => austauschMenue(e) },
     ...(schreiben() ? [{ titel: 'Einlesen', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: () => einlesen() }] : []),
-    { titel: 'PDF', zeichen: 'pdf', gruppe: 'Ausgabe', rechts: true, tun: () => setDrucken(true) },
+    { titel: 'Drucken', zeichen: 'drucken', gruppe: 'Ausgabe', rechts: true, tun: () => setDrucken(true) },   // wie bisher: Drucker, „Drucken“
   ]));
   const fortschrittIds = () => { const l = vorgaenge(), ids = new Set(gewaehlt()); const aus: string[] = [];
     l.forEach((v, i) => { if (!ids.has(v.id)) return; const e = Number(v.werte.ebene ?? 0); let k = i + 1; if (Number(l[k]?.werte.ebene ?? -1) <= e) { aus.push(v.id); return; }

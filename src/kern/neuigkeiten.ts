@@ -15,9 +15,13 @@ export interface Neuigkeit {
 }
 
 export const NEUIGKEITEN: Neuigkeit[] = [
-  { id: '2026-11-28-terminplan-durch', zeit: '2026-11-28T19:30', app: 'bauzeitenplan', ansicht: 'plan', titel: 'Terminplan durch – bitte ansehen',
+  { id: '2026-11-28-bsp-vorlage', zeit: '2026-11-28T20:00', app: 'ava', ansicht: 'besprechungen', titel: 'Angebotsbesprechung wie dein Protokoll',
+    text: 'Das Protokoll steht wieder wie die Vorlage (Tischlerei Blank): eine Angabe je Zeile mit den Abschnitten „Angaben zur Bieter:in“, „Angaben zum Angebot“, „Termine“, „Grundlagen“, dazu „Angebotssumme nach Prüfung“ (netto zuzüglich MwSt., brutto), der Satz „Dieses Protokoll wird bei einer Auftragserteilung Bestandteil des Vertrages!“ und drei Unterschriften: Bauherr:in, Architekt:in, Bieter:in.' },
+  { id: '2026-11-28-kleinigkeiten', zeit: '2026-11-28T20:00', app: '', titel: 'Kleinigkeiten nach deinen Bildern',
+    text: 'Bauzeitenplan: „Drucken“ mit Drucker statt „PDF“, „In einem Satz“ mit eigenem Symbol. Adressen als Kacheln: der Auswahl-Haken liegt nicht mehr als Schalter über dem Namen.' },
+  { id: '2026-11-28-terminplan-durch', zeit: '2026-11-28T19:30', stand: 'bf3fe95', app: 'bauzeitenplan', ansicht: 'plan', titel: 'Terminplan durch – bitte ansehen',
     text: 'Inventur aus dem alten Quelltext abgehakt, Bildvergleich gemacht. Bewusst später: 3D-Baukasten (mit dem Gebäudemodell), Teilen-Link (mit dem Bauherrenportal), Terminrüge (mit Post & Vorgänge).' },
-  { id: '2026-11-28-kat-ausprojekten', zeit: '2026-11-28T19:30', app: 'bauzeitenplan', ansicht: 'leistungen', ziel: '[role=toolbar][aria-label="Menüleiste"] [aria-label="Aus Projekten …"]', titel: 'Leistungskatalog: Aus Projekten … und Import',
+  { id: '2026-11-28-kat-ausprojekten', zeit: '2026-11-28T19:30', stand: 'bf3fe95', app: 'bauzeitenplan', ansicht: 'leistungen', ziel: '[role=toolbar][aria-label="Menüleiste"] [aria-label="Aus Projekten …"]', titel: 'Leistungskatalog: Aus Projekten … und Import',
     text: 'Wie bisher: Leistungen aus vorhandenen Bauzeitenplänen als eigene Leistungen in den Katalog übernehmen (mit Abschnitt, Gewerk, Dauer). Dazu Import aus Excel/CSV mit Spaltenzuordnung.' },
   { id: '2026-11-28-bzp-darstellung', zeit: '2026-11-28T19:00', stand: '3fdf7b1', app: 'bauzeitenplan', ansicht: 'plan', ziel: '[role=toolbar][aria-label="Menüleiste"] [aria-label="Darstellung"]', titel: 'Darstellung wie bisher',
     text: 'Unter „Darstellung“: Beschriftung der Balken links · im Balken · rechts (Leistung, Firma, Gewerk, Dauer, Termine, %), Pfeile, Dauer der Gruppen (Zeitspanne, Summe oder beides), Zeilen (farbig, Bänderung, nur aktive Zeile), alle auf-/zuklappen und „beim Löschen fragen“.' },

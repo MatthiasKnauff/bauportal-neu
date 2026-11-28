@@ -7,7 +7,7 @@ import {
   FileDown, FileText, FileUp, Flag, Folder, FolderKanban, GitBranch, Grid3x3, History, House, ImagePlus, Info, KeyRound, LayoutGrid, Library,
   List, ListPlus, ListTree, Mail, MapPin, Merge, Mic, NotebookPen, NotebookText, PanelLeft, PanelRightClose, Paintbrush, Pencil, Plus, Printer,
   Redo2, RefreshCw, Search, Send, Settings, Share2, ShieldCheck, Sparkles, StickyNote, Table, Trash2, TriangleAlert, Undo2, Upload, UserPlus,
-  User, Users, Workflow, Maximize2, Crosshair, X, Route, Spline, ZoomIn, ZoomOut, Pin, PinOff, Scissors, SquareSplitHorizontal, ClipboardPaste, CopyPlus, Link, Unlink, Box, ScrollText, Receipt, Scale, Ruler, Handshake, FilePlus2, ChartColumn, PhoneCall, AppWindow, DoorOpen, Palette, type IconNode,
+  User, Users, Workflow, Maximize2, Crosshair, X, Route, Spline, ZoomIn, ZoomOut, Pin, PinOff, Scissors, SquareSplitHorizontal, ClipboardPaste, CopyPlus, Link, Unlink, Box, ScrollText, Receipt, Scale, Ruler, Handshake, FilePlus2, ChartColumn, PhoneCall, AppWindow, DoorOpen, Palette, MessageSquareText, type IconNode,
 } from 'lucide';
 
 const ZEICHEN = {
@@ -21,7 +21,7 @@ const ZEICHEN = {
   // Ausgabe und Austausch
   pdf: FileText, drucken: Printer, export: Download, import: Upload, datei_hoch: FileUp, datei_runter: FileDown, senden: Mail, teilen: Share2,
   // Fachliches
-  assistent: Sparkles, standort: MapPin, wetter: Cloud, diktieren: Mic, schrittweise: Send, foto: Camera, foto_neu: ImagePlus,
+  assistent: Sparkles, satz: MessageSquareText, standort: MapPin, wetter: Cloud, diktieren: Mic, schrittweise: Send, foto: Camera, foto_neu: ImagePlus,
   bericht_neu: CalendarPlus, bericht: NotebookText, notiz: StickyNote, notiz_neu: NotebookPen, mangel: TriangleAlert, aufgabe: ClipboardCheck,
   weisung: Flag, person: User, haus: House, personen: Users, person_neu: UserPlus, kontakt: Contact, adressen: BookUser, projekte: FolderKanban, dateien: Folder,
   gebaeude: Building2, katalog: BookOpen, kataloge: Library, baudaten: Database, einruecken: IndentIncrease, ausruecken: IndentDecrease, nach_oben: ArrowUp, nach_unten: ArrowDown, version: GitBranch, meilenstein: Diamond, gruppe_neu: ListPlus, plan: ChartGantt,

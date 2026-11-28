@@ -1051,11 +1051,11 @@ html[data-fenster="mac"] :is(.menue-liste, .kontextmenue, .auswahlliste-fenster)
 html[data-fenster="mac"] .fenster::before { content: ''; flex: none; height: 10px; width: 51px; margin: 14px 0 -4px 16px; background: radial-gradient(circle, var(--akzent) 4.5px, transparent 5px) 0 0 / 17px 10px repeat-x; }
 html[data-effekte="aus"] * { backdrop-filter: none !important; }
 /* Häkchen als Schalter – nur in Einstellungen; in Tabellen und Listen zum Auswählen bleiben Häkchen */
-html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *) { appearance: none; width: 2.1em; height: 1.25em; min-width: 2.1em; margin: 0 .25em 0 0; padding: 0; border: 0; border-radius: 99px; background: color-mix(in srgb, currentColor 28%, transparent); position: relative; cursor: pointer; flex: none; vertical-align: middle; transition: background .15s; }
-html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *)::after { content: ''; position: absolute; top: .125em; left: .125em; width: 1em; height: 1em; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: left .15s; }
-html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *):checked { background: var(--akzent); }
-html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *):checked::after { left: .975em; }
-html[data-schalter="an"] input[type="checkbox"]:not(:is(td, th, .tabelle, .wahlliste) *):disabled { opacity: .45; cursor: default; }
+html[data-schalter="an"] input[type="checkbox"]:not(.auswahl-haken):not(:is(td, th, .tabelle, .wahlliste) *) { appearance: none; width: 2.1em; height: 1.25em; min-width: 2.1em; margin: 0 .25em 0 0; padding: 0; border: 0; border-radius: 99px; background: color-mix(in srgb, currentColor 28%, transparent); position: relative; cursor: pointer; flex: none; vertical-align: middle; transition: background .15s; }
+html[data-schalter="an"] input[type="checkbox"]:not(.auswahl-haken):not(:is(td, th, .tabelle, .wahlliste) *)::after { content: ''; position: absolute; top: .125em; left: .125em; width: 1em; height: 1em; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transition: left .15s; }
+html[data-schalter="an"] input[type="checkbox"]:not(.auswahl-haken):not(:is(td, th, .tabelle, .wahlliste) *):checked { background: var(--akzent); }
+html[data-schalter="an"] input[type="checkbox"]:not(.auswahl-haken):not(:is(td, th, .tabelle, .wahlliste) *):checked::after { left: .975em; }
+html[data-schalter="an"] input[type="checkbox"]:not(.auswahl-haken):not(:is(td, th, .tabelle, .wahlliste) *):disabled { opacity: .45; cursor: default; }
 /* weitere Rollbalken wie im bisherigen Bauportal */
 html[data-scrollbalken="mac"] ::-webkit-scrollbar { width: 11px; height: 11px; }
 html[data-scrollbalken="mac"] ::-webkit-scrollbar-thumb { background: color-mix(in srgb, currentColor 42%, transparent); border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }

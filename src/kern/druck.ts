@@ -11,7 +11,7 @@ import { istHinweis, istZuschlag, mengeVon, merktext, nachKennung, zaehltZurSumm
 export type Druckblock =
   | { id: string; art: 'briefkopf' }                                   // Büro links, Projekt rechts
   | { id: string; art: 'titel'; text: string; unter?: string }         // Überschrift; {feld} wird ersetzt
-  | { id: string; art: 'felder'; felder: string[]; linien?: string[] }   // Beschriftung + Wert, nebeneinander; linien: diese Felder als Linie zum Ausfüllen (Blanko)
+  | { id: string; art: 'felder'; felder: string[]; linien?: string[]; titel?: string; einspaltig?: boolean }   // Beschriftung + Wert, nebeneinander; linien: diese Felder als Linie zum Ausfüllen (Blanko); titel: Überschrift (einstellbar); einspaltig: eine Angabe je Zeile, darf über die Seite laufen (wie ein Protokoll)
   | { id: string; art: 'text'; feld: string; titel?: string; linien?: number }   // langer Text mit Überschrift (ab Werk die des Felds), über mehrere Seiten; linien: statt des Texts so viele Linien (Blanko)
   | { id: string; art: 'absatz'; text: string }                        // fester Text (z. B. Anrede und Gruß eines Briefs); {feld} wird ersetzt, einstellbar
   // Tabelle der Einträge, die am Objekt hängen (z. B. die Mängel eines Berichts): objekt.ueber verweist auf das gedruckte Objekt
@@ -217,6 +217,8 @@ export const CSS = (schrift: number) => `
   .felder div { display: flex; gap: 3mm; border-bottom: .2mm solid #ccc; padding-bottom: 1mm; }
   .felder dt { flex: 0 0 38%; color: #444; }
   .felder dd { margin: 0; flex: 1; font-weight: 600; }
+  .felder > h2 { grid-column: 1 / -1; font-size: 1.05em; margin: 2mm 0 0; break-after: avoid; }
+  .felder.einspaltig { grid-template-columns: 1fr; break-inside: auto; } .felder.einspaltig > div { break-inside: avoid; } .felder.einspaltig dt { flex-basis: 30%; }
   .textblock { margin-bottom: 5mm; }
   .absatz { margin-bottom: 5mm; } .absatz p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .unterschriften { display: flex; gap: 14mm; margin-top: 16mm; break-inside: avoid; }
@@ -369,7 +371,9 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       // Angaben ohne Wert stehen nicht im Ausdruck (in der Vorschau zum Einstellen bleiben sie sichtbar)
       const linie = (n: string) => !!b.linien?.includes(n);
       const mitWert = (n: string) => bearbeiten || linie(n) || feld(n).art === 'ja_nein' || (d.werte[n] !== '' && d.werte[n] != null && feldtext(feld(n), d.werte[n], d.verweis) !== '');
-      return huelle(b.id, 'felder', b.felder.filter(mitWert).map((n) => huelle(`${b.id}.${n}`, 'zeile', `<dt>${sicher(e[`${b.id}.${n}.titel`] || feld(n).titel)}</dt><dd>${linie(n) ? '<span class="linie"></span>' : sicher(feld(n).art === 'ja_nein' ? (d.werte[n] ? 'Ja' : 'Nein') : feldtext(feld(n), d.werte[n], d.verweis)) || '–'}</dd>`)).join(''), 'dl');
+      const kopf = b.titel ? `<h2>${sicher(e[`${b.id}.titel`] || b.titel)}</h2>` : '';
+      if (kopf && !b.felder.some(mitWert)) return '';   // Überschrift ohne Angaben darunter steht nicht im Ausdruck
+      return huelle(b.id, `felder${b.einspaltig ? ' einspaltig' : ''}`, kopf + b.felder.filter(mitWert).map((n) => huelle(`${b.id}.${n}`, 'zeile', `<dt>${sicher(e[`${b.id}.${n}.titel`] || feld(n).titel)}</dt><dd>${linie(n) ? '<span class="linie"></span>' : sicher(feld(n).art === 'ja_nein' ? (d.werte[n] ? 'Ja' : 'Nein') : feldtext(feld(n), d.werte[n], d.verweis)) || '–'}</dd>`)).join(''), 'dl');
     }
     if (b.art === 'unterschriften') {
       return huelle(b.id, 'unterschriften', b.parteien.map((t) => `<div><span class="linie"></span><small>Ort, Datum · ${sicher(einsetzen(t, m, d))}</small></div>`).join(''));
