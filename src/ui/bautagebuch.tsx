@@ -8,7 +8,7 @@ import { appOeffnen, springeZu } from './sprung';
 import { For, Show, createEffect, createMemo, createResource, createRoot, createSignal, on, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import type { Feld, Wert } from '../kern/modell';
-import { ausfuehren, ausfuehrenMehrere, rueckgaengig, sicht, lebende, wartendAnzahl } from './unterbau/abgleich';
+import { ausfuehren, ausfuehrenMehrere, rueckgaengig, sicht, lebende, beimServer } from './unterbau/abgleich';
 import { RUEGE_AB, erwartet, laufendAm, taetigkeitVorschlag, type Laufend } from '../module/bautagebuch/soll';
 import { MIT_ERLEDIGT, neuerBericht } from '../module/bautagebuch/beipackzettel';
 import { planDerVersion, planVersionen } from './plandaten';
@@ -33,6 +33,9 @@ import { handy } from './unterbau/geraet';
 import { bauherrVon, projektId, setProjektId } from './projekt';
 
 const heute = () => new Date().toLocaleDateString('sv');
+/** Berichte nach Datum und Nummer – aufsteigend (Ausdruck mehrerer) oder neueste zuerst (Liste, Wahl, Aufschlagen). */
+const folge = (a: Zeile, b: Zeile) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')) || Number(a.werte.nummer ?? 0) - Number(b.werte.nummer ?? 0);
+const neuesteZuerst = (l: Zeile[]) => [...l].sort((a, b) => folge(b, a));
 const datumText = (d: unknown) => (d ? new Date(`${String(d)}T12:00`).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
 const merke = (k: string, w: string) => { try { localStorage.setItem(k, w); } catch { /* ohne Speicher gilt es bis zum Neuladen */ } };
 const hole = (k: string, d: string) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } };
@@ -110,7 +113,7 @@ export function BerichtLinks(p: Mitte) {
   const blaettern = (s: number) => { const [j, mo] = monat().split('-').map(Number) as [number, number]; const d = new Date(j, mo - 1 + s, 1); setMonat(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); };
   const titelMonat = () => new Date(`${monat()}-15T12:00`).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
   const waehle = (id: string) => { setEintrag(null); setBearbeiten(false); p.onWahl(id); };
-  const liste = () => [...p.zeilen()].sort((a, b) => String(b.werte.datum ?? '').localeCompare(String(a.werte.datum ?? '')) || Number(b.werte.nummer ?? 0) - Number(a.werte.nummer ?? 0));
+  const liste = () => neuesteZuerst(p.zeilen());
   return (
     <div class="bt-links">
       <div class="auswahl segment bt-form" role="radiogroup" aria-label="Berichte zeigen als">
@@ -138,7 +141,7 @@ export function BerichtLinks(p: Mitte) {
       </Show>
       <Show when={markiert()}>{(mk) => <p class="bt-markiert klein-text">Markiert: {datumText(mk().von)} – {datumText(mk().bis)} · {p.alle().filter((z) => String(z.werte.datum) >= mk().von && String(z.werte.datum) <= mk().bis).length} Berichte
         <button type="button" class="knopf klein" disabled={!ausdrucke('tagesbericht').length} onClick={() => { const ids = p.alle().filter((z) => String(z.werte.datum) >= mk().von && String(z.werte.datum) <= mk().bis)
-          .sort((a, b) => String(a.werte.datum).localeCompare(String(b.werte.datum))).map((z) => z.id); if (ids.length) druckOeffnen(ausdrucke('tagesbericht')[0]!.id, ids[0]!, ids); }}>Drucken …</button> <button type="button" class="knopf klein still" aria-label="Markierung aufheben" onClick={() => setMarkiert(null)}>×</button></p>}</Show>
+          .sort(folge).map((z) => z.id); if (ids.length) druckOeffnen(ausdrucke('tagesbericht')[0]!.id, ids[0]!, ids); }}>Drucken …</button> <button type="button" class="knopf klein still" aria-label="Markierung aufheben" onClick={() => setMarkiert(null)}>×</button></p>}</Show>
       <Show when={gewaehlt()}>{(g) => <Ausgefuellt bericht={g()} />}</Show>
       <Show when={gewaehlt()}>{(g) => (
         <Seitenliste name="Abschnitte des Berichts" aktiv="" abschnitte={[{ titel: `Tagesbericht Nr. ${String(g().werte.nummer ?? '')} · ${datumText(g().werte.datum)}`,
@@ -296,7 +299,7 @@ const fotosAnEintrag = async (z: Zeile, d: File[], lage: (t: string) => void = (
 };
 /** Fotos gleich beim Anlegen eines Eintrags: erst wenn der Eintrag beim Server ist (sonst kennt er ihn noch nicht), dann hoch. */
 const fotosZumNeuen = async (b: Zeile, id: string, d: File[]) => {
-  for (let i = 0; i < 150 && wartendAnzahl() > 0; i++) await new Promise((r) => setTimeout(r, 100));
+  await beimServer(id);
   await fotosAnEintrag({ id, geloescht: false, werte: { projekt: b.werte.projekt ?? null, bericht: b.id } }, d);
 };
 /** Foto zuordnen (wie bisher nach „Foto aufnehmen“ im ＋): nur unter „Bilder“ oder an einen Eintrag des Berichts. */
@@ -375,7 +378,7 @@ const WETTERFELDER = ['wetter', 'temperatur', 'luftfeuchte', 'wind', 'niederschl
 function wetterAutomatisch(b: () => Zeile) {
   createEffect(on(() => [String(b().werte.datum ?? ''), String(b().werte.uhrzeit ?? '')] as const, ([datum], vorher) => {
     const z = b(), pw = sicht.projekt?.[String(z.werte.projekt ?? '')]?.werte;
-    if (!darf('tagesbericht', 'schreiben') || !datum || datum > new Date().toLocaleDateString('sv') || !(pw?.ort || pw?.plz)) return;
+    if (!darf('tagesbericht', 'schreiben') || !datum || datum > heute() || !(pw?.ort || pw?.plz)) return;
     if (vorher) { if (WETTERFELDER.some((k) => z.herkunft?.[k] === 'wetterdienst')) void wetterEintragen(z, true); return; }
     if (wetterVersucht.has(z.id) || WETTERFELDER.some((k) => z.werte[k] != null && z.werte[k] !== '')) return;
     wetterVersucht.add(z.id); void wetterEintragen(z, true);
@@ -473,7 +476,7 @@ function KopfStift(p: { gruppe: string; name: string; titel: string }) {
 }
 /** Die Felder einer Gruppe des Tagesberichts direkt im Bericht – dieselbe Detailkarte, nur diese Gruppe. */
 function KopfFelder(p: { bericht: Zeile; gruppe: string }) {
-  return <div class="bt-kopf-felder" onKeyDown={(e) => { const t = e.target as HTMLElement; if ((e.key === 'Enter' && t.tagName === 'INPUT') || e.key === 'Escape') { e.preventDefault(); t.blur(); setTimeout(() => setBearbeiten(false)); } }}>
+  return <div class="bt-kopf-felder" onKeyDown={(e) => { const t = e.target as HTMLElement; if ((e.key === 'Enter' && t.tagName === 'INPUT') || e.key === 'Escape') { e.preventDefault(); t.blur(); setBearbeiten(false); } }}>
     <Detailkarte modell={modell('tagesbericht')} zeile={p.bericht} ohneKopf ohneRahmen nurGruppen={[p.gruppe]} verborgen={['projekt']} /></div>;
 }
 const KURZ: Record<string, string> = { aufgeraeumt: 'aufgeräumt', masskontrolle: 'Maßkontrolle', fotodoku: 'Fotos', firmen_angesprochen: 'Firmen angesprochen' };
@@ -515,7 +518,7 @@ export function Berichtsseite(p: Mitte) {
       hinweis('Neuer Bericht für heute angelegt.');
     }
     if (id === p.gewaehlt()) { dann(); return; }
-    p.onWahl(id); setTimeout(dann, 30);
+    p.onWahl(id); dann();   // der Bericht ist damit schon aufgebaut (Solid rechnet sofort), seine Abschnitte sind angemeldet
   };
   /** Neuer Bericht (wie bisher im ＋): heute, nächste Nummer – auch wenn es schon einen von heute gibt. */
   const neuerBerichtHeute = () => {
@@ -540,7 +543,7 @@ export function Berichtsseite(p: Mitte) {
   // Ohne Wahl: der neueste Bericht – wie beim Aufschlagen des Bautagebuchs
   createEffect(() => {
     if (p.gewaehlt() && sicht.tagesbericht?.[p.gewaehlt()!] && !sicht.tagesbericht[p.gewaehlt()!]!.geloescht) return;
-    const neu = [...p.alle()].sort((a, b) => String(b.werte.datum ?? '').localeCompare(String(a.werte.datum ?? '')) || Number(b.werte.nummer ?? 0) - Number(a.werte.nummer ?? 0))[0];
+    const neu = neuesteZuerst(p.alle())[0];
     if (neu) p.onWahl(neu.id);
   });
   createEffect(on(() => p.gewaehlt(), () => { setEintrag(null); setBearbeiten(false); setFoto(null); setFokus(null); }, { defer: true }));
@@ -589,6 +592,9 @@ export function Berichtsseite(p: Mitte) {
         wetterAutomatisch(b);
         return (<>
           <Show when={handy() ? fokus() : null} keyed fallback={<>
+            {/* am Handy wie bisher: der Bericht oben zum Wechseln (Nr. · Datum), die Liste links ist dort zugeklappt */}
+            <Show when={handy()}><div class="bt-wahl-handy"><Auswahlliste titel="Bericht wählen" aussehen="titel" wert={id} onWert={(w) => p.onWahl(w)}
+              optionen={neuesteZuerst(p.alle()).map((z) => ({ wert: z.id, titel: `Nr. ${String(z.werte.nummer ?? '')} · ${datumText(z.werte.datum)}` }))} /></div></Show>
             <Kopf bericht={b()} werkzeuge={werkzeuge} />
             <Show when={darf('bericht_eintrag', 'lesen')}>
               <Show when={handy()} fallback={<For each={ABSCHNITTE}>{(a) => <Abschnitt a={a} bericht={b()} inhalt={l[a.id]!} />}</For>}>
@@ -653,7 +659,7 @@ const HINWEIS_RECHTS = 'Im Bericht einen Eintrag anklicken – hier stehen dann 
 /** Mehrere Berichte in einem PDF (wie im bisherigen Bautagebuch): ein Zeitraum oder alle Berichte des Projekts – weiter in die Druckvorschau. */
 function MehrereDrucken(p: { bericht: Zeile; ausdruck: string; zu: () => void }) {
   const alle = () => lebende('tagesbericht').filter((z) => z.werte.projekt === p.bericht.werte.projekt && z.werte.datum)
-    .sort((a, b) => String(a.werte.datum).localeCompare(String(b.werte.datum)) || Number(a.werte.nummer ?? 0) - Number(b.werte.nummer ?? 0));
+    .sort(folge);
   const datumFeld = (name: string, titel: string): Feld => ({ name, titel, art: 'datum' });
   const [art, setArt] = createSignal<'zeit' | 'alle'>('zeit');
   const [von, setVon] = createSignal<Wert>(markiert()?.von ?? String(p.bericht.werte.datum ?? ''));

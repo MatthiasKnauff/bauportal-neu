@@ -1298,6 +1298,7 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 /* Kopfleiste am Handy (wie im bisherigen Bauportal): unter 640 px nur noch Projekt – der Name der App steht unten in der Leiste */
 @media (max-width: 640px) { .kopf .modulname, .kopf .trenner { display: none; } }
 /* Bautagebuch am Handy: Abschnitte als Kacheln (zwei Spalten, mit Anzahl) */
+.bt-wahl-handy { margin: 0 0 8px; }
 .bt-kacheln { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .bt-kachel { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 2px 8px; align-items: center; text-align: left; padding: 12px; border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); background: var(--flaeche); font: inherit; cursor: pointer; min-height: 64px; }
 .bt-kachel .bt-symbol { grid-row: 1 / 3; }

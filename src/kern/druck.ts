@@ -191,7 +191,8 @@ export function einsetzen(vorlage: string, m: ObjektModell, d: Druckdaten, werte
     const f = mm?.felder.find((x) => x.name === feldname);
     if (!f) return '';
     if (form === 'wochentag') { const t = String(ww[feldname] ?? ''); return /^\d{4}-\d{2}-\d{2}/.test(t) ? WOCHENTAGE[new Date(`${t.slice(0, 10)}T12:00:00Z`).getUTCDay()]! : ''; }
-    return feldtext(f, ww[feldname], d.verweis);
+    const v = ww[feldname];
+    return v == null || v === '' ? '' : feldtext(f, v, d.verweis);   // leer bleibt leer (nicht der Titel der leeren Auswahl, z. B. „keine Angabe“)
   };
   const wert = (k: string) => k.split('|').map(eins).find((x) => x !== '') ?? '';
   return vorlage.replace(/\[([^\[\]]*\{[^\[\]]*)\]/g, (_g, innen: string) => ([...innen.matchAll(/\{([a-z0-9_.:|]+)\}/g)].every((x) => wert(x[1]!) !== '') ? innen : ''))

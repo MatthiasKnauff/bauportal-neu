@@ -12,6 +12,7 @@ import { Auswahlliste } from './auswahlliste';
 import { feldAendern } from './detailkarte';
 import { FeldEingabe } from './feld';
 import { kiAnbindungen, kiOeffnen } from './ki';
+import { Zeichen } from './zeichen';
 import { hinweis } from '../unterbau/meldungen';
 
 export function Unterliste(p: {
@@ -110,7 +111,7 @@ export function Unterliste(p: {
               <textarea class="unterliste-neu" ref={(el) => (neuFeld = el)} rows={2} aria-label={`${p.titel}: neuer Eintrag`} placeholder={p.platzhalter}
                 onInput={(e) => { wachse(e.currentTarget); setGetippt(!!e.currentTarget.value.trim()); }} onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); anlegen(); } else if (e.key === 'Escape' && (getippt() || fotos().length)) { e.preventDefault(); verwerfen(); } }} />
               <Show when={p.neuFotos}>
-                <button type="button" class="knopf klein still" title="Foto dazu – geht mit dem neuen Eintrag hoch" aria-label={`${p.titel}: Foto zum neuen Eintrag`} onClick={() => fotoWahl.click()}>📷{fotos().length ? ` ${fotos().length}` : ''}</button>
+                <button type="button" class="knopf klein still" title="Foto dazu – geht mit dem neuen Eintrag hoch" aria-label={`${p.titel}: Foto zum neuen Eintrag`} onClick={() => fotoWahl.click()}><Zeichen name="foto" groesse={16} />{fotos().length ? ` ${fotos().length}` : ''}</button>
                 <input ref={fotoWahl} type="file" accept="image/*,.heic,.heif" multiple hidden onChange={(e) => { setFotos([...fotos(), ...(e.currentTarget.files ?? [])]); e.currentTarget.value = ''; }} />
               </Show>
               <Show when={getippt() || fotos().length}><button type="button" class="knopf klein still" aria-label={`${p.titel}: Eingabe verwerfen`} title="Eingabe verwerfen (Esc) – mit Rückgängig" onClick={verwerfen}>×</button></Show>

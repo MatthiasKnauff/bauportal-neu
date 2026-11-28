@@ -1,7 +1,7 @@
 // Abgleich: Die Daten liegen im Gerät (IndexedDB) und werden von dort angezeigt – jeder Klick wirkt sofort.
 // Änderungen gehen als Befehle an den Server; ohne Netz warten sie in einer Schlange.
 // Was andere ändern, kommt über den Live-Strom und wird in derselben Reihenfolge angewendet wie auf dem Server.
-import { batch, createSignal, untrack } from 'solid-js';
+import { batch, createEffect, createRoot, createSignal, untrack } from 'solid-js';
 import { createStore, produce, reconcile } from 'solid-js/store';
 import { anwenden, gegenbefehl, type Befehl, type Protokolliert, type Vorlage, type Zeile } from '../../kern/befehl';
 import type { Feld, ObjektModell, Wert, Werte } from '../../kern/modell';
@@ -286,6 +286,15 @@ export function wiederholen(): void {
   setVerlauf({ zurueck: zurueck.length, vor: vor.length });
   batch(() => { for (const w of s.wieder) eigenAnwenden(w); });
   hinweis(`Wiederholt: ${s.titel}`);
+}
+
+/** Erfüllt sich, sobald keine eigene Änderung an diesem Objekt mehr unterwegs ist – z. B. bevor Fotos an einen eben angelegten Eintrag gehen
+ *  (der Server muss ihn kennen). Ohne Verbindung wartet es, bis wieder gesendet ist. */
+export function beimServer(objektId: string): Promise<void> {
+  return new Promise((fertig) => createRoot((weg) => createEffect(() => {
+    wartendAnzahl();
+    if (!wartend.some((w) => w.objektId === objektId)) { queueMicrotask(weg); fertig(); }
+  })));
 }
 
 async function senden(): Promise<void> {

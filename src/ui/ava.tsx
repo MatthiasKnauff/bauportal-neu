@@ -124,7 +124,7 @@ export function PositionBilder(p: { pos: Zeile }): JSX.Element {
   return <Show when={!istText(p.pos.werte.art) || bilder().length}><div class="pos-bilder">
     <Show when={bilder().length}><DokumentListe dokumente={bilder()} /></Show>
     <Show when={darf('dokument', 'schreiben')}>
-      <button type="button" class="knopf klein" title="Fotos oder Skizzen zur Position – sie stehen im Ausdruck unter dem Langtext" onClick={() => wahl.click()}>📷 Foto oder Skizze …</button>
+      <button type="button" class="knopf klein" title="Fotos oder Skizzen zur Position – sie stehen im Ausdruck unter dem Langtext" onClick={() => wahl.click()}><Zeichen name="foto" groesse={16} /> Foto oder Skizze …</button>
       <input ref={wahl} type="file" accept="image/*,.pdf" multiple hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (f.length) dokumenteAblegen(f, { zu: { objekt: 'lv_position', id: p.pos.id, titel: titel(), art: 'lvbild' } }); }} />
     </Show>
   </div></Show>;
