@@ -60,6 +60,8 @@ import { naechsteOz, vergabenummer } from '../module/ava/rechnung';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { Balkenplan } from './balkenplan';
 import { PlanAblauf } from './planablauf';
+import { katalogAusProjekten } from './katalogausprojekten';
+import { tabelleEinlesen } from './baukasten/tabelleeinlesen';
 import { GewerkeFirmen } from './gewerke';
 import { springeZu } from './sprung';
 import { ArbeitszeitFenster, ProjektinfoFenster } from './arbeitszeit';
@@ -555,8 +557,14 @@ export function KarteImFensterZeigen() {
 const ANSICHT_ANPASSUNG: Record<string, Anpassung> = {
   'bauzeitenplan.abhaengigkeiten': { mitte: (m) => <KatalogNetz {...m} />, links: (m) => <KatalogListe {...m} />, linksTitel: 'Leistungskatalog', detailsHinweis: 'Eine Leistung anklicken – hier steht dann ihre Karte.' },
   // wie bisher „↺ Zurücksetzen …“: Leistungen des Katalogs zurück auf den Stand ab Werk (eigene Einträge bleiben) – nur Administrator:innen
-  'bauzeitenplan.leistungen': { knoepfe: () => (istAdmin() ? [{ titel: 'Zurücksetzen …', zeichen: 'zurueck', gruppe: 'Katalog', tun: () => katalogZuruecksetzen('leistungen', 'Leistungen für den Bauzeitenplan') }] : []) },
-  'bauzeitenplan.ablauf': { mitte: (m) => <PlanAblauf {...m} />, detailsHinweis: 'Eine Kiste anklicken – hier steht dann ihre erste Leistung.' },
+  // dazu wie bisher „Aus Projekten …“ und Import (Excel/CSV über den Baustein „Tabelle einlesen“)
+  'bauzeitenplan.leistungen': { knoepfe: () => [
+    ...(darf('leistungsvorlage', 'schreiben') ? [{ titel: 'Aus Projekten …', zeichen: 'import', gruppe: 'Katalog', tun: () => katalogAusProjekten() }] : []),
+    ...(istAdmin() ? [{ titel: 'Zurücksetzen …', zeichen: 'zurueck', gruppe: 'Katalog', tun: () => katalogZuruecksetzen('leistungen', 'Leistungen für den Bauzeitenplan') }] : []),
+    ...(darf('leistungsvorlage', 'schreiben') ? [{ titel: 'Import', zeichen: 'datei_hoch', gruppe: 'Datei', rechts: true, tun: () => tabelleEinlesen({ modell: modell('leistungsvorlage'),
+      felder: modell('leistungsvorlage').felder.filter((f) => !f.verborgen && f.name !== 'kennung'), fest: { kennung: '' }, vorschau: ['name', 'abschnitt', 'gewerk', 'dauer'] }) }] : []),
+  ] },
+  'bauzeitenplan.ablauf': { mitte: (m) => <PlanAblauf {...m} />, ohneNeu: true, detailsHinweis: 'Eine Kiste anklicken – hier steht dann ihre erste Leistung.' },
   'bauzeitenplan.beteiligte': { mitte: (m) => <GewerkeFirmen {...m} />, neuTitel: 'Gewerk', detailsHinweis: 'Eine Zeile mit Firma anklicken – hier steht dann der Eintrag der Projektbeteiligten. Firma, Vergabe und Notiz direkt in der Tabelle.' },
   'ava.lv': { mitte: (m) => <LvBearbeiten {...m} />, neuTitel: 'LV',
     detailsHinweis: 'Eine Zeile anklicken – hier stehen dann alle Angaben der Position (Kurz- und Langtext, Menge, Einheit, Preis), direkt änderbar.',

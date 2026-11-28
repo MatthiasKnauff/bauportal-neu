@@ -27,6 +27,7 @@ import { projektId } from './projekt';
 import { Uebernahmefenster } from './uebernahme';
 import { Aufraeumen } from './aufraeumen';
 import { TabelleEinlesen } from './baukasten/tabelleeinlesen';
+import { KatalogAusProjekten } from './katalogausprojekten';
 import { AdressenEinlesen } from './adresseneinlesen';
 import { RechnungEinlesen } from './rechnungeinlesen';
 import { DokumentAblage } from './dokumentablage';
@@ -79,6 +80,7 @@ export function App() {
       <Aufraeumen />
       <AdressenEinlesen />
       <TabelleEinlesen />
+      <KatalogAusProjekten />
       <RechnungEinlesen />
       <Ansehen />
       <KontaktAuswahlFenster />
