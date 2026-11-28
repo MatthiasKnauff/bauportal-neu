@@ -29,7 +29,7 @@ export function MailVersand() {
     catch (e) { setErgebnis({ gut: false, text: (e as Error).message }); }
   };
   return (
-    <Rahmen schluessel="verwaltung.mail" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Wird geladen …</p>}>{(zeile) => (
+    <Rahmen schluessel="verwaltung.mail" inhalt={<section class="blatt frei"><Show when={z()} fallback={<p class="still-text">Wird geladen …</p>}>{(zeile) => (
       <Detailkarte modell={m()} zeile={zeile()} zusatz={() => (
         <fieldset>
           <legend>Kennwort und Prüfung</legend>

@@ -19,7 +19,7 @@ export function Updates() {
     { titel: `Katalog „${k.titel}“ aktualisieren`, wartetext: 'Der Katalog wird geholt, geprüft und mit dem Bestand verglichen …', fertig: `Katalog „${k.titel}“ ist eingespielt.`, danach: () => void refetch() },
     async () => { const v = await ruf<Vorschau>('/api/updates/katalog/vorschau', { katalog: k.id }); void refetch(); return v; });
   return (
-    <Rahmen schluessel="verwaltung.updates" inhalt={<section class="blatt schmal">
+    <Rahmen schluessel="verwaltung.updates" inhalt={<section class="blatt frei">
       <Show when={z()} fallback={<p class="still-text">{z.error ? (z.error as Error).message : 'Updates werden abgefragt …'}</p>}>{(s) => (<>
         <h2>Programm</h2>
         <div class="update-kasten">

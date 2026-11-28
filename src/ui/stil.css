@@ -277,8 +277,8 @@ main { flex: 1; min-height: 0; display: flex; }
 .schaltliste li span { display: flex; flex-direction: column; min-width: 0; } .schaltliste small { color: var(--text-still); }
 
 .blatt { flex: 1; min-width: 0; overflow: auto; margin: 12px; padding: 20px; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); display: flex; flex-direction: column; gap: 12px; }
-.blatt.schmal { flex: none; width: min(560px, calc(100% - 24px)); padding: 0; border: 0; background: transparent; }
-.blatt.schmal .karte { width: auto; }
+.blatt.frei { padding: 0; border: 0; background: transparent; }   /* Seiten aus Karten ohne eigenen Rahmen: volle Breite und Höhe, rollt selbst */
+.blatt.frei .karte { width: auto; }
 .blatt > .tabelle-rollen { flex: none; }
 .matrix { border-collapse: collapse; }
 .matrix th, .matrix td { border-bottom: 1px solid var(--rand); padding: 6px 8px; text-align: center; }
@@ -367,8 +367,8 @@ main { flex: 1; min-height: 0; display: flex; }
 .platz-links { flex: none; width: var(--links-breite, 230px); display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); overflow: hidden; }
 .platz-mitte { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(12px * var(--rund)); overflow: hidden; }
 .platz-mitte > .blatt { margin: 0; border: 0; border-block: 20px solid transparent; border-radius: 0; padding-block: 0; }
-.platz-mitte:has(> .blatt.schmal) { background: transparent; border: 0; }
-.platz-mitte > .blatt.schmal { border-top-width: 0; }   /* schmale Seiten beginnen auf Höhe der Gliederung */
+.platz-mitte:has(> .blatt.frei) { background: transparent; border: 0; }
+.platz-mitte > .blatt.frei { border-top-width: 0; }   /* Seiten ohne Rahmen beginnen auf Höhe der Gliederung */
 .platz-rechts { flex: none; display: flex; min-height: 0; }
 .reiter.links { order: -1; }
 .baum { flex: 1; overflow: auto; padding: 6px; outline-offset: -2px; }

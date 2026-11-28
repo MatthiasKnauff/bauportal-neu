@@ -321,7 +321,7 @@ function AblageVerbindung() {
     catch (e) { setErgebnis({ gut: false, text: (e as Error).message }); }
   };
   return (
-    <Rahmen schluessel="verwaltung.ablage" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Wird geladen …</p>}>{(zeile) => (
+    <Rahmen schluessel="verwaltung.ablage" inhalt={<section class="blatt frei"><Show when={z()} fallback={<p class="still-text">Wird geladen …</p>}>{(zeile) => (
       <Detailkarte modell={m()} zeile={zeile()} zusatz={() => (
         <fieldset>
           <legend>Kennwort und Prüfung</legend>
@@ -452,13 +452,13 @@ function Rechte() {
 function Buero() {
   const m = () => modell('buero');
   const z = () => sicht.buero?.[m().einzeln!];
-  return <Rahmen schluessel="verwaltung.buero" inhalt={<section class="blatt schmal"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} zusatz={() => <BueroLogo />} />}</Show></section>} />;
+  return <Rahmen schluessel="verwaltung.buero" inhalt={<section class="blatt frei"><Show when={z()} fallback={<p class="still-text">Bürodaten werden geladen …</p>}>{(zeile) => <Detailkarte modell={m()} zeile={zeile()} zusatz={() => <BueroLogo />} />}</Show></section>} />;
 }
 
 // Für mich: eigenes Konto (Kennwort) und Darstellung (Design) – für jede:n, wie im bisherigen Bauportal
 function MeinKonto() {
   const rolle = () => zustand()!.rollen.find((r) => r.name === ich().rolle)?.titel ?? ich().rolle;
-  return <Rahmen schluessel="verwaltung.konto" inhalt={<section class="blatt schmal">
+  return <Rahmen schluessel="verwaltung.konto" inhalt={<section class="blatt frei">
     <h2>{ich().name}</h2><p class="still-text">{rolle()} · angemeldet als {ich().anmeldename}</p>
     <Formular titel="Kennwort ändern" knopf="Kennwort ändern" pfad="/api/kennwort" text="Auf anderen Geräten wirst du dabei abgemeldet."
       felder={[

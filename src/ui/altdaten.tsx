@@ -71,7 +71,7 @@ export function Altdaten() {
     void refetch();
   };
   return (
-    <Rahmen schluessel="verwaltung.uebernahme" inhalt={<section class="blatt schmal">
+    <Rahmen schluessel="verwaltung.uebernahme" inhalt={<section class="blatt frei">
       <h2>Aus dem bisherigen Bautagebuch übernehmen</h2>
       <p class="still-text">Projekte, Kontakte, Berichte mit ihren Einträgen und Fotos. Das alte Bautagebuch bleibt dabei unverändert und läuft weiter. Die Übernahme lässt sich wiederholen: Sie ergänzt, was neu dazugekommen ist, und legt nichts doppelt an.</p>
       <div class="update-kasten">
