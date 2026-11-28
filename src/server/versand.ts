@@ -9,7 +9,7 @@ import type { Modulregister } from '../kern/modul';
 import { MAILSERVER_ID } from '../module/verwaltung/beipackzettel';
 import { ortszeit, pakete, type Anhang } from '../module/verwaltung/versand';
 import { lvAlsX83 } from '../module/ava/gaeb';
-import { geheimnisLesen, geheimnisSetzen } from './ablage';
+import { geheimnisLesen, geheimnisSetzen, originalLesen } from './ablage';
 import { SYSTEM, alsBenutzer, tabelle, type Absender, type Db } from './db';
 import { pdfAus, seiteBauen, werteAus } from './druck';
 import { Ablehnung, ALLES_GESEHEN, vorgangAusfuehren } from './protokoll';
@@ -31,13 +31,23 @@ export async function anlegerVon(db: Db, id: string): Promise<Absender | null> {
   return z ? { id: String(z.benutzer_id), name: String(z.benutzer_name ?? '') } : null;
 }
 
-/** Die Anhänge eines Pakets aus dem aktuellen Stand: PDF über das Druckwerk, X83 aus LV und Positionen. */
+const DATEIART: Record<string, string> = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', dwg: 'application/acad', dxf: 'application/dxf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+/** Die Anhänge eines Pakets aus dem aktuellen Stand: PDF über das Druckwerk, X83 aus LV und Positionen, abgelegte Dokumente im Original. */
 export async function anhaengeBauen(db: Db, register: Modulregister, wer: Absender, liste: Anhang[]): Promise<{ filename: string; content: Buffer | string; contentType: string }[]> {
   const aus = [];
   for (const a of liste) {
     if (a.art === 'druck') {
       const s = await seiteBauen(db, register, wer, a.ausdruck, a.id);
       aus.push({ filename: s.name, content: await pdfAus(s.html), contentType: 'application/pdf' });
+      continue;
+    }
+    if (a.art === 'dokument') {   // das Original von dort, wo es liegt (Projektordner oder Speicher des Bauportals) – nur, wenn der Benutzer es sehen darf
+      const d = await alsBenutzer(db, wer, async (c) => (await c.query('select d.projekt, d.ort, d.pfad, d.name, p.ordner from o_dokument d join o_projekt p on p.id = d.projekt where d.id = $1 and not d.geloescht', [a.id])).rows[0] as
+        { projekt: string; ort: string; pfad: string; name: string; ordner: string | null } | undefined);
+      if (!d) throw new Ablehnung('Ein Dokument für den Anhang gibt es nicht (mehr)');
+      const teile: Buffer[] = [];
+      for await (const t of await originalLesen(db, { projekt: d.projekt, projektordner: d.ordner, ort: d.ort, pfad: d.pfad })) teile.push(Buffer.from(t as Uint8Array));
+      aus.push({ filename: d.name, content: Buffer.concat(teile), contentType: DATEIART[d.name.split('.').pop()!.toLowerCase()] ?? 'application/octet-stream' });
       continue;
     }
     const lvM = register.modell('lv')!, posM = register.modell('lv_position')!, prM = register.modell('projekt')!;

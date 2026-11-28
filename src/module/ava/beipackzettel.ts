@@ -39,6 +39,7 @@ export const lv: ObjektModell = {
     { name: 'status', titel: 'Stand', art: 'auswahl', optionen: LV_STATUS, inListe: true, breite: 150, gruppe: 'Leistungsverzeichnis' },
     // „Nicht vergeben“ wie bisher mit Grund und Tag (zurücknehmen im Preisspiegel)
     { name: 'nicht_vergeben_grund', titel: 'Nicht vergeben, weil', art: 'auswahl', optionen: NICHT_GRUENDE, kartenBreite: 4, gruppe: 'Leistungsverzeichnis', wenn: { status: ['aufgehoben'] } },
+    { name: 'versand_texte', titel: 'Eigene Versandtexte (je Lauf)', art: 'langtext', verborgen: true },   // JSON {lauf: {betreff, text}} – „Text für dieses LV merken“
     { name: 'nicht_vergeben_am', titel: 'am', art: 'datum', kartenBreite: 2, gruppe: 'Leistungsverzeichnis', wenn: { status: ['aufgehoben'] } },
     { name: 'archiviert', titel: 'Im Archiv (aus den Listen genommen, alles bleibt erhalten)', art: 'ja_nein', gruppe: 'Leistungsverzeichnis' },
     // Ausschreibung (wie im bisherigen Bauportal): „erbt“ = leer gilt die Angabe am Projekt bzw. die Vorgabe des Büros
@@ -136,6 +137,19 @@ export const lvPosition: ObjektModell = {
   ],
 };
 
+// Telefonnotiz zu einer Bieter:in (wie bisher höchstens 10 je Firma): wann, wer, was – „📞 angerufen“ legt eine mit jetzt an
+export const telefonnotiz: ObjektModell = {
+  name: 'telefonnotiz', titel: 'Telefonnotiz', titelMehrzahl: 'Telefonnotizen', anzeigeFeld: 'text', sortierFeld: 'zeit',
+  projektFeld: 'projekt', rechte,
+  felder: [
+    { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
+    { name: 'angebot', titel: 'Bieter:in (Angebot)', art: 'verweis', ziel: 'angebot', pflicht: true, inListe: true, breite: 220 },
+    { name: 'zeit', titel: 'Zeit', art: 'text', inListe: true, breite: 130 },   // JJJJ-MM-TTThh:mm – sortiert richtig
+    { name: 'wer', titel: 'Wer', art: 'text', inListe: true, breite: 140 },
+    { name: 'text', titel: 'Notiz', art: 'text', pflicht: true, inListe: true, breite: 320 },
+  ],
+};
+
 /** Rückmeldung einer Bieter:in vor der Abgabe (wie im bisherigen Bauportal); „abgegeben“ ist, wer ein Angebot eingereicht hat. */
 export const RUECKMELDUNGEN = [{ wert: 'offen', titel: 'noch offen' }, { wert: 'will_abgeben', titel: 'will abgeben' }, { wert: 'gibt_nicht_ab', titel: 'gibt nicht ab' }];   // eine Auswahl hat immer einen Wert: ab Werk „noch offen“
 
@@ -194,6 +208,11 @@ export const angebot: ObjektModell = {
     { name: 'bieter', titel: 'Bieter:in', art: 'verweis', ziel: 'kontakt', pflicht: true, inListe: true, breite: 220, gruppe: 'Angebot' },
     { name: 'angeschrieben', spalte: true, titel: 'Angeschrieben am', art: 'datum', gruppe: 'Versand' },
     { name: 'rueckmeldung', titel: 'Rückmeldung', art: 'auswahl', optionen: RUECKMELDUNGEN, inListe: true, breite: 140, gruppe: 'Versand' },
+    { name: 'zusage_bis', spalte: true, titel: 'Abgabe zugesagt bis', art: 'datum', kartenBreite: 3, gruppe: 'Versand', wenn: { rueckmeldung: ['will_abgeben'] } },
+    { name: 'absage_grund', titel: 'Grund der Absage', art: 'text', vorschlagen: true, kartenBreite: 3, gruppe: 'Versand', wenn: { rueckmeldung: ['gibt_nicht_ab'] } },
+    // An wen die Mails gehen (wie bisher je Firma aufklappbar): leer = die E-Mail-Adresse der Firma und die Anrede aus den Adressen
+    { name: 'an_email', titel: 'E-Mail an', art: 'email', kartenBreite: 3, gruppe: 'Versand' },
+    { name: 'anrede', titel: 'Anrede (nur für diese Firma)', art: 'text', kartenBreite: 3, gruppe: 'Versand' },
     { name: 'nachfassen', spalte: true, titel: 'Nachfassen am (Anruf)', art: 'datum', gruppe: 'Versand' },
     { name: 'eingang', titel: 'Angebot eingegangen am', art: 'datum', inListe: true, breite: 110, gruppe: 'Angebot' },
     // Angaben zum Angebot (wie bisher ⓘ je Spalte im Preisspiegel)
@@ -413,7 +432,7 @@ export const ava: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Leistungsverzeichnisse je Projekt, Angebote mit Preisspiegel und Vergabe, Rechnungen je Auftrag.',
   braucht: ['projekte', 'adressen', 'kataloge'],
-  objekte: [lv, lvPosition, tuerliste, tuer, angebot, angebotPreis, nachtrag, aufmass, rechnungsmenge, rechnung, rechnungszeile, besprechung, bauvertrag],
+  objekte: [lv, lvPosition, tuerliste, tuer, angebot, angebotPreis, telefonnotiz, nachtrag, aufmass, rechnungsmenge, rechnung, rechnungszeile, besprechung, bauvertrag],
   // Ausschreibungsdaten in drei Ebenen (wie bisher): am Projekt für alle seine LVs, im Büro als Vorgabe – das LV erbt (kern/erben.ts)
   ergaenzt: [
     { objekt: 'projekt', felder: vorgabeFelder(lv, 'Ausschreibung (alle LVs)'), eingeklappt: ['Ausschreibung (alle LVs)'], erben: { praefix: '', ebenen: [{ objekt: 'buero', titel: 'vom Büro' }] } },
@@ -536,11 +555,32 @@ export const ava: Beipackzettel = {
       { id: 'teilnehmer', art: 'text', feld: 'teilnehmer' },
       { id: 'beteiligte', art: 'felder', felder: ['bauvorhaben', 'bauherr', 'architekt', 'bieter'] },
       { id: 'bieterangaben', art: 'felder', felder: ['rechtsform', 'mitarbeiter', 'mitarbeiter_projekt', 'bauleiter', 'subunternehmer'] },
-      { id: 'angebot', art: 'felder', felder: ['gueltig', 'angebot_vom', 'gewerke', 'nachlass', 'skonto', 'preis'] },
+      { id: 'angebot', art: 'felder', felder: ['gueltig', 'angebot_vom', 'nachtrag_vom', 'gewerke', 'nachlass', 'skonto', 'preis'] },
       { id: 'klaerung', art: 'text', feld: 'klaerung' },
       { id: 'termine', art: 'felder', felder: ['beginn', 'fertig', 'unterbrechung', 'bauzeitenplan'] },
       { id: 'grundlagen', art: 'felder', felder: GRUNDLAGEN.map(([n]) => n) },
+      { id: 'sonstiges', art: 'text', feld: 'sonstiges' },
       { id: 'ergebnis', art: 'text', feld: 'ergebnis' },
+      { id: 'unterschriften', art: 'unterschriften', parteien: ['Bauleitung', 'Bieter:in'] },
+    ],
+  }, {
+    // Blanko für die Baustelle (wie bisher): Kopf, Bieter:in, Angebot und Klärungspunkte stehen drin, die Gesprächsfelder sind Linien
+    id: 'ava.besprechung_blanko', titel: 'Angebotsbesprechung blanko', objekt: 'besprechung',
+    dateiname: 'Angebotsbesprechung blanko {lv}', fuss: '{buero} · Angebotsbesprechung {lv}', rolle: 'protokolle',
+    bloecke: [
+      { id: 'kopf', art: 'briefkopf' },
+      { id: 'titel', art: 'titel', text: 'Protokoll Angebotsbesprechung', unter: '{lv}' },
+      { id: 'besprechung', art: 'felder', felder: ['datum', 'uhrzeit', 'ort'], linien: ['datum', 'uhrzeit'] },
+      { id: 'teilnehmer', art: 'text', feld: 'teilnehmer', linien: 3 },
+      { id: 'beteiligte', art: 'felder', felder: ['bauvorhaben', 'bauherr', 'architekt', 'bieter'] },
+      { id: 'bieterangaben', art: 'felder', felder: ['rechtsform', 'mitarbeiter', 'mitarbeiter_projekt', 'bauleiter', 'subunternehmer'], linien: ['rechtsform', 'mitarbeiter', 'mitarbeiter_projekt', 'bauleiter', 'subunternehmer'] },
+      { id: 'angebot', art: 'felder', felder: ['gueltig', 'angebot_vom', 'nachtrag_vom', 'gewerke', 'nachlass', 'skonto', 'preis'], linien: ['gueltig', 'nachtrag_vom'] },
+      { id: 'klaerung', art: 'text', feld: 'klaerung' },
+      { id: 'termine', art: 'felder', felder: ['beginn', 'fertig', 'unterbrechung', 'bauzeitenplan'], linien: ['unterbrechung'] },
+      { id: 'grundlagen', art: 'felder', felder: GRUNDLAGEN.map(([n]) => n) },
+      { id: 'sonstiges', art: 'text', feld: 'sonstiges', linien: 3 },
+      { id: 'ergebnis', art: 'text', feld: 'ergebnis', linien: 6 },
+      { id: 'unterschriften', art: 'unterschriften', parteien: ['Bauleitung', 'Bieter:in'] },
     ],
   }],
   ansichten: [
@@ -550,8 +590,8 @@ export const ava: Beipackzettel = {
       hilfe: 'Je Tür bzw. Fenster eine Zeile – direkt in der Tabelle bearbeiten. „Aus dem Gebäudemodell“ legt die Türen und Fenster des Modells an; „Ins LV“ macht aus gleicher Ausführung eine Position (Menge = Stückzahl) mit Systembeschreibung je Gruppe und gleicht ein LV mit Positionen aus dieser Liste ab.' },
     { id: 'versand', titel: 'Versand & Rücklauf', abschnitt: 'Vergabe', zeichen: 'senden', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: die angeschriebenen Bieter:innen mit Rückmeldung (will abgeben · gibt nicht ab), Nachfassen und Eingang des Angebots; oben Fristen und Zähler, die Unterlagen (LV als GAEB X83).' },
-    { id: 'nachverfolgen', titel: 'Nachverfolgen', abschnitt: 'Vergabe', zeichen: 'telefon', objekt: 'lv', brauchtProjekt: true,
-      hilfe: 'Alle Bieter:innen der LVs, die noch nicht vergeben sind: fällige Anrufe, Abgaben in den nächsten drei Tagen, wie viele Angebote da sind.' },
+    { id: 'nachverfolgen', titel: 'Nachverfolgen', abschnitt: 'Vergabe', zeichen: 'telefon', objekt: 'lv', brauchtProjekt: false,
+      hilfe: 'Alle verschickten LVs über die Projekte (meine oder alle): fällige Anrufe, Abgaben in den nächsten drei Tagen, Rücklauf – je Firma angerufen und erinnern.' },
     { id: 'preisspiegel', titel: 'Angebote & Preisspiegel', abschnitt: 'Vergabe', zeichen: 'preisspiegel', objekt: 'lv', brauchtProjekt: true,
       hilfe: 'Links ein LV wählen: die Positionen mit den Preisen aller Bieter:innen nebeneinander, das günstigste Angebot je Position markiert, unten die Summen mit Nachlass und der Rang. Preise direkt eintragen; „Vergeben an …“ beauftragt das Angebot.' },
     { id: 'besprechungen', titel: 'Angebotsbesprechung', abschnitt: 'Vergabe', zeichen: 'vertrag', objekt: 'besprechung', baum: ['lv'], brauchtProjekt: true,

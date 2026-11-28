@@ -26,6 +26,11 @@ Antworte nur mit JSON in genau dieser Form:
 {"wetter": "", "temperatur": null, "anwesend": [{"firma": "", "personen": null, "taetigkeit": ""}], "notizen": [""], "maengel": [{"text": "", "firma": "", "frist": ""}], "aufgaben": [{"text": "", "frist": ""}], "weisungen": [{"text": "", "firma": ""}]}
 wetter: eines von sonnig, bewoelkt, regen, schnee, frost, sturm oder leer. temperatur: Zahl in °C oder null. frist: Datum als JJJJ-MM-TT oder leer.
 Übernimm nur, was im Text steht – erfinde keine Firmen, Mengen, Fristen oder Mängel. Was in keinen Bereich passt, kommt zu notizen. Schreib die Einträge als kurze, sachliche Sätze.` },
+  // LV oder Angebot aus einer Datei, wenn die Erkennung ohne KI zu wenig findet (wie bisher „KI liest das Dokument“)
+  lv_lesen: { titel: 'LV aus dem Dokument', json: true, anweisung: `Der Text ist ein Leistungsverzeichnis, ein Angebot oder eine Leistungsliste (deutsches Bauwesen), Zeile für Zeile aus einer Datei gelesen.
+Übertrage ihn in ein LV. Antworte nur mit JSON in genau dieser Form: {"items": [{"typ": "titel", "oz": "01", "kurz": "Erdarbeiten"}, {"typ": "pos", "oz": "01.0010", "kurz": "Kurztext, höchstens 120 Zeichen", "lang": "Langtext", "menge": 12.5, "einheit": "m2", "ep": 45.0}]}
+in der Reihenfolge des Dokuments. Übernimm nur, was im Text steht – erfinde nichts. Fehlt die Ordnungszahl: "oz": "". Fehlt die Menge: "menge": null. "ep" nur, wenn ein Einheitspreis dasteht, sonst null. Zahlen mit Punkt (12,50 → 12.5).
+Kopf- und Fußzeilen, Seitenzahlen, Überträge, Summen, Anschreiben und Vertragsbedingungen weglassen.` },
 };
 const RAHMEN_JSON = 'Du arbeitest in der Software eines Architekturbüros. Antworte ausschließlich mit gültigem JSON, ohne Einleitung und ohne Codeblock.';
 const RAHMEN = 'Du arbeitest in der Software eines Architekturbüros. Antworte auf Deutsch und gib ausschließlich den fertigen Text zurück – ohne Einleitung, ohne Erklärung, ohne Anführungszeichen, ohne Formatierungszeichen.';

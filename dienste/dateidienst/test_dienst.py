@@ -1,4 +1,5 @@
 """Test des Dateidienstes gegen einen kleinen SMB-Server im selben Prozess (impacket)."""
+import io
 import os
 import tempfile
 import threading
@@ -21,6 +22,29 @@ def starte_server(ordner: str) -> None:
     s.addCredential("bauportal", 0, ntlm.compute_lmhash("geheim"), ntlm.compute_nthash("geheim"))
     threading.Thread(target=s.start, daemon=True).start()
     time.sleep(1)
+
+
+def text_pdf(zeilen: list[str]) -> bytes:
+    """Kleine PDF mit Textebene (Helvetica), eine Zeile je Eintrag."""
+    inhalt = "BT /F1 11 Tf 60 780 Td 14 TL " + " ".join(f"({z}) Tj T*" for z in zeilen) + " ET"
+    teile = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+             f"<< /Length {len(inhalt)} >>\nstream\n{inhalt}\nendstream", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    aus, stellen = "%PDF-1.4\n", []
+    for i, t in enumerate(teile, 1):
+        stellen.append(len(aus)); aus += f"{i} 0 obj\n{t}\nendobj\n"
+    x = len(aus)
+    aus += f"xref\n0 {len(teile) + 1}\n0000000000 65535 f \n" + "".join(f"{s:010d} 00000 n \n" for s in stellen)
+    return (aus + f"trailer\n<< /Size {len(teile) + 1} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF\n").encode("latin-1")
+
+
+def docx(absaetze: list[str]) -> bytes:
+    import zipfile
+    roh = io.BytesIO()
+    with zipfile.ZipFile(roh, "w") as z:
+        z.writestr("word/document.xml", '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+                   + "".join(f"<w:p><w:r><w:t>{a}</w:t></w:r></w:p>" for a in absaetze) + "</w:body></w:document>")
+    return roh.getvalue()
 
 
 def main() -> None:
@@ -110,6 +134,17 @@ def main() -> None:
         assert c.post("/lesen", json={"name": "a.txt", "inhalt": base64.b64encode(b"x").decode()}, headers=k).status_code == 415
         assert c.post("/lesen", json={"name": "a.pdf", "inhalt": base64.b64encode(b"%PDF kaputt").decode()}, headers=k).status_code == 422
         assert c.post("/lesen", json={"name": "a.pdf", "inhalt": base64.b64encode(leer).decode()}).status_code == 403
+        # Wörter mit Stelle: PDF mit Textebene (Spalten bleiben getrennt), Scan über die Texterkennung, Word ohne Bild
+        r = c.post("/woerter", json={"name": "lv.pdf", "inhalt": base64.b64encode(text_pdf(["01.0010   Wand streichen   120,00 m2", "Dispersion weiss"])).decode()}, headers=k)
+        assert r.status_code == 200, r.text
+        j = r.json(); w = j["seiten"][0]["woerter"]
+        assert not j["ocr"] and [x[4] for x in w][:4] == ["01.0010", "Wand", "streichen", "120,00"], w
+        assert 0 < w[0][0] < w[1][0] < 1 and 0 < w[0][1] < w[-1][1] < 1 and j["seiten"][0]["bild"], "Rahmen in Anteilen, oben zuerst"
+        r = c.post("/woerter", json={"name": "scan.pdf", "inhalt": base64.b64encode(roh.getvalue()).decode()}, headers=k)
+        assert r.status_code == 200 and r.json()["ocr"] and any("4711" in x[4] for x in r.json()["seiten"][0]["woerter"]), r.text
+        r = c.post("/woerter", json={"name": "lv.docx", "inhalt": base64.b64encode(docx(["01 Erdarbeiten", "01.0010 Aushub 25 m3"])).decode()}, headers=k)
+        assert r.status_code == 200 and [x[4] for x in r.json()["seiten"][0]["woerter"]][:3] == ["01", "Erdarbeiten", "01.0010"] and r.json()["seiten"][0]["bild"] is None, r.text
+        assert c.post("/woerter", json={"name": "a.doc", "inhalt": base64.b64encode(b"x").decode()}, headers=k).status_code == 415
         # Verschieben: in einen (neuen) Unterordner, ohne zu überschreiben
         open(f"{ordner}/Eingang.pdf", "wb").write(b"%PDF eins")
         r = c.post("/verschieben", json={"zugang": z, "pfad": "Eingang.pdf", "nach": "Scans/verarbeitet"}, headers=k)

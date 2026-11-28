@@ -327,6 +327,158 @@ def lesen(a: Lesen, x_schluessel: str | None = Header(default=None)):
     return {"seiten": seiten, "ocr": ocr, "vorschau": base64.b64encode(bild).decode()}
 
 
+# ---------- Wörter mit Stelle (LV oder Angebot aus einer Datei): je Seite ein Bild und die Wörter mit ihrem Rahmen ----------
+SEITEN_GRENZE = 80
+_WORT_LUECKE = re.compile(r"\s")
+
+
+def _pdf_woerter(seite) -> list[list]:
+    """Wörter einer PDF-Seite mit Textebene: Rahmen in Anteilen der Seite (0…1, oben links), aus den Zeichenrahmen."""
+    b, h = seite.get_size()
+    tp = seite.get_textpage()
+    try:
+        n, aus, wort, rahmen = tp.count_chars(), [], [], None
+        def fertig():
+            if wort and rahmen:
+                aus.append([round(rahmen[0] / b, 4), round(1 - rahmen[3] / h, 4), round(rahmen[2] / b, 4), round(1 - rahmen[1] / h, 4), "".join(wort)])
+        for i in range(n):
+            z = tp.get_text_range(i, 1)
+            if not z or _WORT_LUECKE.match(z):
+                fertig(); wort, rahmen = [], None
+                continue
+            l, u, r, o = tp.get_charbox(i, loose=True)   # „loose“: der ganze Platz des Zeichens – Punkt und Ziffer stoßen aneinander
+            if wort and rahmen and l - rahmen[2] > max(2.0, (o - u) * 0.5):   # Lücke ohne Leerzeichen (Tabellen-Spalte)
+                fertig(); wort, rahmen = [], None
+            wort.append(z)
+            rahmen = [l, u, r, o] if rahmen is None else [min(rahmen[0], l), min(rahmen[1], u), max(rahmen[2], r), max(rahmen[3], o)]
+        fertig()
+        return aus
+    finally:
+        tp.close()
+
+
+def _ocr_woerter(bild) -> list[list]:
+    """Wörter über die Texterkennung (Tesseract-TSV): Rahmen in Anteilen des Bilds."""
+    import subprocess
+    aus_bild = io.BytesIO()
+    bild.convert("L").save(aus_bild, "PNG")
+    r = subprocess.run(["tesseract", "stdin", "stdout", "-l", "deu", "--psm", "4", "tsv"], input=aus_bild.getvalue(), capture_output=True, timeout=120, check=False)
+    if r.returncode != 0:
+        raise Fehler("Die Texterkennung ist fehlgeschlagen", 422)
+    b, h = bild.size
+    aus = []
+    for zeile in r.stdout.decode("utf-8", "replace").splitlines()[1:]:
+        t = zeile.split("\t")
+        if len(t) < 12 or not t[11].strip() or t[10] in ("-1", ""):
+            continue
+        x, y, w, hh = (int(v) for v in t[6:10])
+        aus.append([round(x / b, 4), round(y / h, 4), round((x + w) / b, 4), round((y + hh) / h, 4), t[11].strip()])
+    return aus
+
+
+def _bild_b64(bild, breite=1000) -> str:
+    bild = bild.convert("RGB")
+    bild.thumbnail((breite, breite * 2))
+    aus = io.BytesIO()
+    bild.save(aus, "JPEG", quality=70, optimize=True)
+    return base64.b64encode(aus.getvalue()).decode()
+
+
+def _zeilen_als_seiten(zeilen: list[str]) -> list[dict]:
+    """Text ohne Seitenbild (Word, Text): je Zeile Wörter mit gedachter Stelle – so gilt dieselbe Auswertung wie für PDF."""
+    seiten = []
+    for a in range(0, len(zeilen), 60):
+        woerter = []
+        for k, z in enumerate(zeilen[a:a + 60]):
+            y = 0.04 + k * 0.015
+            for m in re.finditer(r"\S+", z):
+                woerter.append([round(0.05 + m.start() * 0.006, 4), round(y, 4), round(0.05 + m.end() * 0.006, 4), round(y + 0.012, 4), m.group()])
+        seiten.append({"bild": None, "woerter": woerter})
+    return seiten
+
+
+def _docx_zeilen(daten: bytes) -> list[str]:
+    """Absätze und Tabellenzeilen (Zellen mit Abstand) einer Word-Datei."""
+    import zipfile
+    import xml.etree.ElementTree as ET
+    w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    try:
+        koerper = ET.fromstring(zipfile.ZipFile(io.BytesIO(daten)).read("word/document.xml")).find(w + "body")
+    except Exception:  # noqa: BLE001
+        raise Fehler("Die Word-Datei lässt sich nicht öffnen", 422) from None
+    text = lambda el: "".join(t.text or "" for t in el.iter(w + "t")).strip()
+    aus = []
+    for el in list(koerper if koerper is not None else []):
+        if el.tag == w + "p":
+            aus.append(text(el))
+        elif el.tag == w + "tbl":
+            for tr in el.iter(w + "tr"):
+                zellen = [text(tc) for tc in tr.findall(w + "tc")]
+                if any(zellen):
+                    aus.append("     ".join(zellen))
+    return aus
+
+
+def woerter_lesen(daten: bytes, endung: str) -> tuple[list[dict], bool]:
+    """Je Seite Bild und Wörter: PDF mit Textebene direkt, Scans und Fotos über die Texterkennung, Word und Text ohne Bild."""
+    from PIL import Image, ImageOps
+    Image.MAX_IMAGE_PIXELS = 120_000_000
+    if endung == "pdf":
+        import pypdfium2 as pdfium
+        pdf = pdfium.PdfDocument(daten)
+        seiten, ocr = [], False
+        try:
+            for i in range(min(len(pdf), SEITEN_GRENZE)):
+                seite = pdf[i]
+                b, _h = seite.get_size()
+                bild = seite.render(scale=min(300 / 72, 2500 / max(1.0, b))).to_pil()
+                w = _pdf_woerter(seite)
+                if sum(len(x[4]) for x in w) < 40 and i < OCR_SEITEN:   # Scan: keine Textebene
+                    w, ocr = _ocr_woerter(bild), True
+                seiten.append({"bild": _bild_b64(bild), "woerter": w})
+        finally:
+            pdf.close()
+        return seiten, ocr
+    if endung in _BILDER:
+        bild = ImageOps.exif_transpose(Image.open(io.BytesIO(daten)))
+        return [{"bild": _bild_b64(bild), "woerter": _ocr_woerter(bild)}], True
+    if endung == "docx":
+        return _zeilen_als_seiten(_docx_zeilen(daten)), False
+    if endung in ("txt", "csv"):
+        for kod in ("utf-8", "cp1252"):
+            try:
+                t = daten.decode(kod)
+                break
+            except UnicodeDecodeError:
+                continue
+        return _zeilen_als_seiten([z.replace(";", "     ").replace("\t", "     ") for z in t.splitlines()]), False
+    if endung == "doc":
+        raise Fehler("Alte Word-Dateien (.doc) bitte in Word als .docx oder PDF speichern", 415)
+    if endung == "heic":
+        raise Fehler("HEIC-Fotos bitte als JPG teilen (iPhone: Einstellungen → Kamera → Formate → „Maximale Kompatibilität“)", 415)
+    raise Fehler("Dieses Format geht nicht – bitte PDF, Foto/Scan, Word (.docx) oder Text", 415)
+
+
+@app.post("/woerter")
+def woerter(a: Lesen, x_schluessel: str | None = Header(default=None)):
+    """Je Seite Bild und Wörter mit Rahmen (Anteile der Seite) – für „LV aus einer Datei“ und Angebote auf Papier. Gespeichert wird nichts."""
+    _pruefe(x_schluessel)
+    try:
+        daten = base64.b64decode(a.inhalt, validate=True)
+    except (binascii.Error, ValueError):
+        raise Fehler("Der Inhalt der Datei ist nicht lesbar") from None
+    if len(daten) > LESEN_GRENZE:
+        raise Fehler("Die Datei ist größer als 40 MB", 413)
+    endung = a.name.rsplit(".", 1)[-1].lower() if "." in a.name else ""
+    try:
+        seiten, ocr = woerter_lesen(daten, endung)
+    except Fehler:
+        raise
+    except Exception as e:  # noqa: BLE001 – kaputte oder verschlüsselte Datei
+        raise Fehler(f"Die Datei lässt sich nicht lesen ({type(e).__name__})", 422) from e
+    return {"seiten": seiten, "ocr": ocr}
+
+
 class Verschieben(Anfrage):
     """pfad = Datei innerhalb der Freigabe, nach = Ordner innerhalb der Freigabe (entsteht bei Bedarf)."""
     nach: str

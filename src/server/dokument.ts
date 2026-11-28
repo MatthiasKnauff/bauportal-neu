@@ -7,7 +7,8 @@ import { randomUUID } from 'node:crypto';
 import type { Modulregister } from '../kern/modul';
 import { KENNUNG } from '../kern/modell';
 import { alsBenutzer, type Db } from './db';
-import { Dienstfehler, ablegen, dateiLesen, originalSenden, vorschauSenden } from './ablage';
+import { Dienstfehler, ablegen, dateiLesen, originalSenden, vorschauAusAblage, vorschauSenden, woerterLesen } from './ablage';
+import { lvAusZeilen, zeilenAus } from '../module/ava/lvlesen';
 import { Ablehnung, befehlAusfuehren, ALLES_GESEHEN } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
@@ -52,6 +53,41 @@ export function dokumentRouten(app: FastifyInstance, e: { db: Db; register: Modu
     if (!daten.length || daten.length > GRENZE) return reply.code(400).send({ fehler: 'Die Datei fehlt oder ist größer als 40 MB' });
     if (!ARTEN[endung(name)]) return reply.code(415).send({ fehler: 'Ablegen geht bei PDF und Bildern (Scan, Foto)' });
     try { return await dateiLesen(name, daten); } catch (err) { return fehler(reply, err); }
+  });
+
+  /** LV oder Angebot aus einer Datei (PDF, Scan, Foto, Word): Seitenbilder, Zeilen mit Stelle und ein Vorschlag für Titel und Positionen
+   *  (module/ava/lvlesen.ts) – gespeichert wird nichts; übernommen wird im Browser, als Befehle wie jede Änderung. */
+  app.post('/api/datei/lv', { preHandler: e.nurAngemeldet, bodyLimit: 60 * 1024 * 1024 }, async (req, reply) => {
+    const b = (req.body ?? {}) as { name?: string; inhalt?: string };
+    const daten = Buffer.from(String(b.inhalt ?? ''), 'base64'), name = String(b.name ?? '');
+    if (!daten.length || daten.length > GRENZE) return reply.code(400).send({ fehler: 'Die Datei fehlt oder ist größer als 40 MB' });
+    try {
+      const w = await woerterLesen(name, daten), zeilen = zeilenAus(w.seiten);
+      return { seiten: w.seiten.map((s) => ({ bild: s.bild })), ocr: w.ocr, zeilen: zeilen.map(({ woerter: _w, ...z }) => z), vorschlag: lvAusZeilen(zeilen, w.seiten.length) };
+    } catch (err) { return fehler(reply, err); }
+  });
+
+  /** Eine Datei aus dem Projektordner als Dokument dazunehmen (z. B. Unterlage für die Bieter:innen) – sie bleibt, wo sie ist:
+   *  das Dokument verweist nur darauf (Ort „ablage“), in die Datenbank kommt nur das Vorschaubild. Geht auch auf dem Testserver. */
+  app.post('/api/dokument/verweis', { preHandler: e.nurAngemeldet }, async (req, reply) => {
+    const b = (req.body ?? {}) as Record<string, string | undefined>;
+    const projekt = String(b.projekt ?? ''), pfad = String(b.pfad ?? '').replace(/\\/g, '/').replace(/^\/+/, ''), id = String(b.id ?? '');
+    if (!KENNUNG.test(projekt) || !KENNUNG.test(id) || !pfad || pfad.split('/').includes('..')) throw new Ablehnung('Datei oder Projekt fehlt');
+    if (b.bezug && !KENNUNG.test(b.bezug)) throw new Ablehnung('Ungültiger Bezug');
+    const ordner = await alsBenutzer(db, req.benutzer!, async (c) => {
+      if (!(await c.query("select bp_darf('dokument', 'schreiben', $1) as d", [projekt])).rows[0].d) throw new Ablehnung('Dazu fehlt dir das Recht');
+      return (await c.query('select ordner from o_projekt where id = $1 and not geloescht', [projekt])).rows[0]?.ordner as string | undefined;
+    });
+    if (!ordner) throw new Ablehnung('Diesem Projekt ist noch kein Ordner auf dem Dateiserver zugeordnet');
+    try {
+      const name = pfad.split('/').pop()!;
+      const bild = ARTEN[endung(name)] ? await vorschauAusAblage(db, ordner, pfad).catch(() => null) : null;
+      if (bild) await db.query('insert into kern_vorschau (id, bild) values ($1, $2) on conflict (id) do nothing', [id, bild]);
+      await befehlAusfuehren(db, e.register, req.benutzer!, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'dokument', art: 'anlegen', objektId: id,
+        werte: { projekt, name, art: String(b.art ?? '').slice(0, 120), eingang: new Date().toISOString().slice(0, 10), ort: 'ablage', pfad, bezug_objekt: b.bezug_objekt || null, bezug: b.bezug || null } });
+      e.nachBefehlen();
+      return { id, name };
+    } catch (err) { return fehler(reply, err); }
   });
 
   app.post('/api/dokument/ablegen', { preHandler: e.nurAngemeldet, bodyLimit: 60 * 1024 * 1024 }, async (req, reply) => {

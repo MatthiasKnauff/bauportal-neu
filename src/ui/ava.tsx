@@ -3,11 +3,9 @@
 import { gewerkPasst } from '../module/ava/gewerkpasst';
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import { nachfassenFaellig, ruecklaufVon, ruecklaufZaehlen, type Ruecklauf, nachtragNetto, ozVergleich, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
-import type { Feld, ObjektModell, Werte } from '../kern/modell';
+import { nachfassenFaellig, ruecklaufZaehlen, nachtragNetto, ozVergleich, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
+import type { Feld, ObjektModell } from '../kern/modell';
 import { Tabelle } from './baukasten/tabelle';
-import { spaltenwahl } from './baukasten/spalten';
-import { Spaltenfeld } from './baukasten/spaltenfeld';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
 import { gaebEinlesen } from './uebernahme';
 import type { Mitte } from './baukasten/anpassung';
@@ -15,19 +13,23 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { lvVon } from './avakopf';
 import { springeZu } from './sprung';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
-import { darf, modell, neueKennung, zustand } from './unterbau/api';
+import { darf, ich, modell, neueKennung, zustand } from './unterbau/api';
+import { holen, merken } from './unterbau/speicher';
+import { zeigeMenue } from './baukasten/kontextmenue';
+import { herunterladen } from './baukasten/herunterladen';
+import { xlsxSchreiben } from '../kern/xlsx';
 import { FeldEingabe } from './baukasten/feld';
 import { Wahltabelle } from './baukasten/wahltabelle';
 import { Zeichen } from './baukasten/zeichen';
 import { druckOeffnen, verzeichnisDrucken } from './druck';
 import { LvListe } from './lvliste';
-import { hinweis } from './unterbau/meldungen';
 import { allePositionenVon, angeboteVon, aufmassStand, epVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon } from './avadaten';
 import { rechenweg } from '../kern/rechenweg';
 import { zahlText } from './lvbearbeiten';
 import { DokumentListe, dokumenteAblegen } from './dokumentablage';
 import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
-import { LAEUFE, laufText, vorab, type Lauf } from '../module/ava/bieterversand';
+import { LAEUFE, laufText, textMerken, vorab, type Lauf } from '../module/ava/bieterversand';
+import { BieterTabelle, adresseVon, anredeVonAngebot, datum } from './bietertabelle';
 import { STUFEN, lvLage } from '../module/ava/lvlage';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { mailSchreiben } from './versand';
@@ -257,56 +259,51 @@ export function Kostenkontrolle(p: Mitte): JSX.Element {
   );
 }
 
-/** Bieter:in aus dem LV nehmen: Angebot mit seinen Preisen in den Papierkorb – ein Rückgängig für alles. */
-function bieterEntfernen(a: Zeile): void {
-  if (a.werte.beauftragt === true) { hinweis('Die beauftragte Bieter:in lässt sich erst nach „Vergabe aufheben“ entfernen.', { art: 'fehler' }); return; }
-  ausfuehrenMehrere([...lebende('angebot_preis').filter((x) => x.werte.angebot === a.id).map((x) => ({ objekt: 'angebot_preis', art: 'loeschen' as const, objektId: x.id })),
-    { objekt: 'angebot', art: 'loeschen', objektId: a.id }], `${name(a.werte.bieter)} entfernt`);
-  hinweis(`${name(a.werte.bieter)} entfernt – rückgängig mit Strg+Z.`);
+/** Bieterliste als Excel (wie bisher): Firma, Ansprechperson, Telefon, E-Mail, angeschrieben, Rückmeldung, nächster Anruf, Angebot. */
+function bieterlisteExcel(lvText: string, bieter: Zeile[]): void {
+  const k = (a: Zeile) => sicht.kontakt?.[String(a.werte.bieter ?? '')]?.werte ?? {};
+  const tag = (w: unknown) => (w ? new Date(`${String(w).slice(0, 10)}T12:00:00`) : null);
+  const zeilen = [['Bieter:in', 'Ansprechperson', 'Telefon', 'E-Mail', 'angeschrieben', 'Rückmeldung', 'nächster Anruf', 'Angebot eingegangen'],
+    ...bieter.map((a) => [name(a.werte.bieter), String(a.werte.ansprechpartner || k(a).ansprechpartner || ''), String(k(a).telefon || k(a).mobil || ''), adresseVon(a), tag(a.werte.angeschrieben),
+      RUECKMELDUNGEN.find((r) => r.wert === (a.werte.rueckmeldung || 'offen'))?.titel ?? '', tag(a.werte.nachfassen), tag(a.werte.eingang)])];
+  herunterladen(new Blob([xlsxSchreiben(zeilen, 'Bieterliste')], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Bieterliste ${lvText} ${heute()}.xlsx`);
 }
-const datum = (w: unknown) => (w ? new Date(String(w)).toLocaleDateString('de-DE') : '–');
-const STAND_RUECKLAUF: Record<Ruecklauf, string> = { abgegeben: 'abgegeben', will_abgeben: 'will abgeben', gibt_nicht_ab: 'gibt nicht ab', offen: 'offen' };
 
-/** Bieter:innen mit Rückmeldung, Nachfassen und Eingang – ein Baustein für „Versand & Rücklauf“ (ein LV) und „Nachverfolgen“ (alle LVs). */
-function BieterTabelle(p: { bieter: Zeile[]; mitLv?: boolean; onLv?: (lv: string) => void }): JSX.Element {
-  const schreiben = () => darf('angebot', 'schreiben');
-  const aendern = (a: Zeile, werte: Werte, titel: string) => ausfuehren({ objekt: 'angebot', art: 'aendern', objektId: a.id, werte }, `${name(a.werte.bieter)}: ${titel}`);
-  const telefon = (a: Zeile) => { const k = sicht.kontakt?.[String(a.werte.bieter ?? '')]?.werte; return String(k?.telefon || k?.mobil || ''); };
-  const lvName = (id: unknown) => { const l = sicht.lv?.[String(id ?? '')]?.werte; return l ? [l.nummer, l.name].filter(Boolean).join(' · ') : ''; };
-  // Spalten wählen und ordnen (Baustein Spaltenwahl, Rechtsklick auf den Kopf) – Bieter:in bleibt immer
-  type Sp = { name: string; titel: string; fest?: boolean; zelle: (a: Zeile) => JSX.Element };
-  const SPALTEN: Sp[] = [
-    ...(p.mitLv ? [{ name: 'lv', titel: 'LV', zelle: (a: Zeile) => <button type="button" class="link-knopf" onClick={() => p.onLv?.(String(a.werte.lv))}>{lvName(a.werte.lv)}</button> },
-      { name: 'abgabe', titel: 'Abgabe', zelle: (a: Zeile) => <>{datum(sicht.lv?.[String(a.werte.lv)]?.werte.abgabe)}</> }] : []),
-    { name: 'bieter', titel: 'Bieter:in · Telefon', fest: true, zelle: (a) => <><span class="vr-name">{name(a.werte.bieter)}<Show when={!p.mitLv && darf('angebot', 'loeschen')}><button type="button" class="knopf klein still vr-weg" title="Bieter:in entfernen – mit Angebot und Preisen in den Papierkorb (Rückgängig holt alles zurück)" aria-label={`${name(a.werte.bieter)} entfernen`} onClick={() => bieterEntfernen(a)}><Zeichen name="loeschen" groesse={14} /></button></Show></span><Show when={telefon(a)}><br /><a class="klein-text" href={`tel:${telefon(a).replace(/[^+\d]/g, '')}`}>{telefon(a)}</a></Show></> },
-    { name: 'angeschrieben', titel: 'ange\u00ADschrieben', zelle: (a) => <>{datum(a.werte.angeschrieben)}</> },
-    { name: 'stand', titel: 'Stand', zelle: (a) => { const st = ruecklaufVon(a); return <Show when={schreiben() && st !== 'abgegeben'} fallback={<b class={`vr-${st}`}>{STAND_RUECKLAUF[st]}</b>}>
-      <Auswahlliste titel={`Rückmeldung ${name(a.werte.bieter)}`} wert={String(a.werte.rueckmeldung || 'offen')} optionen={RUECKMELDUNGEN} onWert={(w) => aendern(a, { rueckmeldung: w }, 'Rückmeldung')} /></Show>; } },
-    { name: 'nachfassen', titel: 'Nach\u00ADfassen', zelle: (a) => { const st = ruecklaufVon(a); return <Show when={schreiben() && st !== 'abgegeben' && st !== 'gibt_nicht_ab'} fallback={<>{a.werte.nachfassen ? datum(a.werte.nachfassen) : ''}</>}>
-      <FeldEingabe feld={{ name: 'nachfassen', titel: `Nachfassen ${name(a.werte.bieter)}`, art: 'datum' }} wert={a.werte.nachfassen ?? null} onWert={(w) => aendern(a, { nachfassen: w || null }, 'Nachfassen')} />
-      <Show when={nachfassenFaellig(a, heute())}><small class="gefahr-text"> fällig</small></Show></Show>; } },
-    { name: 'eingang', titel: 'Angebot', zelle: (a) => <Show when={a.werte.eingang} fallback={<Show when={schreiben() && ruecklaufVon(a) !== 'gibt_nicht_ab'}><button type="button" class="knopf klein" onClick={() => aendern(a, { eingang: heute() }, 'Angebot eingegangen')}>eingegangen</button></Show>}>
-      {datum(a.werte.eingang)}</Show> },
-  ];
-  const spw = spaltenwahl(p.mitLv ? 'bp_spalten_nachverfolgen' : 'bp_spalten_versand', SPALTEN.map((x) => ({ name: x.name, titel: x.titel.replace('\u00AD', ''), inListe: true, fest: x.fest })));
-  const [feld, setFeld] = createSignal<{ x: number; y: number } | null>(null);
-  const sichtbar = () => spw.sichtbare().map((x) => SPALTEN.find((y) => y.name === x.name)!);
-  return (
-    <div class="ps-rollen">
-      <table class="preisspiegel versand">
-        <thead><tr title="Rechtsklick: Spalten wählen und ordnen" onContextMenu={(e) => { e.preventDefault(); setFeld({ x: e.clientX, y: e.clientY }); }}>
-          <For each={sichtbar()}>{(x) => <th {...spw.ziehbar(x.name)}>{x.titel}</th>}</For></tr></thead>
-        <tbody>
-          <For each={p.bieter}>{(a) => (
-            <tr classList={{ 'vr-faellig': nachfassenFaellig(a, heute()), 'vr-ab': ruecklaufVon(a) === 'gibt_nicht_ab' }}>
-              <For each={sichtbar()}>{(x) => <td>{x.zelle(a)}</td>}</For>
-            </tr>
-          )}</For>
-        </tbody>
-      </table>
-      <Show when={feld()}>{(o) => <Spaltenfeld spalten={spw} ort={o()} onZu={() => setFeld(null)} />}</Show>
-    </div>
-  );
+/** Mail-Dialog für einen Lauf (Versand, Erinnern, Nachversand) – nur: diese Firmen (einzeln, z. B. aus dem Nachverfolgen). */
+export function versandOeffnen(l: Zeile, lauf: Lauf, nur?: Zeile[]): void {
+  const b = angeboteVon(l.id), pw = sicht.projekt?.[String(l.werte.projekt)]?.werte, bw = sicht.buero?.[BUERO_ID]?.werte;
+  const t = laufText(lauf, l.werte, pw, bw), dateiname = [l.werte.nummer, l.werte.name].filter(Boolean).join(' ');
+  const von = (k: string) => b.find((a) => a.werte.bieter === k);
+  mailSchreiben({ titel: nur?.length === 1 ? `${LAEUFE[lauf].titel}: ${name(nur[0]!.werte.bieter)}` : LAEUFE[lauf].titel, projekt: String(l.werte.projekt ?? '') || undefined, betreff: t.betreff, text: t.text,
+    ids: (nur ?? b).map((a) => String(a.werte.bieter)), vorab: (nur ?? vorab(lauf, b)).map((a) => String(a.werte.bieter)),
+    an: (k) => { const a = von(k); return a ? adresseVon(a) : undefined; }, anrede: (k) => { const a = von(k); return a ? anredeVonAngebot(a) : undefined; },
+    vorlage: laufText(lauf, l.werte, pw, bw, true),
+    merken: darf('lv', 'schreiben') ? { titel: 'Text für dieses LV merken', tun: (bt, tx) => [{ objekt: 'lv', art: 'aendern', objektId: l.id, werte: { versand_texte: textMerken(lauf, l.werte, pw, bw, bt, tx) } }] } : undefined,
+    anhaenge: LAEUFE[lauf].unterlagen ? [{ titel: `LV ${dateiname}.pdf`, anhang: { art: 'druck', ausdruck: 'ava.lv', id: l.id } }, { titel: `LV ${dateiname}.X83`, anhang: { art: 'x83', id: l.id } }] : undefined,
+    quelle: (k) => `angebot|${von(k)?.id ?? ''}`,
+    dazu: lauf === 'versand' ? (ks) => b.filter((a) => ks.includes(String(a.werte.bieter)) && !a.werte.angeschrieben)
+      .map((a) => ({ objekt: 'angebot', art: 'aendern' as const, objektId: a.id, werte: { angeschrieben: heute() } })) : undefined });
+}
+
+/** Wie bisher beim Entfernen einer schon angeschriebenen Firma: „Bitte nicht beachten“ über den Mail-Dialog (nichts automatisch). */
+function bitteNichtBeachten(l: Zeile, a: Zeile): void {
+  const lvName = [l.werte.nummer, l.werte.name].filter(Boolean).join(' ');
+  mailSchreiben({ titel: `Bitte nicht beachten: ${name(a.werte.bieter)}`, projekt: String(l.werte.projekt ?? '') || undefined, ids: [String(a.werte.bieter)],
+    an: () => adresseVon(a), anrede: () => anredeVonAngebot(a), betreff: `Bitte nicht beachten – ${lvName}`,
+    text: `{anrede}\n\nunsere Anfrage zu „${lvName}“ hat Sie versehentlich erreicht. Bitte betrachten Sie sie als gegenstandslos – ein Angebot ist nicht nötig.\n\nMit freundlichen Grüßen\n\n${String(sicht.buero?.[BUERO_ID]?.werte.name ?? '')}` });
+}
+
+/** Bisher verschickt (wie bisher): je Lauf Betreff, Tag, wer, Anzahl Mails und Fehler – aus den Nachrichten an die Bieter:innen. */
+function BisherVerschickt(p: { bieter: Zeile[] }): JSX.Element {
+  const laeufe = createMemo(() => {
+    const ids = new Set(p.bieter.map((a) => `angebot|${a.id}`)), je = new Map<string, Zeile[]>();
+    for (const n of lebende('nachricht').filter((x) => ids.has(String(x.werte.quelle ?? '')))) { const k = `${String(n.werte.betreff ?? '')}|${String(n.werte.verschickt_am || '').slice(0, 10)}`; je.set(k, [...(je.get(k) ?? []), n]); }
+    return [...je.values()].map((l) => ({ betreff: String(l[0]!.werte.betreff ?? ''), am: String(l[0]!.werte.verschickt_am ?? '').slice(0, 10), n: l.length,
+      wartet: l.filter((x) => x.werte.stand === 'wartet' || x.werte.stand === 'zurueckgehalten').length, fehler: l.filter((x) => x.werte.stand === 'fehler').length })).sort((a, b) => b.am.localeCompare(a.am));
+  });
+  return <Show when={laeufe().length}><section class="vr-bisher" aria-label="Bisher verschickt"><h3 class="vr-titel">Bisher verschickt</h3>
+    <ul><For each={laeufe()}>{(l) => <li><b>{l.betreff}</b> · {l.am ? datum(l.am) : 'noch im Postausgang'} · {l.n} {l.n === 1 ? 'Mail' : 'Mails'}{l.wartet ? ` · ${l.wartet} warten` : ''}<Show when={l.fehler}><span class="gefahr-text"> · {l.fehler} Fehler</span></Show></li>}</For></ul>
+  </section></Show>;
 }
 
 /** Versand & Rücklauf (wie im bisherigen Bauportal): je LV die angeschriebenen Bieter:innen – Rückmeldung, Nachfassen, Eingang –
@@ -325,24 +322,19 @@ export function Versand(p: Mitte): JSX.Element {
     if (am) return `verschickt am ${am.slice(8, 10)}.${am.slice(5, 7)}.${am.slice(0, 4)}`;
     return n.some((x) => x.werte.stand === 'wartet') ? 'wartet im Postausgang' : n.some((x) => x.werte.stand === 'zurueckgehalten') ? 'zurückgehalten (Testserver)' : 'noch nicht verschickt';
   });
-  /** Ein Lauf über den einen Mail-Dialog: Unterlagen entstehen beim Versand, „angeschrieben am“ hält derselbe Schritt fest. */
-  const anBieter = (lauf: Lauf) => {
-    const l = lv()!, b = bieter(), t = laufText(lauf, l.werte, sicht.projekt?.[String(l.werte.projekt)]?.werte, sicht.buero?.[BUERO_ID]?.werte);
-    const dateiname = [l.werte.nummer, l.werte.name].filter(Boolean).join(' ');
-    mailSchreiben({ titel: LAEUFE[lauf].titel, projekt: String(l.werte.projekt ?? '') || undefined, betreff: t.betreff, text: t.text,
-      ids: b.map((a) => String(a.werte.bieter)), vorab: vorab(lauf, b).map((a) => String(a.werte.bieter)),
-      anhaenge: LAEUFE[lauf].unterlagen ? [{ titel: `LV ${dateiname}.pdf`, anhang: { art: 'druck', ausdruck: 'ava.lv', id: l.id } }, { titel: `LV ${dateiname}.X83`, anhang: { art: 'x83', id: l.id } }] : undefined,
-      quelle: (k) => `angebot|${b.find((a) => a.werte.bieter === k)?.id ?? ''}`,
-      dazu: lauf === 'versand' ? (ks) => b.filter((a) => ks.includes(String(a.werte.bieter)) && !a.werte.angeschrieben)
-        .map((a) => ({ objekt: 'angebot', art: 'aendern' as const, objektId: a.id, werte: { angeschrieben: heute() } })) : undefined });
-  };
+  /** Ein Lauf über den einen Mail-Dialog: Unterlagen entstehen beim Versand, „angeschrieben am“ hält derselbe Schritt fest. nur: diese Firmen
+   *  (einzeln senden, „bitte nicht beachten“) – sonst alle, vorab angehakt wie der Lauf es will. */
+  const anBieter = (lauf: Lauf, nur?: Zeile[]) => versandOeffnen(lv()!, lauf, nur);
+  const nochNicht = () => bieter().filter((a) => !a.werte.angeschrieben && adresseVon(a).includes('@') && a.werte.rueckmeldung !== 'gibt_nicht_ab');
   createEffect(() => p.setKnoepfe([
     ...(lv() && darf('angebot', 'schreiben') ? [{ titel: 'Bieter:in', zeichen: 'person_neu', gruppe: 'Neu', tun: () => setDazu(true) }] : []),
     ...(lv() && bieter().length ? (['versand', 'erinnerung', 'nachversand'] as Lauf[]).map((l) => ({ titel: LAEUFE[l].knopf, zeichen: l === 'erinnerung' ? 'glocke' : 'senden', gruppe: 'Versand',
       gesperrt: !darf('nachricht', 'schreiben') || (l !== 'versand' && !bieter().some((a) => a.werte.angeschrieben)), tun: () => anBieter(l) })) : []),
     { titel: 'Nachverfolgen', zeichen: 'telefon', gruppe: 'Nachverfolgen', tun: () => springeZu('lv', lv()?.id ?? '', { modul: 'ava', ansicht: 'nachverfolgen' }) },
-    ...(lv() && bieter().length ? [{ titel: 'Bieterliste', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => {
-      const l = lv()!; verzeichnisDrucken('ava.bieterliste', [{ titel: 'Die Bieter:innen dieses LV', ids: bieter().map((a) => a.id), filter: `LV ${String(l.werte.nummer ?? '')} ${String(l.werte.name ?? '')}`.trim() }]);
+    ...(lv() && bieter().length ? [{ titel: 'Bieterliste', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: (e: MouseEvent) => {
+      const l = lv()!, lvText = `LV ${String(l.werte.nummer ?? '')} ${String(l.werte.name ?? '')}`.trim();
+      zeigeMenue(e, [{ titel: 'Drucken (PDF) …', tun: () => verzeichnisDrucken('ava.bieterliste', [{ titel: 'Die Bieter:innen dieses LV', ids: bieter().map((a) => a.id), filter: lvText }]) },
+        { titel: 'Excel', tun: () => bieterlisteExcel(lvText, bieter()) }]);
     } }] : []),
   ]));
   return (
@@ -366,9 +358,15 @@ export function Versand(p: Mitte): JSX.Element {
             <span class="pille">GAEB</span><span class="vr-stand">{unterlagenStand()}</span><button type="button" class="knopf klein" disabled={!positionenVon(lv()!.id).length} onClick={() => gaebAusgeben(lv()!)}>Herunterladen</button></div>
           <p class="still-text klein-text">„An Bieter:innen senden“ legt je Firma eine Mail in den Postausgang; PDF und X83 entstehen beim Verschicken aus dem dann aktuellen Stand.</p>
         </section>
+        <Show when={nochNicht().length && darf('nachricht', 'schreiben')}>
+          <div class="hinweis-kasten vr-jetzt"><span><b>{nochNicht().length} {nochNicht().length === 1 ? 'Bieter:in' : 'Bieter:innen'} noch nicht angeschrieben</b>
+            <small> {nochNicht().slice(0, 4).map((a) => name(a.werte.bieter)).join(', ')}{nochNicht().length > 4 ? ' …' : ''}</small></span>
+            <button type="button" class="knopf haupt" title="Mail-Dialog öffnen – gesendet wird erst dort" onClick={() => anBieter('versand')}>✉ An {nochNicht().length} senden …</button></div>
+        </Show>
         <h3 class="vr-titel">Bieter:innen</h3>
         <Show when={bieter().length} fallback={<Show when={!dazu()}><p class="hinweis-kasten">Noch keine Bieter:innen – oben „Bieter:in“: Firmen aus den Adressen wählen (mit passendem Gewerk zuerst). Wer im Preisspiegel ein Angebot hat, steht hier von selbst.</p></Show>}>
-          <BieterTabelle bieter={bieter()} />
+          <BieterTabelle bieter={bieter()} onEinzeln={(a) => anBieter('versand', [a])} onBitteNichtBeachten={(a) => bitteNichtBeachten(lv()!, a)} />
+          <BisherVerschickt bieter={bieter()} />
         </Show>
         {/* wie bisher die Adressen mit ihren Filtern, darunter wählen – nach dem Übernehmen wieder weg */}
         <Show when={dazu()}><BieterWahl lv={lv()!} onZu={() => setDazu(false)} /></Show>
@@ -395,25 +393,69 @@ function BieterWahl(p: { lv: Zeile; onZu: () => void }): JSX.Element {
     hinweis={gewerke.length ? `Gefiltert auf das Gewerk des LV (${gewerkName}) – den Filter entfernen für alle Firmen.` : gewerkName ? `Keine Firma mit passendem Gewerk zu „${gewerkName}“ – alle Firmen.` : undefined} onUebernehmen={uebernehmen} onAbbrechen={p.onZu} />;
 }
 
-/** Nachverfolgen (wie im bisherigen Bauportal): dieselben Daten wie im Versand, über alle LVs des Projekts, die noch nicht vergeben sind. */
-export function Nachverfolgen(p: Mitte): JSX.Element {
-  const [nurFaellig, setNurFaellig] = createSignal(false);
-  const unterwegs = createMemo(() => p.alle().filter((l) => !['vergeben', 'aufgehoben'].includes(String(l.werte.status ?? ''))));
-  const alle = createMemo(() => unterwegs().flatMap((l) => angeboteVon(l.id)).sort((a, b) => String(sicht.lv?.[String(a.werte.lv)]?.werte.abgabe ?? '9').localeCompare(String(sicht.lv?.[String(b.werte.lv)]?.werte.abgabe ?? '9'))));
-  const faellig = createMemo(() => alle().filter((a) => nachfassenFaellig(a, heute())));
-  const bald = createMemo(() => unterwegs().filter((l) => { const ab = String(l.werte.abgabe ?? ''); if (!ab) return false; const t = (new Date(ab).getTime() - new Date(heute()).getTime()) / 86400000; return t >= 0 && t <= 3; }).length);
+/** Nachverfolgen (wie im bisherigen Bauportal, ava-nachverfolgen.js): alle verschickten LVs über die Projekte („meine Projekte“ oder alle),
+ *  gefiltert nach Stand (laufend · Frist vorbei · erledigt · alle) und Suche; je LV eine aufklappbare Zeile, darunter die Bieter:innen
+ *  mit Stand, zuletzt, nächstem Anruf, „📞 angerufen“ und „✉ erinnern“. Klick auf ein LV öffnet seinen Versand. */
+type NvStand = 'laufend' | 'frist' | 'erledigt' | 'alle';
+const NV_STAND: Record<NvStand, string> = { laufend: 'laufend', frist: 'Frist vorbei', erledigt: 'erledigt', alle: 'alle' };
+const [nvAlle, setNvAlle] = createSignal(holen<boolean>('nv:alle', false));
+const [nvStand, setNvStand] = createSignal<NvStand>(holen<NvStand>('nv:stand', 'laufend'));
+const [nvZu, setNvZu] = createSignal<Set<string>>(new Set(holen<string[]>('nv:zu', [])));
+export function Nachverfolgen(_p: Mitte): JSX.Element {
+  const [nurFaellig, setNurFaellig] = createSignal(false), [such, setSuch] = createSignal('');
+  const meine = createMemo(() => new Set(lebende('projekt_mitglied').filter((m) => m.werte.benutzer === ich().id).map((m) => String(m.werte.projekt))));
+  const tage = (iso: string) => Math.round((new Date(`${iso.slice(0, 10)}T12:00`).getTime() - new Date(`${heute()}T12:00`).getTime()) / 864e5);
+  // verschickt = mindestens eine Bieter:in angeschrieben; erledigt = vergeben, nicht vergeben oder alle haben geantwortet
+  const lvs = createMemo(() => lebende('lv').filter((l) => !l.werte.archiviert && (nvAlle() || meine().has(String(l.werte.projekt)))).map((l) => {
+    const b = angeboteVon(l.id), z = ruecklaufZaehlen(b), ab = String(l.werte.abgabe ?? '');
+    const fertig = ['vergeben', 'aufgehoben'].includes(String(l.werte.status ?? '')) || (b.length > 0 && z.offen === 0 && z.will_abgeben === 0);
+    const stand: NvStand = fertig ? 'erledigt' : ab && tage(ab) < 0 ? 'frist' : 'laufend';
+    const verschickt = b.map((a) => String(a.werte.angeschrieben ?? '')).filter(Boolean).sort()[0] ?? '';
+    return { l, b, z, ab, stand, verschickt, projekt: sicht.projekt?.[String(l.werte.projekt)]?.werte };
+  }).filter((x) => x.verschickt).sort((x, y) => (x.ab || '9').localeCompare(y.ab || '9')));
+  const passt = (x: ReturnType<typeof lvs>[number]) => {
+    const q = such().trim().toLowerCase();
+    return (nvStand() === 'alle' || x.stand === nvStand()) && (!nurFaellig() || x.b.some((a) => nachfassenFaellig(a, heute())))
+      && (!q || [x.projekt?.nummer, x.projekt?.name, x.l.werte.nummer, x.l.werte.name, sicht.gewerk?.[String(x.l.werte.gewerk ?? '')]?.werte.name, ...x.b.map((a) => name(a.werte.bieter))].join(' ').toLowerCase().includes(q));
+  };
+  const lauf = () => lvs().filter((x) => x.stand !== 'erledigt');
+  const k = createMemo(() => ({ anrufe: lauf().reduce((s, x) => s + x.b.filter((a) => nachfassenFaellig(a, heute())).length, 0), bald: lauf().filter((x) => x.ab && tage(x.ab) >= 0 && tage(x.ab) <= 3).length,
+    unterwegs: lauf().length, da: lauf().reduce((s, x) => s + x.z.abgegeben, 0), von: lauf().reduce((s, x) => s + x.b.length, 0) }));
+  const umschalten = (id: string) => { const n = new Set(nvZu()); if (n.has(id)) n.delete(id); else n.add(id); setNvZu(n); merken('nv:zu', [...n].slice(-200)); };
+  const zeigen = (l: Zeile, ansicht: string) => springeZu('lv', l.id, { modul: 'ava', ansicht, projekt: String(l.werte.projekt ?? '') });
   return (
-    <div class="preisspiegel-flaeche">
-      <div class="vr-zahlen">
-        <span classList={{ 'gefahr-text': faellig().length > 0 }}><b>{faellig().length}</b> {faellig().length === 1 ? 'Anruf' : 'Anrufe'} fällig</span>
-        <span><b>{bald()}</b> Abgabe in ≤ 3 Tagen</span><span><b>{unterwegs().length}</b> {unterwegs().length === 1 ? 'LV' : 'LVs'} unterwegs</span>
-        <span><b>{alle().filter((a) => a.werte.eingang).length}</b> / {alle().length} Angebote da</span>
+    <div class="preisspiegel-flaeche nachverfolgen">
+      <div class="nv-kopf">
+        <div class="auswahl klein" role="radiogroup" aria-label="Projekte">
+          <button type="button" role="radio" aria-checked={!nvAlle()} classList={{ aktiv: !nvAlle() }} onClick={() => { setNvAlle(false); merken('nv:alle', false); }}>meine Projekte</button>
+          <button type="button" role="radio" aria-checked={nvAlle()} classList={{ aktiv: nvAlle() }} onClick={() => { setNvAlle(true); merken('nv:alle', true); }}>alle</button></div>
+        <div class="auswahl klein" role="radiogroup" aria-label="Stand">
+          <For each={Object.keys(NV_STAND) as NvStand[]}>{(s) => <button type="button" role="radio" aria-checked={nvStand() === s} classList={{ aktiv: nvStand() === s }} onClick={() => { setNvStand(s); merken('nv:stand', s); }}>
+            {NV_STAND[s]} {lvs().filter((x) => s === 'alle' || x.stand === s).length}</button>}</For></div>
         <label class="vr-nur"><input type="checkbox" checked={nurFaellig()} onChange={(e) => setNurFaellig(e.currentTarget.checked)} /> nur fällige Anrufe</label>
+        <input type="search" class="nv-such" placeholder="Firma, LV, Gewerk …" aria-label="Suchen" value={such()} onInput={(e) => setSuch(e.currentTarget.value)} />
       </div>
-      <Show when={(nurFaellig() ? faellig() : alle()).length} fallback={<p class="still-text">{nurFaellig() ? 'Keine Anrufe fällig.' : 'Kein LV unterwegs – Bieter:innen schreibt man unter „Versand & Rücklauf“ an.'}</p>}>
-        <BieterTabelle bieter={nurFaellig() ? faellig() : alle()} mitLv onLv={(id) => { p.onWahl(id); p.onOeffnen(); }} />
+      <div class="vr-zahlen">
+        <span classList={{ 'gefahr-text': k().anrufe > 0 }}><b>{k().anrufe}</b> {k().anrufe === 1 ? 'Anruf' : 'Anrufe'} fällig</span>
+        <span><b>{k().bald}</b> Abgabe in ≤ 3 Tagen</span><span><b>{k().unterwegs}</b> {k().unterwegs === 1 ? 'LV' : 'LVs'} unterwegs</span>
+        <span class="vr-abgegeben"><b>{k().da}</b> / {k().von} Angebote da</span>
+      </div>
+      <Show when={lvs().filter(passt).length} fallback={<p class="still-text">{lvs().length ? 'Nichts in dieser Auswahl.' : nvAlle() ? 'Noch kein LV an Bieter:innen verschickt.' : 'In deinen Projekten ist kein LV unterwegs – „alle“ zeigt die übrigen.'}</p>}>
+        <For each={lvs().filter(passt)}>{(x) => { const offen = () => !nvZu().has(x.l.id), t = () => (x.ab ? tage(x.ab) : null);
+          return <section class="nv-lv" classList={{ [`nv-${x.stand}`]: true }}>
+            <div class="nv-lv-zeile">
+              <button type="button" class="vr-auf" aria-expanded={offen()} onClick={() => umschalten(x.l.id)}>{offen() ? '▾' : '▸'}</button>
+              <span class="nv-lv-name"><b>{[x.projekt?.nummer, x.projekt?.name].filter(Boolean).join(' · ')}</b> · <button type="button" class="link-knopf" title="Versand dieses LV öffnen" onClick={() => zeigen(x.l, 'versand')}>LV {[x.l.werte.nummer, x.l.werte.name].filter(Boolean).join(' ')}</button></span>
+              <span>verschickt {datum(x.verschickt)}</span>
+              <span>Abgabe {x.ab ? datum(x.ab) : '–'} <Show when={t() != null}><small classList={{ 'gefahr-text': t()! < 0 }}>{t()! < 0 ? 'vorbei' : `(${t()} T.)`}</small></Show></span>
+              <span>Rücklauf {x.z.abgegeben}/{x.b.length}</span>
+              <span class="still-text">{[x.z.abgegeben && `${x.z.abgegeben} abgegeben`, x.z.will_abgeben && `${x.z.will_abgeben} will abgeben`, x.z.gibt_nicht_ab && `${x.z.gibt_nicht_ab} gibt nicht ab`, x.z.offen && `${x.z.offen} offen`].filter(Boolean).join(' · ')}</span>
+              <Show when={x.stand !== 'laufend'}><button type="button" class="knopf klein" onClick={() => zeigen(x.l, 'preisspiegel')}>→ Preisspiegel</button></Show>
+            </div>
+            <Show when={offen()}><BieterTabelle speicher="bp_spalten_nachverfolgen3" bieter={nurFaellig() ? x.b.filter((a) => nachfassenFaellig(a, heute())) : x.b} onErinnern={(a) => versandOeffnen(x.l, 'erinnerung', [a])} /></Show>
+          </section>; }}</For>
       </Show>
-      <p class="still-text klein-text">Dieselben Daten wie im Versand – nur über alle LVs, die noch nicht vergeben sind. Klick auf ein LV zeigt es rechts.</p>
+      <p class="still-text klein-text">Dieselben Daten wie im Versand – nur über alle LVs. Klick auf ein LV öffnet seinen Versand.</p>
     </div>
   );
 }

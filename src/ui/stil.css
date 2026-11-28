@@ -1218,6 +1218,28 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .link-knopf { background: none; border: 0; padding: 0; font: inherit; color: var(--akzent); cursor: pointer; text-align: left; }
 .link-knopf:hover { text-decoration: underline; }
 .vr-nur { display: inline-flex; gap: 4px; align-items: center; margin-left: auto; }
+/* Bieter:innen aufklappbar (wie bisher): ▸ vor dem Namen, darunter An, Anrede, Stand und Telefonnotizen */
+.vr-auf { border: 0; background: none; padding: 0 4px 0 0; cursor: pointer; color: var(--text-still); font: inherit; }
+.versand tr.vr-offen > td { border-bottom-color: transparent; }
+.versand tr.vr-det > td { background: var(--still-hell); padding: 8px 10px 10px 22px; }
+.vr-einzel { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 18px; align-items: start; }
+.vr-einzel .feld { margin-bottom: 6px; }
+.vr-notiz { display: grid; grid-template-columns: 18px 118px 1fr auto; gap: 6px; align-items: baseline; font-size: 12.5px; padding: 2px 0; }
+.vr-notiz i { font-style: normal; color: var(--text-still); text-align: right; } .vr-notiz .vr-zeit { color: var(--text-still); white-space: nowrap; }
+.vr-notiz.naechst { color: var(--akzent); }
+.vr-notiz-neu { gap: 6px; flex-wrap: wrap; align-items: flex-end; } .vr-notiz-neu > .feld:first-child { flex: 1; min-width: 160px; margin: 0; }
+.vr-tun { display: inline-flex; gap: 4px; white-space: nowrap; }
+.vr-jetzt { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 8px 0; }
+.vr-bisher ul { margin: 0; padding-left: 18px; font-size: 12.5px; }
+.mail-optionen { gap: 14px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+/* Nachverfolgen über alle Projekte */
+.nv-kopf { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 8px; }
+.nv-kopf .nv-such { min-width: 200px; flex: 0 1 260px; }
+.nv-lv { border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); margin: 8px 0; background: var(--flaeche); }
+.nv-lv-zeile { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 6px 10px; font-size: 13px; }
+.nv-lv-zeile .nv-lv-name { flex: 1 1 280px; min-width: 0; }
+.nv-lv.nv-frist .nv-lv-zeile { background: var(--warn-hell); } .nv-lv.nv-erledigt { opacity: .8; }
+.nv-lv .ps-rollen { border-top: 1px solid var(--rand); }
 .vorschau-verweis { display: block; }
 /* Werte aufräumen */
 .werte-aufraeumen h3 { font-size: 1em; margin: 14px 0 6px; }
@@ -1780,3 +1802,21 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .az-tage { display: flex; flex-wrap: wrap; gap: 6px; }
 .az-tag { padding: 3px 10px; border-radius: 999px; font-size: 12.5px; background: var(--gefahr-hell); border: 1px solid color-mix(in srgb, var(--gefahr) 35%, transparent); }
 @media (max-width: 820px) { .az-zeile { grid-template-columns: 1fr; } .az-zeile > span { padding-top: 0; } }
+
+/* LV aus einer Datei: links der Vorschlag, rechts das Dokument mit anklickbaren Zeilen */
+.lvd { display: grid; grid-template-columns: minmax(360px, 1fr) minmax(320px, 1fr); gap: 14px; min-height: 0; height: min(70vh, 760px); }
+.lvd-liste { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.lvd-optionen { gap: 14px; flex-wrap: wrap; font-size: 13px; }
+.lvd-vorschlag { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); }
+.lvd-vorschlag li { display: grid; grid-template-columns: 20px 74px minmax(0, 1fr) auto 26px; gap: 6px; align-items: center; padding: 3px 6px; border-bottom: 1px solid var(--rand); font-size: 12.5px; cursor: pointer; }
+.lvd-vorschlag li.titel { font-weight: 600; background: var(--still-hell); } .lvd-vorschlag li.aus { opacity: .45; } .lvd-vorschlag li.markiert { outline: 2px solid var(--akzent); outline-offset: -2px; }
+.lvd-vorschlag input:not([type=checkbox]) { min-width: 0; border: 1px solid transparent; background: none; font: inherit; padding: 2px 4px; border-radius: 4px; }
+.lvd-vorschlag input:not([type=checkbox]):focus { border-color: var(--rand-stark); background: var(--flaeche); }
+.lvd-menge { color: var(--text-still); white-space: nowrap; font-size: 12px; }
+.lvd-dokument { overflow: auto; border: 1px solid var(--rand); border-radius: calc(8px * var(--rund)); background: var(--still-hell); padding: 8px; }
+.lvd-seite { position: relative; margin: 0 auto 10px; max-width: 900px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+.lvd-seite img { display: block; width: 100%; height: auto; }
+.lvd-seite.ohnebild { aspect-ratio: 1 / 1.414; }
+.lvd-zeile { position: absolute; padding: 0; border: 0; background: transparent; cursor: pointer; font-size: 9px; text-align: left; overflow: hidden; white-space: nowrap; color: #222; border-radius: 2px; }
+.lvd-zeile:hover { background: rgba(37, 99, 235, .12); outline: 1px solid rgba(37, 99, 235, .5); }
+.lvd-zeile.genommen { background: rgba(46, 160, 67, .10); } .lvd-zeile.gezeigt { background: rgba(240, 140, 0, .22); outline: 1px solid rgba(240, 140, 0, .7); }

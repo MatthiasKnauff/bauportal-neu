@@ -102,7 +102,9 @@ export async function platzhalterAus(c: Verbindung, register: Modulregister, obj
   };
   const lvId = objekt === 'lv' ? id : (werte.lv as string | undefined);
   const lv = lvId ? (await c.query('select nummer, name, gewerk from o_lv where id = $1', [lvId])).rows[0] as { nummer: string | null; name: string | null; gewerk: string | null } | undefined : undefined;
-  const firmaId = ((werte.firma ?? werte.bieter) as string | undefined) || null;
+  // Firma: das Feld „firma“ bzw. „bieter“, wenn es auf einen Kontakt verweist (im Protokoll der Besprechung ist „bieter“ ein Text)
+  const firmaFeld = register.modell(objekt)?.felder.find((f) => (f.name === 'firma' || f.name === 'bieter') && f.art === 'verweis' && f.ziel === 'kontakt');
+  const firmaId = firmaFeld ? ((werte[firmaFeld.name] as string | undefined) || null) : null;
   return { projekt: projektnummer, lv: lv ? [lv.nummer, lv.name].filter(Boolean).join(' ') : '', gewerk: lv ? await name('gewerk', lv.gewerk) : '',
     firma: await name('kontakt', firmaId), datum: new Date().toISOString().slice(0, 10), firmaId };
 }
@@ -112,11 +114,21 @@ export async function dateiLesen(name: string, daten: Buffer): Promise<{ seiten:
   return (await (await dienst('/lesen', { name, inhalt: daten.toString('base64') }, 300000)).json()) as { seiten: string[]; ocr: boolean; vorschau: string };
 }
 
+/** Wörter mit Stelle je Seite und das Seitenbild (LV oder Angebot aus einer Datei) – der Dateidienst speichert dabei nichts. */
+export async function woerterLesen(name: string, daten: Buffer): Promise<{ seiten: { bild: string | null; woerter: [number, number, number, number, string][] }[]; ocr: boolean }> {
+  return (await (await dienst('/woerter', { name, inhalt: daten.toString('base64') }, 600000)).json()) as { seiten: { bild: string | null; woerter: [number, number, number, number, string][] }[]; ocr: boolean };
+}
+
 /** Warum im Projektordner gerade nichts abgelegt werden kann – oder null, wenn es geht. */
 export async function ablageHindernis(db: Db, umgebung: string, projektordner: string | null): Promise<string | null> {
   if (umgebung === 'test') return 'Der Testserver legt nichts im Projektordner ab – er darf den Dateiserver nur lesen';
   if (!(await db.query('select freigabe from o_ablage where id = $1', [ABLAGE_ID])).rows[0]?.freigabe) return 'Die Ablage ist noch nicht eingerichtet (Verwaltung → Ablage)';
   return projektordner ? null : 'Diesem Projekt ist noch kein Ordner auf dem Dateiserver zugeordnet (Projekte → Ordner wählen)';
+}
+
+/** Vorschaubild einer Datei im Projektordner (für ein Dokument, das auf eine vorhandene Datei verweist – nichts wird kopiert). */
+export async function vorschauAusAblage(db: Db, projektordner: string, pfad: string, breite = 600): Promise<Buffer> {
+  return Buffer.from(await (await dienst('/vorschau', { zugang: await zugang(db), pfad: sauber(projektordner, pfad), breite }, 60000)).arrayBuffer());
 }
 
 /** Das Original wieder holen – als Strom, von dort, wo es abgelegt wurde. */

@@ -2389,3 +2389,35 @@ test('LV: was zur Summe zählt – Bedarf nur „mit Gesamtpreis“, entfallene 
   assert.equal(merktext({ art: 'bedarf', mit_gp: true }), 'Bedarfsposition – mit Gesamtpreis');
   assert.equal(merktext({ art: 'normal', entfaellt: true }), 'Position entfällt');
 });
+
+test('LV aus einer Datei: Zeilen, Positionsblöcke mit Menge und Preisen, Titel, Kopfzeilen fallen weg, Preise nach OZ zuordnen', async () => {
+  const { zeilenAus, lvAusZeilen, gliederung, alsTabelle, zahlAus } = await import('../src/module/ava/lvlesen');
+  const { lvAusTabelle, preiseAusTabelle } = await import('../src/module/ava/lvexcel');
+  // Seite aus Zeilen „Spalten“ wie im Dokument: OZ links (x 0.08), Text ab 0.18, Menge/EH/Preise rechts
+  const seite = (zeilen: [number, string][][]) => ({ bild: null, woerter: zeilen.flatMap((z, k) => z.map(([x, t]) => [x, 0.05 + k * 0.02, x + 0.05, 0.062 + k * 0.02, t] as [number, number, number, number, string])) });
+  const kopf: [number, string][] = [[0.08, 'Muster'], [0.2, 'GmbH'], [0.7, 'Leistungsverzeichnis']];
+  const s1 = seite([kopf,
+    [[0.08, '01'], [0.18, 'Erdarbeiten']],
+    [[0.08, '01.0010'], [0.18, 'Oberboden'], [0.28, 'abtragen'], [0.5, '120,00'], [0.56, 'm2'], [0.7, '4,50'], [0.85, '540,00']],
+    [[0.18, 'Dicke'], [0.24, '20'], [0.28, 'cm,'], [0.32, 'seitlich'], [0.4, 'lagern']],
+    [[0.08, '01.0020'], [0.18, 'Baugrube'], [0.3, 'ausheben'], [0.5, '1.250,5'], [0.58, 'm³']],
+    [[0.18, 'Übertrag'], [0.85, '540,00']]]);
+  const s2 = seite([kopf, [[0.08, '02'], [0.18, 'Mauerarbeiten']], [[0.08, '02.0010'], [0.18, 'Wand'], [0.24, '24'], [0.3, 'cm'], [0.5, '3'], [0.55, 'Stk']]]);
+  const s3 = seite([kopf, [[0.08, '02.0020'], [0.18, 'Sturz'], [0.5, '1'], [0.55, 'psch']]]);
+  const z = zeilenAus([s1, s2, s3]);
+  assert.equal(z[2]!.text, '01.0010 Oberboden abtragen 120,00 m2 4,50 540,00');
+  const v = lvAusZeilen(z, 3);
+  assert.deepEqual(v.map((x) => [x.art, x.oz, x.kurztext]), [['titel', '01', 'Erdarbeiten'], ['normal', '01.0010', 'Oberboden abtragen'], ['normal', '01.0020', 'Baugrube ausheben'],
+    ['titel', '02', 'Mauerarbeiten'], ['normal', '02.0010', 'Wand 24 cm'], ['normal', '02.0020', 'Sturz']]);
+  assert.deepEqual([v[1]!.menge, v[1]!.einheit, v[1]!.ep, v[1]!.gp, v[1]!.langtext], [120, 'm²', 4.5, 540, 'Dicke 20 cm, seitlich lagern']);
+  assert.deepEqual([v[2]!.menge, v[2]!.einheit, v[5]!.einheit], [1250.5, 'm³', 'psch']);
+  assert.ok(!v.some((x) => /Muster|Übertrag/.test(x.kurztext + x.langtext)), 'Kopfzeile und Übertrag fallen weg');
+  assert.deepEqual(gliederung(v).map((g) => g.eltern), [null, 0, 0, null, 3, 3]);
+  // weiter wie beim Excel-Einlesen: dieselbe Tabelle, derselbe Weg
+  const lv = lvAusTabelle(alsTabelle(v, { mengen: true, preise: true }), [{ id: 'x', werte: { oz: '02.0020' } }]);
+  assert.deepEqual([lv.titel, lv.positionen, lv.doppelt], [2, 3, ['02.0020']]);
+  assert.deepEqual([lv.zeilen[1]!.menge, lv.zeilen[1]!.einheit, lv.zeilen[1]!.ep, lv.zeilen[1]!.langtext, lv.zeilen[0]!.art], [120, 'm²', 4.5, 'Dicke 20 cm, seitlich lagern', 'titel']);
+  assert.equal(lvAusTabelle(alsTabelle(v, { mengen: false, preise: false })).zeilen[1]!.menge, null);
+  assert.deepEqual(preiseAusTabelle(alsTabelle(v, { mengen: false, preise: true }), [{ id: 'a', werte: { oz: '1.10', art: 'normal' } }, { id: 'b', werte: { oz: '02.0010', art: 'normal' } }]).preise, [{ position: 'a', ep: 4.5 }]);
+  assert.deepEqual([zahlAus('1.234,56'), zahlAus('12,5'), zahlAus('120'), zahlAus('abc')], [1234.56, 12.5, 120, null]);
+});

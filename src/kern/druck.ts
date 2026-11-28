@@ -11,8 +11,8 @@ import { istHinweis, istZuschlag, mengeVon, merktext, nachKennung, zaehltZurSumm
 export type Druckblock =
   | { id: string; art: 'briefkopf' }                                   // Büro links, Projekt rechts
   | { id: string; art: 'titel'; text: string; unter?: string }         // Überschrift; {feld} wird ersetzt
-  | { id: string; art: 'felder'; felder: string[] }                    // Beschriftung + Wert, nebeneinander
-  | { id: string; art: 'text'; feld: string; titel?: string }         // langer Text mit Überschrift (ab Werk die des Felds), über mehrere Seiten
+  | { id: string; art: 'felder'; felder: string[]; linien?: string[] }   // Beschriftung + Wert, nebeneinander; linien: diese Felder als Linie zum Ausfüllen (Blanko)
+  | { id: string; art: 'text'; feld: string; titel?: string; linien?: number }   // langer Text mit Überschrift (ab Werk die des Felds), über mehrere Seiten; linien: statt des Texts so viele Linien (Blanko)
   | { id: string; art: 'absatz'; text: string }                        // fester Text (z. B. Anrede und Gruß eines Briefs); {feld} wird ersetzt, einstellbar
   // Tabelle der Einträge, die am Objekt hängen (z. B. die Mängel eines Berichts): objekt.ueber verweist auf das gedruckte Objekt
   // spaltenTitel: eigene Beschriftung je Spalte ab Werk; leerzeile: eine freie Zeile zum Nachtragen; titel '' – ohne Überschrift
@@ -216,6 +216,7 @@ export const CSS = (schrift: number) => `
   .unterschriften small { color: #444; }
   .textblock h2 { font-size: 1.05em; margin: 0 0 1mm; break-after: avoid; }
   .textblock p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .textblock.linien .linie, .felder dd .linie { display: block; height: 7mm; border-bottom: .2mm solid #555; }
   .liste { margin-bottom: 5mm; }
   .liste h2 { font-size: 1.05em; margin: 0 0 1mm; break-after: avoid; }
   .liste table { width: 100%; border-collapse: collapse; }
@@ -357,8 +358,9 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
     }
     if (b.art === 'felder') {
       // Angaben ohne Wert stehen nicht im Ausdruck (in der Vorschau zum Einstellen bleiben sie sichtbar)
-      const mitWert = (n: string) => bearbeiten || feld(n).art === 'ja_nein' || (d.werte[n] !== '' && d.werte[n] != null && feldtext(feld(n), d.werte[n], d.verweis) !== '');
-      return huelle(b.id, 'felder', b.felder.filter(mitWert).map((n) => huelle(`${b.id}.${n}`, 'zeile', `<dt>${sicher(e[`${b.id}.${n}.titel`] || feld(n).titel)}</dt><dd>${sicher(feld(n).art === 'ja_nein' ? (d.werte[n] ? 'Ja' : 'Nein') : feldtext(feld(n), d.werte[n], d.verweis)) || '–'}</dd>`)).join(''), 'dl');
+      const linie = (n: string) => !!b.linien?.includes(n);
+      const mitWert = (n: string) => bearbeiten || linie(n) || feld(n).art === 'ja_nein' || (d.werte[n] !== '' && d.werte[n] != null && feldtext(feld(n), d.werte[n], d.verweis) !== '');
+      return huelle(b.id, 'felder', b.felder.filter(mitWert).map((n) => huelle(`${b.id}.${n}`, 'zeile', `<dt>${sicher(e[`${b.id}.${n}.titel`] || feld(n).titel)}</dt><dd>${linie(n) ? '<span class="linie"></span>' : sicher(feld(n).art === 'ja_nein' ? (d.werte[n] ? 'Ja' : 'Nein') : feldtext(feld(n), d.werte[n], d.verweis)) || '–'}</dd>`)).join(''), 'dl');
     }
     if (b.art === 'unterschriften') {
       return huelle(b.id, 'unterschriften', b.parteien.map((t) => `<div><span class="linie"></span><small>Ort, Datum · ${sicher(einsetzen(t, m, d))}</small></div>`).join(''));
@@ -395,6 +397,7 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
         bilder.map((z, i) => `<figure><img src="${sicher(d.bild(z.id))}" alt=""><figcaption>${b.nummern ? `<b>Foto ${i + 1}</b> ` : ''}${sicher(String(z.werte[b.beschriftung] ?? ''))}</figcaption></figure>`).join('') || '–'}</div>`);
     }
     if (b.art === 'absatz') return huelle(b.id, 'absatz', `<p>${sicher(einsetzen(e[`${b.id}.text`] || b.text, m, d))}</p>`);
+    if (b.linien) return huelle(b.id, 'textblock linien', `<h2>${sicher(e[`${b.id}.titel`] || b.titel || feld(b.feld).titel)}</h2>${'<span class="linie"></span>'.repeat(b.linien)}`);
     const text = String(d.werte[b.feld] ?? '');
     if (!text && !bearbeiten && e[`${b.id}.leer`] !== 'ja') return '';   // leere Abschnitte fallen weg, wenn nicht anders eingestellt
     return huelle(b.id, `textblock${text ? '' : ' leer'}`, `<h2>${sicher(e[`${b.id}.titel`] || b.titel || feld(b.feld).titel)}</h2><p>${sicher(text) || '–'}</p>`);

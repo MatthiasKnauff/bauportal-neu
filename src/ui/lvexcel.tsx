@@ -12,7 +12,9 @@ import { herunterladen } from './baukasten/herunterladen';
 import { ausfuehrenMehrere, lebende, verweisname } from './unterbau/abgleich';
 import { neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
-import { tabelleWaehlen } from './baukasten/dateiwahl';
+import { dateiWaehlen, tabelleWaehlen } from './baukasten/dateiwahl';
+import { alsTabelle } from '../module/ava/lvlesen';
+import { DOKUMENTE, vorschlagAus } from './dateilesen';
 
 const lvName = (lv: Zeile) => [lv.werte.nummer, lv.werte.name].filter(Boolean).join(' ') || 'LV';
 const positionen = (lv: string) => lebende('lv_position').filter((q) => q.werte.lv === lv && !q.werte.nachtrag);
@@ -21,9 +23,13 @@ export function lvExcelAusgeben(lv: Zeile): void {
   herunterladen(new Blob([xlsxSchreiben(lvAlsTabelle(positionen(lv.id)), 'LV')], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `LV ${lvName(lv)}.xlsx`);
 }
 
-const [einlesen, setEinlesen] = createSignal<{ lv: Zeile; datei: string; e: LvEinlesung } | null>(null);
+const [einlesen, setEinlesen] = createSignal<{ lv: Zeile; datei: string; e: LvEinlesung; nachher?: () => void } | null>(null);
 export function lvExcelEinlesen(lv: Zeile): void {
-  tabelleWaehlen((datei, zeilen) => setEinlesen({ lv, datei, e: lvAusTabelle(zeilen, positionen(lv.id)) }));
+  tabelleWaehlen((datei, zeilen) => lvTabelleEinlesen(lv, datei, zeilen));
+}
+/** Eine Tabelle (Excel, CSV – oder der Vorschlag aus einem Dokument, ui/lvausdatei) ins LV: erst zeigen, was kommt, dann übernehmen. */
+export function lvTabelleEinlesen(lv: Zeile, datei: string, zeilen: string[][], nachher?: () => void): void {   // nachher: nach dem Übernehmen (z. B. die Datei ablegen)
+  try { setEinlesen({ lv, datei, e: lvAusTabelle(zeilen, positionen(lv.id)), nachher }); } catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
 }
 
 export function LvExcelFenster(): JSX.Element {
@@ -32,6 +38,7 @@ export function LvExcelFenster(): JSX.Element {
     ausfuehrenMehrere(x.e.zeilen.map((z) => ({ objekt: 'lv_position', art: 'anlegen' as const, objektId: neueKennung(), werte: { projekt: x.lv.werte.projekt ?? null, lv: x.lv.id, oz: z.oz || null, art: z.art,
       kurztext: z.kurztext, langtext: z.langtext || null, menge: z.menge, einheit: z.einheit || null, ep: z.ep } })), `Excel eingelesen: ${x.datei}`);
     hinweis(`${x.e.titel} Titel und ${x.e.positionen} Positionen eingelesen – rückgängig mit Strg+Z.`);
+    x.nachher?.();
   };
   return (
     <Show when={einlesen()}>{(x) => (
@@ -56,24 +63,31 @@ export function AngebotExcelFenster(): JSX.Element {
     const x = angebotEin()!;
     tabelleWaehlen((datei, zeilen) => setAngebotEin({ ...x, datei, e: preiseAusTabelle(zeilen, positionen(x.lv.id)) }));
   };
+  // Angebot auf Papier (PDF, Scan, Foto): die Preise über die Ordnungszahl – derselbe Weg wie die Tabelle (wie bisher „Angebot aus PDF“)
+  const dokument = () => {
+    const x = angebotEin()!;
+    dateiWaehlen(DOKUMENTE, async (f) => { const v = await vorschlagAus(f); if (v) setAngebotEin({ ...x, datei: f.name, e: preiseAusTabelle(alsTabelle(v.vorschlag, { mengen: false, preise: true }), positionen(x.lv.id)) }); });
+  };
   const uebernehmen = () => {
     const x = angebotEin()!; if (!x.angebot || !x.e) return; setAngebotEin(null);
     const da = new Map(lebende('angebot_preis').filter((p) => p.werte.angebot === x.angebot).map((p) => [String(p.werte.position), p.id]));
     const bieter = verweisname('kontakt', String(lebende('angebot').find((a) => a.id === x.angebot)?.werte.bieter ?? ''));
     ausfuehrenMehrere(x.e.preise.map((p): Vorlage => (da.has(p.position)
       ? { objekt: 'angebot_preis', art: 'aendern' as const, objektId: da.get(p.position)!, werte: { ep: p.ep } }
-      : { objekt: 'angebot_preis', art: 'anlegen' as const, objektId: neueKennung(), werte: { projekt: x.lv.werte.projekt ?? null, angebot: x.angebot, position: p.position, ep: p.ep } })), `Angebot aus Excel: ${bieter}`);
+      : { objekt: 'angebot_preis', art: 'anlegen' as const, objektId: neueKennung(), werte: { projekt: x.lv.werte.projekt ?? null, angebot: x.angebot, position: p.position, ep: p.ep } })), `Angebot eingelesen: ${bieter}`);
     hinweis(`${x.e.preise.length} Preise von ${bieter} eingelesen – rückgängig mit Strg+Z.`);
   };
   return (
     <Show when={angebotEin()}>{(x) => (
-      <Dialog titel="Angebot aus Excel einlesen" onAbbrechen={() => setAngebotEin(null)}
+      <Dialog titel="Angebot einlesen (Excel, PDF, Scan)" onAbbrechen={() => setAngebotEin(null)}
         knoepfe={<><button type="button" class="knopf" onClick={() => setAngebotEin(null)}>Abbrechen</button><button type="button" class="knopf haupt" disabled={!x().angebot || !x().e?.preise.length} onClick={uebernehmen}>Übernehmen{x().e ? ` (${x().e!.preise.length})` : ''}</button></>}>
         <div class="formular">
           <Auswahlliste titel="Bieter:in" platzhalter="Bieter:in wählen …" wert={x().angebot}
             optionen={angeboteDes(x().lv.id).map((a) => ({ wert: a.id, titel: verweisname('kontakt', String(a.werte.bieter ?? '')) }))} onWert={(w) => setAngebotEin({ ...x(), angebot: w ? String(w) : null })} />
-          <p class="still-text">Die Tabelle braucht die Spalten „OZ“ und „EP“ (oder „Einheitspreis“). Die Preise gehen an die Positionen mit derselben OZ; vorhandene Preise dieser Bieter:in werden ersetzt. Neue Firmen erst mit „Bieter:in“ dazunehmen.</p>
-          <div><button type="button" class="knopf" onClick={datei}>{x().datei ? `Andere Datei … (${x().datei})` : 'Datei wählen …'}</button></div>
+          <p class="still-text">Excel: die Spalten „OZ“ und „EP“ (oder „Einheitspreis“). PDF, Scan oder Foto: die Zeilen mit Ordnungszahl und Preis. Die Preise gehen an die Positionen mit derselben OZ; vorhandene Preise dieser Bieter:in werden ersetzt. Neue Firmen erst mit „Bieter:in“ dazunehmen.</p>
+          <div class="reihe"><button type="button" class="knopf" onClick={datei}>{x().datei ? `Andere Tabelle … ` : 'Excel oder CSV …'}</button>
+            <button type="button" class="knopf" title="Angebot auf Papier: die Preise werden über die Ordnungszahl gelesen" onClick={dokument}>PDF, Scan oder Foto …</button>
+            <Show when={x().datei}><span class="still-text klein-text">{x().datei}</span></Show></div>
           <Show when={x().e}>{(e) => (
             <p>{e().preise.length} Preise zu Positionen des LV{e().ohnePreis ? `, ${e().ohnePreis} Positionen ohne Preis` : ''}.
               <Show when={e().fremd.length}><br /><span class="still-text">Ohne passende OZ im LV ({e().fremd.length}): {e().fremd.slice(0, 12).join(', ')}{e().fremd.length > 12 ? ' …' : ''}</span></Show></p>)}</Show>

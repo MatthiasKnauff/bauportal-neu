@@ -18,6 +18,8 @@ import { darf, ich, modell, neueKennung } from './unterbau/api';
 import { aktuelleVersion, planDerVersion } from './plandaten';
 import { springeZu } from './sprung';
 import { hinweis } from './unterbau/meldungen';
+import { druckOeffnen } from './druck';
+import { dokumenteAblegen } from './dokumentablage';
 
 const kurz = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
 
@@ -127,6 +129,7 @@ export function BesprechungAbgleich(p: { z: Zeile }) {
             <button type="button" class="knopf klein" onClick={() => setAbschluss(true)}>Abschließen …</button></div>
         </Show>
         <Show when={abschluss()}><Abschliessen z={p.z} onZu={() => setAbschluss(false)} /></Show>
+        <PapierZeile z={p.z} />
       </div>
     </Show>
   );
@@ -171,4 +174,15 @@ export function GrundlagenMerken(p: { z: Zeile }) {
     <button type="button" class="knopf klein" disabled={gleich()} title={gleich() ? 'So steht es schon in der Vorgabe des Büros' : 'Gilt dann für neue Angebotsbesprechungen'}
       onClick={() => { ausfuehren({ objekt: 'buero', art: 'aendern', objektId: BUERO_ID, werte: neu() }, 'Grundlagen als Vorgabe des Büros'); hinweis('Grundlagen als Vorgabe des Büros gemerkt – gilt für neue Protokolle.'); }}>Als Vorgabe des Büros merken</button>
   </Show>;
+}
+
+/** Auf Papier (wie bisher): Blanko für die Baustelle drucken, das ausgefüllte Blatt als Scan oder Foto einlesen – es gehört dann zum Protokoll
+ *  (Reiter „Dokumente“ an der Karte, abgelegt im Ordner der Protokolle). */
+function PapierZeile(p: { z: Zeile }) {
+  let wahl!: HTMLInputElement;
+  const titel = () => `Angebotsbesprechung ${String(p.z.werte.bieter ?? '').split('\n')[0]}`.trim();
+  return <div class="bsp-zeile"><span class="still-text klein-text">Auf Papier: Blanko für die Baustelle, ausgefülltes Blatt zurück ins Bauportal.</span>
+    <span class="reihe"><button type="button" class="knopf klein" onClick={() => druckOeffnen('ava.besprechung_blanko', p.z.id)}>Blanko drucken</button>
+      <Show when={darf('dokument', 'schreiben')}><button type="button" class="knopf klein" title="Ausgefülltes, unterschriebenes Blatt als Scan oder Foto einlesen" onClick={() => wahl.click()}>Einlesen …</button>
+        <input ref={wahl} type="file" accept=".pdf,image/*" hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (f.length) dokumenteAblegen(f, { zu: { objekt: 'besprechung', id: p.z.id, titel: titel(), art: 'protokoll' } }); }} /></Show></span></div>;
 }

@@ -25,10 +25,12 @@ import { NeuesLv } from './neueslv';
 import { projektId } from './projekt';
 import { lvFolge, lvVon, lvWaehlen } from './avakopf';
 import { druckOeffnen } from './druck';
-import { appOeffnen, springeZu } from './sprung';
+import { springeZu } from './sprung';
+import { positionZeigen, setZuZeigen, zuZeigen } from './lvzeigen';
 import { epVon, gaebAusgeben, gpMit, nachtragAnlegen, nachtragNeu } from './avadaten';
 import { gaebEinlesen } from './uebernahme';
 import { LvExcelFenster, lvExcelAusgeben, lvExcelEinlesen } from './lvexcel';
+import { LvAusDateiFenster, lvAusDatei } from './lvausdatei';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
 import { zeigeMenue, type Menuepunkt } from './baukasten/kontextmenue';
@@ -76,9 +78,7 @@ const FREI = new Set<string>();   // freigeschaltete vergebene LVs – bis zum N
 export const [lvZeiger, setLvZeiger] = createSignal<string | null>(null);
 // Blättern in der Karte (wie bisher „3 von 35“): durch die Positionen in der Reihenfolge, die der Baum gerade zeigt
 const [lvReihe, setLvReihe] = createSignal<string[]>([]);
-// eine Position in einer anderen Ansicht der Ausschreibung zeigen (Kontextmenü „Im Leistungsverzeichnis zeigen“, „In der Aufmaßprüfung zeigen“)
-const [zuZeigen, setZuZeigen] = createSignal<{ id: string; ansicht: string } | null>(null);
-export function positionZeigen(id: string, ansicht: 'lv' | 'aufmass'): void { setZuZeigen({ id, ansicht }); appOeffnen('ava', ansicht); }
+
 export const lvBlaettern = () => {
   const ids = lvReihe(), i = ids.indexOf(lvZeiger() ?? '');
   return i < 0 ? undefined : { nr: i + 1, anzahl: ids.length, onSchritt: (s: -1 | 1) => { const n = ids[i + s]; if (n) setLvZeiger(n); } };
@@ -348,7 +348,8 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
     ...(lv() ? [{ titel: 'Langtexte', zeichen: 'notiz', gruppe: 'Ansicht', an: lang().size > 0, tun: () => setLang(lang().size ? new Set<string>() : new Set(zeilen().filter((z) => !z.titel).map((z) => z.id))) }] : []),
     ...(p.struktur && lv() ? [
       ...(darf('lv_position', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: (e: MouseEvent) => zeigeMenue(e, [
-        { titel: 'GAEB (X83, X84 Angebot, X86) …', tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) }, { titel: 'Excel / CSV …', tun: () => lvExcelEinlesen(lv()!) }]) }] : []),
+        { titel: 'GAEB (X83, X84 Angebot, X86) …', tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) }, { titel: 'Excel / CSV …', tun: () => lvExcelEinlesen(lv()!) },
+        { titel: 'PDF, Scan, Foto oder Word …', tun: () => lvAusDatei(lv()!) }]) }] : []),
       { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, gesperrt: !zeilen().length, tun: (e: MouseEvent) => zeigeMenue(e, [
         { titel: 'GAEB X83', tun: () => gaebAusgeben(lv()!) }, { titel: 'Excel', tun: () => lvExcelAusgeben(lv()!) }]) },
       { titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => druckOeffnen('ava.lv', lv()!.id) }] : []),
@@ -511,7 +512,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   const Art = (q: Zeile | undefined) => { const k = ART_KURZ[String(q?.werte.art ?? 'normal')] ?? 'N'; return <i class={`lvt-art a-${k}`} classList={{ nt: !!q?.werte.nachtrag }} aria-hidden="true">{k === 'N' || k === 'H' ? '' : k}</i>; };
   return (
     <div class="lvt" ref={flaeche} tabIndex={0} onKeyDown={taste} role="treegrid" aria-label="Leistungsverzeichnis">
-      <Show when={p.struktur}><LvExcelFenster /></Show>
+      <Show when={p.struktur}><LvExcelFenster /><LvAusDateiFenster /></Show>
       <Show when={p.struktur && neuFenster() && projektId()}><NeuesLv projekt={projektId()!} onZu={() => setNeuFenster(false)} onFertig={(id, weg) => { lvWaehlen(p.m, id); setLvZu(false); if (weg === 'modell') setModellFenster(true); }} /></Show>
       <Show when={lv()} fallback={<p class="still-text">Noch kein Leistungsverzeichnis – oben unter Neu „LV“ anlegen.</p>}>
         <Show when={p.struktur && vorbem()}>

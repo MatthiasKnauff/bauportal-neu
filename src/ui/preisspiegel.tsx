@@ -102,7 +102,7 @@ export function Preisspiegel(m: Mitte): JSX.Element {
       : { titel: 'Nicht vergeben', zeichen: 'schliessen', gruppe: 'Vergabe', tun: (e: MouseEvent) => zeigeMenue(e, NICHT_GRUENDE.map((g) => ({ titel: g.wert ? g.titel : 'ohne Angabe eines Grunds', tun: () => nichtVergeben(g.wert) }))) }] : []),
     ...(lv() && darf('angebot', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: (e: MouseEvent) => zeigeMenue(e, [
       { titel: 'GAEB-Angebot (X84) …', tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) },
-      { titel: 'Excel-Angebot …', gesperrt: !ang().length || !darfPreise(), tun: () => angebotExcelEinlesen(lv()!, ang().some((a) => a.id === psAngebot()) ? psAngebot()! : null) }]) }] : []),
+      { titel: 'Angebot aus Excel, PDF oder Scan …', gesperrt: !ang().length || !darfPreise(), tun: () => angebotExcelEinlesen(lv()!, ang().some((a) => a.id === psAngebot()) ? psAngebot()! : null) }]) }] : []),
   ];
   return (<>
     <LvBaum m={m} spalten={spalten} speicher="bp_spalten_ps" ohneHinweise knoepfe={knoepfe} fuss={fuss()}
