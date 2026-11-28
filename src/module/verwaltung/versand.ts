@@ -4,7 +4,7 @@
 import type { Werte } from '../../kern/modell';
 
 type E = { id: string; werte: Werte };
-export interface Paket { an: string; ids: string[]; betreff: string; text: string; anhaenge?: Anhang[] }
+export interface Paket { an: string; ids: string[]; betreff: string; text: string; anhaenge?: Anhang[]; postfach: string /* '' = Büro */ }
 /** Anhang einer Nachricht – entsteht erst beim Versand aus dem dann aktuellen Stand, mit den Rechten der Person, die sie angelegt hat.
  *  Gespeichert je Zeile: „druck|<Ausdruck>|<Kennung>“ (PDF des Druckwerks), „x83|<LV>“ (LV als GAEB ohne Preise) oder
  *  „dokument|<Kennung>“ (ein abgelegtes Dokument – Plan, Datei aus dem Projektordner, vom Rechner – im Original). */
@@ -37,16 +37,17 @@ export function pakete(nachrichten: E[], jetzt: Date, e: Einstellung): { pakete:
   const { tag } = ortszeit(jetzt);
   const faellig = nachrichten.filter((n) => n.werte.stand === 'wartet' && String(n.werte.an ?? '').includes('@') && (!n.werte.faellig || String(n.werte.faellig) <= tag));
   const aus: Paket[] = faellig.filter((n) => n.werte.art !== 'erinnerung')
-    .map((n) => ({ an: String(n.werte.an), ids: [n.id], betreff: String(n.werte.betreff ?? ''), text: String(n.werte.text ?? ''), anhaenge: anhaengeVon(n.werte) }));
+    .map((n) => ({ an: String(n.werte.an), ids: [n.id], betreff: String(n.werte.betreff ?? ''), text: String(n.werte.text ?? ''), anhaenge: anhaengeVon(n.werte), postfach: String(n.werte.postfach ?? '') }));
   const erinnerungen = faellig.filter((n) => n.werte.art === 'erinnerung');
   const lauf = erinnerungen.length ? buendelLauf(jetzt, e) : null;
   if (lauf) {
     const je = new Map<string, E[]>();
-    for (const n of erinnerungen) { const a = String(n.werte.an).trim().toLowerCase(); je.set(a, [...(je.get(a) ?? []), n]); }
-    for (const [an, l] of je) aus.push(l.length === 1
-      ? { an, ids: [l[0]!.id], betreff: String(l[0]!.werte.betreff ?? ''), text: String(l[0]!.werte.text ?? '') }
-      : { an, ids: l.map((n) => n.id), betreff: `${l.length} Erinnerungen aus dem Bauportal`,
-        text: l.map((n, i) => `${i + 1}. ${String(n.werte.betreff ?? '')}\n${String(n.werte.text ?? '').trim()}`).join('\n\n') });
+    // je Adresse und Postfach eine Mail
+    for (const n of erinnerungen) { const a = `${String(n.werte.an).trim().toLowerCase()}|${String(n.werte.postfach ?? '')}`; je.set(a, [...(je.get(a) ?? []), n]); }
+    for (const [k, l] of je) { const [an, postfach] = k.split('|') as [string, string]; aus.push(l.length === 1
+      ? { an, postfach, ids: [l[0]!.id], betreff: String(l[0]!.werte.betreff ?? ''), text: String(l[0]!.werte.text ?? '') }
+      : { an, postfach, ids: l.map((n) => n.id), betreff: `${l.length} Erinnerungen aus dem Bauportal`,
+        text: l.map((n, i) => `${i + 1}. ${String(n.werte.betreff ?? '')}\n${String(n.werte.text ?? '').trim()}`).join('\n\n') }); }
   }
   return { pakete: aus, lauf };
 }

@@ -6,6 +6,8 @@ import type { Vorlage, Zeile } from '../kern/befehl';
 import { BUERO_ID, MAILSERVER_ID } from '../module/verwaltung/beipackzettel';
 import { anhaengeVon, anhangText, anredeVon, type Anhang } from '../module/verwaltung/versand';
 import { Detailkarte } from './baukasten/detailkarte';
+import { FeldEingabe } from './baukasten/feld';
+import { gilt, type Werte } from '../kern/modell';
 import { Dialog } from './baukasten/dialog';
 import { Formular } from './baukasten/formular';
 import { Rahmen } from './baukasten/rahmen';
@@ -14,40 +16,96 @@ import { darf, ich, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import { springeZu } from './sprung';
 
+// ---------- Postfach einrichten (Büro in der Verwaltung, eigenes unter Mein Konto) ----------
+interface PostfachLage { buero: { kennwort: boolean; m365: boolean }; mein: { id: string; kennwort: boolean; m365: boolean } | null; appGeheimnis: boolean; nurTest: boolean }
+const [postfachLage, setPostfachLage] = createSignal<PostfachLage | null>(null);
+export const postfachLageHolen = () => ruf<PostfachLage>('/api/postfach/zustand').then(setPostfachLage, () => undefined);
+export { postfachLage };
+
+/** Kennwort bzw. Microsoft-Anmeldung und Prüfen – für jedes Postfach derselbe Baustein. postfach: „buero“ oder die Kennung. */
+export function PostfachEinrichten(p: { postfach: string; werte: Record<string, unknown> | undefined }) {
+  const [ergebnis, setErgebnis] = createSignal<{ gut: boolean; text: string } | null>(null);
+  const [kennwort, setKennwort] = createSignal(false);
+  if (!postfachLage()) void postfachLageHolen();
+  const lage = () => (p.postfach === 'buero' ? postfachLage()?.buero : postfachLage()?.mein);
+  const m365 = () => p.werte?.art === 'm365';
+  const pruefen = async () => {
+    setErgebnis({ gut: true, text: 'Anmeldung wird geprüft …' });
+    try { await ruf('/api/postfach/pruefen', { postfach: p.postfach }); setErgebnis({ gut: true, text: 'Das Postfach nimmt die Anmeldung an. Verschickt wurde dabei nichts.' }); }
+    catch (e) { setErgebnis({ gut: false, text: (e as Error).message }); }
+  };
+  const anmelden = async () => {
+    try { const r = await ruf<{ adresse: string }>('/api/postfach/m365/start', { postfach: p.postfach }); window.open(r.adresse, '_blank', 'noopener,width=520,height=720'); setErgebnis({ gut: true, text: 'Im neuen Fenster bei Microsoft anmelden – danach hier „Anmeldung prüfen“.' }); }
+    catch (e) { setErgebnis({ gut: false, text: (e as Error).message }); }
+  };
+  return (
+    <fieldset>
+      <legend>{m365() ? 'Anmeldung bei Microsoft 365' : 'Kennwort und Prüfung'}</legend>
+      <p class="still-text klein-text">{m365()
+        ? (lage()?.m365 ? `Angemeldet${p.werte?.m365_konto ? ` als ${String(p.werte.m365_konto)}` : ''} – kein Kennwort gespeichert.` : 'Noch nicht bei Microsoft angemeldet.')
+        : (lage()?.kennwort ? 'Ein Kennwort ist gespeichert (verschlüsselt).' : 'Noch kein Kennwort gespeichert.')}</p>
+      <Show when={postfachLage()?.nurTest}><p class="hinweis-kasten">Testserver: Hier wird nichts verschickt – Nachrichten bleiben im Postausgang „zurückgehalten“.</p></Show>
+      <div class="reihe">
+        <Show when={m365()} fallback={<button class="knopf" onClick={() => setKennwort(true)}>Kennwort eintragen …</button>}><button class="knopf" onClick={() => void anmelden()}>Mit Microsoft anmelden …</button></Show>
+        <button class="knopf haupt" onClick={() => void pruefen()}>Anmeldung prüfen</button>
+      </div>
+      <Show when={ergebnis()}>{(e) => <p classList={{ 'feld-fehler': !e().gut, 'gut-text': e().gut }} role="status">{e().text}</p>}</Show>
+      <Show when={kennwort()}>
+        <Dialog titel="Kennwort des Postfachs" onAbbrechen={() => setKennwort(false)} knoepfe={<button class="knopf" onClick={() => setKennwort(false)}>Abbrechen</button>}>
+          <Formular knopf="Speichern" pfad="/api/postfach/kennwort" fest={{ postfach: p.postfach }} felder={[{ name: 'kennwort', titel: 'Kennwort am Mailserver', typ: 'password', auto: 'new-password' }]}
+            onFertig={() => { setKennwort(false); hinweis('Kennwort gespeichert.'); void postfachLageHolen(); }} />
+        </Dialog>
+      </Show>
+    </fieldset>
+  );
+}
+
 // ---------- Verwaltung → Mail & Versand ----------
 export function MailVersand() {
   const m = () => modell('mailserver');
   const z = () => sicht.mailserver?.[MAILSERVER_ID];
-  const [lage, setLage] = createSignal<{ eingerichtet: boolean; kennwortGesetzt: boolean; nurTest: boolean } | null>(null);
-  const [ergebnis, setErgebnis] = createSignal<{ gut: boolean; text: string } | null>(null);
-  const [kennwort, setKennwort] = createSignal(false);
-  const holeLage = () => ruf<{ eingerichtet: boolean; kennwortGesetzt: boolean; nurTest: boolean }>('/api/mail/zustand').then(setLage, () => undefined);
-  void holeLage();
-  const pruefen = async () => {
-    setErgebnis({ gut: true, text: 'Anmeldung am Mailserver wird geprüft …' });
-    try { await ruf('/api/mail/pruefen', {}); setErgebnis({ gut: true, text: 'Der Mailserver nimmt die Anmeldung an. Verschickt wurde dabei nichts.' }); }
-    catch (e) { setErgebnis({ gut: false, text: (e as Error).message }); }
-  };
+  const [geheimnis, setGeheimnis] = createSignal(false);
+  void postfachLageHolen();
   return (
     <Rahmen schluessel="verwaltung.mail" inhalt={<section class="blatt frei"><Show when={z()} fallback={<p class="still-text">Wird geladen …</p>}>{(zeile) => (
-      <Detailkarte modell={m()} zeile={zeile()} zusatz={() => (
+      <Detailkarte modell={m()} zeile={zeile()} zusatz={() => (<>
+        <p class="still-text klein-text">Postfach des Büros – über das gehen alle Mails des Bauportals, wenn niemand „von mir“ wählt. Jede Mail steht erst im Postausgang, Erinnerungen werden gebündelt.
+          Eigene Postfächer richten die Benutzer:innen unter „Mein Konto“ ein.</p>
+        <PostfachEinrichten postfach="buero" werte={zeile().werte} />
         <fieldset>
-          <legend>Kennwort und Prüfung</legend>
-          <p class="still-text klein-text">Jede Mail des Bauportals geht über diese eine Stelle: sie steht erst im Postausgang, Erinnerungen werden gebündelt.
-            {lage()?.kennwortGesetzt ? ' Ein Kennwort ist gespeichert.' : ' Noch kein Kennwort gespeichert.'}</p>
-          <Show when={lage()?.nurTest}><p class="hinweis-kasten">Testserver: Hier wird nichts verschickt – Nachrichten bleiben im Postausgang „zurückgehalten“.</p></Show>
-          <div class="reihe"><button class="knopf" onClick={() => setKennwort(true)}>Kennwort eintragen …</button><button class="knopf haupt" onClick={pruefen}>Anmeldung prüfen</button>
+          <legend>Microsoft 365 für das Büro</legend>
+          <p class="still-text klein-text">Einmal die App des Büros in Entra ID eintragen (Mandant, Anwendungs-ID oben, Geheimnis hier) – Weiterleitungsadresse der App: {location.origin}/api/postfach/m365/zurueck,
+            Berechtigungen Mail.Send, User.Read, offline_access. {postfachLage()?.appGeheimnis ? 'Ein Geheimnis ist gespeichert.' : 'Noch kein Geheimnis gespeichert.'}</p>
+          <div class="reihe"><button class="knopf" onClick={() => setGeheimnis(true)}>Geheimnis der App eintragen …</button>
             <button class="knopf still" onClick={() => springeZu('nachricht', '', { modul: 'verwaltung', ansicht: 'postausgang' })}>Postausgang</button></div>
-          <Show when={ergebnis()}>{(e) => <p classList={{ 'feld-fehler': !e().gut, 'gut-text': e().gut }} role="status">{e().text}</p>}</Show>
-          <Show when={kennwort()}>
-            <Dialog titel="Kennwort für den Mailserver" onAbbrechen={() => setKennwort(false)} knoepfe={<button class="knopf" onClick={() => setKennwort(false)}>Abbrechen</button>}>
-              <Formular knopf="Speichern" pfad="/api/mail/kennwort" felder={[{ name: 'kennwort', titel: 'Kennwort des Benutzers am Mailserver', typ: 'password', auto: 'new-password' }]}
-                onFertig={() => { setKennwort(false); hinweis('Kennwort gespeichert.'); void holeLage(); }} />
+          <Show when={geheimnis()}>
+            <Dialog titel="Geheimnis der App (Microsoft 365)" onAbbrechen={() => setGeheimnis(false)} knoepfe={<button class="knopf" onClick={() => setGeheimnis(false)}>Abbrechen</button>}>
+              <Formular knopf="Speichern" pfad="/api/postfach/app-geheimnis" felder={[{ name: 'geheimnis', titel: 'Geheimer Clientschlüssel (Wert)', typ: 'password', auto: 'off' }]}
+                onFertig={() => { setGeheimnis(false); hinweis('Geheimnis gespeichert.'); void postfachLageHolen(); }} />
             </Dialog>
           </Show>
         </fieldset>
-      )} />
+      </>)} />
     )}</Show></section>} />
+  );
+}
+
+/** Mein Konto: das eigene Postfach (wie beim Büro: Mailserver oder Microsoft 365) – Felder wie im Modell, gespeichert über /api/postfach/mein. */
+export function MeinPostfach() {
+  void postfachLageHolen();
+  const m = () => modell('postfach');
+  const z = () => Object.values(sicht.postfach ?? {}).find((x) => !x.geloescht && x.werte.inhaber === ich().id);
+  const setzen = (name: string, w: unknown) => void ruf('/api/postfach/mein', { [name]: w }).then(() => postfachLageHolen(), (e: Error) => hinweis(e.message, { art: 'fehler' }));
+  const felder = () => m().felder.filter((f) => f.name !== 'inhaber' && f.name !== 'm365_konto' && gilt(f, (z()?.werte ?? { art: '' }) as Werte, m()));
+  return (
+    <section class="mein-postfach">
+      <h3>Mein Postfach</h3>
+      <p class="still-text klein-text">Projektmails gehen ab Werk über das Büro. Mit einem eigenen Postfach kannst du beim Schreiben „von mir“ wählen.</p>
+      <Show when={z()} fallback={<button class="knopf" onClick={() => setzen('absender', String(sicht.benutzer?.[ich().id]?.werte.email ?? ''))}>Eigenes Postfach einrichten</button>}>{(pf) => <>
+        <div class="formular"><For each={felder()}>{(f) => <FeldEingabe feld={f} wert={(pf().werte[f.name] as never) ?? null} onWert={(w) => setzen(f.name, w)} />}</For></div>
+        <PostfachEinrichten postfach={pf().id} werte={pf().werte} />
+      </>}</Show>
+    </section>
   );
 }
 
@@ -91,7 +149,9 @@ function MailDialog(p: { a: MailAuftrag; onZu: () => void }) {
   const kontakte = createMemo(() => a.ids.map((id) => sicht.kontakt?.[id]).filter((k): k is Zeile => !!k && !k.geloescht));
   const adresse = (k: Zeile) => String(a.an?.(k.id) || k.werte.email || ''), anrede = (k: Zeile) => a.anrede?.(k.id) || anredeVon(k.werte);
   const mitAdresse = () => kontakte().filter((k) => adresse(k).includes('@')), ohne = () => kontakte().filter((k) => !adresse(k).includes('@'));
-  const [merk, setMerk] = createSignal(true), [kopie, setKopie] = createSignal(false);
+  const [merk, setMerk] = createSignal(true), [kopie, setKopie] = createSignal(false), [vonMir, setVonMir] = createSignal(false);
+  const meinPostfach = () => Object.values(sicht.postfach ?? {}).find((x) => !x.geloescht && x.werte.inhaber === ich().id && String(x.werte.absender ?? '').includes('@'));
+  const bueroAdresse = () => String(sicht.mailserver?.[MAILSERVER_ID]?.werte.absender ?? '');
   // „Kopie an mich“ (28.11.2026): an die eigene Adresse (Verwaltung → Benutzer), sonst an die Adresse des Büros
   const meineMail = () => [sicht.benutzer?.[ich().id]?.werte.email, sicht.buero?.[BUERO_ID]?.werte.email].map((x) => String(x ?? '')).find((x) => x.includes('@')) ?? '';
   const anBuero = () => !String(sicht.benutzer?.[ich().id]?.werte.email ?? '').includes('@');
@@ -102,11 +162,11 @@ function MailDialog(p: { a: MailAuftrag; onZu: () => void }) {
     if (!betreff().trim()) { hinweis('Bitte einen Betreff eintragen.', { art: 'fehler' }); return; }
     const anhaengeFuer = (k: Zeile) => (a.anhaengeJe?.(k.id) ?? a.anhaenge ?? []).map((x) => anhangText(x.anhang)).join('\n') || null;
     const fuellen = (t: string, k: Zeile) => Object.entries(a.platzhalter?.(k.id) ?? {}).reduce((x, [n, w]) => x.replaceAll(`{${n}}`, w), t.replaceAll('{anrede}', anrede(k)));
-    const erste = mit()[0];
-    ausfuehrenMehrere([...mit().map((k) => ({ objekt: 'nachricht', art: 'anlegen' as const, objektId: neueKennung(), werte: { an: adresse(k), kontakt: k.id, betreff: betreff().trim(),
+    const erste = mit()[0], pf = vonMir() ? meinPostfach()!.id : null;
+    ausfuehrenMehrere([...mit().map((k) => ({ objekt: 'nachricht', art: 'anlegen' as const, objektId: neueKennung(), werte: { an: adresse(k), kontakt: k.id, betreff: betreff().trim(), postfach: pf,
       text: fuellen(text(), k), art: 'mitteilung', stand: 'wartet', projekt: a.projekt ?? null, quelle: a.quelle?.(k.id) ?? `kontakt|${k.id}`, anhaenge: anhaengeFuer(k) } })),
     // Kopie an mich (wie bisher): eine Mail wie die erste, ohne Anhänge
-    ...(kopie() && erste && meineMail().includes('@') ? [{ objekt: 'nachricht', art: 'anlegen' as const, objektId: neueKennung(), werte: { an: meineMail(), betreff: `Kopie: ${betreff().trim()}`,
+    ...(kopie() && erste && meineMail().includes('@') ? [{ objekt: 'nachricht', art: 'anlegen' as const, objektId: neueKennung(), werte: { an: meineMail(), betreff: `Kopie: ${betreff().trim()}`, postfach: pf,
       text: `Kopie der Mail an ${mit().length} ${mit().length === 1 ? 'Empfänger:in' : 'Empfänger:innen'} (${mit().map((k) => String(k.werte.name ?? '')).join(', ')}):\n\n${fuellen(text(), erste)}`, art: 'mitteilung', stand: 'wartet', projekt: a.projekt ?? null, quelle: 'kopie' } }] : []),
     ...(a.merken && merk() && (betreff() !== (a.betreff ?? '') || text() !== (a.text ?? '')) ? a.merken.tun(betreff(), text()) : []),
     ...(a.dazu?.(mit().map((k) => k.id)) ?? [])], `${a.titel}: ${mit().length} Mails`);
@@ -125,6 +185,13 @@ function MailDialog(p: { a: MailAuftrag; onZu: () => void }) {
         </Show>
         <div class="feld"><label for="mail-betreff">Betreff</label><input id="mail-betreff" value={betreff()} onInput={(e) => setBetreff(e.currentTarget.value)} /></div>
         <div class="feld"><label for="mail-text">Text</label><textarea id="mail-text" rows={10} value={text()} onInput={(e) => setText(e.currentTarget.value)} /></div>
+        {/* Absender (28.11.2026): Projektmails ab Werk über das Büro; mit eigenem Postfach wählbar „von mir“ */}
+        <Show when={meinPostfach()}>
+          <div class="auswahl segment" role="radiogroup" aria-label="Absender">
+            <button type="button" role="radio" aria-checked={!vonMir()} classList={{ aktiv: !vonMir() }} onClick={() => setVonMir(false)}>über das Büro{bueroAdresse() ? ` (${bueroAdresse()})` : ''}</button>
+            <button type="button" role="radio" aria-checked={vonMir()} classList={{ aktiv: vonMir() }} onClick={() => setVonMir(true)}>von mir ({String(meinPostfach()!.werte.absender ?? '')})</button>
+          </div>
+        </Show>
         <div class="reihe mail-optionen">
           <Show when={a.merken}><label><input type="checkbox" checked={merk()} onChange={(e) => setMerk(e.currentTarget.checked)} /> {a.merken!.titel}</label></Show>
           <label title={meineMail() ? `Eine Kopie geht an ${meineMail()}${anBuero() ? ' (Büro – eigene Adresse unter Verwaltung → Benutzer)' : ''}` : 'Dafür fehlt eine E-Mail-Adresse (Verwaltung → Benutzer oder Büro)'}><input type="checkbox" disabled={!meineMail().includes('@')} checked={kopie()} onChange={(e) => setKopie(e.currentTarget.checked)} /> Kopie an mich</label>

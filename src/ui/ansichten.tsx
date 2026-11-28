@@ -1,6 +1,7 @@
 // Ansichten der Module. Die Ansicht eines Objekts kommt von selbst (ObjektAnsicht: Baum, Tabelle, Detailkarte im Rahmen).
 // Hier steht nur, was ein Modul darüber hinaus zeigt – und was es an den Bausteinen über die Stellschrauben einstellt.
 import { FeldEingabe } from './baukasten/feld';
+import { MeinPostfach } from './versand';
 import { BesprechungAbgleich, BesprechungKnopf, GrundlagenMerken } from './besprechung';
 import { GRUNDLAGEN } from '../module/ava/besprechung';
 import { BueroLogo } from './buerologo';
@@ -471,6 +472,7 @@ function MeinKonto() {
     <p class="still-text klein-text">Setzt du im Bautagebuch eine Frist (Mangel, Aufgabe, Weisung), kommt am Tag der Frist eine Erinnerung – gebündelt über den Postausgang.{String(sicht.benutzer?.[ich().id]?.werte.email ?? '').includes('@') ? '' : ' Dafür fehlt noch deine E-Mail-Adresse (Verwaltung → Benutzer).'}</p>
     <FeldEingabe feld={modell('benutzer').felder.find((f) => f.name === 'erinnerung')!} wert={sicht.benutzer?.[ich().id]?.werte.erinnerung ?? ''}
       onWert={(w) => void ruf('/api/konto/einstellung', { feld: 'erinnerung', wert: w ?? '' }).then(() => hinweis('Gespeichert.'), (e: Error) => hinweis(e.message, { art: 'fehler' }))} />
+    <MeinPostfach />
   </section>} />;
 }
 function Darstellung() {

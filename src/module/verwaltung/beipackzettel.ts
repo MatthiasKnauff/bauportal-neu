@@ -1,6 +1,6 @@
 // Modul Verwaltung: Benutzer, Rechte, Bürodaten, Ablage, Druckeinstellungen, KI-Anbindungen, Updates, Aufbau.
 import type { Beipackzettel } from '../../kern/modul';
-import type { ObjektModell } from '../../kern/modell';
+import type { Feld, ObjektModell } from '../../kern/modell';
 import { ALLE, OHNE_GAST, ROLLEN_OPTIONEN } from '../../kern/rechte';
 import { STIL } from '../../kern/design';
 
@@ -102,6 +102,21 @@ export const ablage: ObjektModell = {
 // wie bei der Ablage nicht hier, sondern verschlüsselt in der Datenbank. Der Testserver verschickt nie etwas.
 export const MAILSERVER_ID = '00000000-0000-4000-8000-0000000e0a11';
 export const BUENDELN = [{ wert: 'tag', titel: 'einmal am Tag (empfohlen)' }, { wert: 'stunde', titel: 'einmal in der Stunde' }, { wert: 'sofort', titel: 'sofort' }];
+// Wie ein Postfach verschickt (28.11.2026, je Adresse wählbar – Büro und jede:r Benutzer:in): ein gängiger Mailserver über SMTP
+// (gesendete Mails per IMAP in „Gesendet“) oder Microsoft 365 mit Microsoft-Anmeldung – dann ist kein Kennwort gespeichert.
+// Kennwort bzw. Anmeldung stehen verschlüsselt in der Datenbank (server/postfach.ts), nie in diesen Feldern.
+export const POSTFACH_ARTEN = [{ wert: '', titel: 'Mailserver (SMTP / IMAP)' }, { wert: 'm365', titel: 'Microsoft 365 (Anmeldung mit Microsoft)' }];
+const VERBINDUNG: Feld[] = [
+  { name: 'art', titel: 'Art des Postfachs', art: 'auswahl', optionen: POSTFACH_ARTEN, gruppe: 'Postfach' },
+  { name: 'host', titel: 'Server für ausgehende Mails (SMTP), z. B. smtp.ionos.de', art: 'text', gruppe: 'Mailserver', wenn: { art: [''] } },
+  { name: 'port', titel: 'Port (meist 587)', art: 'zahl', kartenBreite: 2, gruppe: 'Mailserver', wenn: { art: [''] } },
+  { name: 'sicherheit', titel: 'Verschlüsselung', art: 'auswahl', kartenBreite: 4, gruppe: 'Mailserver', wenn: { art: [''] },
+    optionen: [{ wert: 'starttls', titel: 'STARTTLS (Port 587)' }, { wert: 'ssl', titel: 'SSL/TLS (Port 465)' }] },
+  { name: 'benutzer', titel: 'Benutzer am Mailserver', art: 'text', gruppe: 'Mailserver', wenn: { art: [''] } },
+  { name: 'imap_host', titel: 'IMAP-Server (für „Gesendet“, leer: ohne Kopie)', art: 'text', gruppe: 'Mailserver', wenn: { art: [''] } },
+  { name: 'imap_port', titel: 'IMAP-Port (meist 993)', art: 'zahl', kartenBreite: 2, gruppe: 'Mailserver', wenn: { art: [''] } },
+  { name: 'm365_konto', titel: 'Angemeldet als (Microsoft 365)', art: 'text', gruppe: 'Postfach', wenn: { art: ['m365'] } },   // trägt die Anmeldung ein
+];
 export const mailserver: ObjektModell = {
   name: 'mailserver',
   titel: 'Mailserver',
@@ -110,16 +125,30 @@ export const mailserver: ObjektModell = {
   einzeln: MAILSERVER_ID,
   rechte: { lesen: [], schreiben: [], loeschen: [] },
   felder: [
-    { name: 'host', titel: 'Server für ausgehende Mails (SMTP), z. B. smtp.office365.com', art: 'text', gruppe: 'Mailserver' },
-    { name: 'port', titel: 'Port (meist 587)', art: 'zahl', kartenBreite: 2, gruppe: 'Mailserver' },
-    { name: 'sicherheit', titel: 'Verschlüsselung', art: 'auswahl', kartenBreite: 4, gruppe: 'Mailserver',
-      optionen: [{ wert: 'starttls', titel: 'STARTTLS (Port 587)' }, { wert: 'ssl', titel: 'SSL/TLS (Port 465)' }] },
-    { name: 'benutzer', titel: 'Benutzer am Mailserver', art: 'text', gruppe: 'Mailserver' },
+    ...VERBINDUNG,
     { name: 'absender_name', titel: 'Absender (Name), z. B. GK3 Bauportal', art: 'text', gruppe: 'Absender' },
-    { name: 'absender', titel: 'Absender (E-Mail-Adresse)', art: 'email', gruppe: 'Absender' },
+    { name: 'absender', titel: 'Absender (E-Mail-Adresse des Büros)', art: 'email', gruppe: 'Absender' },
+    // Microsoft 365: die App des Büros in Entra ID (einmal eingetragen, gilt für das Büro und alle Benutzer:innen); das Geheimnis verschlüsselt
+    { name: 'm365_mandant', titel: 'Microsoft 365: Mandant (Tenant-ID oder Domäne)', art: 'text', gruppe: 'Microsoft 365' },
+    { name: 'm365_app', titel: 'Microsoft 365: Anwendungs-ID (Client-ID) der App', art: 'text', gruppe: 'Microsoft 365' },
     { name: 'buendeln', titel: 'Erinnerungen bündeln', art: 'auswahl', optionen: BUENDELN, kartenBreite: 4, gruppe: 'Zurückhaltend' },
     { name: 'uhrzeit', titel: 'täglich um (z. B. 07:00)', art: 'text', kartenBreite: 2, gruppe: 'Zurückhaltend' },
     { name: 'letzter_lauf', titel: 'Zuletzt gebündelt', art: 'text', verborgen: true },   // „2026-11-27“ bzw. „2026-11-27T07“ – führt die Versandstelle selbst
+  ],
+};
+
+// Eigenes Postfach einer Benutzer:in (28.11.2026): Projektmails gehen ab Werk über das Büro; wer ein eigenes Postfach einrichtet,
+// kann im Mail-Dialog „von mir“ wählen. Einrichten unter Mein Konto (nur das eigene) oder durch die Verwaltung.
+export const postfach: ObjektModell = {
+  name: 'postfach',
+  titel: 'Postfach',
+  titelMehrzahl: 'Postfächer',
+  anzeigeFeld: 'absender',
+  rechte: { lesen: OHNE_GAST, schreiben: [], loeschen: [] },   // ohne Geheimnisse – die stehen verschlüsselt woanders
+  felder: [
+    { name: 'inhaber', titel: 'Benutzer:in', art: 'verweis', ziel: 'benutzer', pflicht: true, eindeutig: true, inListe: true, breite: 200, gruppe: 'Postfach' },
+    { name: 'absender', titel: 'E-Mail-Adresse', art: 'email', inListe: true, breite: 240, gruppe: 'Postfach' },
+    ...VERBINDUNG,
   ],
 };
 export const NACHRICHT_STAENDE = [{ wert: 'wartet', titel: 'wartet' }, { wert: 'verschickt', titel: 'verschickt' }, { wert: 'zurueckgehalten', titel: 'zurückgehalten (Testserver)' },
@@ -145,6 +174,7 @@ export const nachricht: ObjektModell = {
     { name: 'fehler', titel: 'Fehler beim Versand', art: 'text', spalte: true, breite: 220, gruppe: 'Versand' },
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', spalte: true, breite: 180, gruppe: 'Herkunft' },
     { name: 'quelle', titel: 'Aus (Objekt|Kennung)', art: 'text', verborgen: true },
+    { name: 'postfach', titel: 'Verschickt über', art: 'verweis', ziel: 'postfach', spalte: true, breite: 180, gruppe: 'Versand' },   // leer: über das Büro
   ],
 };
 
@@ -265,7 +295,7 @@ export const verwaltung: Beipackzettel = {
   version: '0.1.0',
   beschreibung: 'Benutzer, Rollen und Rechte, Bürodaten, Ablage, KI, Updates, Aufbau und Prüf-KI.',
   braucht: [],
-  objekte: [benutzer, recht, buero, ablage, mailserver, nachricht, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
+  objekte: [benutzer, recht, buero, ablage, mailserver, postfach, nachricht, druckeinstellung, ki_anbindung, pruefzugang, pruefrat, design, designWahl],
   abgesetzt: ['Für mich'],   // wie im bisherigen Bauportal: „Für mich – <Name>“ farbig abgesetzt
   ansichten: [
     // „Für mich“: für jede:n – eigenes Konto und Darstellung (wie im bisherigen Bauportal)

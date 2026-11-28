@@ -18,6 +18,7 @@ import { baueServer } from '../src/server/server';
 import { versionKopieren, versionsregelnAnmelden } from '../src/server/versionen';
 import { gebaeudemodellRegelnAnmelden } from '../src/server/gebaeudemodell';
 import { erinnerungsregelnAnmelden } from '../src/server/erinnerung';
+import { postfachregelnAnmelden } from '../src/server/postfach';
 import { kostengruppeNummer } from '../src/module/gebaeudemodell/beipackzettel';
 import { uWert } from '../src/module/gebaeudemodell/bauphysik';
 import { geheimnisLesen, geheimnisSetzen } from '../src/server/ablage';
@@ -48,6 +49,7 @@ process.env.DATEN_PFAD = mkdtempSync(path.join(tmpdir(), 'bp-daten-'));
 versionsregelnAnmelden(register);
 gebaeudemodellRegelnAnmelden();
 erinnerungsregelnAnmelden();
+postfachregelnAnmelden();
 
 const BASIS = process.env.TEST_DATABASE_URL ?? 'postgres://postgres@127.0.0.1:5433/postgres';
 
@@ -2494,4 +2496,40 @@ test('Bautagebuch: Erinnerung zur Frist wartet im Postausgang und folgt dem Eint
     await tun(db, l.mit, { objekt: 'bericht_eintrag', art: 'anlegen', objektId: zwei, werte: { projekt: p, bericht: b, art: 'weisung', text: 'Gerüst umbauen', frist: '2026-12-04' } });
     assert.deepEqual((await db.query("select an from o_nachricht where quelle = $1 and stand = 'wartet' order by an", [`bericht_eintrag|${zwei}`])).rows.map((z) => z.an), ['bau@buero.de', 'mit@buero.de']);
   } finally { await weg(); }
+});
+
+test('Postfächer: Microsoft 365 (Anmeldung, Graph), eigenes Postfach nur für die Inhaber:in, Bündeln je Postfach', async () => {
+  const { anmeldeAdresse, tokenHolen, sender, BUERO } = await import('../src/server/postfach');
+  const u = new URL(anmeldeAdresse({ mandant: 'gk3.de', id: 'app-1' }, 'https://bp.test/api/postfach/m365/zurueck', 'zustand1'));
+  assert.equal(u.host, 'login.microsoftonline.com'); assert.equal(u.searchParams.get('client_id'), 'app-1'); assert.equal(u.searchParams.get('state'), 'zustand1');
+  assert.match(String(u.searchParams.get('scope')), /offline_access .*Mail\.Send/);
+  const aufrufe: { url: string; body: string }[] = [];
+  const falsch: typeof fetch = async (url, o) => {
+    aufrufe.push({ url: String(url), body: String(o?.body ?? '') });
+    if (String(url).includes('/token')) return new Response(JSON.stringify({ access_token: 'AT', refresh_token: 'RT2' }), { status: 200 });
+    return new Response('', { status: 202 });
+  };
+  assert.equal((await tokenHolen({ mandant: 'm', id: 'a', geheimnis: 'g' }, { grant_type: 'refresh_token', refresh_token: 'RT' }, falsch)).access_token, 'AT');
+  await assert.rejects(tokenHolen({ mandant: 'm', id: 'a', geheimnis: 'g' }, {}, async () => new Response(JSON.stringify({ error_description: 'AADSTS70000: abgelaufen' }), { status: 400 })), /abgelaufen/);
+  const { db, weg } = await frischeDb();
+  try {
+    const l = await leute(db);
+    await tun(db, SYSTEM, { objekt: 'mailserver', art: 'aendern', objektId: '00000000-0000-4000-8000-0000000e0a11', werte: { art: 'm365', absender: 'buero@gk3.de', absender_name: 'GK3', m365_mandant: 'gk3.de', m365_app: 'app-1' } });
+    await geheimnisSetzen(db, 'm365.geheimnis', 'g'); await geheimnisSetzen(db, 'mail.m365', 'RT');
+    const s = await sender(db, register, BUERO, falsch);
+    await s.senden({ to: 'kunz@firma.de', subject: 'Plan Ä', text: 'Hallo' });
+    const graph = aufrufe.find((x) => x.url.endsWith('/v1.0/me/sendMail'))!;
+    { const roh = Buffer.from(graph.body, 'base64').toString(); assert.ok(/^To: kunz@firma\.de/m.test(roh) && /^Subject: /m.test(roh) && roh.includes('Hallo') && /From: GK3 <buero@gk3\.de>/.test(roh), roh.slice(0, 300)); }
+    assert.equal(await geheimnisLesen(db, 'mail.m365'), 'RT2', 'erneuerte Anmeldung wird gespeichert');
+    // eigenes Postfach: nur die Inhaberin schreibt darüber
+    const pf = randomUUID();
+    await tun(db, SYSTEM, { objekt: 'postfach', art: 'anlegen', objektId: pf, werte: { inhaber: l.mit.id, absender: 'mit@gk3.de' } });
+    const n = (wer: Absender) => tun(db, wer, { objekt: 'nachricht', art: 'anlegen', objektId: randomUUID(), werte: { an: 'x@y.de', betreff: 'B', postfach: pf, stand: 'wartet', art: 'mitteilung' } });
+    await n(l.mit);
+    await assert.rejects(n(l.bau), /Inhaber/);
+  } finally { await weg(); }
+  const { pakete } = await import('../src/module/verwaltung/versand');
+  const w = (an: string, postfach: string) => ({ id: randomUUID(), werte: { an, postfach, art: 'erinnerung', stand: 'wartet', betreff: 'E', text: 't' } });
+  const p = pakete([w('a@b.de', ''), w('a@b.de', ''), w('a@b.de', 'pf1')], new Date('2026-11-28T10:00:00Z'), { buendeln: 'sofort' }).pakete;
+  assert.deepEqual(p.map((x) => [x.an, x.postfach, x.ids.length]).sort(), [['a@b.de', '', 2], ['a@b.de', 'pf1', 1]]);
 });

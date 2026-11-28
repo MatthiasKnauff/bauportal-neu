@@ -1,5 +1,6 @@
 // Der Server: ein Programm für Oberfläche, Anmeldung, Befehle und Abgleich.
 import { erinnerungsregelnAnmelden } from './erinnerung';
+import { postfachRouten, postfachregelnAnmelden } from './postfach';
 import { randomUUID } from 'node:crypto';
 import { KONTO_FELDER } from '../module/verwaltung/beipackzettel';
 import { logoRouten } from './logo';
@@ -79,6 +80,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   versionsregelnAnmelden(register);
   gebaeudemodellRegelnAnmelden();
   erinnerungsregelnAnmelden();
+  postfachregelnAnmelden();
 
   // ---------- Live-Strom: neue Befehle gehen an alle verbundenen Geräte ----------
   interface Geraet { r: ServerResponse; wer: anm.Benutzer; pos: number }
@@ -232,6 +234,7 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
 
   ablageRouten(app, { db, umgebung: e.umgebung, nurAngemeldet });
   versandRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
+  postfachRouten(app, { db, register, umgebung: e.umgebung, nurAngemeldet, nachBefehlen: () => void verteilen() });
   ifcRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
   netzRouten(app, { db, nurAngemeldet });
   logoRouten(app, { db, register, nurAngemeldet, nachBefehlen: () => void verteilen() });
