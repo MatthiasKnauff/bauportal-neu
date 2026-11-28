@@ -215,6 +215,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .fragen { border: 0; padding: 0; margin: 16px 0 0; }
 .fragen legend { font-weight: 600; padding: 0 0 6px; }
 .raster { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.raster > .ganz, .raster .feld:has(.auswahl-kacheln) { grid-column: 1 / -1; }   /* über die ganze Breite (z. B. Gebäudeteile, Kacheln) */
 .benutzer { list-style: none; margin: 0; padding: 0; }
 .benutzer li { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rand); }
 .benutzer li strong { flex: 1; } .benutzer li span { color: var(--text-still); font-size: 13px; }
@@ -1881,3 +1882,11 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .netz-liste { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .netz-liste button { display: grid; gap: 2px; width: 100%; text-align: left; padding: 6px 8px; border-radius: calc(6px * var(--rund)); }
 .netz-liste button:hover { background: var(--still-hell); }
+/* Feld-Stellschraube „kacheln“ (wie bisher die Gebäudeart im Assistenten): Wahl als Kacheln mit Zeichen und Beschreibung */
+.auswahl-kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+.auswahl-kacheln button { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; padding: 8px 10px; border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); background: var(--flaeche); color: var(--text); cursor: pointer; font: inherit; }
+.auswahl-kacheln button:hover:not(:disabled) { border-color: var(--akzent); }
+.auswahl-kacheln button.aktiv { border-color: var(--akzent); background: var(--akzent-hell); box-shadow: inset 0 0 0 1px var(--akzent); }
+.auswahl-kacheln .auswahl-kachel-zeichen { font-size: 26px; line-height: 1; }
+.auswahl-kacheln b { display: block; font-size: 14px; overflow-wrap: break-word; hyphens: auto; }
+.auswahl-kacheln small { display: block; color: var(--text-still); font-size: 12px; line-height: 1.3; }

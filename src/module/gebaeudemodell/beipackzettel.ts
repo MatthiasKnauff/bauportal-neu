@@ -26,10 +26,21 @@ export const gebaeude: ObjektModell = {
   felder: [
     ...zusammenhang,
     { name: 'name', titel: 'Bezeichnung', art: 'text', pflicht: true, inListe: true, breite: 240, gruppe: 'Gebäude' },
-    { name: 'nutzung', titel: 'Gebäudeart', art: 'auswahl', inListe: true, breite: 190, gruppe: 'Gebäude', optionen: wahl(
-      ['efh', 'Ein-/Zweifamilienhaus'], ['mfh', 'Mehrfamilienhaus'], ['wohnung', 'Wohnung'], ['wohn_geschaeft', 'Wohn- und Geschäftshaus'], ['buero', 'Büro / Verwaltung'],
-      ['bildung', 'Schule / Kita'], ['gesundheit', 'Pflege / Gesundheit'], ['gewerbe', 'Halle / Gewerbe'], ['handel', 'Handel / Gastro / Hotel'],
-      ['garage', 'Garage / Tiefgarage'], ['landwirtschaft', 'Landwirtschaft'], ['sonder', 'Sonderbau / Sonstiges']) },
+    { name: 'nutzung', titel: 'Gebäudeart', art: 'auswahl', kacheln: true, inListe: true, breite: 190, gruppe: 'Gebäude', optionen: [
+      // wie bisher im Assistenten als Kacheln (grafische Gebäudeauswahl): Zeichen, Name und wofür sie steht
+      { wert: '', titel: 'noch offen' },
+      { wert: 'efh', titel: 'Ein-/Zweifamilienhaus', zeichen: '🏠', beschreibung: 'auch Doppel-, Reihenhaus' },
+      { wert: 'mfh', titel: 'Mehrfamilienhaus', zeichen: '🏢', beschreibung: 'Wohnungen, Wohnanlage' },
+      { wert: 'wohnung', titel: 'Wohnung', zeichen: '🚪', beschreibung: 'einzelne Wohnung, Etage im Mehrfamilienhaus' },
+      { wert: 'wohn_geschaeft', titel: 'Wohn- und Geschäftshaus', zeichen: '🏬', beschreibung: 'Laden/Praxis unten, Wohnen oben' },
+      { wert: 'buero', titel: 'Büro / Verwaltung', zeichen: '🏛️', beschreibung: 'Büro, Rathaus, Praxis' },
+      { wert: 'bildung', titel: 'Schule / Kita', zeichen: '🏫', beschreibung: 'Bildung, Betreuung' },
+      { wert: 'gesundheit', titel: 'Pflege / Gesundheit', zeichen: '🏥', beschreibung: 'Heim, Klinik, betreutes Wohnen' },
+      { wert: 'gewerbe', titel: 'Halle / Gewerbe', zeichen: '🏭', beschreibung: 'Werkstatt, Lager, Produktion' },
+      { wert: 'handel', titel: 'Handel / Gastro / Hotel', zeichen: '🛒', beschreibung: 'Markt, Restaurant, Beherbergung' },
+      { wert: 'sonder', titel: 'Sonderbau / Sonstiges', zeichen: '🐾', beschreibung: 'Tierheim, Feuerwehr, Sport, Kirche' },
+      { wert: 'garage', titel: 'Garage / Tiefgarage', zeichen: '🚗', beschreibung: 'auch Carport, Parkhaus' },
+      { wert: 'landwirtschaft', titel: 'Landwirtschaft', zeichen: '🌾', beschreibung: 'Stall, Scheune, Maschinenhalle' }] },
     { name: 'massnahme', titel: 'Maßnahme (mehrere möglich)', art: 'mehrfach', inListe: true, breite: 190, gruppe: 'Gebäude', optionen: [
       { wert: 'neubau', titel: 'Neubau' }, { wert: 'anbau', titel: 'Anbau' }, { wert: 'aufstockung', titel: 'Aufstockung' }, { wert: 'umbau', titel: 'Umbau / Umnutzung' },
       { wert: 'wohnungssanierung', titel: 'Wohnungssanierung' }, { wert: 'kernsanierung', titel: 'Kernsanierung' }, { wert: 'energetisch', titel: 'Energetische Sanierung' },

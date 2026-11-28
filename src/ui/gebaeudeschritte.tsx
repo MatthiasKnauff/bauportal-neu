@@ -29,6 +29,8 @@ export function gebaeudeSchritte(id: string): Schritt[] {
         <div class="raster">
           <For each={felder()}>{(f) => <FeldEingabe feld={f} wert={z()!.werte[f.name] ?? null} objekt="gebaeude" zusammenhang={z()!.werte} herkunft={z()!.herkunft?.[f.name]}
             gesperrt={!darf('gebaeude', 'schreiben')} onWert={(w, h) => feldAendern(m, z()!, f, w, h)} />}</For>
+          {/* wie bisher bei „Was wird gebaut?“: die Gebäudeteile (Bestand, Anbau, Aufstockung …) gleich dazu */}
+          <Show when={g === 'Gebäude' && z()}><div class="ganz"><GebaeudeTeile gebaeude={z()!} /></div></Show>
         </div>
       );
     },

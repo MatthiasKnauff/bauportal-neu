@@ -129,7 +129,7 @@ export function FeldEingabe(p: {
   const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : 'text');
   return (
     <div class="feld" data-geerbt={geerbt() || undefined} style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, klein: !!p.klein, quer: p.feld.art === 'ja_nein',
-      breit: p.breit || (!p.feld.kartenBreite && ['langtext', 'mehrfach', 'schlagworte'].includes(p.feld.art)) || (!p.feld.kartenBreite && p.feld.art === 'auswahl' && !p.feld.eigeneWerte && !p.feld.alsListe && p.feld.optionen!.length <= 4 && p.feld.optionen!.length > 2) }}>
+      breit: p.breit || (!p.feld.kartenBreite && ['langtext', 'mehrfach', 'schlagworte'].includes(p.feld.art)) || (!p.feld.kartenBreite && p.feld.art === 'auswahl' && p.feld.kacheln) || (!p.feld.kartenBreite && p.feld.art === 'auswahl' && !p.feld.eigeneWerte && !p.feld.alsListe && p.feld.optionen!.length <= 4 && p.feld.optionen!.length > 2) }}>
       <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={geerbt()}><span class="herkunft herkunft-geerbt" title="Leer – es gilt dieser Wert. Wer hier etwas einträgt, weicht davon ab.">{p.erbe!.von}</span></Show>
         <Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show>
         {/* Lange Texte: Wenn das Büro eine KI eingeschaltet hat, kann sie hier einen Vorschlag machen */}
@@ -157,6 +157,17 @@ export function FeldEingabe(p: {
         </Match>
         <Match when={p.feld.art === 'langtext'}>
           <textarea id={id} rows={5} value={text()} readOnly={p.gesperrt} {...ereignis()} />
+        </Match>
+        <Match when={p.feld.art === 'auswahl' && p.feld.kacheln}>
+          <div class="auswahl-kacheln" role="radiogroup" id={id} aria-label={p.feld.titel}>
+            <For each={p.feld.optionen!.filter((o) => o.wert)}>{(o) => (
+              <button type="button" role="radio" aria-checked={wert() === o.wert} classList={{ aktiv: wert() === o.wert }} disabled={p.gesperrt && wert() !== o.wert}
+                onClick={() => { if (wert() !== o.wert && !p.gesperrt) p.onWert(o.wert); }}>
+                <Show when={o.zeichen}><span class="auswahl-kachel-zeichen" aria-hidden="true">{o.zeichen}</span></Show>
+                <span><b>{o.titel}</b><Show when={o.beschreibung}><small>{o.beschreibung}</small></Show></span>
+              </button>
+            )}</For>
+          </div>
         </Match>
         <Match when={p.feld.art === 'auswahl' && p.feld.eigeneWerte}>
           <EigeneAuswahl id={id} feld={p.feld} wert={text()} blass={geerbt()} objekt={p.objekt} gesperrt={p.gesperrt} onWert={p.onWert} />
