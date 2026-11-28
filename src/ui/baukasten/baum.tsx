@@ -16,13 +16,13 @@ export interface Knoten { id: string; titel: string; anzahl?: number; kinder?: K
 
 export function Baum(p: {
   titel: string; knoten: Knoten[]; gewaehlt: string; onWahl: (id: string) => void; symbol?: (k: Knoten) => string | undefined;
-  anfangsZu?: boolean;                  // Knoten sind zunächst zugeklappt (große oder nachladende Bäume)
   onAuf?: (id: string) => void;         // beim Aufklappen – z. B. um die Kinder zu holen
 }) {
-  // gemerkt wird nur, was der Benutzer umgeschaltet hat; die oberste Ebene ist immer offen
+  // Die oberste Ebene ist immer offen, alles darunter zunächst zu – Aufklappen öffnet so nur die nächste Stufe.
+  // Gemerkt wird nur, was der Benutzer aufgeklappt hat.
   const [um, setUm] = createSignal<Set<string>>(new Set());
   const oben = () => new Set(p.knoten.map((k) => k.id));
-  const zu = () => ({ has: (id: string) => (p.anfangsZu && !oben().has(id) ? !um().has(id) : um().has(id)) });
+  const zu = () => ({ has: (id: string) => (oben().has(id) ? um().has(id) : !um().has(id)) });
   const eltern = (k: Knoten) => !!k.kinder?.length || !!k.hatKinder;
   const sichtbar = createMemo(() => {
     const aus: { k: Knoten; tiefe: number }[] = [];

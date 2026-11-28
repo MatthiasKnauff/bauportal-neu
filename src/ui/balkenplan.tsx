@@ -420,7 +420,14 @@ export function Balkenplan(p: Mitte) {
     tun(loeschen(V_(), L_(), ids, zu(), neueKennung, autom()), `${name} löschen`);
     queueMicrotask(() => waehle(i));
   };
-  const umschalten = (id: string) => setEingeklappt((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  // Aufklappen öffnet nur die nächste Stufe: Untergruppen der aufgeklappten Gruppe bleiben zu
+  const umschalten = (id: string) => setEingeklappt((s) => {
+    const n = new Set(s);
+    if (!n.has(id)) { n.add(id); return n; }
+    n.delete(id);
+    for (const g of gruppenIds()) if (erg().termine.get(g.id)?.eltern === id) n.add(g.id);
+    return n;
+  });
 
   const taste = (e: KeyboardEvent) => {
     if (edit() || (e.target as HTMLElement).closest('input, select, .bzp-leiste')) return;

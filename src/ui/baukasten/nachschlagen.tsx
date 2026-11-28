@@ -72,7 +72,7 @@ export function Nachschlagen(p: { schluessel: string; nachschlag: Nachschlag }) 
         <input class="suche" type="search" placeholder={`${n.titelMehrzahl} durchsuchen (Nummer oder Text)`} aria-label="Suchen" value={suche()} onInput={(e) => setSuche(e.currentTarget.value)} />
         <span class="zaehler">{zaehler()}</span>
       </>}
-      baum={<Baum titel={`Gliederung ${n.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} anfangsZu />}
+      baum={<Baum titel={`Gliederung ${n.titelMehrzahl}`} knoten={knoten()} gewaehlt={ast()} onWahl={setAst} />}
       inhalt={<>
         <Show when={fehler()}><p class="still-text" role="alert">{fehler()}</p></Show>
         <Tabelle modell={m} zeilen={zeilen()} gewaehlt={gewaehlt()} onWahl={setGewaehlt} reihenfolgeFest onEnde={weiter}

@@ -111,7 +111,7 @@ export function DateienAnsicht() {
           </nav>
         }
         baumTitel="Ordner"
-        baum={<Baum titel="Ordner" knoten={knoten()} gewaehlt={pfad()} onWahl={gehe} anfangsZu onAuf={(id) => void hole(id)} symbol={() => '▤'} />}
+        baum={<Baum titel="Ordner" knoten={knoten()} gewaehlt={pfad()} onWahl={gehe} onAuf={(id) => void hole(id)} symbol={() => '▤'} />}
         inhalt={
           <Show when={!stoerung()} fallback={leer(stoerung())}>
             <Show when={form() === 'liste'} fallback={
