@@ -17,6 +17,7 @@ export const dokument: ObjektModell = {
     { name: 'eingang', titel: 'Eingang', art: 'datum', inListe: true, breite: 110, gruppe: 'Dokument' },
     { name: 'ort', titel: 'Original liegt', art: 'auswahl', inListe: true, breite: 170, gruppe: 'Ablage', optionen: [{ wert: 'ablage', titel: 'im Projektordner' }, { wert: 'bauportal', titel: 'im Bauportal' }] },
     { name: 'pfad', titel: 'Pfad des Originals', art: 'text', gruppe: 'Ablage' },
+    { name: 'groesse', titel: 'Größe (Bytes)', art: 'zahl', gruppe: 'Ablage' },
     { name: 'quelle', titel: 'Aus dem Eingangsordner', art: 'text', verborgen: true },
     { name: 'bezug_objekt', titel: 'Gehört zu (Art)', art: 'text', verborgen: true },
     { name: 'bezug', titel: 'Gehört zu', art: 'text', verborgen: true },

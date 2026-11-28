@@ -1,7 +1,7 @@
 // Ausschreibung in der Oberfläche: Summen in den Karten (LV, Position) und der Preisspiegel – Positionen mit den Preisen
 // aller Bieter:innen nebeneinander, das günstigste je Position markiert, unten Summe, Nachlass, Rang und „Vergeben an …“.
 import { gewerkPasst } from '../module/ava/gewerkpasst';
-import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, onCleanup, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { nachfassenFaellig, ruecklaufZaehlen, nachtragNetto, ozVergleich, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
 import type { Feld, ObjektModell, Werte } from '../kern/modell';
@@ -28,8 +28,8 @@ import { LvListe } from './lvliste';
 import { allePositionenVon, angeboteVon, aufmassStand, epVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon } from './avadaten';
 import { rechenweg } from '../kern/rechenweg';
 import { zahlText } from './lvbearbeiten';
-import { DokumentListe, dokumenteAblegen } from './dokumentablage';
-import { OrdnerFenster } from './dateien';
+import { DokumentListe, dokumenteAblegen, setAblageZiel } from './dokumentablage';
+import { OrdnerFenster, groesse } from './dateien';
 import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
 import { LAEUFE, laufText, sammelText, sammelWerte, textMerken, vorab, type Lauf } from '../module/ava/bieterversand';
 import { BieterTabelle, adresseVon, anredeVonAngebot, datum } from './bietertabelle';
@@ -323,12 +323,14 @@ function Unterlagen(p: { lv: Zeile; stand: string }): JSX.Element {
   const [ordner, setOrdner] = createSignal(false);
   let wahl!: HTMLInputElement;
   const zu = () => ({ objekt: 'lv', id: l().id, titel: `LV ${name()}`, art: 'unterlage' });
-  const ausOrdner = async (pfad: string) => {
+  const ausOrdner = async (pfad: string, bytes: number) => {
     setOrdner(false);
-    try { await ruf('/api/dokument/verweis', { id: neueKennung(), projekt: String(l().werte.projekt ?? ''), pfad, art: 'Unterlage für die Bieter:innen', bezug_objekt: 'lv', bezug: l().id }); hinweis(`„${pfad.split('/').pop()}“ liegt jetzt bei den Unterlagen.`); }
+    try { await ruf('/api/dokument/verweis', { id: neueKennung(), projekt: String(l().werte.projekt ?? ''), pfad, groesse: bytes, art: 'Unterlage für die Bieter:innen', bezug_objekt: 'lv', bezug: l().id }); hinweis(`„${pfad.split('/').pop()}“ liegt jetzt bei den Unterlagen.`); }
     catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
   };
   const mitZahl = () => 1 + (l().werte.versand_ohne_x83 === true ? 0 : 1) + docs().filter((d) => !ohne().has(d.id)).length;
+  // wie bisher: hineingezogene Dateien werden Unterlagen dieses LV
+  createEffect(() => setAblageZiel(darf('dokument', 'schreiben') ? zu() : undefined)); onCleanup(() => setAblageZiel(undefined));
   return (
     <section class="vr-unterlagen" aria-label="Unterlagen für die Bieter:innen">
       <h3>Unterlagen für die Bieter:innen · {mitZahl()} {mitZahl() === 1 ? 'Datei' : 'Dateien'}</h3>
@@ -338,19 +340,19 @@ function Unterlagen(p: { lv: Zeile; stand: string }): JSX.Element {
         <label class="vr-mit"><input type="checkbox" disabled={!schreiben()} checked={l().werte.versand_ohne_x83 !== true} onChange={(e) => setzen({ versand_ohne_x83: !e.currentTarget.checked }, 'GAEB-Datei mitschicken')} /> mitschicken</label>
         <span class="vr-stand">{p.stand}</span><button type="button" class="knopf klein" disabled={!positionenVon(l().id).length} onClick={() => gaebAusgeben(l())}>Herunterladen</button></div>
       <For each={docs()}>{(d) => (
-        <div class="vr-datei"><Zeichen name="dateien" groesse={16} /><span><b>{String(d.werte.name ?? '')}</b><small>{d.werte.ort === 'ablage' ? 'im Projektordner' : 'im Bauportal'} · {String(d.werte.art ?? '')}</small></span>
+        <div class="vr-datei"><Zeichen name="dateien" groesse={16} /><span><b>{String(d.werte.name ?? '')}</b><small>{d.werte.ort === 'ablage' ? 'im Projektordner' : 'im Bauportal'}{d.werte.groesse ? ` · ${groesse(Number(d.werte.groesse))}` : ''} · {String(d.werte.art ?? '')}</small></span>
           <label class="vr-mit"><input type="checkbox" disabled={!schreiben()} checked={!ohne().has(d.id)} onChange={() => umschalten(d.id)} /> mitschicken</label>
           <span class="vr-stand">{zuletzt() && String(d.werte.eingang ?? '') > zuletzt() ? 'neu seit dem letzten Versand' : zuletzt() ? `verschickt am ${datum(zuletzt())}` : 'noch nicht verschickt'}</span>
           <a class="knopf klein" href={`/api/dokument/original/${d.id}`} target="_blank" rel="noopener">Ansehen</a></div>)}</For>
       <Show when={darf('dokument', 'schreiben')}>
         <div class="reihe vr-dazu">
-          <button type="button" class="knopf klein" title="Dateien vom Rechner – sie werden im Ordner der Ausschreibung abgelegt" onClick={() => wahl.click()}>Vom Rechner …</button>
+          <button type="button" class="knopf klein" title="Dateien vom Rechner (oder hierher ziehen) – sie werden im Ordner der Ausschreibung abgelegt" onClick={() => wahl.click()}>Vom Rechner …</button>
           <input ref={wahl} type="file" multiple hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (f.length) dokumenteAblegen(f, { zu: zu() }); }} />
           <Show when={sicht.projekt?.[String(l().werte.projekt ?? '')]?.werte.ordner}><button type="button" class="knopf klein" title="Eine Datei aus dem Projektordner – sie bleibt, wo sie ist" onClick={() => setOrdner(true)}>Aus dem Projektordner …</button></Show>
         </div>
       </Show>
       <p class="still-text klein-text">„An Bieter:innen senden“ legt je Firma eine Mail in den Postausgang; PDF und X83 entstehen beim Verschicken aus dem dann aktuellen Stand, die übrigen Unterlagen gehen im Original mit.</p>
-      <Show when={ordner()}><OrdnerFenster start="" datei={{ projekt: String(l().werte.projekt ?? ''), onDatei: (x) => void ausOrdner(x) }} onWahl={() => setOrdner(false)} onZu={() => setOrdner(false)} /></Show>
+      <Show when={ordner()}><OrdnerFenster start="" datei={{ projekt: String(l().werte.projekt ?? ''), onDatei: (x, n) => void ausOrdner(x, n) }} onWahl={() => setOrdner(false)} onZu={() => setOrdner(false)} /></Show>
     </section>
   );
 }

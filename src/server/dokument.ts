@@ -35,7 +35,7 @@ export async function dokumentAblegen(db: Db, register: Modulregister, umgebung:
   await db.query('insert into kern_vorschau (id, bild) values ($1, $2)', [d.id, d.vorschau]);
   const name = wo.pfad.split('/').pop()!.replace(/^[0-9a-f]{16}-/, '');
   await befehlAusfuehren(db, register, wer, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'dokument', art: 'anlegen', objektId: d.id,
-    werte: { projekt: d.projekt, name, art: d.art, eingang: d.eingang ?? new Date().toISOString().slice(0, 10), ort: wo.ort, pfad: wo.pfad, bezug_objekt: d.bezugObjekt ?? null, bezug: d.bezug ?? null, quelle: d.quelle?.slice(0, 400) ?? null } });
+    werte: { projekt: d.projekt, name, art: d.art, eingang: d.eingang ?? new Date().toISOString().slice(0, 10), ort: wo.ort, pfad: wo.pfad, groesse: d.daten.length, bezug_objekt: d.bezugObjekt ?? null, bezug: d.bezug ?? null, quelle: d.quelle?.slice(0, 400) ?? null } });
   return { id: d.id, ort: wo.ort, name };
 }
 
@@ -84,7 +84,7 @@ export function dokumentRouten(app: FastifyInstance, e: { db: Db; register: Modu
       const bild = ARTEN[endung(name)] ? await vorschauAusAblage(db, ordner, pfad).catch(() => null) : null;
       if (bild) await db.query('insert into kern_vorschau (id, bild) values ($1, $2) on conflict (id) do nothing', [id, bild]);
       await befehlAusfuehren(db, e.register, req.benutzer!, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'dokument', art: 'anlegen', objektId: id,
-        werte: { projekt, name, art: String(b.art ?? '').slice(0, 120), eingang: new Date().toISOString().slice(0, 10), ort: 'ablage', pfad, bezug_objekt: b.bezug_objekt || null, bezug: b.bezug || null } });
+        werte: { projekt, name, art: String(b.art ?? '').slice(0, 120), eingang: new Date().toISOString().slice(0, 10), ort: 'ablage', pfad, groesse: Number(b.groesse) > 0 ? Math.round(Number(b.groesse)) : null, bezug_objekt: b.bezug_objekt || null, bezug: b.bezug || null } });
       e.nachBefehlen();
       return { id, name };
     } catch (err) { return fehler(reply, err); }

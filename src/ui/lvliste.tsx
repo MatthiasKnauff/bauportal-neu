@@ -7,7 +7,8 @@ import { lvFolge, lvVon, lvWaehlen } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
 import { Klappe, Ordner } from './baukasten/baum';
 import { projektId } from './projekt';
-import { lebende, sicht } from './unterbau/abgleich';
+import { ausfuehren, lebende, sicht } from './unterbau/abgleich';
+import { darf } from './unterbau/api';
 import { istText } from '../kern/lvarten';
 
 const geld = (n: number) => (n ? n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
@@ -31,8 +32,28 @@ export function LvListe(p: { m: Mitte; zusatz?: (lv: Zeile) => string; haken?: {
               <small>{positionen(l.id).filter((q) => !istText(q.werte.art)).length} Pos.{p.zusatz ? ` · ${p.zusatz(l)}` : ''}</small></span>
             <span class="lv-liste-summe">{geld(summe(l))}</span>
           </button></div>)}</For></Show>
+        <LvArchiv m={p.m} />
       </nav>
       <div class="lv-geteilt-inhalt">{p.children}</div>
     </div>
+  );
+}
+
+/** Baustein „Archiv“ unter den LVs (wie bisher in jedem Baum der AVA): zugeklappt „Archiv n“, offen je archiviertem LV
+ *  der Name (Klick öffnet es) und „Zurückholen“. ausser: das gerade offene LV (steht schon im Baum). */
+export function LvArchiv(p: { m: Mitte; ausser?: string }): JSX.Element {
+  const liste = () => lebende('lv').filter((l) => l.werte.projekt === projektId() && l.werte.archiviert && l.id !== p.ausser).sort(lvFolge);
+  const [auf, setAuf] = createSignal(false);
+  const zurueck = (l: Zeile) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: l.id, werte: { archiviert: false } }, `LV „${String(l.werte.name ?? '')}“ zurückholen`);
+  return (
+    <Show when={liste().length}>
+      <div class="lv-archiv">
+        <div class="lv-archiv-kopf" title="Archivierte LVs – alles bleibt erhalten" onClick={() => setAuf(!auf())}>
+          <Klappe zu={!auf()} fokus titel={auf() ? 'Archiv zuklappen' : 'Archiv zeigen'} onKlick={() => setAuf(!auf())} /><Ordner offen={auf()} /><b>Archiv</b><small>{liste().length}</small></div>
+        <Show when={auf()}><For each={liste()}>{(l) => (
+          <div class="lv-archiv-lv"><button type="button" class="lv-archiv-name" onClick={() => lvWaehlen(p.m, l.id)}>{[l.werte.nummer, l.werte.name].filter(Boolean).join(' ')}</button>
+            <Show when={darf('lv', 'schreiben')}><button type="button" class="knopf klein" title="Wieder in die Listen holen" onClick={() => zurueck(l)}>Zurückholen</button></Show></div>)}</For></Show>
+      </div>
+    </Show>
   );
 }

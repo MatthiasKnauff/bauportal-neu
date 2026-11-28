@@ -33,7 +33,7 @@ const DATEI: ObjektModell = {
     { name: 'geaendert', titel: 'Geändert', art: 'text', inListe: true, breite: 160 },
   ],
 };
-const groesse = (b: number) => (b >= 1048576 ? `${(b / 1048576).toLocaleString('de', { maximumFractionDigits: 1 })} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b} B`);
+export const groesse = (b: number) => (b >= 1048576 ? `${(b / 1048576).toLocaleString('de', { maximumFractionDigits: 1 })} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b} B`);
 const zeit = (iso: string) => new Date(iso).toLocaleString('de', { dateStyle: 'medium', timeStyle: 'short' });
 const endung = (name: string) => (name.includes('.') ? name.split('.').pop()!.toLowerCase() : '');
 /** Dateiarten mit Vorschaubild (vom Dateidienst: PDF die erste Seite, Bilder verkleinert). */
@@ -253,7 +253,7 @@ export function AlleDateien() {
 /** Fenster zum Zuordnen: einen Ordner der Freigabe wählen (für alle, die Projekte ändern dürfen). */
 /** Stellschraube „datei“: statt eines Ordners eine Datei im Projektordner wählen (z. B. Unterlage für die Bieter:innen) – dann geht es
  *  vom Ordner des Projekts aus, Dateien stehen unter den Ordnern, ein Klick nimmt sie. */
-export function OrdnerFenster(p: { start: string; onWahl: (pfad: string) => void; onZu: () => void; datei?: { projekt: string; onDatei: (pfad: string) => void } }) {
+export function OrdnerFenster(p: { start: string; onWahl: (pfad: string) => void; onZu: () => void; datei?: { projekt: string; onDatei: (pfad: string, bytes: number) => void } }) {
   const [pfad, setPfad] = createSignal(p.start.split(/[\\/]+/).filter(Boolean).join('/'));
   const [liste, setListe] = createSignal<string[] | null>(null);
   const [dateien, setDateien] = createSignal<Eintrag[]>([]);
@@ -277,7 +277,7 @@ export function OrdnerFenster(p: { start: string; onWahl: (pfad: string) => void
         <Show when={liste()} fallback={<p class="still-text">Ordner wird gelesen …</p>}>
           <ul class="ordnerliste">
             <For each={liste()}>{(n) => <li><button onClick={() => setPfad(pfad() ? `${pfad()}/${n}` : n)}>▤ {n}</button></li>}</For>
-            <For each={dateien()}>{(d) => <li><button onClick={() => p.datei!.onDatei(pfad() ? `${pfad()}/${d.name}` : d.name)}>▫ {d.name} <small class="still-text">{groesse(d.groesse)}</small></button></li>}</For>
+            <For each={dateien()}>{(d) => <li><button onClick={() => p.datei!.onDatei(pfad() ? `${pfad()}/${d.name}` : d.name, d.groesse)}>▫ {d.name} <small class="still-text">{groesse(d.groesse)}</small></button></li>}</For>
             <Show when={!liste()!.length && !dateien().length}><li class="still-text">{p.datei ? 'Leer.' : 'Keine Unterordner.'}</li></Show>
           </ul>
         </Show>

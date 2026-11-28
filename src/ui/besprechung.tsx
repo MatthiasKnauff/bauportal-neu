@@ -14,7 +14,8 @@ import { einsatzAus } from '../module/bauzeitenplan/gewerke';
 import { isoAus } from '../module/bauzeitenplan/kalender';
 import { BUERO_ID } from '../module/verwaltung/beipackzettel';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
-import { darf, ich, modell, neueKennung } from './unterbau/api';
+import { darf, ich, modell, neueKennung, ruf } from './unterbau/api';
+import { protokollSuchen, type Fund } from '../module/ava/protokollsuche';
 import { aktuelleVersion, planDerVersion } from './plandaten';
 import { springeZu } from './sprung';
 import { hinweis } from './unterbau/meldungen';
@@ -181,8 +182,29 @@ export function GrundlagenMerken(p: { z: Zeile }) {
 function PapierZeile(p: { z: Zeile }) {
   let wahl!: HTMLInputElement;
   const titel = () => `Angebotsbesprechung ${String(p.z.werte.bieter ?? '').split('\n')[0]}`.trim();
+  // Im Ordner suchen (wie bisher): Treffer im Projektordner ansehen und zuordnen – die Datei bleibt, wo sie ist
+  const projekt = () => String(p.z.werte.projekt ?? ''), ordner = () => !!sicht.projekt?.[projekt()]?.werte.ordner;
+  const [funde, setFunde] = createSignal<Fund[] | null>(null);
+  const suchen = async () => {
+    const a = sicht.angebot?.[String(p.z.werte.angebot)], l = sicht.lv?.[String(p.z.werte.lv)];
+    const bieter = String(sicht.kontakt?.[String(a?.werte.bieter ?? '')]?.werte.name ?? p.z.werte.bieter ?? '');
+    const gewerk = String(sicht.gewerk?.[String(l?.werte.gewerk ?? '')]?.werte.name ?? l?.werte.name ?? '');
+    try { setFunde(protokollSuchen((await ruf<{ dateien: { pfad: string; geaendert: string }[] }>(`/api/ablage/alle?projekt=${projekt()}`)).dateien, bieter, gewerk)); }
+    catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
+  };
+  const zuordnen = async (f: Fund) => {
+    try { await ruf('/api/dokument/verweis', { id: neueKennung(), projekt: projekt(), pfad: f.pfad, art: 'Protokoll', bezug_objekt: 'besprechung', bezug: p.z.id }); setFunde(null); hinweis(`„${f.name}“ gehört jetzt zum Protokoll.`); }
+    catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
+  };
   return <div class="bsp-zeile"><span class="still-text klein-text">Auf Papier: Blanko für die Baustelle, ausgefülltes Blatt zurück ins Bauportal.</span>
     <span class="reihe"><button type="button" class="knopf klein" onClick={() => druckOeffnen('ava.besprechung_blanko', p.z.id)}>Blanko drucken</button>
       <Show when={darf('dokument', 'schreiben')}><button type="button" class="knopf klein" title="Ausgefülltes, unterschriebenes Blatt als Scan oder Foto einlesen" onClick={() => wahl.click()}>Einlesen …</button>
-        <input ref={wahl} type="file" accept=".pdf,image/*" hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (f.length) dokumenteAblegen(f, { zu: { objekt: 'besprechung', id: p.z.id, titel: titel(), art: 'protokoll' } }); }} /></Show></span></div>;
+        <Show when={ordner()}><button type="button" class="knopf klein" title="Im Projektordner nach dem unterschriebenen Protokoll suchen" onClick={() => void suchen()}>Im Ordner suchen</button></Show>
+        <input ref={wahl} type="file" accept=".pdf,image/*" hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (f.length) dokumenteAblegen(f, { zu: { objekt: 'besprechung', id: p.z.id, titel: titel(), art: 'protokoll' } }); }} /></Show></span>
+    <Show when={funde()}>{(f) => <div class="bsp-funde">
+      <Show when={f().length} fallback={<span class="still-text klein-text">Nichts Passendes im Projektordner gefunden.</span>}>
+        <For each={f()}>{(x) => <div class="reihe"><span class="bsp-fund" title={x.pfad}>{x.name}<small class="still-text"> · {x.pfad.split('/').slice(0, -1).join('/')}</small></span>
+          <a class="knopf klein" href={`/api/ablage/datei?projekt=${projekt()}&pfad=${encodeURIComponent(x.pfad)}`} target="_blank" rel="noopener">Ansehen</a>
+          <button type="button" class="knopf klein haupt" onClick={() => void zuordnen(x)}>Zuordnen</button></div>}</For></Show>
+      <button type="button" class="knopf klein" onClick={() => setFunde(null)}>Schließen</button></div>}</Show></div>;
 }

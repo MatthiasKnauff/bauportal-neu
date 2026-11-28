@@ -1513,11 +1513,15 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lv-liste-projekt { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--still-hell); border-bottom: 1px solid var(--rand); font-size: 13px; }
 .lv-liste-projekt b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lv-liste-projekt span { font-size: 12px; font-weight: 600; }
 .lv-liste-lv { display: flex; align-items: center; gap: 6px; padding: 7px 10px 7px 26px; border: 0; border-bottom: 1px solid var(--rand); background: none; text-align: left; font: inherit; font-size: 13px; cursor: pointer; color: inherit; }
+.lv-archiv { border-top: 1px solid var(--rand); font-size: 13px; } .lv-archiv-kopf { display: flex; align-items: center; gap: 6px; width: 100%; padding: 7px 10px; border: 0; background: var(--still-hell); font: inherit; cursor: pointer; color: inherit; text-align: left; }
+.lv-archiv-kopf small { color: var(--text-still); } .lv-archiv-lv { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 30px; border-top: 1px solid var(--rand); }
+.lv-archiv-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; background: none; font: inherit; text-align: left; color: var(--text-still); cursor: pointer; padding: 0; }
 .lv-liste-reihe { position: relative; display: flex; flex-direction: column; } .lv-liste-haken { position: absolute; left: 6px; top: 50%; margin: -7px 0 0; z-index: 1; }
 .lv-liste-lv:hover { background: var(--still-hell); } .lv-liste-lv.an { background: var(--akzent-hell); box-shadow: inset 2px 0 0 var(--akzent); }
 .lv-liste-text { flex: 1; min-width: 0; display: flex; flex-direction: column; } .lv-liste-text b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lv-liste-text small { color: var(--text-still); font-size: 11.5px; }
 .lv-liste-summe { font-size: 12px; color: var(--text-still); font-variant-numeric: tabular-nums; }
 .lv-geteilt-inhalt { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.bsp-funde { display: flex; flex-direction: column; gap: 4px; width: 100%; } .bsp-fund { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .vm { display: flex; flex-direction: column; gap: 10px; min-width: 0; } .vm-kopf { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .vm-lvs { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; } .vm-lvs span { display: flex; flex-direction: column; } .vm-lvs small { color: var(--text-still); }
 .vm-drin small { color: var(--text-still); font-size: 11px; }

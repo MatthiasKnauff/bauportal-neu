@@ -2429,3 +2429,20 @@ test('LV aus einer Datei: Zeilen, Positionsblöcke mit Menge und Preisen, Titel,
   assert.deepEqual(preiseAusTabelle(alsTabelle(v, { mengen: false, preise: true }), [{ id: 'a', werte: { oz: '1.10', art: 'normal' } }, { id: 'b', werte: { oz: '02.0010', art: 'normal' } }]).preise, [{ position: 'a', ep: 4.5 }]);
   assert.deepEqual([zahlAus('1.234,56'), zahlAus('12,5'), zahlAus('120'), zahlAus('abc')], [1234.56, 12.5, 120, null]);
 });
+
+test('Ausschreibung: mehrere LVs in einer Mail ({lv}, Fristen je LV) und Protokoll im Ordner suchen', async () => {
+  const { sammelText, sammelWerte } = await import('../src/module/ava/bieterversand');
+  const t = sammelText({ nummer: 'M-1', name: 'Wohnhaus' }, { name: 'GK3' });
+  assert.match(t.text, /\{lv\}/); assert.match(t.text, /\{abgabe\}/); assert.match(t.text, /Wohnhaus/); assert.match(t.text, /GK3/);
+  const w = sammelWerte([{ nummer: '01', name: 'Rohbau', abgabe: '2026-12-10', rueckmeldung_bis: '2026-12-01' }, { nummer: '02', name: 'Abbruch', abgabe: '2026-12-14', rueckmeldung_bis: '2026-12-01' }]);
+  assert.equal(w.lv, 'LV 01 Rohbau und LV 02 Abbruch');
+  assert.equal(w.rueckmeldung, '01.12.2026');
+  assert.equal(w.abgabe, '10.12.2026 (LV 01 Rohbau) und 14.12.2026 (LV 02 Abbruch)');
+  const { protokollSuchen } = await import('../src/module/ava/protokollsuche');
+  const f = protokollSuchen([
+    { pfad: '04 Ausschreibung/Maler/Angebotsbesprechung Farben Abel.pdf', geaendert: '2026-11-20' },
+    { pfad: '04 Ausschreibung/Maler/Protokoll Farben Abel.pdf', geaendert: '2026-11-21' },
+    { pfad: '04 Ausschreibung/Maler/Angebotsbesprechung Farben Abel.docx', geaendert: '2026-11-22' },
+    { pfad: 'Fotos/IMG_1.jpg', geaendert: '2026-11-23' }], 'Farben Abel GmbH', 'Malerarbeiten');
+  assert.deepEqual(f.map((x) => x.name), ['Angebotsbesprechung Farben Abel.pdf', 'Protokoll Farben Abel.pdf']);
+});

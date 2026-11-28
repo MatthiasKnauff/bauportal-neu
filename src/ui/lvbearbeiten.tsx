@@ -39,6 +39,7 @@ import { spaltenwahl, zusatzMessen } from './baukasten/spalten';
 import { Zeichen } from './baukasten/zeichen';
 import { zeilenwahl } from './baukasten/zeilenwahl';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
+import { LvArchiv } from './lvliste';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import { istHinweis } from '../kern/lvarten';
@@ -353,6 +354,9 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
       { titel: 'Export', zeichen: 'export', gruppe: 'Datei', rechts: true, gesperrt: !zeilen().length, tun: (e: MouseEvent) => zeigeMenue(e, [
         { titel: 'GAEB X83', tun: () => gaebAusgeben(lv()!) }, { titel: 'Excel', tun: () => lvExcelAusgeben(lv()!) }]) },
       { titel: 'Drucken', zeichen: 'drucken', gruppe: 'Datei', rechts: true, tun: () => druckOeffnen('ava.lv', lv()!.id) }] : []),
+    // wie bisher: Archivieren nimmt das LV aus den Listen (Angebote, Aufmaß, Rechnungen bleiben), Zurückholen stellt es wieder dazu
+    ...(p.struktur && lv() && darf('lv', 'schreiben') ? [{ titel: lv()!.werte.archiviert ? 'Zurückholen' : 'Archivieren', zeichen: lv()!.werte.archiviert ? 'zurueckholen' : 'archiv', gruppe: 'Datei', rechts: true,
+      tun: () => { const l = lv()!, an = !l.werte.archiviert; ausfuehren({ objekt: 'lv', art: 'aendern', objektId: l.id, werte: { archiviert: an } }, `LV „${String(l.werte.name ?? '')}“ ${an ? 'archivieren' : 'zurückholen'}`); } }] : []),
     ...(p.struktur && vergeben() ? [{ titel: gesperrt() ? 'Gesperrt' : 'Freigeschaltet', zeichen: 'schluessel', gruppe: 'Vertrag', an: !gesperrt(), tun: freischalten }] : []),
   ]));
   // ---------- Tastatur ----------
@@ -571,6 +575,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
               </Show>
             </>); }}</For>
             <For each={nachher()}>{LvOrdner}</For>
+            <LvArchiv m={p.m} ausser={lv()?.id} />
           </div>
           <div class="lvt-fuss">
             <For each={p.fuss ?? []}>{(f) => (
