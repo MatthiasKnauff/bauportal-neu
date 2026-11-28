@@ -23,6 +23,44 @@ import { projektId } from './projekt';
 
 interface Eintrag { name: string; ordner: boolean; groesse: number; geaendert: string; kennung: string }
 
+// Der Inhalt der Projektordner, einmal geholt für alle Stellen (Dateien-Ansicht, Ordner beim Ablegen): Projekt|Pfad -> Einträge
+const [inhalt, setInhalt] = createStore<Record<string, Eintrag[]>>({});
+const schluessel = (projekt: string, pfad: string) => `${projekt}|${pfad}`;
+export const ordnerInhalt = (projekt: string, pfad: string): Eintrag[] | undefined => inhalt[schluessel(projekt, pfad)];
+/** Einen Ordner holen (neu: auch wenn er schon da ist) – Fehler gehen an den Aufrufer. */
+export async function ordnerHolen(projekt: string, pfad: string, neu = false): Promise<void> {
+  if (inhalt[schluessel(projekt, pfad)] && !neu) return;
+  setInhalt(schluessel(projekt, pfad), (await ruf<{ eintraege: Eintrag[] }>(`/api/ablage/liste?projekt=${projekt}&pfad=${encodeURIComponent(pfad)}`)).eintraege);
+}
+export const ordnerVergessen = (projekt: string) => { for (const k of Object.keys(inhalt)) if (k.startsWith(`${projekt}|`)) setInhalt(k, undefined!); };
+/** Die Unterordner als Knoten für den Baum-Baustein – bis wohin geholt ist; „dazu“: Pfade, die es noch nicht gibt (werden angelegt). */
+export function ordnerKnoten(projekt: string, wurzel: string, dazu: string[] = []): Knoten[] {
+  const extra = new Set(dazu.flatMap((d) => d.split('/').filter(Boolean).map((_, i, t) => t.slice(0, i + 1).join('/'))));
+  const unter = (p: string): Knoten[] => {
+    const da = (ordnerInhalt(projekt, p) ?? []).filter((e) => e.ordner).map((e) => e.name);
+    const neu = [...extra].filter((x) => x.split('/').length === (p ? p.split('/').length + 1 : 1) && (p ? x.startsWith(`${p}/`) : true) && !da.includes(x.split('/').pop()!)).map((x) => x.split('/').pop()!);
+    return [...da.map((n) => ({ n, neu: false })), ...neu.map((n) => ({ n, neu: true }))].map(({ n, neu: istNeu }) => { const kind = p ? `${p}/${n}` : n;
+      return { id: kind, titel: istNeu ? `${n} (wird angelegt)` : n, kinder: unter(kind), hatKinder: !istNeu && (!ordnerInhalt(projekt, kind) || (ordnerInhalt(projekt, kind) ?? []).some((e) => e.ordner)) }; });
+  };
+  return [{ id: '', titel: wurzel, kinder: unter('') }];
+}
+/** Ordner im Projektordner wählen (Baum-Baustein, gleicher Speicher wie die Dateien-Ansicht): der gewählte ist vorausgewählt und aufgeklappt. */
+export function OrdnerBaum(p: { projekt: string; wurzel: string; gewaehlt: string; onWahl: (pfad: string) => void }): JSX.Element {
+  const [stoerung, setStoerung] = createSignal('');
+  const kette = (pfad: string) => ['', ...pfad.split('/').filter(Boolean).map((_, i, t) => t.slice(0, i + 1).join('/'))];
+  const holen = (pfad: string) => ordnerHolen(p.projekt, pfad).then(() => setStoerung(''), (e: Error) => setStoerung(e.message));
+  // der Vorschlag und alles darüber gleich holen, damit er aufgeklappt dasteht
+  createEffect(on(() => [p.projekt, p.gewaehlt], () => { for (const x of kette(p.gewaehlt)) if (!x || (ordnerInhalt(p.projekt, x.split('/').slice(0, -1).join('/')) ?? []).some((e) => e.ordner && e.name === x.split('/').pop())) void holen(x); }));
+  const offen = kette(p.gewaehlt);
+  return (
+    <div class="ordner-baum">
+      <Show when={!stoerung()} fallback={<p class="feld-fehler" role="alert">{stoerung()}</p>}>
+        <Baum titel="Ordnerbaum des Projektordners" knoten={ordnerKnoten(p.projekt, p.wurzel, [p.gewaehlt])} gewaehlt={p.gewaehlt} offen={offen} onWahl={p.onWahl} onAuf={(id) => void holen(id)} symbol={() => '▤'} />
+      </Show>
+    </div>
+  );
+}
+
 // So sieht eine Datei für den Tabellen-Baustein aus (nur Anzeige, kein Objekt der Datenbank).
 const DATEI: ObjektModell = {
   name: 'datei', titel: 'Datei', titelMehrzahl: 'Dateien', anzeigeFeld: 'name', rechte: { lesen: [], schreiben: [], loeschen: [] },
@@ -69,25 +107,22 @@ function DateiKachel(p: { name: string; ordner?: boolean; vorschau?: string }) {
 
 export function DateienAnsicht() {
   const projekt = () => { const id = projektId(); const z = id ? sicht.projekt?.[id] : undefined; return z && !z.geloescht ? z : undefined; };
-  const [ordner, setOrdner] = createStore<Record<string, Eintrag[]>>({});   // geladene Ordner: Pfad -> Inhalt
   const [pfad, setPfad] = createSignal('');
   const [gewaehlt, setGewaehlt] = createSignal<string | null>(null);
   const [stoerung, setStoerung] = createSignal('');
   let rahmen!: RahmenSteuer;
 
+  // geladene Ordner aus dem gemeinsamen Speicher (Pfad -> Inhalt)
+  const ordner = new Proxy({} as Record<string, Eintrag[] | undefined>, { get: (_, k) => (projekt() ? ordnerInhalt(projekt()!.id, String(k)) : undefined) });
   const hole = async (p: string, neu = false) => {
-    if (ordner[p] && !neu) return;
-    try { setOrdner(p, (await ruf<{ eintraege: Eintrag[] }>(`/api/ablage/liste?projekt=${projekt()!.id}&pfad=${encodeURIComponent(p)}`)).eintraege); setStoerung(''); }
+    try { await ordnerHolen(projekt()!.id, p, neu); setStoerung(''); }
     catch (e) { if (p === pfad()) setStoerung((e as Error).message); }
   };
   // Projekt gewechselt (oder sein Ordner geändert): von vorn
-  createEffect(on(() => [projekt()?.id, projekt()?.werte.ordner], () => { for (const k of Object.keys(ordner)) setOrdner(k, undefined!); setPfad(''); setGewaehlt(null); setStoerung(''); if (projekt()) void hole('', true); }));
+  createEffect(on(() => [projekt()?.id, projekt()?.werte.ordner] as const, (neu, alt) => { if (alt && alt[0] === neu[0] && alt[1] !== neu[1] && projekt()) ordnerVergessen(projekt()!.id); setPfad(''); setGewaehlt(null); setStoerung(''); if (projekt()) void hole('', true); }));
   const gehe = (p: string) => { setPfad(p); setGewaehlt(null); void hole(p); };
 
-  const knoten = createMemo((): Knoten[] => {
-    const unter = (p: string): Knoten[] => (ordner[p] ?? []).filter((e) => e.ordner).map((e) => { const kind = p ? `${p}/${e.name}` : e.name; return { id: kind, titel: e.name, kinder: unter(kind), hatKinder: !ordner[kind] || ordner[kind]!.some((x) => x.ordner) }; });
-    return [{ id: '', titel: String(projekt()?.werte.name ?? 'Projekt'), kinder: unter('') }];
-  });
+  const knoten = createMemo((): Knoten[] => ordnerKnoten(projekt()!.id, String(projekt()?.werte.name ?? 'Projekt')));
   const zeilen = createMemo((): Zeile[] => (ordner[pfad()] ?? []).map((e) => ({ id: e.name, geloescht: false,
     werte: { name: e.name, art: e.ordner ? 'Ordner' : (endung(e.name).toUpperCase() || 'Datei'), groesse: e.ordner ? null : e.groesse, geaendert: e.geaendert } })));
   const eintrag = (name: string | null) => (ordner[pfad()] ?? []).find((e) => e.name === name);

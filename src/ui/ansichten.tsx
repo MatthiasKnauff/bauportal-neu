@@ -288,7 +288,7 @@ function KontaktProjekte(p: { kontakt: Zeile }) {
               onClick={() => ausfuehren({ objekt: 'projekt_kontakt', art: 'loeschen', objektId: x.b.id }, `„${String(p.kontakt.werte.name ?? '')}“ vom Projekt lösen`)}>✕</button></Show></li>
         )}</For></ul>
       </Show>
-      <Show when={schreiben() && frei().length}><Auswahlliste titel="Projekt dazunehmen" platzhalter="＋ Projekt …" wert={null} optionen={frei()} onWert={(w) => { if (w) dazu(w); }} /></Show>
+      <Show when={schreiben() && frei().length}><Auswahlliste titel="Projekt aus der Projektliste dazunehmen" platzhalter="Projekt aus der Liste wählen …" wert={null} optionen={frei()} onWert={(w) => { if (w) dazu(w); }} /></Show>
     </fieldset>
   );
 }

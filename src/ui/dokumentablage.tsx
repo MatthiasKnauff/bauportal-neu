@@ -15,7 +15,7 @@ import { base64 } from './baukasten/bilder';
 import { reiterFuerAlle } from './baukasten/detailkarte';
 import { Dialog } from './baukasten/dialog';
 import { Auswahlliste } from './baukasten/auswahlliste';
-import { OrdnerFenster } from './dateien';
+import { OrdnerBaum } from './dateien';
 import { FeldEingabe } from './baukasten/feld';
 import { projektId } from './projekt';
 import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
@@ -152,13 +152,6 @@ function Ablegen(p: { o: Offen; arten: Art[]; rollen: Ablagerolle[]; vor: Art; r
   const ordnerText = () => (vorschlag().herkunft === 'fest' ? vorschlag().ordner : eigenerOrdner() ?? vorschlag().ordner);
   const ordner = () => ordnerEinsetzen(ordnerText(), {});   // erst beim Ablegen bereinigt – beim Tippen springt nichts
   const projektordner = () => String(sicht.projekt?.[projekt()]?.werte.ordner ?? '').split(/[\\/]+/).filter(Boolean).join('/');
-  const [ordnerWahl, setOrdnerWahl] = createSignal(false);
-  const ordnerGewaehlt = (pfad: string) => {
-    setOrdnerWahl(false);
-    const wurzel = projektordner();
-    if (pfad !== wurzel && !pfad.startsWith(`${wurzel}/`)) { hinweis(`Bitte einen Ordner innerhalb des Projektordners „${wurzel}“ wählen.`, { art: 'fehler' }); return; }
-    setEigenerOrdner(pfad.slice(wurzel.length + 1));
-  };
   /** Eine andere Wahl merkt sich das Projekt (je Dokumentart und Firma/Gewerk) – als Befehl, mit dem Ablegen rückgängig zu machen. */
   const wahlMerken = (): Vorlage[] => {
     if (vorschlag().herkunft === 'fest' || ordner() === vorschlag().ordner) return [];
@@ -220,11 +213,13 @@ function Ablegen(p: { o: Offen; arten: Art[]; rollen: Ablagerolle[]; vor: Art; r
               )}</For>
               <div class="feld"><label>Dateiname im Projektordner</label><input value={name() ?? vorschlagName()} onInput={(e) => setName(e.currentTarget.value)} aria-label="Dateiname im Projektordner" /></div>
               <div class="feld"><label>Ordner im Projektordner</label>
-                <div class="reihe"><input value={ordnerText()} disabled={vorschlag().herkunft === 'fest'} onInput={(e) => setEigenerOrdner(e.currentTarget.value)} aria-label="Ordner im Projektordner" />
-                  <Show when={projektordner() && vorschlag().herkunft !== 'fest'}><button type="button" class="knopf" onClick={() => setOrdnerWahl(true)}>Ordner wählen …</button></Show></div>
+                {/* immer der Baum des Projektordners (wie in „Pläne und Dateien“), der Vorschlag vorausgewählt und aufgeklappt; darunter zum Eintippen eines neuen Ordners */}
+                <Show when={projektordner() && vorschlag().herkunft !== 'fest'}>
+                  <OrdnerBaum projekt={projekt()} wurzel={String(sicht.projekt?.[projekt()]?.werte.name ?? 'Projektordner')} gewaehlt={ordner()} onWahl={(x) => setEigenerOrdner(x)} />
+                </Show>
+                <input value={ordnerText()} disabled={vorschlag().herkunft === 'fest'} onInput={(e) => setEigenerOrdner(e.currentTarget.value)} aria-label="Ordner im Projektordner" />
                 <small class="still-text">{eigenerOrdner() != null && ordner() !== vorschlag().ordner ? 'eigene Wahl – das Projekt merkt sie sich' : HERKUNFT_TEXT[vorschlag().herkunft]}</small></div>
               <p class="still-text klein-text">{g()!.ocr ? 'Text per Texterkennung gelesen · ' : ''}{a().objekt ? `daraus wird: ${modell()?.titel}` : zu ? `gehört zu: ${zu.titel}` : 'wird nur abgelegt'}</p>
-              <Show when={ordnerWahl()}><OrdnerFenster start={[projektordner(), ordner()].filter(Boolean).join('/')} onZu={() => setOrdnerWahl(false)} onWahl={ordnerGewaehlt} /></Show>
             </div>
           </div>
         </Show>
