@@ -12,17 +12,19 @@ import { hinweis } from '../unterbau/meldungen';
 export const kiAnbindungen = (): Zeile[] => Object.values(sicht.ki_anbindung ?? {}).filter((z) => !z.geloescht && z.werte.aktiv === true && z.werte.modell)
   .sort((a, b) => Number(b.werte.art === 'ollama') - Number(a.werte.art === 'ollama') || String(a.werte.name).localeCompare(String(b.werte.name), 'de'));
 
-interface Auftrag { titel: string; text: string; onUebernehmen: (text: string) => void }
+interface Auftrag { titel: string; text: string; aufgaben?: string[] /* Stellschraube „ki“ des Felds: nur diese Aufgaben */; onUebernehmen: (text: string) => void }
 const [auftrag, setAuftrag] = createSignal<Auftrag | null>(null);
 export const kiOeffnen = (a: Auftrag) => setAuftrag(a);
 const MERKER = 'bp_ki';
-const [aufgaben] = createResource(() => (auftrag() ? true : undefined), () => ruf<{ wert: string; titel: string }[]>('/api/ki/aufgaben'));
+const [aufgaben] = createResource(() => (auftrag() ? true : undefined), () => ruf<{ wert: string; titel: string; eigen?: boolean }[]>('/api/ki/aufgaben'));
 
 function KiTextFenster(p: { auftrag: Auftrag }) {
   const zu = () => setAuftrag(null);
   const gemerkt = (() => { try { return JSON.parse(localStorage.getItem(MERKER) ?? '{}') as { anbindung?: string; aufgabe?: string }; } catch { return {}; } })();
   const [anbindung, setAnbindung] = createSignal(kiAnbindungen().find((z) => z.id === gemerkt.anbindung)?.id ?? kiAnbindungen()[0]?.id ?? '');
-  const [aufgabe, setAufgabe] = createSignal(gemerkt.aufgabe ?? 'ausformulieren');
+  // Aufgaben des Felds (z. B. Langtext kurz · mittel · lang), sonst die allgemeinen
+  const wahl = () => (aufgaben() ?? []).filter((a) => (p.auftrag.aufgaben ? p.auftrag.aufgaben.includes(a.wert) : !a.eigen));
+  const [aufgabe, setAufgabe] = createSignal(p.auftrag.aufgaben ? (p.auftrag.aufgaben.includes(gemerkt.aufgabe ?? '') ? gemerkt.aufgabe! : p.auftrag.aufgaben[0]!) : gemerkt.aufgabe && !gemerkt.aufgabe.startsWith('langtext') ? gemerkt.aufgabe : 'ausformulieren');
   const [lage, setLage] = createSignal<{ art: 'bereit' } | { art: 'laeuft' } | { art: 'vorschlag'; ersetzt: number; extern: boolean } | { art: 'fehler'; text: string }>({ art: 'bereit' });
   const [vorschlag, setVorschlag] = createSignal('');
   const extern = () => sicht.ki_anbindung?.[anbindung()]?.werte.art !== 'ollama';
@@ -44,7 +46,7 @@ function KiTextFenster(p: { auftrag: Auftrag }) {
       <Show when={p.auftrag.text.trim()} fallback={<p class="still-text">In diesem Feld steht noch nichts. Schreib ein paar Stichworte hinein – die KI macht daraus einen Text.</p>}>
         <div class="feld"><label>Was soll die KI tun?</label>
           <div class="auswahl" role="radiogroup" aria-label="Was soll die KI tun?">
-            <For each={aufgaben() ?? []}>{(a) => <button type="button" role="radio" aria-checked={aufgabe() === a.wert} classList={{ aktiv: aufgabe() === a.wert }} onClick={() => setAufgabe(a.wert)}>{a.titel}</button>}</For>
+            <For each={wahl()}>{(a) => <button type="button" role="radio" aria-checked={aufgabe() === a.wert} classList={{ aktiv: aufgabe() === a.wert }} onClick={() => setAufgabe(a.wert)}>{a.titel}</button>}</For>
           </div></div>
         <Show when={kiAnbindungen().length > 1}>
           <div class="feld"><label>Welche KI?</label>

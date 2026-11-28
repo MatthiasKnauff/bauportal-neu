@@ -55,7 +55,14 @@ export async function seiteBauen(db: Db, register: Modulregister, wer: Absender,
       const zeilen = (await c.query(`select * from ${tabelle(k.name)} where ${spalte(b.ueber)} = $1 and not geloescht${ohne}${filter.map(([n], i) => ` and ${spalte(n)} = $${i + 2}`).join('')}`, [objektId, ...filter.map(([, w]) => w)])).rows
         .map((z) => ({ id: z.id as string, werte: werteAus(k, z) })).filter((z) => passt(b, z.werte)).sort(listenfolge);
       kinder.set(b.id, zeilen);
-      if (b.art === 'lv') continue;   // Reihenfolge nach OZ, keine Verweise
+      if (b.art === 'lv') {   // Reihenfolge nach OZ, keine Verweise; Bilder je Position (Skizzen, Fotos) – nur die, die der Benutzer sehen darf
+        if (b.bilder && zeilen.length) {
+          const q = register.modell(b.bilder.objekt)!;
+          const bz = (await c.query(`select * from ${tabelle(q.name)} where ${spalte(b.bilder.bezug)} = any($1) and not geloescht order by id`, [zeilen.map((z) => z.id)])).rows.map((z) => ({ id: z.id as string, werte: werteAus(q, z) }));
+          kinder.set(`${b.id}.bilder`, bz); bildIds.push(...bz.map((z) => z.id));
+        }
+        continue;
+      }
       if (b.art === 'bilder') {
         bildIds.push(...zeilen.map((z) => z.id));   // welche Fotos der Benutzer sehen darf, steht damit fest
         continue;

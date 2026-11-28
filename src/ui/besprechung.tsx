@@ -4,7 +4,7 @@
 import { For, Show, createMemo, createSignal } from 'solid-js';
 import type { Vorlage, Zeile } from '../kern/befehl';
 import type { Werte } from '../kern/modell';
-import { abgleich, ausDenDaten, klaerungspunkte, rueckweg, type Quellen } from '../module/ava/besprechung';
+import { GRUNDLAGEN, abgleich, ausDenDaten, klaerungspunkte, rueckweg, type Quellen } from '../module/ava/besprechung';
 import { Dialog } from './baukasten/dialog';
 import { nachOz, zahl } from '../module/ava/rechnung';
 import { angeboteVon, preiseVon } from './avadaten';
@@ -17,6 +17,7 @@ import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './
 import { darf, ich, modell, neueKennung } from './unterbau/api';
 import { aktuelleVersion, planDerVersion } from './plandaten';
 import { springeZu } from './sprung';
+import { hinweis } from './unterbau/meldungen';
 
 const kurz = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
 
@@ -160,4 +161,14 @@ function Abschliessen(p: { z: Zeile; onZu: () => void }) {
       </Show>
     </Dialog>
   );
+}
+
+/** Unter den Vertragsgrundlagen (wie bisher): die Grundlagen dieses Protokolls als Vorgabe des Büros merken – gilt für neue Protokolle. */
+export function GrundlagenMerken(p: { z: Zeile }) {
+  const neu = () => Object.fromEntries(GRUNDLAGEN.map(([n]) => [`bv_${n}`, String(p.z.werte[n] ?? '')]));
+  const gleich = () => GRUNDLAGEN.every(([n, , v]) => String(p.z.werte[n] ?? '') === (String(sicht.buero?.[BUERO_ID]?.werte[`bv_${n}`] ?? '') || v));
+  return <Show when={darf('buero', 'schreiben')}>
+    <button type="button" class="knopf klein" disabled={gleich()} title={gleich() ? 'So steht es schon in der Vorgabe des Büros' : 'Gilt dann für neue Angebotsbesprechungen'}
+      onClick={() => { ausfuehren({ objekt: 'buero', art: 'aendern', objektId: BUERO_ID, werte: neu() }, 'Grundlagen als Vorgabe des Büros'); hinweis('Grundlagen als Vorgabe des Büros gemerkt – gilt für neue Protokolle.'); }}>Als Vorgabe des Büros merken</button>
+  </Show>;
 }

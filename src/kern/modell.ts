@@ -28,6 +28,10 @@ export interface Feld {
   imProjekt?: { objekt: string; feld: string }[];
   /** bei Verweis: Getipptes, das es noch nicht gibt, als neues Ziel anlegen (Anzeigefeld = der Text, dazu diese Werte) – wie bisher „＋ als neuen Kontakt anlegen“ */
   neuAnlegen?: Werte;
+  /** bei Verweis: nur Ziele, die in diesen Feldern denselben Wert haben wie der Eintrag (ab Werk schon: Projekt und Version) – z. B. Positionen desselben LV */
+  gleich?: string[];
+  /** bei langem Text: eigene KI-Aufgaben (server/ki.ts) und Felder, die als Grundlage mitgehen – z. B. der Langtext aus Kurztext und Einheit */
+  ki?: { aufgaben: string[]; aus: string[] };
   eindeutig?: boolean;     // Wert darf nur einmal vorkommen
   klein?: boolean;         // Text wird in Kleinbuchstaben gespeichert (z. B. Anmeldename)
   verborgen?: boolean;     // führt das Programm selbst (z. B. die Reihenfolge) – steht in keiner Karte
@@ -93,6 +97,7 @@ export function pruefeModell(m: ObjektModell): void {
     if ((f.art === 'auswahl' || f.art === 'mehrfach') && !f.optionen?.length) throw new Error(`Auswahl ohne Optionen: ${m.name}.${f.name}`);
     if (f.art === 'verweis' && !f.ziel) throw new Error(`Verweis ohne Ziel: ${m.name}.${f.name}`);
   }
+  for (const f of m.felder) for (const k of [...(f.gleich ?? []), ...(f.ki?.aus ?? [])]) if (!gesehen.has(k)) throw new Error(`Feld fehlt: ${m.name}.${f.name} → ${k}`);
   for (const f of m.felder) for (const k of Object.keys(f.wenn ?? {})) if (!gesehen.has(k)) throw new Error(`Bedingung auf unbekanntes Feld: ${m.name}.${f.name} → ${k}`);
   for (const k of m.ersatzName ?? []) if (!gesehen.has(k)) throw new Error(`Ersatzname auf unbekanntes Feld: ${m.name}.${k}`);
   if (m.eigenFeld && m.felder.find((f) => f.name === m.eigenFeld)?.ziel !== 'benutzer') throw new Error(`Eigenfeld muss auf Benutzer verweisen: ${m.name}.${m.eigenFeld}`);

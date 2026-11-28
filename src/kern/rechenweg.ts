@@ -7,7 +7,7 @@ export interface Rechenweg { zeilen: Ansatz[]; summe: number | null; fehler: boo
 
 /** Ein Ausdruck – null, wenn er nicht lesbar ist. */
 export function ausdruck(text: string): number | null {
-  const t = text.replace(/\s+/g, '').replace(/[×x·]/g, '*').replace(/[÷:]/g, '/').replace(/−/g, '-');
+  const t = text.replace(/\s+/g, '').replace(/[×x·]/g, '*').replace(/[÷:]/g, '/').replace(/[−–]/g, '-');
   if (!t) return null;
   let i = 0;
   const zahl = (): number | null => {

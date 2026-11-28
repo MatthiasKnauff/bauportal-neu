@@ -22,7 +22,10 @@ import { Zeichen } from './baukasten/zeichen';
 import { druckOeffnen, verzeichnisDrucken } from './druck';
 import { LvListe } from './lvliste';
 import { hinweis } from './unterbau/meldungen';
-import { allePositionenVon, angeboteVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon } from './avadaten';
+import { allePositionenVon, angeboteVon, aufmassStand, epVon, gaebAusgeben, gpMit, lvZahlen, name, positionenVon, preiseVon } from './avadaten';
+import { rechenweg } from '../kern/rechenweg';
+import { zahlText } from './lvbearbeiten';
+import { DokumentListe, dokumenteAblegen } from './dokumentablage';
 import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
 import { LAEUFE, laufText, vorab, type Lauf } from '../module/ava/bieterversand';
 import { STUFEN, lvLage } from '../module/ava/lvlage';
@@ -94,9 +97,43 @@ export function ZuschlagAuf(p: { pos: Zeile }): JSX.Element {
   );
 }
 
-/** Karte einer Position: der Gesamtpreis (und warum er nicht zählt). */
+/** Karte einer Position: der Gesamtpreis (und warum er nicht zählt), wenn vergeben der EP des Auftrags und das Aufmaß bisher (wie bisher). */
 export function PositionSumme(p: { pos: Zeile }): JSX.Element {
-  return <Show when={!istText(p.pos.werte.art)}><p class="ava-gp">Gesamtpreis geschätzt: <b>{eur(gpMit(p.pos))} €</b>{!zaehlt(p.pos) ? ' – zählt nicht zur Summe des LV' : ''}</p></Show>;
+  const lvId = () => String(p.pos.werte.lv ?? '');
+  const epAuftrag = createMemo(() => (lvZahlen(lvId()).auftrag ? epVon(lvId())(p.pos) : null));
+  const aufmass = createMemo(() => aufmassStand(lvId()).get(p.pos.id) ?? 0);
+  const einheit = () => String(p.pos.werte.einheit ?? '');
+  return <Show when={!istText(p.pos.werte.art)}>
+    <p class="ava-gp">Gesamtpreis geschätzt: <b>{eur(gpMit(p.pos))} €</b>{!zaehlt(p.pos) ? ' – zählt nicht zur Summe des LV' : ''}</p>
+    <Show when={epAuftrag() != null}><p class="ava-gp">EP Auftrag: <b>{eur(epAuftrag()!)} €</b></p></Show>
+    <Show when={aufmass()}><p class="ava-gp">Aufmaß bisher: <b>{zahlText(aufmass())} {einheit()}</b>{zahl(p.pos.werte.menge) ? ` · ${Math.round(aufmass() / zahl(p.pos.werte.menge) * 100)} % der LV-Menge` : ''}</p></Show>
+  </Show>;
+}
+
+/** Unter dem Langtext einer Position (wie bisher Reiter „Grafik“): Fotos und Skizzen – im LV-Ausdruck stehen sie unter dem Langtext. */
+export function PositionBilder(p: { pos: Zeile }): JSX.Element {
+  const bilder = () => lebende('dokument').filter((d) => d.werte.bezug === p.pos.id);
+  let wahl!: HTMLInputElement;
+  const titel = () => `Position ${String(p.pos.werte.oz ?? '')} ${String(p.pos.werte.kurztext ?? '')}`.trim();
+  return <Show when={!istText(p.pos.werte.art) || bilder().length}><div class="pos-bilder">
+    <Show when={bilder().length}><DokumentListe dokumente={bilder()} /></Show>
+    <Show when={darf('dokument', 'schreiben')}>
+      <button type="button" class="knopf klein" title="Fotos oder Skizzen zur Position – sie stehen im Ausdruck unter dem Langtext" onClick={() => wahl.click()}>📷 Foto oder Skizze …</button>
+      <input ref={wahl} type="file" accept="image/*,.pdf" multiple hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (f.length) dokumenteAblegen(f, { zu: { objekt: 'lv_position', id: p.pos.id, titel: titel(), art: 'lvbild' } }); }} />
+    </Show>
+  </div></Show>;
+}
+
+/** Unter dem Rechenweg der Menge: was er ergibt – „= übernehmen“ setzt die Menge (wie bisher). */
+export function MengeAusRechenweg(p: { pos: Zeile }): JSX.Element {
+  const r = () => rechenweg(p.pos.werte.mengen_rechenweg);
+  const text = () => String(p.pos.werte.mengen_rechenweg ?? '').trim();
+  const gleich = () => r().summe != null && r().summe === zahl(p.pos.werte.menge);
+  return <Show when={text()}>
+    <p class="ava-gp">{r().summe == null ? <span class="feld-fehler">Rechenweg nicht lesbar</span> : <>= <b>{zahlText(r().summe!)} {String(p.pos.werte.einheit ?? '')}</b></>}
+      <Show when={r().summe != null && !gleich() && darf('lv_position', 'schreiben')}> <button type="button" class="knopf klein" onClick={() => ausfuehren({ objekt: 'lv_position', art: 'aendern', objektId: p.pos.id, werte: { menge: r().summe } }, 'Menge aus dem Rechenweg')}>= übernehmen</button></Show>
+    </p>
+  </Show>;
 }
 
 

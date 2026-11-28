@@ -3,11 +3,12 @@ import type { Werte } from '../../kern/modell';
 import { nachOz } from '../../kern/oz';
 import { mengeVon, nachKennung } from '../../kern/lvarten';
 export { istZuschlag, mengeVon, nachKennung, zuschlagAuf } from '../../kern/lvarten';
+import { zaehltZurSumme } from '../../kern/lvarten';
 export { nachOz, ozVergleich } from '../../kern/oz';
 
 type E = { id: string; werte: Werte };
 /** Positionen, die in die Summe eingehen: Bedarfs- und Alternativpositionen nicht (sie stehen nur mit EP im LV), Titel und Hinweise ohnehin nicht. */
-export const zaehlt = (p: E) => ['normal', 'pauschal', 'stundenlohn', 'zuschlag', ''].includes(String(p.werte.art ?? ''));
+export const zaehlt = (p: E) => zaehltZurSumme(p.werte);
 export const zahl = (w: unknown): number => (typeof w === 'number' ? w : Number(String(w ?? '').replace(/\./g, '').replace(',', '.')) || 0);
 export const gp = (menge: unknown, ep: unknown) => Math.round(zahl(menge) * zahl(ep) * 100) / 100;
 /** GP einer Position mit Menge und EP aus derselben Quelle (LV, Angebot, Auftrag, Aufmaß) – Zuschlagspositionen rechnen auf ihre Positionen. */

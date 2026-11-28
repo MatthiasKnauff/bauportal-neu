@@ -11,11 +11,14 @@ import { Ablehnung } from './protokoll';
 import type { Benutzer } from './anmeldung';
 
 /** Was die KI mit einem Text tun kann – die Anweisungen stehen hier, nicht in der Oberfläche. */
-export const AUFGABEN: Record<string, { titel: string; anweisung: string; json?: boolean }> = {
+export const AUFGABEN: Record<string, { titel: string; anweisung: string; json?: boolean; eigen?: boolean /* nur, wo ein Feld sie verlangt (Stellschraube „ki“) */ }> = {
   ausformulieren: { titel: 'Stichworte ausformulieren', anweisung: 'Formuliere die Stichworte zu einem sachlichen, knappen Text in ganzen Sätzen aus, wie er in einem Bautagebuch oder Protokoll eines Architekturbüros steht. Erfinde nichts dazu: keine Mengen, Namen, Termine oder Bewertungen, die nicht in den Stichworten stehen.' },
   glaetten: { titel: 'Text glätten', anweisung: 'Glätte den Text sprachlich: klare, sachliche Sätze, gleiche Zeitform, keine Wiederholungen. Der Inhalt bleibt vollständig und unverändert; füge nichts hinzu.' },
   rechtschreibung: { titel: 'Rechtschreibung prüfen', anweisung: 'Korrigiere nur Rechtschreibung, Grammatik und Zeichensetzung. Wortwahl, Satzbau und Inhalt bleiben, wie sie sind.' },
   // LV: aus Kurztext und Stichworten ein Langtext (wie im bisherigen Bauportal „✨ Langtext vorschlagen“)
+  langtext_kurz: { titel: 'Langtext kurz', eigen: true, anweisung: 'Schreib den Langtext einer Position für ein Leistungsverzeichnis (VOB/A, produktneutral, Gewerk wie im Kurztext). Grundlage sind Kurztext, Einheit und, falls vorhanden, der bisherige Text oder Stichworte. Erfinde keine Maße, Mengen oder Fabrikate, die dort nicht stehen – wo eine Angabe fehlt, setze „…“ zum Ausfüllen. Kurz: zwei bis drei Sätze, nur Material, Ausführung und Maße; ohne die immer gleichen Floskeln (Liefern, Einbauen, Nebenleistungen) – die stehen in den Vorbemerkungen.' },
+  langtext_mittel: { titel: 'Langtext mittel', eigen: true, anweisung: 'Schreib den Langtext einer Position für ein Leistungsverzeichnis (VOB/A, produktneutral, Gewerk wie im Kurztext). Grundlage sind Kurztext, Einheit und, falls vorhanden, der bisherige Text oder Stichworte. Erfinde keine Maße, Mengen oder Fabrikate, die dort nicht stehen – wo eine Angabe fehlt, setze „…“ zum Ausfüllen. Mittel: ein Absatz mit Material, Ausführung, Maßen und Qualitätsangaben; ohne die immer gleichen Floskeln (Liefern, Einbauen, Nebenleistungen) – die stehen in den Vorbemerkungen.' },
+  langtext_lang: { titel: 'Langtext lang', eigen: true, anweisung: 'Schreib den Langtext einer Position für ein Leistungsverzeichnis (VOB/A, produktneutral, Gewerk wie im Kurztext). Grundlage sind Kurztext, Einheit und, falls vorhanden, der bisherige Text oder Stichworte. Erfinde keine Maße, Mengen oder Fabrikate, die dort nicht stehen – wo eine Angabe fehlt, setze „…“ zum Ausfüllen. Lang: vollständige Beschreibung mit Liefern und Einbauen, Material, Ausführung, Maßen, Qualitätsanforderungen und Abrechnungshinweis.' },
   kuerzen: { titel: 'Kürzen', anweisung: 'Kürze den Text auf das Wesentliche, etwa auf die Hälfte. Alle Fakten (Mengen, Namen, Termine, Mängel, Anordnungen) bleiben erhalten.' },
   // Bautagebuch per Sprache: der frei diktierte Bericht wird auf die Bereiche des Tagesberichts verteilt
   diktat: { titel: 'Diktat ordnen', json: true, anweisung: `Der Text ist ein frei diktierter Baustellenbericht (Spracherkennung, Fehler möglich). Verteile ihn auf die Bereiche eines Bautagesberichts.
@@ -107,7 +110,7 @@ export function kiRouten(app: FastifyInstance, e: { db: Db; nurAngemeldet: (req:
   const admin = (req: FastifyRequest) => { if (req.benutzer!.rolle !== 'admin') throw new Ablehnung('Das dürfen nur Administrator:innen'); };
   type Ein = { anbindung?: string; schluessel?: string; aufgabe?: string; text?: string };
 
-  app.get('/api/ki/aufgaben', { preHandler: e.nurAngemeldet }, async () => Object.entries(AUFGABEN).filter(([, a]) => !a.json).map(([wert, a]) => ({ wert, titel: a.titel })));
+  app.get('/api/ki/aufgaben', { preHandler: e.nurAngemeldet }, async () => Object.entries(AUFGABEN).filter(([, a]) => !a.json).map(([wert, a]) => ({ wert, titel: a.titel, ...(a.eigen ? { eigen: true } : {}) })));
 
   app.post('/api/ki/text', { preHandler: e.nurAngemeldet }, async (req) => {
     const b = (req.body ?? {}) as Ein;

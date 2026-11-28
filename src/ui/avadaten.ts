@@ -2,13 +2,14 @@
 // GAEB-Ausgabe. Ohne eigene Oberfläche, damit Kopf, Preisspiegel, LV, Besprechung, Aufträge und Rechnungen sie nutzen,
 // ohne einander einzubinden (vorher lag das in ava.tsx – Kreise ava ↔ avakopf/preisspiegel/lvbearbeiten/besprechung).
 import type { Vorlage, Zeile } from '../kern/befehl';
+import type { Wert } from '../kern/modell';
 import { neueKennung } from './unterbau/api';
 import { auftragsstand, ausgeschrieben, naechsterNachtrag, type Auftragsstand, gp, gpVon, istZuschlag, lvEp, lvMenge, nachKennung, nachOz, summeGeschaetzt, wertung, zaehlt, zahl } from '../module/ava/rechnung';
 import { abgerechnetAus, standAus, zeilenBis } from '../module/ava/aufmass';
 import { epAus } from '../module/ava/freigabe';
 import { lvAlsX83 } from '../module/ava/gaeb';
 import { herunterladen } from './baukasten/herunterladen';
-import { lebende, sicht } from './unterbau/abgleich';
+import { ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
 
 export const name = (kontakt: unknown) => String(sicht.kontakt?.[String(kontakt ?? '')]?.werte.name ?? 'Bieter:in');
 /** Positionen der Ausschreibung (ohne Nachträge) – Preisspiegel, Summen, GAEB. */
@@ -21,6 +22,10 @@ export const preiseVon = (angebote: Zeile[]) => { const ids = new Set(angebote.m
 /** EP des Auftrags je Position (Nachtragspositionen: ihr eigener EP) – null: kein Preis. */
 export const epVon = (lvId: string) => { const ang = angeboteVon(lvId); return epAus(ang, [...preiseVon(ang).values()]); };
 
+const rechnungenDes = (lvId: string) => lebende('rechnung').filter((r) => r.werte.lv === lvId).sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')));
+/** Aufgemessene Menge je Position bis heute (alle Aufmaße des LV) – Leistungsstand und Karte der Position. */
+export const aufmassStand = (lvId: string, rechnungen = rechnungenDes(lvId)) => standAus(zeilenBis(lebende('aufmass').filter((a) => a.werte.lv === lvId), rechnungen, null));
+
 /** Die Zahlen eines LV an einer Stelle (Karte, Aufträge, Kostenkontrolle): Schätzung, bestes Angebot, Auftrag, Nachträge, abgerechnet. */
 export interface LvZahlen { schaetzung: number; bestes: number | null; besterBieter: string; auftrag: Zeile | undefined; haupt: number; nachlass: number; stand: Auftragsstand; leistung: number; abgerechnet: number; rechnungen: number }
 export function lvZahlen(lvId: string): LvZahlen {
@@ -30,10 +35,10 @@ export function lvZahlen(lvId: string): LvZahlen {
   const ohneLv = !!sicht.lv?.[lvId]?.werte.ohne_lv;   // Auftrag ohne LV: die eingetragene Auftragssumme
   const nachlass = zahl(auftrag?.werte.nachlass), haupt = !auftrag ? 0 : ohneLv ? zahl(sicht.lv?.[lvId]?.werte.auftragssumme) : w.find((x) => x.angebot === auftrag.id)?.nachLass ?? 0;
   const nachtraege = lebende('nachtrag').filter((n) => n.werte.lv === lvId);
-  const rechnungen = lebende('rechnung').filter((r) => r.werte.lv === lvId).sort((a, b) => String(a.werte.datum ?? '').localeCompare(String(b.werte.datum ?? '')));
+  const rechnungen = rechnungenDes(lvId);
   // Leistungsstand: geprüfte Mengen (Aufmaß) × EP des Auftrags (Nachtragspositionen: ihr eigener EP), nach Nachlass
   const ep = epVon(lvId);
-  const stand = standAus(zeilenBis(lebende('aufmass').filter((a) => a.werte.lv === lvId), rechnungen, null));
+  const stand = aufmassStand(lvId, rechnungen);
   const P = allePositionenVon(lvId), alle = nachKennung(P), menge = (y: Zeile) => stand.get(y.id) ?? 0;
   const leistung = auftrag ? P.filter(zaehlt).reduce((s, q) => s + gpVon(q, alle, menge, ep), 0) * (1 - nachlass / 100) : 0;
   return {
@@ -61,4 +66,16 @@ export function gpMit(q: Zeile, menge: (y: Zeile) => number = lvMenge, ep: (y: Z
 export function nachtragNeu(lv: Zeile, name: string): { id: string; nr: string; befehl: Vorlage } {
   const nr = naechsterNachtrag(lebende('nachtrag').filter((n) => n.werte.lv === lv.id)), id = neueKennung();
   return { id, nr, befehl: { objekt: 'nachtrag', art: 'anlegen', objektId: id, werte: { projekt: lv.werte.projekt ?? null, lv: lv.id, nummer: nr, name, stand: 'angemeldet', angemeldet: new Date().toLocaleDateString('sv') } } };
+}
+
+/** Nachtrag anlegen (Aufträge, Aufmaßprüfung, Kontextmenü einer Position): „N1“ mit Gliederungspunkt, auf Wunsch gleich mit einer Position darunter. */
+export function nachtragAnlegen(lv: Zeile, name: string, position?: Record<string, Wert>): { nr: string; id: string; titel: string; position?: string } {
+  const { id, nr, befehl } = nachtragNeu(lv, name), titel = neueKennung(), pos = position ? neueKennung() : undefined;
+  const p = lv.werte.projekt ?? null;
+  ausfuehrenMehrere([
+    befehl,
+    { objekt: 'lv_position', art: 'anlegen', objektId: titel, werte: { projekt: p, lv: lv.id, nachtrag: id, oz: nr, art: 'titel', kurztext: name } },
+    ...(position ? [{ objekt: 'lv_position', art: 'anlegen' as const, objektId: pos!, werte: { projekt: p, lv: lv.id, nachtrag: id, oz: `${nr}.0010`, art: 'normal', ...position } }] : []),
+  ], `Nachtrag ${nr}`);
+  return { nr, id, titel, position: pos };
 }

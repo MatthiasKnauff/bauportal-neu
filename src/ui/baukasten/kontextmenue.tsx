@@ -2,14 +2,21 @@
 import { For, Show, createSignal, onCleanup } from 'solid-js';
 
 export const HOECHSTENS = 9;
-export interface Menuepunkt { titel: string; tun: () => void; gefahr?: boolean; gesperrt?: boolean }
+export interface Menuepunkt {
+  titel: string; tun?: () => void; gefahr?: boolean; gesperrt?: boolean;
+  an?: boolean;              // ✓ davor (z. B. die Art, die die Position schon hat)
+  unter?: Menuepunkt[];      // Untermenü (▸): ersetzt das Menü an derselben Stelle – so bleibt jedes bei höchstens 9 Punkten
+}
 const [menue, setMenue] = createSignal<{ x: number; y: number; punkte: Menuepunkt[] } | null>(null);
 
 export function zeigeMenue(e: MouseEvent, punkte: Menuepunkt[]): void {
   e.preventDefault();
+  oeffnen(e.clientX, e.clientY, punkte);
+}
+function oeffnen(x: number, y: number, punkte: Menuepunkt[]): void {
   if (punkte.length > HOECHSTENS) console.warn(`Kontextmenü mit mehr als ${HOECHSTENS} Punkten – gekürzt`);
   const p = punkte.slice(0, HOECHSTENS);
-  setMenue({ x: Math.min(e.clientX, innerWidth - 250), y: Math.min(e.clientY, innerHeight - p.length * 38 - 16), punkte: p });
+  setMenue({ x: Math.min(x, innerWidth - 250), y: Math.min(y, innerHeight - p.length * 38 - 16), punkte: p });
 }
 
 export function Kontextmenue() {
@@ -25,7 +32,8 @@ export function Kontextmenue() {
     <Show when={menue()}>{(m) => (
       <div class="kontextmenue" role="menu" style={{ left: `${m().x}px`, top: `${m().y}px` }} onContextMenu={(e) => e.preventDefault()}>
         <For each={m().punkte}>{(p) => (
-          <button role="menuitem" classList={{ gefahr: p.gefahr }} disabled={p.gesperrt} onClick={() => { zu(); p.tun(); }}>{p.titel}</button>
+          <button role="menuitem" classList={{ gefahr: p.gefahr, an: p.an }} aria-haspopup={p.unter ? 'menu' : undefined} disabled={p.gesperrt}
+            onClick={() => { if (p.unter) { oeffnen(m().x, m().y, p.unter); return; } zu(); p.tun?.(); }}>{p.an ? '✓ ' : ''}{p.titel}{p.unter ? ' ▸' : ''}</button>
         )}</For>
       </div>
     )}</Show>

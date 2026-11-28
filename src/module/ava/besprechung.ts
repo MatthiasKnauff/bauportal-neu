@@ -72,7 +72,7 @@ export function ausDenDaten(q: Quellen): Werte {
     fertig: de(q.termine?.fertig) || de(l.ausfuehrung_ende),
     unterbrechung: q.termine?.unterbrechung ?? '',
     bauzeitenplan: q.termine?.plan ?? '',
-    ...Object.fromEntries(GRUNDLAGEN.map(([n, , v]) => [n, v])),
+    ...Object.fromEntries(GRUNDLAGEN.map(([n, , v]) => [n, String(b[`bv_${n}`] ?? '').trim() || v])),   // Vorgabe des Büros, sonst ab Werk
     ...vertragsbedingungenText(l),   // was im LV unter „Vertragsbedingungen“ steht, geht der Vorgabe vor
   };
   return Object.fromEntries(Object.entries(w).filter(([, x]) => String(x ?? '').trim() !== ''));

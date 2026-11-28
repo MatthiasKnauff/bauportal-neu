@@ -4,10 +4,9 @@
 // Oben: Nachtrag (Gliederungspunkt, Position), Vertrag (Bauvertrag, Vergabe aufheben). Rechts die Karte des Auftrags.
 import { createMemo, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
-import type { Wert } from '../kern/modell';
 import { standAus, zeilenBis } from '../module/ava/aufmass';
 import { istZuschlag, lvMenge, naechsteOz, zaehlt, zahl } from '../module/ava/rechnung';
-import { angeboteVon, gpMit, lvZahlen, nachtragNeu, preiseVon } from './avadaten';
+import { angeboteVon, gpMit, lvZahlen, nachtragAnlegen, preiseVon } from './avadaten';
 import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
 import { LV_SPALTEN, LvBaum, lvSpalteLesen, eur, lvZeiger, setLvZeiger, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
@@ -16,18 +15,6 @@ import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abglei
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 
-
-/** Nachtrag anlegen (Aufträge, Aufmaßprüfung): „N1“ mit Gliederungspunkt, auf Wunsch gleich mit einer Position darunter. */
-export function nachtragAnlegen(lv: Zeile, name: string, position?: Record<string, Wert>): { nr: string; id: string; titel: string; position?: string } {
-  const { id, nr, befehl } = nachtragNeu(lv, name), titel = neueKennung(), pos = position ? neueKennung() : undefined;
-  const p = lv.werte.projekt ?? null;
-  ausfuehrenMehrere([
-    befehl,
-    { objekt: 'lv_position', art: 'anlegen', objektId: titel, werte: { projekt: p, lv: lv.id, nachtrag: id, oz: nr, art: 'titel', kurztext: name } },
-    ...(position ? [{ objekt: 'lv_position', art: 'anlegen' as const, objektId: pos!, werte: { projekt: p, lv: lv.id, nachtrag: id, oz: `${nr}.0010`, art: 'normal', ...position } }] : []),
-  ], `Nachtrag ${nr}`);
-  return { nr, id, titel, position: pos };
-}
 
 export function Auftraege(m: Mitte): JSX.Element {
   const lv = () => lvVon(m);

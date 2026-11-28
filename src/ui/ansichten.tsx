@@ -1,6 +1,7 @@
 // Ansichten der Module. Die Ansicht eines Objekts kommt von selbst (ObjektAnsicht: Baum, Tabelle, Detailkarte im Rahmen).
 // Hier steht nur, was ein Modul darüber hinaus zeigt – und was es an den Bausteinen über die Stellschrauben einstellt.
-import { BesprechungAbgleich, BesprechungKnopf } from './besprechung';
+import { BesprechungAbgleich, BesprechungKnopf, GrundlagenMerken } from './besprechung';
+import { GRUNDLAGEN } from '../module/ava/besprechung';
 import { BueroLogo } from './buerologo';
 import { KatalogListe, KatalogNetz } from './katalognetz';
 import { Darstellungsseite } from './designwahl';
@@ -47,7 +48,7 @@ import { gesamtdicke, uWert } from '../module/gebaeudemodell/bauphysik';
 import { Unterliste } from './baukasten/unterliste';
 import { Gebaeude3d } from './gebaeude3d';
 import { Kopierquelle, kopierquelleOffen } from './kopierquelle';
-import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvUeberblick, PositionSumme, ZuschlagAuf } from './ava';
+import { AngebotSumme, AuftragKarte, Kostenkontrolle, Nachverfolgen, Versand, LvUeberblick, MengeAusRechenweg, PositionBilder, PositionSumme, ZuschlagAuf } from './ava';
 import { RechnungLeiter, Rechnungen } from './rechnungen';
 import { AvaHandy } from './avahandy';
 import { planDerVersion } from './plandaten';
@@ -515,14 +516,14 @@ const ANPASSUNG: Record<string, Anpassung> = {
   nachricht: { kartenZusatz: (z) => <NachrichtAnhaenge nachricht={z} /> },
   // Ausschreibung: Summen in den Karten
   lv: { kartenOben: (z) => <LvUeberblick lv={z} />, kartenEinschub: { vergabenummer: (z) => <VergabenummerVorschlag lv={z} /> } },
-  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), kartenEinschub: { ep: (z) => <ZuschlagAuf pos={z} /> }, neuVorgabe: (vorh, schon) => {
+  lv_position: { kartenZusatz: (z) => PositionSumme({ pos: z }), kartenEinschub: { ep: (z) => <ZuschlagAuf pos={z} />, mengen_rechenweg: (z) => <MengeAusRechenweg pos={z} />, langtext: (z) => <PositionBilder pos={z} /> }, neuVorgabe: (vorh, schon) => {
     // im Nachtrag: dessen Nummer vorne (N1.0010, N1.0020 …), sonst hinter der letzten Position der Ausschreibung
     const nt = schon.nachtrag ? sicht.nachtrag?.[String(schon.nachtrag)] : undefined;
     if (nt) { const eigene = vorh.filter((x) => x.werte.nachtrag === nt.id); return { art: 'normal', oz: eigene.length ? naechsteOz(eigene) : `${String(nt.werte.nummer || 'N')}.0010` }; }
     return { art: 'normal', oz: naechsteOz(vorh.filter((x) => x.werte.lv === schon.lv && !x.werte.nachtrag)) };
   } },
   angebot: { kartenZusatz: (z) => <><AngebotSumme angebot={z} /><BesprechungKnopf angebot={z} /></> },
-  besprechung: { kartenOben: (z) => <BesprechungAbgleich z={z} /> },
+  besprechung: { kartenOben: (z) => <BesprechungAbgleich z={z} />, kartenEinschub: { [GRUNDLAGEN[GRUNDLAGEN.length - 1]![0]]: (z) => <GrundlagenMerken z={z} /> } },
   rechnung: { kartenZusatz: (z) => <RechnungLeiter rechnung={z} />,
     knoepfe: (z) => (darf('rechnung', 'schreiben') ? [{ titel: 'E-Rechnung einlesen …', zeichen: 'datei_hoch', gruppe: 'Austausch', tun: () => rechnungEinlesen(String(z.projekt)) }] : []) },
   // Fotos wie im bisherigen Bauportal: Vorschaubilder nebeneinander, rechts das Foto groß (‹ 1 von n › blättert)

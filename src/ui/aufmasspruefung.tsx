@@ -15,7 +15,7 @@ import { lvVon } from './avakopf';
 import type { Mitte } from './baukasten/anpassung';
 import { LV_SPALTEN, LvBaum, eur, lvSpalteLesen, zahlAus, zahlText, type BaumSpalte, type FussZeile } from './lvbearbeiten';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht } from './unterbau/abgleich';
-import { nachtragAnlegen } from './auftraege';
+import { nachtragAnlegen } from './avadaten';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
 import { istText } from '../kern/lvarten';
@@ -110,7 +110,7 @@ export function Aufmasspruefung(m: Mitte): JSX.Element {
   ];
   const positionen = () => lebende('lv_position').filter((q) => q.werte.lv === lv()?.id);
   return (
-    <LvBaum m={m} spalten={spalten} speicher={`bp_spalten_aufmass_${kum() ? 'k' : 'e'}`} mitNachtraegen ohneHinweise knoepfe={knoepfe} fuss={fuss()}
+    <LvBaum m={m} spalten={spalten} speicher={`bp_spalten_aufmass_${kum() ? 'k' : 'e'}`} ansicht="aufmass" mitNachtraegen ohneHinweise knoepfe={knoepfe} fuss={fuss()}
       oben={() => (<>
         <RechnungsLeiste rechnungen={a.rechnungen()} gewaehlt={a.r()} onWahl={setRechnungWahl} leer="Noch keine Rechnung – unter „Rechnungen“ anlegen. Das Aufmaß lässt sich schon „laufend“ erfassen.">
           <Show when={a.r() && lv()}><span class="am-einlesen"><AufmassEinlesen lv={lv()!} rechnung={a.r()!} positionen={positionen()} mengen={a.firma()} /></span></Show>

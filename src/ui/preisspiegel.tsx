@@ -16,6 +16,8 @@ import { besprechungOeffnen } from './besprechung';
 import { gaebEinlesen } from './uebernahme';
 import { AngebotExcelFenster, angebotExcelEinlesen } from './lvexcel';
 import { zeigeMenue } from './baukasten/kontextmenue';
+import { NICHT_GRUENDE } from '../module/ava/beipackzettel';
+import { ergaenzungen } from '../kern/textergaenzung';
 import { ausfuehren, ausfuehrenMehrere, lebende } from './unterbau/abgleich';
 import { darf, neueKennung } from './unterbau/api';
 import { hinweis } from './unterbau/meldungen';
@@ -48,7 +50,12 @@ export function Preisspiegel(m: Mitte): JSX.Element {
     kopf: () => <span class="ps-kopf-bieter" classList={{ aus: a.werte.ausgeschlossen === true, gewaehlt: psAngebot() === a.id }} role="button" tabIndex={0} title={a.werte.ausgeschlossen === true ? 'ausgeschlossen – nicht gewertet' : 'Klick: Angaben zum Angebot rechts'}
       onClick={(e) => { e.stopPropagation(); setLvZeiger(null); setPsAngebot(psAngebot() === a.id ? null : a.id); }}>{name(a.werte.bieter)}{a.werte.beauftragt === true ? ' ✓' : ''}</span>,
     wert: (q) => { const e = preis(a.id, q.id); return e == null ? '' : `${eur(e)}${istZuschlag(q.werte.art) ? ' %' : ''}`; }, roh: (q) => zahlText(preis(a.id, q.id)),
-    hinweis: (q) => { const x = preise().get(`${a.id}:${q.id}`)?.werte.angaben; return x ? `Angaben der Bieter:in – ${String(x)}` : undefined; },
+    // Bieterangaben (wie bisher): die Angabe der Bieter:in – fehlt sie, gilt der Vorschlag des Büros als angeboten (VHB 213 Nr. 8)
+    hinweis: (q) => {
+      const x = preise().get(`${a.id}:${q.id}`)?.werte.angaben; if (x) return `Angaben der Bieter:in – ${String(x)}`;
+      const v = ergaenzungen(String(q.werte.langtext ?? '')).filter((e) => e.art === 'bieter' && e.wert).map((e) => `${e.frage}: ${e.wert}`);
+      return v.length && preis(a.id, q.id) != null ? `Keine Angabe der Bieter:in – der Vorschlag gilt als angeboten: ${v.join(' · ')}` : undefined;
+    },
     klasse: (q) => { const e = preis(a.id, q.id); if (e == null || a.werte.ausgeschlossen === true) return undefined; const v = vergleich(q); return v.min != null && e === v.min ? 'guenstig' : v.mittel && Math.abs(e / v.mittel - 1) > 0.3 ? 'abweichend' : undefined; },
     summe: (pos) => pos.filter(zaehlt).reduce((s, q) => s + gpMit(q, lvMenge, (y) => preis(a.id, y.id)), 0),
     ...(darfPreise() ? { setzen: (q: Zeile, t: string) => setzen(a, q, t) } : {}),
@@ -83,12 +90,16 @@ export function Preisspiegel(m: Mitte): JSX.Element {
     ausfuehrenMehrere([{ objekt: 'angebot', art: 'aendern', objektId: a.id, werte: { beauftragt: false, auftragsdatum: null } }, { objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { status: 'versendet' } }], `Vergabe an ${name(a.werte.bieter)} aufheben`);
     hinweis(`Die Beauftragung von ${name(a.werte.bieter)} ist aufgehoben – das LV steht wieder in der Ausschreibung, die Angebote sind wieder änderbar.`);
   };
-  const nichtVergeben = () => { if (lv()) ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { status: 'aufgehoben' } }, 'Nicht vergeben'); hinweis('Das LV wird nicht vergeben – es zählt nicht mehr für Budget, Prognose und To-dos.'); };
+  // Nicht vergeben (wie bisher mit Grund und Tag) – noch einmal: zurücknehmen, das LV steht wieder in der Vergabe
+  const nichtVergeben = (grund: string) => { if (lv()) ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { status: 'aufgehoben', nicht_vergeben_grund: grund, nicht_vergeben_am: heute() } }, 'Nicht vergeben'); hinweis('Das LV wird nicht vergeben – es zählt nicht mehr für Budget, Prognose und To-dos. Die Angebote bleiben erhalten.'); };
+  const nichtVergebenZurueck = () => { if (lv()) ausfuehren({ objekt: 'lv', art: 'aendern', objektId: lv()!.id, werte: { status: ang().length ? 'angebote' : 'versendet', nicht_vergeben_grund: '', nicht_vergeben_am: '' } }, '„Nicht vergeben“ zurücknehmen'); hinweis('„Nicht vergeben“ zurückgenommen.'); };
   const knoepfe = () => [
     ...(darf('angebot', 'schreiben') && lv() && !vergeben() ? [{ titel: 'Bieter:in', zeichen: 'person_neu', gruppe: 'Neu', tun: () => setBieterOffen(true) }] : []),
     ...(lv() ? [{ titel: 'Besprechung', zeichen: 'vertrag', gruppe: 'Vergabe', gesperrt: !ang().length, tun: () => { const a = ang().find((x) => x.id === psAngebot()) ?? ang().find((x) => x.werte.beauftragt === true) ?? ang().find((x) => wVon(x)?.rang === 1); if (a) besprechungOeffnen(a); } }] : []),
     ...(lv() && darf('lv', 'schreiben') && vergeben() ? [{ titel: 'Vergabe aufheben', zeichen: 'zurueck', gruppe: 'Vergabe', tun: aufheben }] : []),
-    ...(lv() && darf('lv', 'schreiben') && !vergeben() ? [{ titel: 'Nicht vergeben', zeichen: 'schliessen', gruppe: 'Vergabe', gesperrt: lv()!.werte.status === 'aufgehoben', tun: nichtVergeben }] : []),
+    ...(lv() && darf('lv', 'schreiben') && !vergeben() ? [lv()!.werte.status === 'aufgehoben'
+      ? { titel: 'Nicht vergeben', zeichen: 'schliessen', gruppe: 'Vergabe', an: true, tun: nichtVergebenZurueck }
+      : { titel: 'Nicht vergeben', zeichen: 'schliessen', gruppe: 'Vergabe', tun: (e: MouseEvent) => zeigeMenue(e, NICHT_GRUENDE.map((g) => ({ titel: g.wert ? g.titel : 'ohne Angabe eines Grunds', tun: () => nichtVergeben(g.wert) }))) }] : []),
     ...(lv() && darf('angebot', 'schreiben') ? [{ titel: 'Import', zeichen: 'import', gruppe: 'Datei', rechts: true, tun: (e: MouseEvent) => zeigeMenue(e, [
       { titel: 'GAEB-Angebot (X84) …', tun: () => gaebEinlesen(String(lv()!.werte.projekt), lv()!.id) },
       { titel: 'Excel-Angebot …', gesperrt: !ang().length || !darfPreise(), tun: () => angebotExcelEinlesen(lv()!, ang().some((a) => a.id === psAngebot()) ? psAngebot()! : null) }]) }] : []),

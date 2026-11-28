@@ -25,8 +25,8 @@ import { NeuesLv } from './neueslv';
 import { projektId } from './projekt';
 import { lvFolge, lvVon, lvWaehlen } from './avakopf';
 import { druckOeffnen } from './druck';
-import { springeZu } from './sprung';
-import { gaebAusgeben, gpMit, nachtragNeu } from './avadaten';
+import { appOeffnen, springeZu } from './sprung';
+import { epVon, gaebAusgeben, gpMit, nachtragAnlegen, nachtragNeu } from './avadaten';
 import { gaebEinlesen } from './uebernahme';
 import { LvExcelFenster, lvExcelAusgeben, lvExcelEinlesen } from './lvexcel';
 import type { Mitte } from './baukasten/anpassung';
@@ -76,6 +76,9 @@ const FREI = new Set<string>();   // freigeschaltete vergebene LVs – bis zum N
 export const [lvZeiger, setLvZeiger] = createSignal<string | null>(null);
 // Blättern in der Karte (wie bisher „3 von 35“): durch die Positionen in der Reihenfolge, die der Baum gerade zeigt
 const [lvReihe, setLvReihe] = createSignal<string[]>([]);
+// eine Position in einer anderen Ansicht der Ausschreibung zeigen (Kontextmenü „Im Leistungsverzeichnis zeigen“, „In der Aufmaßprüfung zeigen“)
+const [zuZeigen, setZuZeigen] = createSignal<{ id: string; ansicht: string } | null>(null);
+export function positionZeigen(id: string, ansicht: 'lv' | 'aufmass'): void { setZuZeigen({ id, ansicht }); appOeffnen('ava', ansicht); }
 export const lvBlaettern = () => {
   const ids = lvReihe(), i = ids.indexOf(lvZeiger() ?? '');
   return i < 0 ? undefined : { nr: i + 1, anzahl: ids.length, onSchritt: (s: -1 | 1) => { const n = ids[i + s]; if (n) setLvZeiger(n); } };
@@ -101,7 +104,7 @@ export const LV_SPALTEN: BaumSpalte[] = [
     } },
   { id: 'ep', titel: 'EP (Schätzung)', breite: 110, rechts: true, wert: (q) => (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : `${eur(zahl(q.werte.ep))}${istZuschlag(q.werte.art) ? ' %' : ''}`), roh: (q) => zahlText(q.werte.ep),
     setzen: (q, t) => { const n = zahlAus(t); if (typeof n === 'string') return n; aendern(q.id, { ep: n }, 'Einheitspreis'); } },
-  { id: 'gp', titel: 'GP', breite: 108, rechts: true, wert: (q) => (zaehlt(q) ? (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : eur(gpMit(q))) : istHinweis(q.werte.art) ? '' : 'ohne GP'),
+  { id: 'gp', titel: 'GP', breite: 108, rechts: true, wert: (q) => (zaehlt(q) ? (q.werte.ep === null || q.werte.ep === undefined || q.werte.ep === '' ? '' : eur(gpMit(q))) : istHinweis(q.werte.art) ? '' : q.werte.entfaellt === true ? 'entfällt' : 'ohne GP'),
     summe: summeGeschaetzt },
 ];
 
@@ -121,12 +124,13 @@ export interface LvBaumProps {
   ohneHinweise?: boolean;             // Hinweistexte nicht zeigen (Preisspiegel)
   bezeichnung?: { darf: (pos: Zeile) => boolean; setzen: (pos: Zeile, text: string) => void };   // Bezeichnung ohne „struktur“ ändern (z. B. Nachtrag in den Aufträgen)
   oben?: (lv: Zeile) => JSX.Element;  // über der Tabelle (z. B. Hinweise)
+  ansicht?: 'lv' | 'aufmass';         // welche Ansicht das ist – „… zeigen“ aus dem Kontextmenü markiert die Position nur hier
 }
 
 /** LV bearbeiten: der LV-Baum mit den Spalten des LV und allem zum Gliedern. */
 const SUMME: FussZeile = { titel: 'Summe netto (ohne Bedarfs-/Wahlpositionen)', wert: (s, pos) => { const n = s.summe?.(pos); return n === null || n === undefined ? '' : eur(n); } };
 // Nachträge stehen wie bisher an ihrer Stelle im LV (orange, NT) – Preisspiegel und X83 lassen sie weg
-export const LvBearbeiten = (m: Mitte) => <LvBaum m={m} spalten={() => LV_SPALTEN} speicher="bp_spalten_lv2" struktur mitNachtraegen fuss={[SUMME]} />;
+export const LvBearbeiten = (m: Mitte) => <LvBaum m={m} spalten={() => LV_SPALTEN} speicher="bp_spalten_lv2" ansicht="lv" struktur mitNachtraegen fuss={[SUMME]} />;
 
 export function LvBaum(p: LvBaumProps): JSX.Element {
   const lv = () => lvVon(p.m);
@@ -159,6 +163,17 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   const gesperrt = () => { frei(); return vergeben() && !FREI.has(lv()?.id ?? ''); };
   const schreiben = () => darf('lv_position', 'schreiben') && !gesperrt();
   const wahl = zeilenwahl({ reihe: () => zeilen().map((z) => z.id), sichtbar: () => sichtbar().map((z) => z.id), onZeiger: (id) => { setLvZeiger(id); if (id && !p.m.gewaehlt() && lv()) p.m.onWahl(lv()!.id); } });
+  // „Im Leistungsverzeichnis / in der Aufmaßprüfung zeigen“ (Kontextmenü): das LV der Position wählen, die Zeile markieren und zeigen
+  createEffect(() => {
+    const z = zuZeigen(); if (!z || z.ansicht !== p.ansicht) return;
+    const id = z.id, q = sicht.lv_position?.[id]; if (!q) return;
+    if (lv()?.id !== q.werte.lv) { p.m.onWahl(String(q.werte.lv)); return; }
+    setZuZeigen(null); setLvZu(false);
+    const oben = new Set(zeilen().filter((t) => t.titel && String(q.werte.oz ?? '').startsWith(`${t.oz}.`)).map((t) => t.id));
+    if ([...zu()].some((x) => oben.has(x))) setZu(new Set([...zu()].filter((x) => !oben.has(x))));
+    wahl.setMarkiert(id);
+    queueMicrotask(() => flaeche.querySelector(`.lvt-zeile[data-id="${id}"]`)?.scrollIntoView({ block: 'center' }));
+  });
   // erste Spalte „Bezeichnung“ gehört dem Baustein; die übrigen bringt die Ansicht mit
   const BEZ: BaumSpalte = { id: 'kurztext', titel: 'Bezeichnung', breite: 380, wert: (q) => String(q.werte.kurztext ?? '') };
   const alleSpalten = () => [BEZ, ...p.spalten()];
@@ -223,15 +238,15 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
   createEffect(() => { const a = lvAblage(); if (!a || !p.struktur) return; untrack(() => { setLvAblage(null); einfuegenAblage(a, wahl.markiert() ?? endeDerEbene()); }); });
   /** Neue Zeile (wie bisher) direkt unter der markierten; ohne Markierung am Ende der Gliederungsebene, in der zuletzt gearbeitet wurde
    *  (sonst am Ende des LV). Ist zwischen den Nachbarn keine OZ frei, rücken die Positionen danach auf – ein Schritt zum Rückgängigmachen. */
-  const neu = (titel: boolean) => {
+  const neu = (titel: boolean, art = 'normal') => {
     if (!schreiben() || !lv()) return;
     const Z = zeilen(), id = neueKennung(), markiert = wahl.markiert();
     const ebene = letzteEbene() && Z.some((z) => z.id === letzteEbene()) ? letzteEbene() : [...Z].reverse().find((z) => z.titel)?.id ?? null;
     const oz = titel ? einfuegeStelle(Z, markiert ?? Z[Z.length - 1]?.id ?? null, true, maske(), id)
       : positionEinfuegen(Z, markiert ? { nach: markiert } : { amEnde: ebene }, maske(), id);
     ausfuehrenMehrere([
-      { objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(id)!, art: titel ? 'titel' : 'normal', kurztext: titel ? 'Neuer Gliederungspunkt' : 'Neue Position', menge: null, einheit: titel ? '' : 'Stk', ep: null } },
-      ...[...oz].filter(([k]) => k !== id).map(([k, v]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: k, werte: { oz: v } }))], titel ? 'Gliederungspunkt einfügen' : 'Position einfügen');
+      { objekt: 'lv_position', art: 'anlegen', objektId: id, werte: { projekt: lv()!.werte.projekt ?? null, lv: lv()!.id, oz: oz.get(id)!, art: titel ? 'titel' : art, kurztext: titel ? 'Neuer Gliederungspunkt' : istHinweis(art) ? 'Neuer Hinweistext' : 'Neue Position', menge: null, einheit: titel || istHinweis(art) ? '' : 'Stk', ep: null } },
+      ...[...oz].filter(([k]) => k !== id).map(([k, v]) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: k, werte: { oz: v } }))], titel ? 'Gliederungspunkt einfügen' : istHinweis(art) ? 'Hinweistext einfügen' : 'Position einfügen');
     setLvZu(false); wahl.setMarkiert(id); queueMicrotask(() => bearbeiten(id, 'kurztext', undefined, true));
   };
   /** Neuer Gliederungspunkt eine Ebene unter der markierten Zeile – gewählte Positionen kommen hinein (wie bisher). */
@@ -382,18 +397,46 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
     const Z = artZeilen().filter((q) => q.werte.art !== art); if (!Z.length) return;
     ausfuehrenMehrere(Z.map((q) => ({ objekt: 'lv_position', art: 'aendern' as const, objektId: q.id, werte: { art } })), `${Z.length === 1 ? 'Position' : `${Z.length} Positionen`} als ${titel}`);
   };
+  // Kontextmenü wie bisher (ava-kontext.js) – je Menü höchstens 9 Punkte, Neu und Art als Untermenü (▸)
+  const eigenschaften = (id: string) => { wahl.setMarkiert(id); setLvZeiger(id); p.m.onOeffnen(); };
+  const langtexteDarin = (id: string, auf: boolean) => { const ids = mitUnterzeilen(zeilen(), id).filter((x) => !x.titel).map((x) => x.id); const n = new Set(lang()); for (const x of ids) if (auf) n.add(x); else n.delete(x); setLang(n); };
+  const nachtragAus = (q: Zeile) => {
+    const ep = epVon(lv()!.id)(q), oz = String(q.werte.oz ?? ''), k = String(q.werte.kurztext ?? '');
+    const n = nachtragAnlegen(lv()!, `Nachtrag zu ${oz} ${k}`.trim(), { kurztext: `wie Pos. ${oz}, jedoch …`, langtext: q.werte.langtext ?? '', einheit: q.werte.einheit ?? '', menge: null, ep, bezug: q.id });
+    hinweis(`Nachtrag ${n.nr} aus Position ${oz} angelegt (EP des Auftrags übernommen) – Bezeichnung und Menge in der Zeile eintragen, Stand in der Karte.`);
+    if (n.position) eigenschaften(n.position);
+  };
   const menue = (e: MouseEvent, z: LvZeile) => {
     e.preventDefault(); if (!wahl.istGewaehlt(z.id)) wahl.setMarkiert(z.id);
-    const q = nachId(z.id);
-    zeigeMenue(e, [
-      ...(q && p.menue ? p.menue(q) : []),
-      ...(p.struktur && schreiben() ? (z.titel ? [{ titel: 'Position darin', tun: () => neu(false) }, { titel: 'Gliederungspunkt darin', tun: gliederung }]
-        : [{ titel: 'Position darunter', tun: () => neu(false) }, { titel: 'Gliederungspunkt darunter', tun: () => neu(true) }]) : []),
-      ...(p.struktur ? [{ titel: 'Kopieren', tun: () => kopieren() }, ...(schreiben() ? [{ titel: 'Einfügen darunter', tun: einfuegen }] : [])] : []),
-      ...(!z.titel ? [{ titel: lang().has(z.id) ? 'Langtext zuklappen' : 'Langtext zeigen', tun: () => umschaltenLang(z.id) }] : []),
-      ...(z.titel ? [{ titel: zu().has(z.id) ? 'Aufklappen' : 'Zuklappen', tun: () => umschalten(z.id) }] : []),
-      ...(p.struktur && schreiben() && darf('lv_position', 'loeschen') ? [{ titel: wahl.gewaehlt().length > 1 ? `${wahl.gewaehlt().length} Zeilen löschen` : z.titel ? 'Gliederungspunkt mit Inhalt löschen' : 'Position löschen', gefahr: true, tun: loeschen }] : []),
-    ]);
+    const q = nachId(z.id), mehrere = wahl.gewaehlt().length > 1, bau = !!p.struktur && schreiben();   // vergeben und nicht freigeschaltet: nichts an der Gliederung
+    const neuUnter = (darin: boolean): Menuepunkt => ({ titel: darin ? 'Neu darin' : 'Neu darunter', unter: [
+      { titel: 'Position', tun: () => neu(false) }, { titel: 'Hinweistext', tun: () => neu(false, 'hinweis') }, { titel: 'Gliederungspunkt', tun: () => (darin ? gliederung() : neu(true)) }] });
+    const artUnter: Menuepunkt = { titel: 'Art', gesperrt: !artZeilen().length, unter: ARTEN_MENUE.map(([w, t]) => ({ titel: `${t} (${ART_KURZ[w]})`, an: !mehrere && q?.werte.art === w, tun: () => artSetzen(w, t) })) };
+    const ablage: Menuepunkt[] = p.struktur ? [{ titel: z.titel && !mehrere ? 'Kopieren (mit Inhalt)' : 'Kopieren', tun: () => kopieren() },
+      ...(bau ? [{ titel: z.titel && !mehrere ? 'Ausschneiden (mit Inhalt)' : 'Ausschneiden', tun: () => kopieren(true) }, { titel: 'Einfügen darunter', tun: einfuegen }] : [])] : [];
+    const weg: Menuepunkt[] = bau && darf('lv_position', 'loeschen') ? [{ titel: mehrere ? `${wahl.gewaehlt().length} Zeilen löschen` : z.titel ? 'Gliederungspunkt mit Inhalt löschen' : istHinweis(q?.werte.art) ? 'Hinweistext löschen' : 'Position löschen', gefahr: true, tun: loeschen }] : [];
+    const zeigen: Menuepunkt[] = !p.struktur && q && !z.titel ? [{ titel: 'Im Leistungsverzeichnis zeigen', tun: () => positionZeigen(q.id, 'lv') }] : [];
+    const auftrag: Menuepunkt[] = vergeben() && q && !z.titel && !istHinweis(q.werte.art) ? [{ titel: 'Auftrag', unter: [
+      ...(!q.werte.nachtrag && darf('nachtrag', 'schreiben') ? [{ titel: 'Nachtrag aus dieser Position', tun: () => nachtragAus(q) }] : []),
+      { titel: 'In der Aufmaßprüfung zeigen', tun: () => positionZeigen(q.id, 'aufmass') }] }] : [];
+    zeigeMenue(e, mehrere ? [...ablage, ...(bau ? [artUnter] : []), ...weg]
+      : z.titel ? [
+        { titel: 'Eigenschaften …', tun: () => eigenschaften(z.id) },
+        ...(bau ? [{ titel: 'Umbenennen', tun: () => bearbeiten(z.id, 'kurztext', undefined, true) }, neuUnter(true)] : []),
+        ...ablage,
+        { titel: 'Langtexte darin zeigen', tun: () => langtexteDarin(z.id, true) },
+        { titel: zu().has(z.id) ? 'Aufklappen' : 'Zuklappen', tun: () => umschalten(z.id) },
+        ...weg]
+      : [
+        ...(q && p.menue ? p.menue(q) : []),
+        { titel: 'Eigenschaften …', tun: () => eigenschaften(z.id) },
+        ...zeigen,
+        ...(bau ? [neuUnter(false)] : []),
+        ...ablage,
+        ...(bau && !istHinweis(q?.werte.art) ? [artUnter] : []),
+        { titel: lang().has(z.id) ? 'Langtext zuklappen' : 'Langtext zeigen', tun: () => umschaltenLang(z.id) },
+        ...auftrag,
+        ...weg]);
   };
   const umschalten = (id: string) => { const n = new Set(zu()); if (n.has(id)) n.delete(id); else n.add(id); setZu(n); };
   // wie bisher: ist genau ein Langtext offen – der der gewählten Zeile –, wandert er mit der Auswahl
@@ -500,7 +543,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
                 <Show when={p.struktur && vergeben()}><button type="button" class="lvt-sperre" onClick={(e) => { e.stopPropagation(); freischalten(); }} title={gesperrt() ? 'Beauftragt – Positionen sind Vertragsinhalt. Klick schaltet das Bearbeiten frei.' : 'Bearbeiten freigeschaltet – Klick sperrt wieder'}>{gesperrt() ? '🔒' : '🔓'}</button></Show></>}
               summe={(s) => summeText(s, positionen())} />
             <For each={sichtbar().map((x) => x.id)} fallback={<Show when={!lvZu()}><p class="still-text lvt-leer">Noch keine Positionen. Mit „Gliederung“ und „Position“ oben anfangen, aus dem Gebäudemodell übernehmen oder eine GAEB-Datei einlesen.</p></Show>}>{(id) => { const z = () => nachZeile().get(id)!; return (<>
-              <div class="lvt-zeile" data-id={id} role="row" aria-level={z().ebene + 3} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, 'lvt-hinweis': istHinweis(nachId(z().id)?.werte.art), 'lvt-nt': !!nachId(z().id)?.werte.nachtrag }}
+              <div class="lvt-zeile" data-id={id} role="row" aria-level={z().ebene + 3} aria-selected={wahl.istGewaehlt(z().id)} classList={{ titel: z().titel, gewaehlt: wahl.istGewaehlt(z().id) || wahl.markiert() === z().id, 'lvt-hinweis': istHinweis(nachId(z().id)?.werte.art), 'lvt-nt': !!nachId(z().id)?.werte.nachtrag, 'lvt-entfaellt': nachId(z().id)?.werte.entfaellt === true }}
                 onClick={(e) => { if (!edit()) wahl.klick(e, z().id); }} onContextMenu={(e) => menue(e, z())} onPointerDown={(e) => zugStart(e, id)}>
                 <For each={spalten()}>{(s) => (
                    <div class={`lvt-zelle ${(!z().titel && nachId(id) && s.klasse?.(nachId(id)!)) || ''}`} role="gridcell" data-spalte={s.id} title={(!z().titel && nachId(id) && s.hinweis?.(nachId(id)!)) || undefined} classList={{ rechts: !!s.rechts, zeiger: wahl.markiert() === z().id && spalte() === s.id, ed: bearbeitbar(z(), s.id), 'mit-hinweis': !z().titel && !!nachId(id) && !!s.hinweis?.(nachId(id)!) }} style={{ width: `${s.breite}px` }}
@@ -511,7 +554,7 @@ export function LvBaum(p: LvBaumProps): JSX.Element {
                           <Klappe zu={zu().has(z().id)} onKlick={() => umschalten(z().id)} /></Show>
                         <Show when={z().titel} fallback={Art(nachId(id))}><Zeichen name="gliederung" groesse={14} /></Show>
                         <span class="lvt-oz" title={p.struktur ? 'Zum Verschieben die Zeile greifen und ziehen (Strg: kopieren) · Doppelklick: OZ ändern' : undefined} onDblClick={(e) => { e.stopPropagation(); bearbeiten(id, 'oz'); }}>{z().oz}</span>
-                        <span class="lvt-text">{wert(z(), s)}</span></span> : wert(z(), s)}>
+                        <span class="lvt-text">{wert(z(), s)}</span><Show when={!z().titel && nachId(id)?.werte.schwerpunkt === true}><span class="lvt-marke" title="Schwerpunktposition">S</span></Show></span> : wert(z(), s)}>
                       <input class="lvt-edit" value={edit()!.text} aria-label={edit()!.spalte === 'oz' ? 'OZ' : s.titel} ref={(el) => queueMicrotask(() => { el.focus(); if (edit()?.alles) el.select(); else el.setSelectionRange(el.value.length, el.value.length); })}
                         onInput={(e) => setEdit({ ...edit()!, text: e.currentTarget.value })} onKeyDown={(e) => editTaste(e, z())} onBlur={() => { const e = edit(); if (e && e.id === id) uebernehmen(); }} />
                     </Show>

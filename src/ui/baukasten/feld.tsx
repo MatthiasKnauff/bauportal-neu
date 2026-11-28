@@ -117,6 +117,8 @@ export function FeldEingabe(p: {
   const ereignis = () => (p.sofort ? { onInput: melden } : { onChange: melden });
   const eingabe = () => <input id={id} type={typ()} inputMode={p.feld.art === 'zahl' ? 'decimal' : undefined} value={text()} autocomplete="off" readOnly={p.gesperrt}
     onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} {...ereignis()} />;
+  // Stellschraube „ki“: die Felder, die als Grundlage mitgehen (z. B. Kurztext und Einheit), vor dem eigenen Text
+  const kiText = () => [...(p.objekt ? p.feld.ki?.aus ?? [] : []).map((n) => [n, String(p.zusammenhang?.[n] ?? '').trim()]).filter(([, w]) => w).map(([n, w]) => `${modell(p.objekt!).felder.find((f) => f.name === n)?.titel ?? n}: ${w}`), text()].filter(Boolean).join('\n\n');
   const typ = () => (p.feld.art === 'email' ? 'email' : p.feld.art === 'telefon' ? 'tel' : 'text');
   return (
     <div class="feld" data-geerbt={geerbt() || undefined} style={p.feld.kartenBreite ? { '--karten-breite': String(p.feld.kartenBreite) } : undefined} classList={{ 'mit-fehler': !!p.fehler, klein: !!p.klein, quer: p.feld.art === 'ja_nein',
@@ -124,7 +126,7 @@ export function FeldEingabe(p: {
       <label for={id}>{p.feld.titel}{p.feld.pflicht ? ' *' : ''}<Show when={geerbt()}><span class="herkunft herkunft-geerbt" title="Leer – es gilt dieser Wert. Wer hier etwas einträgt, weicht davon ab.">{p.erbe!.von}</span></Show>
         <Show when={p.herkunft}><span class={`herkunft herkunft-${p.herkunft}`} title="Dieser Wert wurde nicht von Hand eingegeben. Sobald du ihn änderst, gilt er als eingegeben.">{HERKUNFT[p.herkunft!] ?? p.herkunft}</span></Show>
         {/* Lange Texte: Wenn das Büro eine KI eingeschaltet hat, kann sie hier einen Vorschlag machen */}
-        <Show when={p.feld.art === 'langtext' && !p.gesperrt && kiAnbindungen().length}><button type="button" class="ki-knopf" title="Die KI macht einen Vorschlag – übernommen wird erst nach deiner Bestätigung" onClick={() => kiOeffnen({ titel: p.feld.titel, text: text(), onUebernehmen: (t) => p.onWert(t, 'ki') })}>✦ KI</button></Show></label>
+        <Show when={p.feld.art === 'langtext' && !p.gesperrt && kiAnbindungen().length}><button type="button" class="ki-knopf" title="Die KI macht einen Vorschlag – übernommen wird erst nach deiner Bestätigung" onClick={() => kiOeffnen({ titel: p.feld.titel, text: kiText(), aufgaben: p.feld.ki?.aufgaben, onUebernehmen: (t) => p.onWert(t, 'ki') })}>✦ KI</button></Show></label>
       <Show when={p.erbe && eigen() && !p.gesperrt}>
         <span class="feld-erbe">
           <button type="button" class="knopf mini still" title={p.erbe!.von ? `Zurück auf den Wert ${p.erbe!.von}` : 'Leeren'} aria-label={`${p.feld.titel} zurücksetzen`} onClick={() => p.onWert(null)}>↺</button>
@@ -217,8 +219,8 @@ export function verweisWahl(f: Feld, zusammenhang?: Werte, objekt?: string): { o
 /** Was ein Verweis zur Wahl stellt: die Einträge des Ziels aus demselben Projekt und derselben Version. */
 export function verweisziele(f: Feld, zusammenhang?: Werte, objekt?: string): { wert: string; titel: string }[] {
   const m = modell(f.ziel!);
-  const gleich = ['projekt', 'version'].filter((k) => zusammenhang?.[k] && m.felder.some((x) => x.name === k));
-  const alle = gemerkt(f.ziel!, `ziele:${gleich.map((k) => String(zusammenhang![k])).join(':')}`, () => lebende(f.ziel!).filter((z) => gleich.every((k) => z.werte[k] === zusammenhang![k]))
+  const gleich = ['projekt', 'version', ...(f.gleich ?? [])].filter((k) => zusammenhang?.[k] && m.felder.some((x) => x.name === k));
+  const alle = gemerkt(f.ziel!, `ziele:${gleich.map((k) => `${k}=${String(zusammenhang![k])}`).join(':')}`, () => lebende(f.ziel!).filter((z) => gleich.every((k) => z.werte[k] === zusammenhang![k]))
     .map((z) => ({ wert: z.id, titel: objektname(m, z.werte) })).sort((a, b) => a.titel.localeCompare(b.titel, 'de', { numeric: true })));
   // Stellschraube „zuerst“: die passenden oben (z. B. Firmen, deren Gewerk zum Gewerk der Leistung passt), sonst wie gehabt
   const such = f.zuerst ? String(zusammenhang?.[f.zuerst.feld] ?? '').trim().toLowerCase() : '';

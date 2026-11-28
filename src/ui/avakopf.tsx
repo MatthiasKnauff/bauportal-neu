@@ -6,14 +6,16 @@ import { istZuschlag, zaehlt } from '../module/ava/rechnung';
 import { AppUmgebung } from './baukasten/rahmen';
 import type { Zeile } from '../kern/befehl';
 import { avaAbfolge, avaSchrittVon } from '../module/ava/abfolge';
-import { LV_STATUS } from '../module/ava/beipackzettel';
+import { LV_STATUS, NICHT_GRUENDE } from '../module/ava/beipackzettel';
 import type { Anpassung, Mitte } from './baukasten/anpassung';
 import { Auswahlliste } from './baukasten/auswahlliste';
 import { anzeige } from './baukasten/feld';
 import { Zeichen } from './baukasten/zeichen';
 import { projektId } from './projekt';
 import { karteOeffnen } from './kartendialog';
-import { ausfuehren, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
+import { ausfuehren, ebenenWerte, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
+import { geerbt, istLeer } from '../kern/erben';
+import type { Wert } from '../kern/modell';
 import { darf, modell } from './unterbau/api';
 
 const [aktivesLv, setAktivesLv] = createSignal<string | null>(null);
@@ -48,8 +50,20 @@ function AvaKopf(p: Mitte): JSX.Element {
   const auftrag = () => (lv() ? lebende('angebot').find((a) => a.werte.lv === lv()!.id && a.werte.beauftragt === true) : undefined);
   // wie bisher: Gewerk · Vertrag · Strafe, dazu die Fristen
   const strafe = () => { const w = wirksameWerte(modell('lv'), lv()!.werte); return w.strafe_prozent ? `${anzeige(feld('strafe_prozent'), w.strafe_prozent)} % je ${anzeige(feld('strafe_tagart'), w.strafe_tagart ?? 'wt')}${w.strafe_max ? `, höchstens ${anzeige(feld('strafe_max'), w.strafe_max)} %` : ''}` : ''; };
-  // wie bisher rechts: Gewerk · Vertrag · Strafe (die Fristen stehen in den Ausschreibungsdaten und im Überblick der Karte)
-  const angaben = () => (lv() ? [['Gewerk', anzeige(feld('gewerk'), lv()!.werte.gewerk)], ['Vertrag', anzeige(feld('vertragsart'), wirksameWerte(modell('lv'), lv()!.werte).vertragsart)], ['Strafe', strafe() || 'keine']] as const : []).filter(([, w]) => w);
+  // wie bisher rechts (Steckbrief): Gewerk · KG, Abgabe mit Uhrzeit, Bindefrist, Vertrag, Strafe, „abweichend vom Projekt: n“ – ein Klick öffnet die Ausschreibungsdaten
+  const tag = (n: string, w: Wert | undefined) => (w ? anzeige(feld(n), w) : '');
+  const angaben = (): [string, string, string?][] => {
+    if (!lv()) return [];
+    const w = wirksameWerte(m(), lv()!.werte), kg = sicht.kostengruppe?.[String(w.kostengruppe ?? '')]?.werte.nummer;
+    return ([['Gewerk', [anzeige(feld('gewerk'), w.gewerk), kg ? `KG ${String(kg)}` : ''].filter(Boolean).join(' · ')],
+      ['Abgabe', [tag('abgabe', w.abgabe), w.abgabe ? String(w.abgabe_zeit ?? '') : ''].filter(Boolean).join(' ')], ['Bindefrist', tag('bindefrist', w.bindefrist)],
+      ['Vertrag', anzeige(feld('vertragsart'), w.vertragsart)], ['Strafe', strafe() || 'keine'],
+      ...(abweichend().length ? [['abweichend vom Projekt', String(abweichend().length), abweichend().join(', ')] as [string, string, string]] : [])] as [string, string, string?][]).filter(([, x]) => x);
+  };
+  /** Ausschreibungsdaten, die dieses LV anders hat als das Projekt (bzw. das Büro) – wie bisher als Zahl mit den Feldnamen als Hinweis. */
+  const abweichend = () => { const z = lv(); if (!z) return []; const eb = ebenenWerte(m(), z.werte);
+    return m().felder.filter((f) => f.erbt && !istLeer(z.werte[f.name]) && (() => { const g = geerbt(m(), f, eb); return !!g && String(g.wert) !== String(z.werte[f.name]); })()).map((f) => f.titel); };
+  const datenOeffnen = () => { const z = lv(); if (z) karteOeffnen({ objekt: 'lv', id: z.id, titel: `Ausschreibungsdaten – LV ${[z.werte.nummer, z.werte.name].filter(Boolean).join(' ')}`, ohneOben: true }); };
   const app = useContext(AppUmgebung);
   const ansichtTitel = () => app?.reiter().find((r) => r.id === app.aktiv())?.titel ?? 'Ausschreibung';
   return (
@@ -61,10 +75,10 @@ function AvaKopf(p: Mitte): JSX.Element {
           <Auswahlliste titel="Stand" aussehen="kapsel" vorsatz="Stand:" wert={String(z().werte.status ?? 'bearbeitung')} optionen={LV_STATUS} gesperrt={!darf('lv', 'schreiben')}
             onWert={(w) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: z().id, werte: { status: w } }, 'Stand des LV')} /></div>
         <span class="kopf-rechts">
-        <Show when={auftrag()} fallback={<span class="kopf-firma offen">{z().werte.status === 'aufgehoben' ? 'aufgehoben – nicht vergeben' : 'noch nicht vergeben'}</span>}>
+        <Show when={auftrag()} fallback={<span class="kopf-firma offen">{z().werte.status === 'aufgehoben' ? ['nicht vergeben', NICHT_GRUENDE.find((g) => g.wert && g.wert === z().werte.nicht_vergeben_grund)?.titel, z().werte.nicht_vergeben_am ? `am ${anzeige(modell('lv').felder.find((f) => f.name === 'nicht_vergeben_am')!, z().werte.nicht_vergeben_am)}` : ''].filter(Boolean).join(' · ') : 'noch nicht vergeben'}</span>}>
           {(a) => <span class="kopf-firma">{anzeige(modell('angebot').felder.find((f) => f.name === 'bieter')!, a().werte.bieter)}{a().werte.auftragsdatum ? ` · beauftragt am ${anzeige(modell('angebot').felder.find((f) => f.name === 'auftragsdatum')!, a().werte.auftragsdatum)}` : ''}</span>}
         </Show>
-        {angaben().map(([k, w]) => <span class="kopf-angabe"><small>{k}</small>{w}</span>)}
+        {angaben().map(([k, w, t]) => <button type="button" class="kopf-angabe" title={t ? `Eigene Angaben dieses LV: ${t}` : 'Ausschreibungsdaten öffnen'} onClick={datenOeffnen}><small>{k}</small>{w}</button>)}
           <button type="button" class="knopf klein" title="Projektdaten: Bauherr:in, Baustelle, Beteiligte, Termine – gelten für alle Apps des Projekts" onClick={() => karteOeffnen({ objekt: 'projekt', id: String(z().werte.projekt), titel: 'Projektdaten' })}><Zeichen name="bearbeiten" groesse={14} /> Projektdaten</button>
           <button type="button" class="knopf klein" title="Ausschreibungsdaten dieses LV: Vergabenummer, Fristen, Ausführung, Kostenansatz" onClick={() => karteOeffnen({ objekt: 'lv', id: z().id, titel: `Ausschreibungsdaten – LV ${[z().werte.nummer, z().werte.name].filter(Boolean).join(' ')}`, ohneOben: true })}><Zeichen name="bearbeiten" groesse={14} /> Ausschreibungsdaten</button>
         </span>

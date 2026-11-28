@@ -1303,6 +1303,7 @@ test('Aufmaß: Rechenweg ohne eval, je Zeile ein Ansatz mit Beschriftung; Prüfs
   assert.equal(w.summe, 18); assert.equal(w.fehler, false);
   assert.equal(r.rechenweg('2*3\nquatsch').fehler, true);
   assert.equal(r.rechenweg('').summe, null);
+  assert.equal(r.ausdruck('2 × 12,40 × 2,75 – 3 × 1,01 × 2,13'), 2 * 12.4 * 2.75 - 3 * 1.01 * 2.13);   // so wie bisher getippt (× und Gedankenstrich)
   const a = await import('../src/module/ava/aufmass');
   assert.equal(a.pruefung(12, 12), 'stimmt');
   assert.equal(a.pruefung(12.5, 12), 'abweichend');
@@ -2378,4 +2379,13 @@ test('Bieter-Wahl: Gewerk der Firma passt zum VOB/C-Namen über Wortstämme (Dac
   assert.ok(gewerkPasst('Heizung/Sanitär', 'Gas-, Wasser- und Entwässerungsanlagen innerhalb von Gebäuden'));
   assert.ok(gewerkPasst('Rohbau', 'Mauerarbeiten') && gewerkPasst('Schreiner', 'Tischlerarbeiten'));
   assert.ok(!gewerkPasst('Maler', 'Dachdeckungs- und Dachabdichtungsarbeiten') && !gewerkPasst('Tischler', 'Metallbauarbeiten') && !gewerkPasst('', 'Mauerarbeiten'));
+});
+
+test('LV: was zur Summe zählt – Bedarf nur „mit Gesamtpreis“, entfallene nie; derselbe Merktext im Ausdruck', async () => {
+  const { zaehltZurSumme, merktext } = await import('../src/kern/lvarten');
+  assert.ok(zaehltZurSumme({ art: 'normal' }) && zaehltZurSumme({ art: 'pauschal' }) && zaehltZurSumme({}));
+  assert.ok(!zaehltZurSumme({ art: 'bedarf' }) && zaehltZurSumme({ art: 'bedarf', mit_gp: true }));
+  assert.ok(!zaehltZurSumme({ art: 'alternativ', mit_gp: true }) && !zaehltZurSumme({ art: 'normal', entfaellt: true }) && !zaehltZurSumme({ art: 'titel' }));
+  assert.equal(merktext({ art: 'bedarf', mit_gp: true }), 'Bedarfsposition – mit Gesamtpreis');
+  assert.equal(merktext({ art: 'normal', entfaellt: true }), 'Position entfällt');
 });

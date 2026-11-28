@@ -7,6 +7,19 @@ export const istHinweis = (art: unknown) => art === 'hinweis' || art === 'vorbem
 /** Zeile ohne Menge und Preis: Titel, Hinweistext, Vorbemerkung. */
 export const istText = (art: unknown) => art === 'titel' || istHinweis(art);
 
+/** Zählt die Position zur Summe (Schätzung, Angebot, Auftrag, Abrechnung, Ausdruck)? Nicht: Text, Bedarfs- und Alternativposition
+ *  (nur Einheitspreis – außer Bedarf „mit Gesamtpreis“) und eine Position, die entfällt. Die eine Stelle für diese Regel. */
+export const zaehltZurSumme = (w: Werte): boolean => !w.entfaellt
+  && (['normal', 'pauschal', 'stundenlohn', 'zuschlag', ''].includes(String(w.art ?? '')) || (w.art === 'bedarf' && w.mit_gp === true));
+/** Merktext im Ausdruck unter dem Langtext, warum eine Position nicht oder anders zählt. */
+export function merktext(w: Werte): string {
+  if (w.entfaellt) return 'Position entfällt';
+  if (w.art === 'bedarf') return w.mit_gp ? 'Bedarfsposition – mit Gesamtpreis' : 'Bedarfsposition – nur Einheitspreis';
+  if (w.art === 'alternativ') return 'Alternativposition – nur Einheitspreis';
+  if (w.art === 'stundenlohn') return 'Stundenlohnarbeiten';
+  return '';
+}
+
 // ---------- Zuschlagsposition (GAEB „MarkupItem“, wie bisher Art Z) ----------
 // Der EP ist ein Satz in %, gerechnet auf die Gesamtpreise der gewählten Positionen. Als Menge zählt deren Summe / 100 –
 // so bleibt GP = Menge × EP überall gleich: in der Schätzung, im Angebot (Preise der Bieter:in), im Auftrag und im Aufmaß

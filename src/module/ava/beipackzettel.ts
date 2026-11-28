@@ -12,6 +12,8 @@ import { ABGABEORTE, AUFFORDERUNGEN, AUSTAUSCHFORMATE, ENERGIE, NACHUNTERNEHMER,
 
 const rechte = { lesen: ALLE, schreiben: ['bueroleitung', 'bauleitung', 'mitarbeiter'], loeschen: ['bueroleitung', 'bauleitung'] };
 
+export const NICHT_GRUENDE = [{ wert: '', titel: '– ohne Angabe –' }, { wert: 'entfallen', titel: 'Leistung entfällt' }, { wert: 'aufgehoben', titel: 'Ausschreibung aufgehoben' },
+  { wert: 'anderweitig', titel: 'anderweitig vergeben' }, { wert: 'zurueckgestellt', titel: 'zurückgestellt' }];
 export const LV_STATUS = [
   { wert: 'bearbeitung', titel: 'in Bearbeitung' }, { wert: 'versendet', titel: 'versendet' }, { wert: 'angebote', titel: 'Angebote liegen vor' },
   { wert: 'vergeben', titel: 'vergeben' }, { wert: 'aufgehoben', titel: 'aufgehoben' },
@@ -35,6 +37,9 @@ export const lv: ObjektModell = {
     { name: 'gewerk', titel: 'Gewerk nach VOB/C', art: 'verweis', ziel: 'gewerk', inListe: true, breite: 200, gruppe: 'Leistungsverzeichnis' },
     { name: 'kostengruppe', titel: 'Kostengruppe (DIN 276)', art: 'verweis', ziel: 'kostengruppe', gruppe: 'Leistungsverzeichnis' },
     { name: 'status', titel: 'Stand', art: 'auswahl', optionen: LV_STATUS, inListe: true, breite: 150, gruppe: 'Leistungsverzeichnis' },
+    // „Nicht vergeben“ wie bisher mit Grund und Tag (zurücknehmen im Preisspiegel)
+    { name: 'nicht_vergeben_grund', titel: 'Nicht vergeben, weil', art: 'auswahl', optionen: NICHT_GRUENDE, kartenBreite: 4, gruppe: 'Leistungsverzeichnis', wenn: { status: ['aufgehoben'] } },
+    { name: 'nicht_vergeben_am', titel: 'am', art: 'datum', kartenBreite: 2, gruppe: 'Leistungsverzeichnis', wenn: { status: ['aufgehoben'] } },
     { name: 'archiviert', titel: 'Im Archiv (aus den Listen genommen, alles bleibt erhalten)', art: 'ja_nein', gruppe: 'Leistungsverzeichnis' },
     // Ausschreibung (wie im bisherigen Bauportal): „erbt“ = leer gilt die Angabe am Projekt bzw. die Vorgabe des Büros
     { name: 'vergabeart', titel: 'Vergabeart', art: 'auswahl', optionen: VERGABEARTEN, eigeneWerte: true, erbt: true, gruppe: 'Ausschreibung' },
@@ -108,11 +113,21 @@ export const lvPosition: ObjektModell = {
     { name: 'oz', titel: 'OZ', art: 'text', inListe: true, breite: 100, kartenBreite: 2, gruppe: 'Position' },
     { name: 'art', titel: 'Art', art: 'auswahl', optionen: POSITIONSARTEN, inListe: true, breite: 120, kartenBreite: 4, gruppe: 'Position' },
     { name: 'kurztext', titel: 'Kurztext', art: 'text', pflicht: true, inListe: true, breite: 360, kartenBreite: 6, gruppe: 'Position' },
-    { name: 'langtext', titel: 'Langtext', art: 'langtext', gruppe: 'Position' },
+    { name: 'langtext', titel: 'Langtext', art: 'langtext', gruppe: 'Position', ki: { aufgaben: ['langtext_mittel', 'langtext_kurz', 'langtext_lang'], aus: ['kurztext', 'einheit'] } },
     { name: 'kostengruppe', titel: 'Kostengruppe (DIN 276, leer: wie das LV)', art: 'verweis', ziel: 'kostengruppe', spalte: true, breite: 200, kartenBreite: 6, gruppe: 'Position' },
     { name: 'menge', titel: 'Menge', art: 'zahl', einheit: 'einheit', inListe: true, breite: 90, kartenBreite: 2, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'einheit', titel: 'Einheit', art: 'text', vorschlagen: true, inListe: true, breite: 70, kartenBreite: 1, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
     { name: 'ep', titel: 'EP geschätzt in € (Zuschlag: Satz in %)', art: 'zahl', inListe: true, breite: 110, kartenBreite: 3, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn', 'zuschlag'] } },
+    { name: 'mengen_rechenweg', titel: 'Rechenweg der Menge (z. B. 2 × 12,40 × 2,75 – 3 × 1,01 × 2,13)', art: 'text', kartenBreite: 6, gruppe: 'Menge und Preis', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
+    { name: 'mit_gp', titel: 'Mit Gesamtpreis (zählt in die Summe)', art: 'ja_nein', spalte: true, kartenBreite: 6, gruppe: 'Menge und Preis', wenn: { art: ['bedarf'] } },
+    // Weiteres (wie bisher Reiter „Weiteres“ der Eigenschaften)
+    { name: 'entfaellt', titel: 'Position entfällt', art: 'ja_nein', spalte: true, kartenBreite: 3, gruppe: 'Weiteres', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn', 'zuschlag'] } },
+    { name: 'schwerpunkt', titel: 'Schwerpunktposition ([S] im Ausdruck)', art: 'ja_nein', spalte: true, kurz: 'S', kartenBreite: 3, gruppe: 'Weiteres', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
+    { name: 'leistungsbereich', titel: 'Leistungsbereich (leer: wie das LV)', art: 'verweis', ziel: 'gewerk', spalte: true, breite: 200, kartenBreite: 4, gruppe: 'Weiteres' },
+    { name: 'kg_1981', titel: 'KG DIN 276 (1981)', art: 'text', spalte: true, breite: 80, kartenBreite: 2, gruppe: 'Weiteres' },
+    { name: 'bezug', titel: 'Bezug auf Position', art: 'verweis', ziel: 'lv_position', gleich: ['lv'], kartenBreite: 6, gruppe: 'Weiteres', wenn: { art: ['normal', 'bedarf', 'alternativ', 'pauschal', 'stundenlohn'] } },
+    { name: 'neue_seite_vor', titel: 'Neue Seite vorher', art: 'ja_nein', kartenBreite: 3, gruppe: 'Druck' },
+    { name: 'neue_seite_nach', titel: 'Neue Seite nachher', art: 'ja_nein', kartenBreite: 3, gruppe: 'Druck' },
     { name: 'zuschlag_auf', titel: 'Zuschlag auf (Positionen)', art: 'text', verborgen: true },   // Kennungen „a,b,c“ – gewählt an der Karte (kern/lvarten.ts)
     { name: 'nachtrag', titel: 'Nachtrag', art: 'verweis', ziel: 'nachtrag', inListe: true, breite: 160, gruppe: 'Position' },   // leer: Position der Ausschreibung; mit Nachtrag: erst nach der Vergabe, nicht im Preisspiegel
     { name: 'quelle', titel: 'Aus Liste oder Modell', art: 'text', verborgen: true },   // Schlüssel „Quelle|Gruppe|…“ (module/ava/lvplan.ts) – hält LV und Quelle abgleichbar
@@ -172,6 +187,7 @@ export const tuer: ObjektModell = {
 export const angebot: ObjektModell = {
   name: 'angebot', titel: 'Angebot', titelMehrzahl: 'Angebote', anzeigeFeld: 'bieter',
   projektFeld: 'projekt', rechte,
+  erben: { praefix: '', ebenen: [{ objekt: 'lv', ueber: 'lv', titel: 'aus dem LV' }] },   // gebunden bis ← Zuschlags- und Bindefrist des LV
   felder: [
     { name: 'projekt', titel: 'Projekt', art: 'verweis', ziel: 'projekt', pflicht: true },
     { name: 'lv', titel: 'Leistungsverzeichnis', art: 'verweis', ziel: 'lv', pflicht: true, inListe: true, breite: 220, gruppe: 'Angebot' },
@@ -180,6 +196,14 @@ export const angebot: ObjektModell = {
     { name: 'rueckmeldung', titel: 'Rückmeldung', art: 'auswahl', optionen: RUECKMELDUNGEN, inListe: true, breite: 140, gruppe: 'Versand' },
     { name: 'nachfassen', spalte: true, titel: 'Nachfassen am (Anruf)', art: 'datum', gruppe: 'Versand' },
     { name: 'eingang', titel: 'Angebot eingegangen am', art: 'datum', inListe: true, breite: 110, gruppe: 'Angebot' },
+    // Angaben zum Angebot (wie bisher ⓘ je Spalte im Preisspiegel)
+    { name: 'nummer', spalte: true, titel: 'Angebotsnummer', art: 'text', kartenBreite: 3, gruppe: 'Angebot' },
+    { name: 'angebot_vom', spalte: true, titel: 'Angebot vom', art: 'datum', kartenBreite: 3, gruppe: 'Angebot' },
+    { name: 'bindefrist', spalte: true, titel: 'gebunden bis', art: 'datum', erbt: true, kartenBreite: 3, gruppe: 'Angebot' },   // leer: Zuschlags- und Bindefrist des LV
+    { name: 'ansprechpartner', titel: 'Ansprechpartner:in', art: 'text', vorschlagen: true, kartenBreite: 3, gruppe: 'Angebot' },
+    { name: 'nebenangebote', titel: 'enthält Nebenangebote', art: 'ja_nein', kartenBreite: 3, gruppe: 'Angebot' },
+    { name: 'rechnerisch_geprueft', titel: 'rechnerisch geprüft', art: 'ja_nein', kartenBreite: 3, gruppe: 'Angebot' },
+    { name: 'vorbehalte', titel: 'Vorbehalte / Abweichungen', art: 'langtext', gruppe: 'Angebot' },
     { name: 'nachlass', titel: 'Nachlass in %', art: 'zahl', inListe: true, breite: 100, kartenBreite: 2, gruppe: 'Konditionen' },
     { name: 'nachlass_eur', titel: 'und/oder Nachlass in €', art: 'zahl', spalte: true, kartenBreite: 2, gruppe: 'Konditionen' },
     { name: 'skonto', spalte: true, titel: 'Skonto in %', art: 'zahl', kartenBreite: 2, gruppe: 'Konditionen' },
@@ -339,7 +363,8 @@ export const besprechung: ObjektModell = {
     { name: 'subunternehmer', titel: 'Subunternehmer', art: 'text', gruppe: 'Angaben der Bieter:in' },
     { name: 'gueltig', titel: 'Gültigkeit', art: 'text', gruppe: 'Angebot' },
     { name: 'angebot_vom', titel: 'Angebot vom', art: 'text', kartenBreite: 2, gruppe: 'Angebot' },
-    { name: 'gewerke', titel: 'Gewerke', art: 'text', kartenBreite: 4, gruppe: 'Angebot' },
+    { name: 'nachtrag_vom', titel: 'Nachtrag vom', art: 'text', kartenBreite: 2, gruppe: 'Angebot' },
+    { name: 'gewerke', titel: 'Gewerke', art: 'text', kartenBreite: 2, gruppe: 'Angebot' },
     { name: 'nachlass', titel: 'Nachlass', art: 'text', kartenBreite: 2, gruppe: 'Angebot' },
     { name: 'skonto', titel: 'Skonto', art: 'text', kartenBreite: 4, gruppe: 'Angebot' },
     { name: 'preis', titel: 'Preis', art: 'langtext', gruppe: 'Angebot' },
@@ -349,6 +374,7 @@ export const besprechung: ObjektModell = {
     { name: 'unterbrechung', titel: 'Unterbrechung', art: 'text', kartenBreite: 2, gruppe: 'Termine' },
     { name: 'bauzeitenplan', titel: 'Bauzeitenplan', art: 'text', gruppe: 'Termine' },
     ...GRUNDLAGEN.map(([name, titel]): ObjektModell['felder'][number] => ({ name, titel, art: 'text', gruppe: 'Vertragsgrundlagen' })),
+    { name: 'sonstiges', titel: 'Sonstiges', art: 'langtext', gruppe: 'Sonstiges' },
     { name: 'ergebnis', titel: 'Ergebnis / Vereinbarungen', art: 'langtext', gruppe: 'Ergebnis' },
     { name: 'quellen', titel: 'Stand der Quellen beim letzten Abgleich', art: 'langtext', verborgen: true },
   ],
@@ -391,7 +417,10 @@ export const ava: Beipackzettel = {
   // Ausschreibungsdaten in drei Ebenen (wie bisher): am Projekt für alle seine LVs, im Büro als Vorgabe – das LV erbt (kern/erben.ts)
   ergaenzt: [
     { objekt: 'projekt', felder: vorgabeFelder(lv, 'Ausschreibung (alle LVs)'), eingeklappt: ['Ausschreibung (alle LVs)'], erben: { praefix: '', ebenen: [{ objekt: 'buero', titel: 'vom Büro' }] } },
-    { objekt: 'buero', felder: vorgabeFelder(lv, 'Vorgaben für Ausschreibungen'), eingeklappt: ['Vorgaben für Ausschreibungen'] },
+    { objekt: 'buero', felder: [...vorgabeFelder(lv, 'Vorgaben für Ausschreibungen'),
+      // Grundlagen der Angebotsbesprechung als Vorgabe des Büros (wie bisher „als Vorgabe des Büros merken“) – leer: ab Werk
+      ...GRUNDLAGEN.map(([n, t]): ObjektModell['felder'][number] => ({ name: `bv_${n}`, titel: t, art: 'text', gruppe: 'Vorgaben für Angebotsbesprechungen' }))],
+      eingeklappt: ['Vorgaben für Ausschreibungen', 'Vorgaben für Angebotsbesprechungen'] },
   ],
   // Ins Fenster ziehen (PDF, Scan, Foto): vorbelegt nach der Seite, auf der man steht – erkannt am Text
   dokumentarten: [
@@ -418,6 +447,7 @@ export const ava: Beipackzettel = {
       merkmale: ['fachunternehmerbescheinigung', 'übereinstimmungserklärung', 'übereinstimmungsbestätigung', 'brandschutz', 'feuerschutz', 'rauchschutz'] },
     { art: 'bauvertrag', titel: 'Auftrag / Bauvertrag (unterschrieben)', rolle: 'vertraege', merkmale: ['auftragsbestätigung', 'bauvertrag', 'auftragsschreiben', 'unterschrift', 'vertragsbestandteil'] },
     { art: 'kva', titel: 'Kostenvoranschlag', rolle: 'angebote', merkmale: ['kostenvoranschlag', '\\bkva\\b', 'unverbindlich'] },
+    { art: 'lvbild', titel: 'Foto / Skizze zur Position', rolle: 'lv', merkmale: [] },   // nur über die Karte einer Position (im LV-Ausdruck unter dem Langtext)
     { art: 'lv', titel: 'Leistungsverzeichnis', rolle: 'lv', ansichten: ['lvs', 'positionen'], merkmale: ['leistungsverzeichnis', 'leistungsbeschreibung', 'vorbemerkungen'] },
   ],
   ausdrucke: [{
@@ -467,7 +497,7 @@ export const ava: Beipackzettel = {
       { id: 'vereinbarungen', art: 'felder', felder: ['vereinbarungen'] },
       { id: 'vereinbarungen_weitere', art: 'text', feld: 'vereinbarungen_weitere' },
       { id: 'vorbemerkungen', art: 'text', feld: 'vorbemerkungen' },
-      { id: 'positionen', art: 'lv', objekt: 'lv_position', ueber: 'lv', ohne: 'nachtrag', titel: 'Leistungen' },
+      { id: 'positionen', art: 'lv', objekt: 'lv_position', ueber: 'lv', ohne: 'nachtrag', titel: 'Leistungen', bilder: { objekt: 'dokument', bezug: 'bezug' } },
       { id: 'unterschrift', art: 'unterschriften', parteien: ['Bieter:in (Firma, Stempel, Unterschrift)'] },
       { id: 'tueren', art: 'berechnet', quelle: 'ava.tueranlage', titel: 'Anlage: Fenster- & Türliste' },   // nur, wenn Positionen aus einer Türliste stammen
     ],

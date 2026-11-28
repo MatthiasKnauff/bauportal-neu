@@ -6,7 +6,7 @@
 import { zumDrucken } from './textergaenzung';
 import type { Feld, ObjektModell, Wert, Werte } from './modell';
 import { nachOz } from './oz';
-import { istHinweis, istZuschlag, mengeVon, nachKennung, zuschlagAuf } from './lvarten';
+import { istHinweis, istZuschlag, mengeVon, merktext, nachKennung, zaehltZurSumme, zuschlagAuf } from './lvarten';
 
 export type Druckblock =
   | { id: string; art: 'briefkopf' }                                   // Büro links, Projekt rechts
@@ -36,7 +36,9 @@ export type Druckblock =
   // Bieter:in oder mit den geschätzten Preisen (Stelle „<block>.preise“); Titelsummen, Zusammenstellung, Angebotssumme.
   // Die Einträge brauchen oz, art (titel, normal, bedarf, alternativ, pauschal, stundenlohn, hinweis), kurztext, langtext, menge, einheit, ep;
   // ohne: Einträge, bei denen dieses Feld gesetzt ist, gehören nicht dazu (z. B. Nachtragspositionen).
-  | { id: string; art: 'lv'; objekt: string; ueber: string; ohne?: string; titel: string }
+  // LV: Positionen nach OZ mit Summen und Zusammenstellung; bilder: Einträge (z. B. Dokumente), deren Feld „bezug“ auf die Position zeigt –
+  // ihre Vorschaubilder stehen unter dem Langtext (wie bisher Fotos und Skizzen je Position)
+  | { id: string; art: 'lv'; objekt: string; ueber: string; ohne?: string; titel: string; bilder?: { objekt: string; bezug: string } }
   // Unterschriften (z. B. Bauvertrag): je Partei eine Linie mit „Ort, Datum“ und der Rolle darunter; {feld} wird ersetzt
   | { id: string; art: 'unterschriften'; parteien: string[] }
   // Berechnete Tabellen (z. B. Rechenleiter und Prüfblatt einer Rechnung): eine Druckquelle des Moduls rechnet sie aus den Daten,
@@ -130,7 +132,7 @@ export interface Druckdaten {
   verweis: (ziel: string, id: string) => string;   // Anzeigename eines verwiesenen Objekts
   zielwerte?: (ziel: string, id: string) => Werte | undefined;   // Werte eines verwiesenen Objekts (Spalten „verweis.feld“ im Verzeichnis)
   kinder: (blockId: string) => { id: string; werte: Werte }[];   // die Einträge eines Listen- oder Bilder-Blocks, in der Reihenfolge des Ausdrucks
-  bild: (id: string) => string;                    // Adresse des Vorschaubilds (im Browser ein Verweis, im PDF das Bild selbst)
+  bild: (id: string, objekt?: string) => string;   // Adresse des Vorschaubilds eines Fotos (oder Eintrags des Objekts) – im Browser ein Verweis, im PDF das Bild selbst
   modell: (objekt: string) => ObjektModell;        // Modell der Einträge
   extra?: Record<string, string>;                  // weitere Platzhalter (Verzeichnis: anzahl, filter, datum)
   projektwerte?: Werte;                            // das Projekt des Objekts (Platzhalter {projekt.feld})
@@ -282,6 +284,9 @@ export const CSS = (schrift: number) => `
   .lv th { text-align: left; font-weight: 400; color: #444; font-size: .9em; border-bottom: .3mm solid #111; padding: .8mm 2mm .8mm 0; }
   .lv td { vertical-align: top; padding: 1.4mm 2mm 1.4mm 0; border-bottom: .2mm solid #ddd; }
   .lv tr { break-inside: avoid; }
+  .lv tr.seite-vor { break-before: page; }
+  .lv .lv-bilder { display: flex; flex-wrap: wrap; gap: 3mm; margin-top: 2mm; } .lv .lv-bilder img { max-width: 80mm; max-height: 60mm; object-fit: contain; }
+  .lv tr.seite-nach { break-after: page; }
   .lv .oz { width: 1%; white-space: nowrap; }
   .lv .zahl { width: 1%; white-space: nowrap; text-align: right; }
   .lv .betrag { width: 24mm; white-space: nowrap; text-align: right; }
@@ -375,7 +380,7 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
       const titel = e[`${b.id}.titel`] || b.titel;
       return huelle(b.id, `liste${zeilen.length ? '' : ' leer'}`, `${titel ? `<h2>${sicher(titel)}</h2>` : ''}<table><thead><tr>${kopf}</tr></thead><tbody>${rumpf || (frei ? '' : `<tr><td colspan="${spalten.length}">–</td></tr>`)}${frei}</tbody></table>`);
     }
-    if (b.art === 'lv') return huelle(b.id, 'lv', lvTabelle(b, d.kinder(b.id), e));
+    if (b.art === 'lv') return huelle(b.id, 'lv', lvTabelle(b, d.kinder(b.id), e, b.bilder ? bilderJe(d.kinder(`${b.id}.bilder`), b.bilder, d) : undefined));
     if (b.art === 'berechnet') {
       const T = d.berechnet?.(b.id) ?? [];
       if (!T.length && !bearbeiten) return '';
@@ -400,10 +405,16 @@ export function druckInhalt(a: Ausdruck, m: ObjektModell, d: Druckdaten, e: Eins
 // ------------------------------------------------------------------ Leistungsverzeichnis
 const geld = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const zahlVon = (w: Wert | undefined) => { const n = typeof w === 'number' ? w : Number(String(w ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
-const OHNE_GP: Record<string, string> = { bedarf: 'Bedarfsposition – nur Einheitspreis', alternativ: 'Alternativposition – nur Einheitspreis' };
 
 /** Die Tabelle des LV: Titel öffnen eine Gruppe (Ebene aus der OZ), nach ihrer letzten Position steht die Titelsumme. */
-function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; werte: Werte }[], e: Einstellungen): string {
+/** Bilder je Position: Kennung der Position → <img> der Vorschaubilder. */
+function bilderJe(eintraege: { id: string; werte: Werte }[], quelle: { objekt: string; bezug: string }, d: Druckdaten): Map<string, string[]> {
+  const je = new Map<string, string[]>();
+  for (const x of eintraege) { const k = String(x.werte[quelle.bezug] ?? ''), src = d.bild(x.id, quelle.objekt); if (k && src) je.set(k, [...(je.get(k) ?? []), `<img src="${sicher(src)}" alt="">`]); }
+  return je;
+}
+
+function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; werte: Werte }[], e: Einstellungen, bilder?: Map<string, string[]>): string {
   const preise = e[`${b.id}.preise`] === 'ja', nurKurz = e[`${b.id}.kurz`] === 'ja';
   const z = nachOz(eintraege), alle = nachKennung(eintraege);
   const leer = '<span class="leer"></span>';
@@ -418,16 +429,17 @@ function lvTabelle(b: { id: string; titel: string }, eintraege: { id: string; we
       zeilen.push(`<tr class="lv-summe"><td class="oz"></td><td colspan="3">Summe ${sicher(t.oz)} ${sicher(t.text)}</td><td class="betrag"></td><td class="betrag">${preise ? geld(t.summe) : leer}</td></tr>`);
     }
   };
-  for (const { werte: w } of z) {
+  for (const { id, werte: w } of z) {
     const oz = String(w.oz ?? ''), art = String(w.art ?? 'normal'), ebene = oz.split('.').length;
     const kurz = sicher(String(w.kurztext ?? '')), lang = nurKurz ? '' : zumDrucken(String(w.langtext ?? '').trim());
     if (art === 'titel') { schliessen(ebene); offen.push({ oz, text: String(w.kurztext ?? ''), ebene, summe: 0 }); zeilen.push(`<tr class="lv-titel"><td class="oz">${sicher(oz)}</td><td colspan="5">${kurz}</td></tr>`); continue; }
     if (istHinweis(art)) { zeilen.push(`<tr><td class="oz">${sicher(oz)}</td><td colspan="5"><div class="kurz">${kurz}</div>${lang ? `<div class="lang">${sicher(lang)}</div>` : ''}</td></tr>`); continue; }
     // Zuschlagsposition: Satz in % auf die GP ihrer Positionen (kern/lvarten.ts) – als Menge die Summe / 100
     const zu = istZuschlag(art), menge = zu ? mengeVon({ id: '', werte: w }, alle, (y) => zahlVon(y.werte.menge), (y) => zahlVon(y.werte.ep)) : zahlVon(w.menge);
-    const ep = zahlVon(w.ep), gp = Math.round(menge * ep * 100) / 100, zaehlt = !OHNE_GP[art];
+    const ep = zahlVon(w.ep), gp = Math.round(menge * ep * 100) / 100, zaehlt = zaehltZurSumme(w), merk = merktext(w);
     if (zaehlt) { if (offen.length) offen[offen.length - 1]!.summe += gp; else gesamt += gp; }
-    zeilen.push(`<tr><td class="oz">${sicher(oz)}</td><td><div class="kurz">${kurz}</div>${lang ? `<div class="lang">${sicher(lang)}</div>` : ''}${OHNE_GP[art] ? `<div class="merk">${OHNE_GP[art]}</div>` : art === 'stundenlohn' ? '<div class="merk">Stundenlohnarbeiten</div>' : ''}</td>`
+    const umbruch = [w.neue_seite_vor === true ? 'vor' : '', w.neue_seite_nach === true ? 'nach' : ''].filter(Boolean).map((k) => `seite-${k}`).join(' ');
+    zeilen.push(`<tr${umbruch ? ` class="${umbruch}"` : ''}><td class="oz">${sicher(oz)}</td><td><div class="kurz">${kurz}${w.schwerpunkt === true ? ' [S]' : ''}</div>${lang ? `<div class="lang">${sicher(lang)}</div>` : ''}${!nurKurz && bilder?.get(id) ? `<div class="lv-bilder">${bilder.get(id)!.join('')}</div>` : ''}${merk ? `<div class="merk">${merk}</div>` : ''}</td>`
       + `<td class="zahl">${zu ? `auf ${zuschlagAuf(w).length} Pos.` : w.menge != null && w.menge !== '' ? sicher(menge.toLocaleString('de', { maximumFractionDigits: 3 })) : ''}</td><td>${zu ? '%' : sicher(String(w.einheit ?? ''))}</td>`
       + `<td class="betrag">${preise ? (ep ? geld(ep) : '') : leer}</td><td class="betrag">${zaehlt ? (preise ? geld(gp) : leer) : ''}</td></tr>`);
   }

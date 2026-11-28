@@ -94,9 +94,13 @@ function Druckfenster(p: { ausdruck: Ausdruck; objekt: string; umfaenge?: Umfang
     if (!z || z.geloescht) return null;
     const pid = m.projektFeld && m.projektFeld !== 'id' ? String(z.werte[m.projektFeld] ?? '') : '';
     return { werte: { ...z.werte }, buero: { ...(sicht.buero?.[BUERO_ID]?.werte ?? {}) }, logo: logoAdresse(), projekt: pid ? verweisname('projekt', pid) : '', projektwerte: pid ? { ...(sicht.projekt?.[pid]?.werte ?? {}) } : undefined, verweis: verweisname, modell,
-      kinder: (blockId) => { const b = alleBloecke(a).find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder' && b?.art !== 'lv' && b?.art !== 'kasten') return [];
+      kinder: (blockId) => {
+        const lv = blockId.endsWith('.bilder') ? alleBloecke(a).find((x) => `${x.id}.bilder` === blockId) : undefined;
+        if (lv?.art === 'lv' && lv.bilder) { const q = lv.bilder; const ids = new Set(Object.values(sicht[lv.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[lv.ueber] === p.objekt).map((k) => k.id));
+          return lebende(q.objekt).filter((k) => ids.has(String(k.werte[q.bezug] ?? ''))).map((k) => ({ id: k.id, werte: { ...k.werte } })); }
+        const b = alleBloecke(a).find((x) => x.id === blockId); if (b?.art !== 'liste' && b?.art !== 'bilder' && b?.art !== 'lv' && b?.art !== 'kasten') return [];
         return Object.values(sicht[b.objekt] ?? {}).filter((k) => !k.geloescht && k.werte[b.ueber] === p.objekt && (b.art !== 'lv' || !b.ohne || k.werte[b.ohne] == null || k.werte[b.ohne] === '') && passt(b, k.werte)).sort(listenfolge).map((k) => ({ id: k.id, werte: { ...k.werte } })); },
-      bild: (id) => `/api/foto/vorschau/${id}`,
+      bild: (id, objekt = 'foto') => `/api/${objekt}/vorschau/${id}`,
       berechnet: (blockId) => { const b = alleBloecke(a).find((x) => x.id === blockId); const q = b?.art === 'berechnet' ? DRUCKQUELLEN[b.quelle] : undefined;
         return q ? q.tabellen((o, f, w) => lebende(o).filter((k) => (f === 'id' ? k.id : String(k.werte[f] ?? '')) === w), { id: z.id, werte: { ...z.werte } }) : []; } };
   });

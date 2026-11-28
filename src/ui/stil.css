@@ -333,6 +333,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .band-knopf.haupt .zeichen { color: var(--akzent); }
 .band-knopf.haupt .band-text { color: var(--akzent); font-weight: 600; }
 .band-mitte { flex: 1; min-width: 160px; overflow: hidden; } .band-mitte .menue-mitte { width: 100%; min-width: 0; }   /* gibt als Erstes Platz ab, schneidet ab statt zu überlappen (wie bisher) */
+.band-mitte:has(.kennzahlen) { min-width: min-content; }   /* Kennzahlen schneidet die Leiste nie ab: reicht der Platz nicht, wird sie eine Stufe kleiner (erste Kennzahl mit ▾) */
 .band-klein .band-knopf { min-width: 34px; padding: 3px 3px; } .band-klein .band-knopf .band-text { font-size: 10px; letter-spacing: -.01em; } .band-klein .band-titel { font-size: 9px; } .band-klein .band-gruppe { padding: 0 4px; }   /* eng: Symbol groß, Text klein (wie bisher) */
 .band-kompakt .band-knopf .band-text { display: none; } .band-kompakt .band-gruppe { padding: 0 3px; }
 /* nur Symbole – so dicht wie im bisherigen Bauportal: Knöpfe 30 × 27, Symbol 18, Leiste 46 hoch */
@@ -398,7 +399,7 @@ main { flex: 1; min-height: 0; display: flex; }
 /* wie bisher (27.11.2026): links „Ansicht: LV …“ fett mit Stand als Kapsel, rechts Firma, Gewerk · Vertrag · Strafe und die zwei Knöpfe */
 .ansicht-kopf .kopf-titel { display: flex; align-items: center; gap: 6px 10px; min-width: 0; flex-wrap: wrap; font-size: 15px; font-weight: 700; }
 .ansicht-kopf .kopf-ansicht { white-space: nowrap; }
-.ansicht-kopf .kopf-angabe { display: flex; flex-direction: column; font-size: 12px; line-height: 1.25; }
+.ansicht-kopf .kopf-angabe { display: flex; flex-direction: column; align-items: flex-start; font: inherit; font-size: 12px; line-height: 1.25; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; } .ansicht-kopf .kopf-angabe:hover { color: var(--akzent); }
 .ansicht-kopf .kopf-angabe small { color: var(--text-still); font-size: 10.5px; }
 .ansicht-kopf .kopf-firma { display: inline-flex; align-items: center; justify-content: center; min-width: 200px; min-height: 34px; padding: 4px 16px; border-radius: 99px; background: var(--akzent-hell); color: var(--akzent); font-weight: 600; font-size: 13px; }
 .ansicht-kopf .kopf-firma.offen { background: var(--rand); color: var(--text-still); font-weight: 400; }
@@ -1400,6 +1401,7 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .dok-rot { outline: 2px solid var(--gefahr); outline-offset: 3px; animation: dok-blinken .8s ease-in-out 4; }
 @keyframes dok-blinken { 50% { outline-color: transparent; } }
 .dok-hinweis { margin: 0; color: var(--gefahr); font-size: 13px; }
+.pos-bilder { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 2px 0 6px; } .pos-bilder .dok-liste { align-self: stretch; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
 .dok-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
 .dok-kachel { display: flex; flex-direction: column; gap: 4px; text-decoration: none; color: inherit; font-size: 12px; }
 .dok-kachel img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top; border: 1px solid var(--rand); border-radius: calc(6px * var(--rund)); background: #fff; }
@@ -1457,6 +1459,9 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lvt-zelle.rechts { text-align: right; } .lvt-zelle.zeiger { box-shadow: inset 0 0 0 1px var(--akzent); }
 .lvt-zeile.titel { font-weight: 600; background: color-mix(in srgb, var(--still) 55%, transparent); }
 .lvt-zeile.lvt-hinweis { color: var(--text-still); font-style: italic; }
+/* wie bisher: entfallene Position durchgestrichen, Schwerpunktposition mit blauem „S“ */
+.lvt-zeile.lvt-entfaellt .lvt-text { text-decoration: line-through; color: var(--text-still); }
+.lvt-marke { flex: none; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #1e5aa0; color: #fff; font: 700 10px/15px system-ui, sans-serif; }
 .lvt-zeile.gewaehlt, .lvt-zeile.gewaehlt .lvt-zelle { background: var(--akzent-hell); }
 .lvt-baum { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0; }
 .lvt-baum > b, .lvt-text { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -1474,7 +1479,7 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .band-kompakt .kennzahlen:not(.auf) .kennzahl:not(:first-child) { display: none; }
 .band-kompakt .kennzahlen.auf .kz-liste { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 190px; padding: 6px; background: var(--flaeche); border: 1px solid var(--rand); border-radius: calc(10px * var(--rund)); box-shadow: 0 10px 28px rgba(0,0,0,.16); gap: 6px; }
 .band-kompakt .kennzahlen.auf .kennzahl { flex-direction: column; align-items: flex-start; gap: 0; }
-.kennzahl { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 2px 8px; border: 1px solid var(--rand); border-radius: calc(7px * var(--rund)); background: var(--flaeche); line-height: 1.2; }
+.kennzahl { display: flex; align-items: baseline; gap: 6px; padding: 2px 8px; border: 1px solid var(--rand); border-radius: calc(7px * var(--rund)); background: var(--flaeche); line-height: 1.2; }
 .kennzahl small { font-size: 11px; color: var(--text-still); white-space: nowrap; } .kennzahl b { font-size: 13px; white-space: nowrap; }
 .lvt-zelle.guenstig { background: var(--gut-hell); color: var(--gut); font-weight: 700; } .lvt-zelle.abweichend { background: var(--warn-hell); color: var(--warn); }
 .ps-kopf-bieter { font-weight: 600; cursor: pointer; } .ps-kopf-bieter.gewaehlt { color: var(--akzent); text-decoration: underline; } .ps-kopf-bieter.aus { text-decoration: line-through; color: var(--text-still); }

@@ -24,7 +24,11 @@ import { hinweis } from './unterbau/meldungen';
 
 interface Gelesen { seiten: string[]; ocr: boolean; vorschau: string }
 /** Was nach dem Ablegen geschehen soll (Eingangsordner: Scan verschieben) und ob die Seite vorbelegt (sonst nur die Erkennung). */
-export interface Woher { quelle?: string; ohneSeite?: boolean; nachher?: () => Promise<void> }
+export interface Woher {
+  quelle?: string; ohneSeite?: boolean; nachher?: () => Promise<void>;
+  /** an einen vorhandenen Eintrag hängen (z. B. Foto oder Skizze an eine Position): Art vorgegeben, Projekt des Eintrags, das Dokument gehört dazu */
+  zu?: { objekt: string; id: string; titel: string; art: string };
+}
 interface Offen { datei: File; woher: Woher; stand: () => { gelesen?: Gelesen; fehler?: string }; setStand: (s: { gelesen?: Gelesen; fehler?: string }) => void }
 const ENDUNGEN = /\.(pdf|jpe?g|png|webp|tiff?)$/i;
 
@@ -73,7 +77,7 @@ export function DokumentAblage(p: { module: Beipackzettel[]; modul?: Beipackzett
   return (
     <>
       <Show when={zieht()}><div class="ablage-ziel" aria-hidden="true"><div>Loslassen zum Ablegen<small>{vorbelegt()?.titel} · PDF, Scan oder Foto</small></div></div></Show>
-      <Show when={warteschlange()[0]} keyed>{(o) => <Ablegen o={o} arten={arten()} rollen={p.module.flatMap((m) => m.ablagerollen ?? [])} vor={o.woher.ohneSeite ? arten().find((a) => !a.objekt)! : vorbelegt()} rest={warteschlange().length - 1} />}</Show>
+      <Show when={warteschlange()[0]} keyed>{(o) => <Ablegen o={o} arten={arten()} rollen={p.module.flatMap((m) => m.ablagerollen ?? [])} vor={o.woher.zu ? arten().find((a) => a.art === o.woher.zu!.art)! : o.woher.ohneSeite ? arten().find((a) => !a.objekt)! : vorbelegt()} rest={warteschlange().length - 1} />}</Show>
     </>
   );
 }
@@ -88,7 +92,8 @@ function Ablegen(p: { o: Offen; arten: Art[]; rollen: Ablagerolle[]; vor: Art; r
   const buero = String(sicht.buero?.[BUERO_ID]?.werte.name ?? '');
   const erkannt = createMemo((): Erkennung | undefined => g() && dokumentErkennen(g()!.seiten.join('\n'), { arten: p.arten, projekte: projekte().map((z) => ({ id: z.id, ...z.werte })), kontakte: kontakte().map((z) => ({ id: z.id, name: z.werte.name })), ausser: buero ? [buero] : [] }));
   // Erkanntes schlägt die Vorbelegung, wenn der Text es ausdrücklich sagt (mehr Merkmale) – dann blinkt das Feld
-  const [art, setArt] = createSignal(p.vor.art), [projekt, setProjekt] = createSignal(projektId() ?? '');
+  const zu = p.o.woher.zu;
+  const [art, setArt] = createSignal(p.vor.art), [projekt, setProjekt] = createSignal(zu ? String(sicht[zu.objekt]?.[zu.id]?.werte.projekt ?? '') : projektId() ?? '');
   const [rot, setRot] = createSignal<Set<string>>(new Set());
   const [werte, setWerte] = createSignal<Record<string, Wert>>({});   // lv, firma, nummer, datum, betrag
   const [vonHand, setVonHand] = createSignal<Set<string>>(new Set());
@@ -98,8 +103,8 @@ function Ablegen(p: { o: Offen; arten: Art[]; rollen: Ablagerolle[]; vor: Art; r
   const vorbelegen = (e: Erkennung) => {
     vorbelegt = true;
     const r = new Set<string>();
-    if (e.art && e.art !== p.vor.art && (e.punkte[e.art] ?? 0) > (e.punkte[p.vor.art] ?? 0)) { setArt(e.art); r.add('art'); }
-    if (e.projekt && e.projekt !== projekt()) { if (projekt()) r.add('projekt'); setProjekt(e.projekt); }
+    if (!zu && e.art && e.art !== p.vor.art && (e.punkte[e.art] ?? 0) > (e.punkte[p.vor.art] ?? 0)) { setArt(e.art); r.add('art'); }
+    if (!zu && e.projekt && e.projekt !== projekt()) { if (projekt()) r.add('projekt'); setProjekt(e.projekt); }
     setRot(p.o.woher.ohneSeite ? new Set<string>() : r);
     setWerte({ firma: e.firma, nummer: e.nummer || null, datum: e.datum || null, betrag: e.betrag, lv: lvVorschlag(e.firma) });
   };
@@ -176,7 +181,7 @@ function Ablegen(p: { o: Offen; arten: Art[]; rollen: Ablagerolle[]; vor: Art; r
     setLaeuft(true);
     try {
       const r = await ruf<{ ort: string; name: string }>('/api/dokument/ablegen', { id: neueKennung(), projekt: projekt(), art: a().titel, name: name() ?? vorschlagName(), unterordner: ordner(),
-        inhalt: await base64(p.o.datei), vorschau: g()!.vorschau, bezug_objekt: m?.name ?? '', bezug: bezug ?? '', eingang: heute(), quelle: p.o.woher.quelle ?? '' });
+        inhalt: await base64(p.o.datei), vorschau: g()!.vorschau, bezug_objekt: m?.name ?? zu?.objekt ?? '', bezug: bezug ?? zu?.id ?? '', eingang: heute(), quelle: p.o.woher.quelle ?? '' });
       await p.o.woher.nachher?.();
       hinweis(`„${r.name}“ ${r.ort === 'ablage' ? `liegt im Projektordner unter ${ordner()}` : 'liegt im Bauportal (Testserver oder Projekt ohne Ordner)'}.`);
       weiter();
@@ -209,7 +214,7 @@ function Ablegen(p: { o: Offen; arten: Art[]; rollen: Ablagerolle[]; vor: Art; r
                 <div class="reihe"><input value={ordnerText()} disabled={vorschlag().herkunft === 'fest'} onInput={(e) => setEigenerOrdner(e.currentTarget.value)} aria-label="Ordner im Projektordner" />
                   <Show when={projektordner() && vorschlag().herkunft !== 'fest'}><button type="button" class="knopf" onClick={() => setOrdnerWahl(true)}>Ordner wählen …</button></Show></div>
                 <small class="still-text">{eigenerOrdner() != null && ordner() !== vorschlag().ordner ? 'eigene Wahl – das Projekt merkt sie sich' : HERKUNFT_TEXT[vorschlag().herkunft]}</small></div>
-              <p class="still-text klein-text">{g()!.ocr ? 'Text per Texterkennung gelesen · ' : ''}{a().objekt ? `daraus wird: ${modell()?.titel}` : 'wird nur abgelegt'}</p>
+              <p class="still-text klein-text">{g()!.ocr ? 'Text per Texterkennung gelesen · ' : ''}{a().objekt ? `daraus wird: ${modell()?.titel}` : zu ? `gehört zu: ${zu.titel}` : 'wird nur abgelegt'}</p>
               <Show when={ordnerWahl()}><OrdnerFenster start={[projektordner(), ordner()].filter(Boolean).join('/')} onZu={() => setOrdnerWahl(false)} onWahl={ordnerGewaehlt} /></Show>
             </div>
           </div>
