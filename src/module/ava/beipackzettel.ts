@@ -39,6 +39,8 @@ export const lv: ObjektModell = {
     { name: 'status', titel: 'Stand', art: 'auswahl', optionen: LV_STATUS, inListe: true, breite: 150, gruppe: 'Leistungsverzeichnis' },
     // „Nicht vergeben“ wie bisher mit Grund und Tag (zurücknehmen im Preisspiegel)
     { name: 'nicht_vergeben_grund', titel: 'Nicht vergeben, weil', art: 'auswahl', optionen: NICHT_GRUENDE, kartenBreite: 4, gruppe: 'Leistungsverzeichnis', wenn: { status: ['aufgehoben'] } },
+    { name: 'versand_ohne_x83', titel: 'GAEB-Datei nicht mitschicken', art: 'ja_nein', verborgen: true },
+    { name: 'versand_ohne', titel: 'Unterlagen, die nicht mitgehen', art: 'text', verborgen: true },   // Kennungen der Dokumente „a,b“
     { name: 'versand_texte', titel: 'Eigene Versandtexte (je Lauf)', art: 'langtext', verborgen: true },   // JSON {lauf: {betreff, text}} – „Text für dieses LV merken“
     { name: 'nicht_vergeben_am', titel: 'am', art: 'datum', kartenBreite: 2, gruppe: 'Leistungsverzeichnis', wenn: { status: ['aufgehoben'] } },
     { name: 'archiviert', titel: 'Im Archiv (aus den Listen genommen, alles bleibt erhalten)', art: 'ja_nein', gruppe: 'Leistungsverzeichnis' },
@@ -466,7 +468,8 @@ export const ava: Beipackzettel = {
       merkmale: ['fachunternehmerbescheinigung', 'übereinstimmungserklärung', 'übereinstimmungsbestätigung', 'brandschutz', 'feuerschutz', 'rauchschutz'] },
     { art: 'bauvertrag', titel: 'Auftrag / Bauvertrag (unterschrieben)', rolle: 'vertraege', merkmale: ['auftragsbestätigung', 'bauvertrag', 'auftragsschreiben', 'unterschrift', 'vertragsbestandteil'] },
     { art: 'kva', titel: 'Kostenvoranschlag', rolle: 'angebote', merkmale: ['kostenvoranschlag', '\\bkva\\b', 'unverbindlich'] },
-    { art: 'lvbild', titel: 'Foto / Skizze zur Position', rolle: 'lv', merkmale: [] },   // nur über die Karte einer Position (im LV-Ausdruck unter dem Langtext)
+    { art: 'lvbild', titel: 'Foto / Skizze zur Position', rolle: 'lv', merkmale: [] },
+    { art: 'unterlage', titel: 'Unterlage für die Bieter:innen', rolle: 'ausschreibung', merkmale: [] },   // nur über „Versand & Rücklauf → Unterlagen“   // nur über die Karte einer Position (im LV-Ausdruck unter dem Langtext)
     { art: 'lv', titel: 'Leistungsverzeichnis', rolle: 'lv', ansichten: ['lvs', 'positionen'], merkmale: ['leistungsverzeichnis', 'leistungsbeschreibung', 'vorbemerkungen'] },
   ],
   ausdrucke: [{

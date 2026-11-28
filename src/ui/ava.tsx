@@ -4,7 +4,7 @@ import { gewerkPasst } from '../module/ava/gewerkpasst';
 import { For, Show, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
 import type { Zeile } from '../kern/befehl';
 import { nachfassenFaellig, ruecklaufZaehlen, nachtragNetto, ozVergleich, wertung, zaehlt, zahl, bedingungenAus, gewaehrleistungBis } from '../module/ava/rechnung';
-import type { Feld, ObjektModell } from '../kern/modell';
+import type { Feld, ObjektModell, Werte } from '../kern/modell';
 import { Tabelle } from './baukasten/tabelle';
 import { LV_STATUS, NACHTRAGSSTAENDE, RUECKMELDUNGEN } from '../module/ava/beipackzettel';
 import { gaebEinlesen } from './uebernahme';
@@ -13,8 +13,9 @@ import { Auswahlliste } from './baukasten/auswahlliste';
 import { lvVon } from './avakopf';
 import { springeZu } from './sprung';
 import { ausfuehren, ausfuehrenMehrere, lebende, sicht, wirksameWerte } from './unterbau/abgleich';
-import { darf, ich, modell, neueKennung, zustand } from './unterbau/api';
+import { darf, ich, modell, neueKennung, ruf, zustand } from './unterbau/api';
 import { holen, merken } from './unterbau/speicher';
+import { hinweis } from './unterbau/meldungen';
 import { zeigeMenue } from './baukasten/kontextmenue';
 import { herunterladen } from './baukasten/herunterladen';
 import { xlsxSchreiben } from '../kern/xlsx';
@@ -27,6 +28,7 @@ import { allePositionenVon, angeboteVon, aufmassStand, epVon, gaebAusgeben, gpMi
 import { rechenweg } from '../kern/rechenweg';
 import { zahlText } from './lvbearbeiten';
 import { DokumentListe, dokumenteAblegen } from './dokumentablage';
+import { OrdnerFenster } from './dateien';
 import { istText, istZuschlag, zuschlagAuf } from '../kern/lvarten';
 import { LAEUFE, laufText, textMerken, vorab, type Lauf } from '../module/ava/bieterversand';
 import { BieterTabelle, adresseVon, anredeVonAngebot, datum } from './bietertabelle';
@@ -269,6 +271,11 @@ function bieterlisteExcel(lvText: string, bieter: Zeile[]): void {
   herunterladen(new Blob([xlsxSchreiben(zeilen, 'Bieterliste')], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Bieterliste ${lvText} ${heute()}.xlsx`);
 }
 
+/** Unterlagen für die Bieter:innen (wie bisher): die Dokumente, die beim LV liegen – Pläne, Dateien aus dem Projektordner, vom Rechner. */
+const unterlagenVon = (l: Zeile) => lebende('dokument').filter((d) => d.werte.bezug === l.id).sort((a, b) => String(a.werte.name ?? '').localeCompare(String(b.werte.name ?? ''), 'de'));
+/** Was davon nicht mitgeht (je LV gemerkt, Kennungen „a,b“). */
+const ohneUnterlage = (l: Zeile) => new Set(String(l.werte.versand_ohne ?? '').split(',').filter(Boolean));
+
 /** Mail-Dialog für einen Lauf (Versand, Erinnern, Nachversand) – nur: diese Firmen (einzeln, z. B. aus dem Nachverfolgen). */
 export function versandOeffnen(l: Zeile, lauf: Lauf, nur?: Zeile[]): void {
   const b = angeboteVon(l.id), pw = sicht.projekt?.[String(l.werte.projekt)]?.werte, bw = sicht.buero?.[BUERO_ID]?.werte;
@@ -279,7 +286,9 @@ export function versandOeffnen(l: Zeile, lauf: Lauf, nur?: Zeile[]): void {
     an: (k) => { const a = von(k); return a ? adresseVon(a) : undefined; }, anrede: (k) => { const a = von(k); return a ? anredeVonAngebot(a) : undefined; },
     vorlage: laufText(lauf, l.werte, pw, bw, true),
     merken: darf('lv', 'schreiben') ? { titel: 'Text für dieses LV merken', tun: (bt, tx) => [{ objekt: 'lv', art: 'aendern', objektId: l.id, werte: { versand_texte: textMerken(lauf, l.werte, pw, bw, bt, tx) } }] } : undefined,
-    anhaenge: LAEUFE[lauf].unterlagen ? [{ titel: `LV ${dateiname}.pdf`, anhang: { art: 'druck', ausdruck: 'ava.lv', id: l.id } }, { titel: `LV ${dateiname}.X83`, anhang: { art: 'x83', id: l.id } }] : undefined,
+    anhaenge: LAEUFE[lauf].unterlagen ? [{ titel: `LV ${dateiname}.pdf`, anhang: { art: 'druck', ausdruck: 'ava.lv', id: l.id } },
+      ...(l.werte.versand_ohne_x83 === true ? [] : [{ titel: `LV ${dateiname}.X83`, anhang: { art: 'x83' as const, id: l.id } }]),
+      ...unterlagenVon(l).filter((d) => !ohneUnterlage(l).has(d.id)).map((d) => ({ titel: String(d.werte.name ?? 'Dokument'), anhang: { art: 'dokument' as const, id: d.id } }))] : undefined,
     quelle: (k) => `angebot|${von(k)?.id ?? ''}`,
     dazu: lauf === 'versand' ? (ks) => b.filter((a) => ks.includes(String(a.werte.bieter)) && !a.werte.angeschrieben)
       .map((a) => ({ objekt: 'angebot', art: 'aendern' as const, objektId: a.id, werte: { angeschrieben: heute() } })) : undefined });
@@ -291,6 +300,51 @@ function bitteNichtBeachten(l: Zeile, a: Zeile): void {
   mailSchreiben({ titel: `Bitte nicht beachten: ${name(a.werte.bieter)}`, projekt: String(l.werte.projekt ?? '') || undefined, ids: [String(a.werte.bieter)],
     an: () => adresseVon(a), anrede: () => anredeVonAngebot(a), betreff: `Bitte nicht beachten – ${lvName}`,
     text: `{anrede}\n\nunsere Anfrage zu „${lvName}“ hat Sie versehentlich erreicht. Bitte betrachten Sie sie als gegenstandslos – ein Angebot ist nicht nötig.\n\nMit freundlichen Grüßen\n\n${String(sicht.buero?.[BUERO_ID]?.werte.name ?? '')}` });
+}
+
+/** Unterlagen für die Bieter:innen (wie bisher): LV als PDF (immer), GAEB X83 (an/aus) und die Dokumente beim LV – je mit „mitschicken“,
+ *  dazu „Vom Rechner …“ und „Aus dem Projektordner …“. Neu seit dem letzten Versand steht dabei. */
+function Unterlagen(p: { lv: Zeile; stand: string }): JSX.Element {
+  const l = () => p.lv, name = () => [l().werte.nummer, l().werte.name].filter(Boolean).join(' ');
+  const schreiben = () => darf('lv', 'schreiben');
+  const docs = () => unterlagenVon(l()), ohne = () => ohneUnterlage(l());
+  const zuletzt = () => lebende('nachricht').filter((x) => String(x.werte.anhaenge ?? '').includes(`x83|${l().id}`) || String(x.werte.anhaenge ?? '').includes(`druck|ava.lv|${l().id}`))
+    .map((x) => String(x.werte.verschickt_am ?? '').slice(0, 10)).filter(Boolean).sort().at(-1) ?? '';
+  const setzen = (werte: Werte, titel: string) => ausfuehren({ objekt: 'lv', art: 'aendern', objektId: l().id, werte }, titel);
+  const umschalten = (id: string) => { const n = new Set(ohne()); if (n.has(id)) n.delete(id); else n.add(id); setzen({ versand_ohne: [...n].join(',') }, 'Unterlage mitschicken'); };
+  const [ordner, setOrdner] = createSignal(false);
+  let wahl!: HTMLInputElement;
+  const zu = () => ({ objekt: 'lv', id: l().id, titel: `LV ${name()}`, art: 'unterlage' });
+  const ausOrdner = async (pfad: string) => {
+    setOrdner(false);
+    try { await ruf('/api/dokument/verweis', { id: neueKennung(), projekt: String(l().werte.projekt ?? ''), pfad, art: 'Unterlage für die Bieter:innen', bezug_objekt: 'lv', bezug: l().id }); hinweis(`„${pfad.split('/').pop()}“ liegt jetzt bei den Unterlagen.`); }
+    catch (e) { hinweis((e as Error).message, { art: 'fehler' }); }
+  };
+  const mitZahl = () => 1 + (l().werte.versand_ohne_x83 === true ? 0 : 1) + docs().filter((d) => !ohne().has(d.id)).length;
+  return (
+    <section class="vr-unterlagen" aria-label="Unterlagen für die Bieter:innen">
+      <h3>Unterlagen für die Bieter:innen · {mitZahl()} {mitZahl() === 1 ? 'Datei' : 'Dateien'}</h3>
+      <div class="vr-datei"><Zeichen name="pdf" groesse={16} /><span><b>LV {name()}.pdf</b><small>LV ohne Preise – entsteht beim Senden aus dem aktuellen Stand</small></span>
+        <span class="pille">immer dabei</span><span class="vr-stand">{p.stand}</span><button type="button" class="knopf klein" onClick={() => druckOeffnen('ava.lv', l().id)}>Ansehen</button></div>
+      <div class="vr-datei"><Zeichen name="datei_runter" groesse={16} /><span><b>LV {name()}.x83</b><small>LV als GAEB-Datei – für die Kalkulation der Bieter:innen</small></span>
+        <label class="vr-mit"><input type="checkbox" disabled={!schreiben()} checked={l().werte.versand_ohne_x83 !== true} onChange={(e) => setzen({ versand_ohne_x83: !e.currentTarget.checked }, 'GAEB-Datei mitschicken')} /> mitschicken</label>
+        <span class="vr-stand">{p.stand}</span><button type="button" class="knopf klein" disabled={!positionenVon(l().id).length} onClick={() => gaebAusgeben(l())}>Herunterladen</button></div>
+      <For each={docs()}>{(d) => (
+        <div class="vr-datei"><Zeichen name="dateien" groesse={16} /><span><b>{String(d.werte.name ?? '')}</b><small>{d.werte.ort === 'ablage' ? 'im Projektordner' : 'im Bauportal'} · {String(d.werte.art ?? '')}</small></span>
+          <label class="vr-mit"><input type="checkbox" disabled={!schreiben()} checked={!ohne().has(d.id)} onChange={() => umschalten(d.id)} /> mitschicken</label>
+          <span class="vr-stand">{zuletzt() && String(d.werte.eingang ?? '') > zuletzt() ? 'neu seit dem letzten Versand' : zuletzt() ? `verschickt am ${datum(zuletzt())}` : 'noch nicht verschickt'}</span>
+          <a class="knopf klein" href={`/api/dokument/original/${d.id}`} target="_blank" rel="noopener">Ansehen</a></div>)}</For>
+      <Show when={darf('dokument', 'schreiben')}>
+        <div class="reihe vr-dazu">
+          <button type="button" class="knopf klein" title="Dateien vom Rechner – sie werden im Ordner der Ausschreibung abgelegt" onClick={() => wahl.click()}>Vom Rechner …</button>
+          <input ref={wahl} type="file" multiple hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; if (f.length) dokumenteAblegen(f, { zu: zu() }); }} />
+          <Show when={sicht.projekt?.[String(l().werte.projekt ?? '')]?.werte.ordner}><button type="button" class="knopf klein" title="Eine Datei aus dem Projektordner – sie bleibt, wo sie ist" onClick={() => setOrdner(true)}>Aus dem Projektordner …</button></Show>
+        </div>
+      </Show>
+      <p class="still-text klein-text">„An Bieter:innen senden“ legt je Firma eine Mail in den Postausgang; PDF und X83 entstehen beim Verschicken aus dem dann aktuellen Stand, die übrigen Unterlagen gehen im Original mit.</p>
+      <Show when={ordner()}><OrdnerFenster start="" datei={{ projekt: String(l().werte.projekt ?? ''), onDatei: (x) => void ausOrdner(x) }} onWahl={() => setOrdner(false)} onZu={() => setOrdner(false)} /></Show>
+    </section>
+  );
 }
 
 /** Bisher verschickt (wie bisher): je Lauf Betreff, Tag, wer, Anzahl Mails und Fehler – aus den Nachrichten an die Bieter:innen. */
@@ -350,14 +404,7 @@ export function Versand(p: Mitte): JSX.Element {
             <span>wollen abgeben <b>{z().will_abgeben}</b></span><span class="vr-nicht">geben nicht ab <b>{z().gibt_nicht_ab}</b></span><span>offen <b>{z().offen}</b></span>
           </div>
         </div>
-        <section class="vr-unterlagen" aria-label="Unterlagen für die Bieter:innen">
-          <h3>Unterlagen für die Bieter:innen · 2 Dateien</h3>
-          <div class="vr-datei"><Zeichen name="pdf" groesse={16} /><span><b>LV {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' ')}.pdf</b><small>LV ohne Preise – entsteht beim Senden aus dem aktuellen Stand</small></span>
-            <span class="pille">immer dabei</span><span class="vr-stand">{unterlagenStand()}</span><button type="button" class="knopf klein" onClick={() => druckOeffnen('ava.lv', lv()!.id)}>Ansehen</button></div>
-          <div class="vr-datei"><Zeichen name="datei_runter" groesse={16} /><span><b>LV {[lv()!.werte.nummer, lv()!.werte.name].filter(Boolean).join(' ')}.x83</b><small>LV als GAEB-Datei – für die Kalkulation der Bieter:innen</small></span>
-            <span class="pille">GAEB</span><span class="vr-stand">{unterlagenStand()}</span><button type="button" class="knopf klein" disabled={!positionenVon(lv()!.id).length} onClick={() => gaebAusgeben(lv()!)}>Herunterladen</button></div>
-          <p class="still-text klein-text">„An Bieter:innen senden“ legt je Firma eine Mail in den Postausgang; PDF und X83 entstehen beim Verschicken aus dem dann aktuellen Stand.</p>
-        </section>
+        <Unterlagen lv={lv()!} stand={unterlagenStand()} />
         <Show when={nochNicht().length && darf('nachricht', 'schreiben')}>
           <div class="hinweis-kasten vr-jetzt"><span><b>{nochNicht().length} {nochNicht().length === 1 ? 'Bieter:in' : 'Bieter:innen'} noch nicht angeschrieben</b>
             <small> {nochNicht().slice(0, 4).map((a) => name(a.werte.bieter)).join(', ')}{nochNicht().length > 4 ? ' …' : ''}</small></span>

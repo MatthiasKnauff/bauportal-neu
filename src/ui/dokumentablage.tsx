@@ -125,7 +125,9 @@ function Ablegen(p: { o: Offen; arten: Art[]; rollen: Ablagerolle[]; vor: Art; r
   const firmaName = () => String(sicht.kontakt?.[String(werte().firma ?? '')]?.werte.name ?? '');
   const lv = () => sicht.lv?.[String(werte().lv ?? '')];
   const endung = () => p.o.datei.name.split('.').pop()!.toLowerCase();
+  // an einen Eintrag gehängt (Unterlage, Foto zur Position …): der Name der Datei bleibt; sonst Datum, Art, Firma, Nummer
   const vorschlagName = () => {
+    if (zu) return p.o.datei.name.replace(/[\\/:*?"<>|]+/g, '-');
     const w = werte(), d = typeof w.datum === 'string' && w.datum ? w.datum : heute();
     return `${[d, a().titel, firmaName(), w.nummer ? `Nr. ${String(w.nummer)}` : ''].filter(Boolean).join(' ')}.${endung()}`.replace(/[\\/:*?"<>|]+/g, '-');
   };

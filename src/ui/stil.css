@@ -1519,7 +1519,7 @@ html[data-scrollbalken="glas"] ::-webkit-scrollbar-thumb { background: color-mix
 .lv-geteilt-inhalt { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .vr-kopf { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: flex-end; } .vr-termine { display: flex; gap: 12px; } .vr-termine .feld { width: 170px; }
 .vr-unterlagen { border: 1.5px solid var(--akzent); border-radius: calc(8px * var(--rund)); padding: 8px 12px; background: var(--flaeche); } .vr-unterlagen h3 { margin: 0 0 6px; font-size: 14px; }
-.vr-datei { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--rand); } .vr-datei > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; } .vr-datei small { color: var(--text-still); }
+.vr-datei { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--rand); } .vr-mit { display: inline-flex; gap: 4px; align-items: center; font-size: 12.5px; white-space: nowrap; } .vr-dazu { gap: 8px; padding: 6px 0; } .vr-datei > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; } .vr-datei small { color: var(--text-still); }
 .vr-titel { margin: 4px 0 0; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-still); }
 .am-leiste { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 8px; }
 .am-rechnung { display: flex; flex-direction: column; align-items: flex-start; padding: 4px 10px; border: 1px solid var(--rand-stark); border-radius: calc(7px * var(--rund)); background: var(--flaeche); font: inherit; font-size: 12.5px; cursor: pointer; line-height: 1.25; }

@@ -251,28 +251,34 @@ export function AlleDateien() {
 }
 
 /** Fenster zum Zuordnen: einen Ordner der Freigabe wählen (für alle, die Projekte ändern dürfen). */
-export function OrdnerFenster(p: { start: string; onWahl: (pfad: string) => void; onZu: () => void }) {
+/** Stellschraube „datei“: statt eines Ordners eine Datei im Projektordner wählen (z. B. Unterlage für die Bieter:innen) – dann geht es
+ *  vom Ordner des Projekts aus, Dateien stehen unter den Ordnern, ein Klick nimmt sie. */
+export function OrdnerFenster(p: { start: string; onWahl: (pfad: string) => void; onZu: () => void; datei?: { projekt: string; onDatei: (pfad: string) => void } }) {
   const [pfad, setPfad] = createSignal(p.start.split(/[\\/]+/).filter(Boolean).join('/'));
   const [liste, setListe] = createSignal<string[] | null>(null);
+  const [dateien, setDateien] = createSignal<Eintrag[]>([]);
   const [stoerung, setStoerung] = createSignal('');
   createEffect(() => {
-    const hier = pfad(); setListe(null); setStoerung('');
-    ruf<{ ordner: string[] }>(`/api/ablage/ordner?pfad=${encodeURIComponent(hier)}`)
-      .then((r) => { if (hier === pfad()) setListe(r.ordner); }, (e: Error) => { if (hier === pfad()) setStoerung(e.message); });
+    const hier = pfad(); setListe(null); setDateien([]); setStoerung('');
+    const r = p.datei
+      ? ruf<{ eintraege: Eintrag[] }>(`/api/ablage/liste?projekt=${encodeURIComponent(p.datei.projekt)}&pfad=${encodeURIComponent(hier)}`).then((x) => { if (hier === pfad()) setDateien(x.eintraege.filter((e) => !e.ordner)); return x.eintraege.filter((e) => e.ordner).map((e) => e.name); })
+      : ruf<{ ordner: string[] }>(`/api/ablage/ordner?pfad=${encodeURIComponent(hier)}`).then((x) => x.ordner);
+    r.then((o) => { if (hier === pfad()) setListe(o); }, (e: Error) => { if (hier === pfad()) setStoerung(e.message); });
   });
   const teile = () => pfad().split('/').filter(Boolean);
   return (
-    <Dialog titel="Ordner auf dem Dateiserver wählen" onAbbrechen={p.onZu}
-      knoepfe={<><button class="knopf" onClick={p.onZu}>Abbrechen</button><button class="knopf haupt" disabled={!pfad()} onClick={() => p.onWahl(pfad())}>Diesen Ordner nehmen</button></>}>
+    <Dialog titel={p.datei ? 'Datei im Projektordner wählen' : 'Ordner auf dem Dateiserver wählen'} onAbbrechen={p.onZu}
+      knoepfe={<><button class="knopf" onClick={p.onZu}>Abbrechen</button><Show when={!p.datei}><button class="knopf haupt" disabled={!pfad()} onClick={() => p.onWahl(pfad())}>Diesen Ordner nehmen</button></Show></>}>
       <nav class="krumen" aria-label="Pfad">
-        <button onClick={() => setPfad('')}>Freigabe</button>
+        <button onClick={() => setPfad('')}>{p.datei ? 'Projektordner' : 'Freigabe'}</button>
         <For each={teile()}>{(t, i) => <><span aria-hidden="true">›</span><button onClick={() => setPfad(teile().slice(0, i() + 1).join('/'))}>{t}</button></>}</For>
       </nav>
       <Show when={!stoerung()} fallback={<p class="feld-fehler" role="alert">{stoerung()}</p>}>
         <Show when={liste()} fallback={<p class="still-text">Ordner wird gelesen …</p>}>
           <ul class="ordnerliste">
             <For each={liste()}>{(n) => <li><button onClick={() => setPfad(pfad() ? `${pfad()}/${n}` : n)}>▤ {n}</button></li>}</For>
-            <Show when={!liste()!.length}><li class="still-text">Keine Unterordner.</li></Show>
+            <For each={dateien()}>{(d) => <li><button onClick={() => p.datei!.onDatei(pfad() ? `${pfad()}/${d.name}` : d.name)}>▫ {d.name} <small class="still-text">{groesse(d.groesse)}</small></button></li>}</For>
+            <Show when={!liste()!.length && !dateien().length}><li class="still-text">{p.datei ? 'Leer.' : 'Keine Unterordner.'}</li></Show>
           </ul>
         </Show>
       </Show>

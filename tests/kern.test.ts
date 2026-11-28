@@ -2118,9 +2118,9 @@ test('Versand an Bieter:innen: Texte, wer vorab angehakt ist, Anhänge und X83 o
   assert.deepEqual(b.vorab('versand', A).map((x) => x.id), ['a']);
   assert.deepEqual(b.vorab('erinnerung', A).map((x) => x.id), ['b']);
   assert.deepEqual(b.vorab('nachversand', A).map((x) => x.id), ['b', 'd', 'e']);
-  const anh = v.anhaengeVon({ anhaenge: 'druck|ava.lv|L1\nx83|L1\nunsinn|x' });
-  assert.deepEqual(anh, [{ art: 'druck', ausdruck: 'ava.lv', id: 'L1' }, { art: 'x83', id: 'L1' }]);
-  assert.equal(anh.map(v.anhangText).join('\n'), 'druck|ava.lv|L1\nx83|L1');
+  const anh = v.anhaengeVon({ anhaenge: 'druck|ava.lv|L1\nx83|L1\ndokument|D1\nunsinn|x' });
+  assert.deepEqual(anh, [{ art: 'druck', ausdruck: 'ava.lv', id: 'L1' }, { art: 'x83', id: 'L1' }, { art: 'dokument', id: 'D1' }]);
+  assert.equal(anh.map(v.anhangText).join('\n'), 'druck|ava.lv|L1\nx83|L1\ndokument|D1');
   assert.deepEqual(v.pakete([{ id: '1', werte: { an: 'a@b.de', stand: 'wartet', art: 'mitteilung', anhaenge: 'x83|L1' } }], new Date(), {}).pakete[0]!.anhaenge, [{ art: 'x83', id: 'L1' }]);
   const x = lvAlsX83({ nummer: '03', name: 'Rohbau' }, [{ id: 'p2', werte: { oz: '01.0020', kurztext: 'Mauerwerk', menge: 10, einheit: 'm²', ep: 50 } },
     { id: 'p1', werte: { oz: '01.0010', kurztext: 'Aushub', menge: 5, einheit: 'm³', ep: 20 } }, { id: 'n', werte: { oz: '01.0030', kurztext: 'Nachtrag', nachtrag: true } }], 'Tierheim');
@@ -2144,6 +2144,14 @@ test('Versandstelle: Anhänge entstehen mit den Rechten der Person, die die Nach
     assert.equal(x!.filename, '03 Rohbau.X83');
     assert.ok(String(x!.content).includes('Aushub') && String(x!.content).includes('24-07 Haus A'));
     await assert.rejects(anhaengeBauen(db, register, mit, [{ art: 'x83', id: lv }]), /gibt es nicht/, 'wer das LV nicht sieht, kann es nicht anhängen');
+    // ein abgelegtes Dokument geht im Original mit (Speicher des Bauportals), nur für die, die es sehen dürfen
+    const dok = randomUUID(), { mkdirSync, writeFileSync } = await import('node:fs');
+    mkdirSync(path.join(process.env.DATEN_PFAD!, 'originale', p), { recursive: true });
+    writeFileSync(path.join(process.env.DATEN_PFAD!, 'originale', p, 'abc-Detail.pdf'), '%PDF-1.4 Detail');
+    await tun(db, leitung, { objekt: 'dokument', art: 'anlegen', objektId: dok, werte: { projekt: p, name: 'Detail.pdf', ort: 'bauportal', pfad: 'abc-Detail.pdf', bezug_objekt: 'lv', bezug: lv } });
+    const [d] = await anhaengeBauen(db, register, wer!, [{ art: 'dokument', id: dok }]);
+    assert.deepEqual([d!.filename, String(d!.content), d!.contentType], ['Detail.pdf', '%PDF-1.4 Detail', 'application/pdf']);
+    await assert.rejects(anhaengeBauen(db, register, mit, [{ art: 'dokument', id: dok }]), /gibt es nicht/);
   } finally { await weg(); }
 });
 

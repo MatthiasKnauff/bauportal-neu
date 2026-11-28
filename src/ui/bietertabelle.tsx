@@ -136,6 +136,10 @@ function BieterEinzelheiten(p: { a: Zeile; onEinzeln?: (a: Zeile) => void }): JS
     aendern(a(), { ansprechpartner: n, an_email: x && x.email !== firmaMail() ? x.email : '', anrede: '' }, 'Ansprechperson');
   };
   const st = () => ruecklaufVon(a()), fertig = () => st() === 'abgegeben' || st() === 'gibt_nicht_ab';
+  // wie bisher: dieselbe Firma auch für ein anderes LV des Projekts anfragen (das noch nicht vergeben ist und sie noch nicht hat)
+  const andereLvs = () => { const hat = new Set(lebende('angebot').filter((x) => x.werte.bieter === kontakt()).map((x) => String(x.werte.lv)));
+    return lebende('lv').filter((l) => l.werte.projekt === a().werte.projekt && !hat.has(l.id) && !['vergeben', 'aufgehoben'].includes(String(l.werte.status ?? '')) && !l.werte.archiviert)
+      .map((l) => ({ wert: l.id, titel: `LV ${[l.werte.nummer, l.werte.name].filter(Boolean).join(' ')}` })); };
   const notizen = () => notizenVon(a());
   let eingabe!: HTMLInputElement;
   return (
@@ -149,6 +153,11 @@ function BieterEinzelheiten(p: { a: Zeile; onEinzeln?: (a: Zeile) => void }): JS
         </Show>
         <div class="feld"><label>Anrede</label><input value={String(a().werte.anrede ?? '')} placeholder={anredeVonAngebot({ ...a(), werte: { ...a().werte, anrede: '' } })} readOnly={!schreiben()} aria-label="Anrede"
           title="Anrede in den Mails – leer: aus der Ansprechperson in den Adressen" onChange={(e) => aendern(a(), { anrede: e.currentTarget.value.trim() }, 'Anrede')} /></div>
+        <Show when={andereLvs().length && darf('angebot', 'schreiben')}>
+          <div class="feld"><label>Auch anfragen für</label><Auswahlliste titel="Auch anfragen für" platzhalter="weiteres LV wählen …" wert={null} optionen={andereLvs()}
+            onWert={(w) => { if (!w) return; ausfuehren({ objekt: 'angebot', art: 'anlegen', objektId: neueKennung(), werte: { projekt: a().werte.projekt ?? null, lv: w, bieter: kontakt() } }, `${name(kontakt())} auch für ein weiteres LV`);
+              hinweis(`${name(kontakt())} steht jetzt auch bei ${andereLvs().find((x) => x.wert === w)?.titel ?? 'dem LV'} – angeschrieben wird dort.`); }} /></div>
+        </Show>
         <p class="still-text klein-text">{a().werte.angeschrieben ? `angeschrieben am ${datum(a().werte.angeschrieben)}` : 'noch nicht angeschrieben'}
           <Show when={!a().werte.angeschrieben && p.onEinzeln && mails().length && st() !== 'gibt_nicht_ab'}> <button type="button" class="knopf klein haupt" title="Mail-Dialog nur für diese Firma – gesendet wird erst dort" onClick={() => p.onEinzeln!(a())}>✉ jetzt senden …</button></Show></p>
       </div>
