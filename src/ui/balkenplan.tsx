@@ -194,12 +194,12 @@ export function Balkenplan(p: Mitte) {
     requestAnimationFrame(() => { flaeche.scrollLeft = vorher + ((tag - achse().t0) * px() - mx); });
   };
   // Ansicht wie bisher: zu einem Tag rollen (Anteil der Breite links davor), den ganzen Plan einpassen, zur markierten Leistung
-  const zumTag = (tag: number, anteil: number) => { flaeche.scrollLeft = Math.max(0, (tag - achse().t0) * px() - (flaeche.clientWidth - breiteL()) * anteil); };   // die Spalten links stehen fest (sticky)
+  const zumTag = (tag: number, anteil: number) => { flaeche.scrollLeft = Math.max(0, (tag - achse().t0) * px() - (flaeche.clientWidth - breiteT()) * anteil); };   // die Spalten links stehen fest (sticky)
   const ganzerPlan = () => {
     const t = [...erg().termine.values()]; if (!t.length) return;
     const k = kal(); let a = Infinity, e = -Infinity;
     for (const x of t) { a = Math.min(a, k.tag(x.s)); e = Math.max(e, k.tag(Math.max(x.s, x.f - 1)) + 1); }
-    const frei = flaeche.clientWidth - breiteL() - 40;
+    const frei = flaeche.clientWidth - breiteT() - 40;
     let z = 0; for (let i = ZOOM.length - 1; i >= 0; i--) if ((e - a) * ZOOM[i]! <= frei) { z = i; break; }
     setZoom(z); queueMicrotask(() => zumTag(a, 0.02));
   };
@@ -245,6 +245,24 @@ export function Balkenplan(p: Mitte) {
   const xEnde = (s: number, f: number) => (f > s ? (kal().tag(f - 1) + 1 - achse().t0) * px() : x(s));
   const breiteL = () => spalten().reduce((s, c) => s + c.breite, 0);
   const breiteR = () => (achse().t1 - achse().t0 + 1) * px();
+  // Tabelle | Diagramm wie bisher: die Trennung lässt sich ziehen (je Gerät gemerkt), die Tabelle rollt in ihrem Teil waagerecht
+  const [teilWunsch, setTeilWunsch] = createSignal<number>(holen('bzp.teil', 0));
+  createEffect(() => merken('bzp.teil', teilWunsch()));
+  const breiteT = () => Math.max(120, Math.min(breiteL(), teilWunsch() || Math.round(sichtBreite() * 0.6), sichtBreite() - 160));
+  const [tabX, setTabX] = createSignal(0);
+  const tabXMax = () => Math.max(0, breiteL() - breiteT());
+  createEffect(() => { if (tabX() > tabXMax()) setTabX(tabXMax()); });
+  const tabRollen = (e: WheelEvent) => {
+    const d = e.deltaX || (e.shiftKey ? e.deltaY : 0);
+    if (!d || e.ctrlKey || !tabXMax()) return;
+    e.preventDefault(); e.stopPropagation(); setTabX(Math.max(0, Math.min(tabXMax(), tabX() + d)));
+  };
+  const teilerZiehen = (e: PointerEvent) => {
+    if (e.button !== 0) return; e.preventDefault();
+    const el = e.currentTarget as HTMLElement, x0 = e.clientX, w0 = breiteT(); el.setPointerCapture(e.pointerId);
+    el.onpointermove = (m) => setTeilWunsch(Math.round(w0 + m.clientX - x0));
+    el.onpointerup = () => { el.onpointermove = null; el.onpointerup = null; };
+  };
 
   // ---------- Tabelle: Zeiger, Bearbeiten ----------
   // Markieren zeigt die Karte rechts (wie bisher); Doppelklick, Umschalt+Enter oder „Informationen“ springen hinein
@@ -518,7 +536,7 @@ export function Balkenplan(p: Mitte) {
     mausX = start;
     const schritt = () => {
       const g = ziehen(); if (!g) return;
-      const r = flaeche.getBoundingClientRect(), links = Math.max(r.left, r.left + breiteL() - flaeche.scrollLeft), RAND = 40;
+      const r = flaeche.getBoundingClientRect(), links = Math.max(r.left, r.left + breiteT() - flaeche.scrollLeft), RAND = 40;
       const d = mausX > r.right - RAND ? Math.ceil((mausX - (r.right - RAND)) / 3) : mausX < links + RAND ? -Math.ceil((links + RAND - mausX) / 3) : 0;
       if (d) { const vor = flaeche.scrollLeft; flaeche.scrollLeft += d; if (flaeche.scrollLeft !== vor) setZiehen({ ...g, dx: svgX(mausX) - g.x0 }); }
       requestAnimationFrame(schritt);
@@ -672,10 +690,12 @@ export function Balkenplan(p: Mitte) {
   return (
     <div class="bzp">
       <Show when={erg().zyklen.length}><p class="feld-fehler bzp-warnung">Zirkelbezug: {erg().zyklen.length} Verknüpfung{erg().zyklen.length > 1 ? 'en gelten' : ' gilt'} nicht</p></Show>
+      <div class="bzp-rahmen">
       <div class="bzp-flaeche" classList={{ teilen: teilen() }} ref={flaeche} tabIndex={0} onKeyDown={taste} aria-label="Balkenplan" role="grid"
-        onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); zoomBei(e.clientX, e.deltaY < 0 ? 1 : -1); } }}>
-        <div class="bzp-innen" style={{ width: `${breiteL() + breiteR()}px`, height: `${KOPF + flaechenZeilen() * H}px` }}>
-          <div class="bzp-kopf" style={{ width: `${breiteL() + breiteR()}px` }}>
+        style={{ '--bzp-t': `${breiteT()}px`, '--bzp-tx': `${-tabX()}px` }}
+        onWheel={(e) => { if (e.ctrlKey) { e.preventDefault(); zoomBei(e.clientX, e.deltaY < 0 ? 1 : -1); } else if (e.clientX - flaeche.getBoundingClientRect().left < breiteT()) tabRollen(e); }}>
+        <div class="bzp-innen" style={{ width: `${breiteT() + breiteR()}px`, height: `${KOPF + flaechenZeilen() * H}px` }}>
+          <div class="bzp-kopf" style={{ width: `${breiteT() + breiteR()}px` }}>
             <div class="bzp-links bzp-kopfzellen" onContextMenu={(e) => { e.preventDefault(); setSpaltenFeld({ x: e.clientX, y: e.clientY }); }}>
               <For each={spalten()}>{(s) => (
                 // wie in jeder Tabelle: Kopf mit der Maus verschieben (Reihenfolge), an der Kante ziehen (Breite)
@@ -688,7 +708,7 @@ export function Balkenplan(p: Mitte) {
               <For each={kopf().unten}>{(u) => <><line x1={u.x} x2={u.x} y1={24} y2={KOPF} class="bzp-linie" /><text x={kopf().tage ? u.x + px() / 2 : u.x + 3} y={39} class="bzp-woche" classList={{ frei: !!u.frei }} text-anchor={kopf().tage ? 'middle' : 'start'}>{u.t}</text></>}</For>
             </svg>
           </div>
-          <svg class="bzp-balken" width={breiteR()} height={flaechenZeilen() * H} style={{ left: `${breiteL()}px`, top: `${KOPF}px` }}
+          <svg class="bzp-balken" width={breiteR()} height={flaechenZeilen() * H} style={{ left: `${breiteT()}px`, top: `${KOPF}px` }}
             onPointerDown={aufziehen} onPointerMove={bewegen} onPointerUp={loslassen}>
             <For each={freieTage()}>{(f) => <rect x={f.x} y={0} width={px()} height="100%" class={f.feiertag ? 'bzp-feiertag' : 'bzp-wochenende'}>{f.feiertag ? <title>{f.feiertag}</title> : null}</rect>}</For>
             <For each={sichtbar()}>{(v, i) => <rect x={0} y={i() * H} width="100%" height={H} class="bzp-streifen" classList={{ gewaehlt: v.id === markiert() || istGewaehlt(v.id) }} />}</For>
@@ -749,7 +769,7 @@ export function Balkenplan(p: Mitte) {
             <Show when={ziehen()?.art === 'neu' && Math.abs(ziehen()!.dx) >= px()}>{(_) => { const f = () => { const g = ziehen(); return g ? aufgezogen(g) : { t0: achse().t0, t1: achse().t0 }; }; return <rect x={(f().t0 - achse().t0) * px()} y={(ziehen()?.y ?? 0) + 5} width={(f().t1 - f().t0 + 1) * px()} height={H - 10} rx={3} class="bzp-aufziehen" />; }}</Show>
             <Show when={ziehen()?.art === 'link' && erg().termine.get(ziehen()!.id)}>{(tg) => { const t = () => (ziehen()?.teil != null && tg().abschnitte[ziehen()!.teil!]) || tg(); return <line x1={xEnde(t().s, t().f) + 9} y1={(ziehen()?.y ?? 0) + H / 2} x2={xEnde(t().s, t().f) + 9 + (ziehen()?.dx ?? 0)} y2={ziehen()?.yMaus ?? 0} class="bzp-zieh" />; }}</Show>
           </svg>
-          <div class="bzp-zeilen" style={{ top: `${KOPF}px` }}>
+          <div class="bzp-zeilen" style={{ top: `${KOPF}px`, width: `${breiteT() + breiteR()}px` }}>
             <For each={sichtbar()}>{(v) => {
               const t = () => erg().termine.get(v.id);
               return (
@@ -774,7 +794,7 @@ export function Balkenplan(p: Mitte) {
                 </div>
               );
             }}</For>
-            <Show when={zeilenZug()}>{(z) => <div class="bzp-zug-linie" classList={{ kopie: z().kopie }} style={{ top: `${z().ziel * H - 1}px`, width: `${breiteL()}px` }}><span>{z().kopie ? `+ ${anzahlText(z().ids.length)} kopieren` : `${anzahlText(z().ids.length)} hierher`}</span></div>}</Show>
+            <Show when={zeilenZug()}>{(z) => <div class="bzp-zug-linie" classList={{ kopie: z().kopie }} style={{ top: `${z().ziel * H - 1}px`, width: `${breiteT()}px` }}><span>{z().kopie ? `+ ${anzahlText(z().ids.length)} kopieren` : `${anzahlText(z().ids.length)} hierher`}</span></div>}</Show>
             <Show when={schreiben()}>
               <div class="bzp-links bzp-zeile bzp-neu" onClick={() => bearbeiten('neu', 'name')}>
                 <div class="bzp-zelle" style={{ width: `${spalten()[0]!.breite}px` }} />
@@ -788,6 +808,8 @@ export function Balkenplan(p: Mitte) {
             </Show>
           </div>
         </div>
+      </div>
+      <div class="bzp-teiler" style={{ left: `${breiteT() - 3}px` }} title="Ziehen: Tabelle breiter oder schmaler · Doppelklick: ganze Tabelle · in der Tabelle mit Umschalt+Mausrad seitlich rollen" onPointerDown={teilerZiehen} onDblClick={() => setTeilWunsch(breiteL())} />
       </div>
       <div class="bzp-status" role="status">
         <span>{vorgaenge().length} {vorgaenge().length === 1 ? 'Leistung' : 'Leistungen'}</span>
