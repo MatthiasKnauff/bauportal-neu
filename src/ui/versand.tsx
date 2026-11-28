@@ -92,7 +92,9 @@ function MailDialog(p: { a: MailAuftrag; onZu: () => void }) {
   const adresse = (k: Zeile) => String(a.an?.(k.id) || k.werte.email || ''), anrede = (k: Zeile) => a.anrede?.(k.id) || anredeVon(k.werte);
   const mitAdresse = () => kontakte().filter((k) => adresse(k).includes('@')), ohne = () => kontakte().filter((k) => !adresse(k).includes('@'));
   const [merk, setMerk] = createSignal(true), [kopie, setKopie] = createSignal(false);
-  const meineMail = () => String(sicht.benutzer?.[ich().id]?.werte.email ?? '');   // „Kopie an mich“ (E-Mail in Verwaltung → Benutzer)
+  // „Kopie an mich“ (28.11.2026): an die eigene Adresse (Verwaltung → Benutzer), sonst an die Adresse des Büros
+  const meineMail = () => [sicht.benutzer?.[ich().id]?.werte.email, sicht.buero?.[BUERO_ID]?.werte.email].map((x) => String(x ?? '')).find((x) => x.includes('@')) ?? '';
+  const anBuero = () => !String(sicht.benutzer?.[ich().id]?.werte.email ?? '').includes('@');
   const [gewaehlt, setGewaehlt] = createSignal(new Set(a.vorab ?? a.ids));
   const mit = () => mitAdresse().filter((k) => gewaehlt().has(k.id));
   const umschalten = (id: string) => setGewaehlt((g) => { const n = new Set(g); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -125,7 +127,7 @@ function MailDialog(p: { a: MailAuftrag; onZu: () => void }) {
         <div class="feld"><label for="mail-text">Text</label><textarea id="mail-text" rows={10} value={text()} onInput={(e) => setText(e.currentTarget.value)} /></div>
         <div class="reihe mail-optionen">
           <Show when={a.merken}><label><input type="checkbox" checked={merk()} onChange={(e) => setMerk(e.currentTarget.checked)} /> {a.merken!.titel}</label></Show>
-          <label title={meineMail() ? `Eine Kopie geht an ${meineMail()}` : 'Dafür fehlt deine E-Mail-Adresse (Verwaltung → Benutzer)'}><input type="checkbox" disabled={!meineMail().includes('@')} checked={kopie()} onChange={(e) => setKopie(e.currentTarget.checked)} /> Kopie an mich</label>
+          <label title={meineMail() ? `Eine Kopie geht an ${meineMail()}${anBuero() ? ' (Büro – eigene Adresse unter Verwaltung → Benutzer)' : ''}` : 'Dafür fehlt eine E-Mail-Adresse (Verwaltung → Benutzer oder Büro)'}><input type="checkbox" disabled={!meineMail().includes('@')} checked={kopie()} onChange={(e) => setKopie(e.currentTarget.checked)} /> Kopie an mich</label>
           <Show when={a.vorlage}><button type="button" class="knopf klein still" onClick={() => { setBetreff(a.vorlage!.betreff); setText(a.vorlage!.text); }}>↺ Text der Vorlage</button></Show>
         </div>
         <Show when={a.anhaenge?.length}><p class="still-text klein-text">Anhänge (entstehen beim Versand aus dem dann aktuellen Stand): <b>{a.anhaenge!.map((x) => x.titel).join(' · ')}</b></p></Show>

@@ -18,8 +18,14 @@ export const benutzer: ObjektModell = {
     { name: 'rolle', titel: 'Rolle', art: 'auswahl', optionen: ROLLEN_OPTIONEN, inListe: true, breite: 170, gruppe: 'Benutzer' },
     { name: 'gesperrt', titel: 'Gesperrt (kann sich nicht anmelden)', art: 'ja_nein', inListe: true, breite: 110, gruppe: 'Benutzer' },
     { name: 'email', titel: 'E-Mail (z. B. für „Kopie an mich“)', art: 'email', spalte: true, breite: 220, gruppe: 'Benutzer' },
+    // wie bisher je Benutzer:in (Mein Konto): wer an Fristen erinnert wird, die man selbst setzt
+    { name: 'erinnerung', titel: 'Erinnerungen zur Frist', art: 'auswahl', alsListe: true, gruppe: 'Benutzer',
+      optionen: [{ wert: '', titel: 'nur an mich' }, { wert: 'bauleitung', titel: 'an mich und die Bauleitung des Projekts' }] },
+    { name: 'schritte_aus', titel: 'Bei „Schritt für Schritt“ ausgelassen', art: 'text', verborgen: true },   // je Benutzer:in (wie bisher), „Wetter,Bilder“
   ],
 };
+/** Was jede:r am eigenen Konto selbst einstellt (server: /api/konto/einstellung) – sonst ändert Benutzer nur die Verwaltung. */
+export const KONTO_FELDER = ['erinnerung', 'schritte_aus'];
 
 export const recht: ObjektModell = {
   name: 'recht',

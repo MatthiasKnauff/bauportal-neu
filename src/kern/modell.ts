@@ -24,7 +24,7 @@ export interface Feld {
   spalte?: boolean;        // als Spalte wählbar, ab Werk aus (nur was als Spalte Sinn ergibt – nicht jedes Feld der Karte)
   breite?: number;         // Spaltenbreite in px
   kartenBreite?: number;   // Breite in der Karte in Sechsteln (ab Werk 3 = halbe Breite; 6 = ganze), z. B. Anrede 1, Name 3
-  ziel?: string;           // nur bei art = verweis: Name des Objekts, auf das verwiesen wird
+  ziel?: string;           // bei art = verweis: Name des Objekts, auf das verwiesen wird; bei art = mehrfach: mehrere Verweise darauf („a,b“)
   zuerst?: { feld: string; ziel: string };   // bei Verweis: oben die Ziele, deren Feld „ziel“ den Wert des eigenen Felds „feld“ enthält (z. B. Firmen des Gewerks)
   /** bei Verweis: oben die Ziele, die im Projekt schon vorkommen – in diesem Feld früherer Einträge und in den genannten Objekten (z. B. Beteiligte) */
   imProjekt?: { objekt: string; feld: string }[];
@@ -96,7 +96,7 @@ export function pruefeModell(m: ObjektModell): void {
     if (!NAME.test(f.name) || f.name === 'id' || f.name === 'geloescht') throw new Error(`Feldname ungültig: ${m.name}.${f.name}`);
     if (gesehen.has(f.name)) throw new Error(`Feld doppelt: ${m.name}.${f.name}`);
     gesehen.add(f.name);
-    if ((f.art === 'auswahl' || f.art === 'mehrfach') && !f.optionen?.length) throw new Error(`Auswahl ohne Optionen: ${m.name}.${f.name}`);
+    if ((f.art === 'auswahl' || (f.art === 'mehrfach' && !f.ziel)) && !f.optionen?.length) throw new Error(`Auswahl ohne Optionen: ${m.name}.${f.name}`);
     if (f.art === 'verweis' && !f.ziel) throw new Error(`Verweis ohne Ziel: ${m.name}.${f.name}`);
   }
   for (const f of m.felder) for (const k of [...(f.gleich ?? []), ...(f.ki?.aus ?? [])]) if (!gesehen.has(k)) throw new Error(`Feld fehlt: ${m.name}.${f.name} → ${k}`);
@@ -151,6 +151,8 @@ function pruefeFeld(f: Feld, roh: unknown): Wert {
     case 'mehrfach': {
       if (roh !== null && roh !== undefined && typeof roh !== 'string') throw new Error('Auswahl erwartet');
       const teile = (roh ?? '').split(',').filter(Boolean);
+      // mehrere Verweise (Feld mit „ziel“, z. B. Bauleitung vor Ort): Kennungen, jede einmal
+      if (f.ziel) { if (teile.some((w) => !KENNUNG.test(w))) throw new Error('Ungültiger Verweis'); return [...new Set(teile.map((w) => w.toLowerCase()))].join(','); }
       if (teile.some((w) => !f.optionen!.some((o) => o.wert === w))) throw new Error('Bitte Einträge aus der Liste wählen');
       return f.optionen!.filter((o) => teile.includes(o.wert)).map((o) => o.wert).join(',');
     }

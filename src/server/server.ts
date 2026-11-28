@@ -1,5 +1,7 @@
 // Der Server: ein Programm für Oberfläche, Anmeldung, Befehle und Abgleich.
 import { erinnerungsregelnAnmelden } from './erinnerung';
+import { randomUUID } from 'node:crypto';
+import { KONTO_FELDER } from '../module/verwaltung/beipackzettel';
 import { logoRouten } from './logo';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
@@ -9,9 +11,9 @@ import type { ServerResponse } from 'node:http';
 import type { Modulregister } from '../kern/modul';
 import { Eingabefehler } from '../kern/modell';
 import type { Protokolliert } from '../kern/befehl';
-import { kennung, type Db } from './db';
+import { SYSTEM, kennung, type Db } from './db';
 import { ROLLEN } from '../kern/rechte';
-import { Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss, stand } from './protokoll';
+import { ALLES_GESEHEN, Ablehnung, befehlAusfuehren, befehleSeit, schnappschuss, stand } from './protokoll';
 import * as anm from './anmeldung';
 import { versionKopieren, versionsregelnAnmelden } from './versionen';
 import { gebaeudemodellRegelnAnmelden } from './gebaeudemodell';
@@ -174,6 +176,15 @@ export async function baueServer(e: Einstellungen): Promise<FastifyInstance> {
   });
 
   // Kennwort: das eigene ändern (mit dem alten Kennwort) oder – als Administrator:in – das eines anderen setzen.
+  // Mein Konto: was jede:r am eigenen Konto selbst einstellt (KONTO_FELDER) – geprüft wie jede Eingabe, nur am eigenen Konto
+  app.post('/api/konto/einstellung', { preHandler: nurAngemeldet }, async (req) => {
+    const b = (req.body ?? {}) as { feld?: unknown; wert?: unknown };
+    if (!KONTO_FELDER.includes(String(b.feld))) throw new Ablehnung('Das stellt nur die Verwaltung ein');
+    await befehlAusfuehren(db, register, SYSTEM, { id: randomUUID(), gesehen: ALLES_GESEHEN, objekt: 'benutzer', art: 'aendern', objektId: req.benutzer!.id, werte: { [String(b.feld)]: (b.wert ?? '') as string } });
+    void verteilen();
+    return { ok: true };
+  });
+
   app.post('/api/kennwort', { preHandler: nurAngemeldet }, async (req, reply) => {
     const k = (req.body ?? {}) as { benutzerId?: string; kennwort?: unknown; altesKennwort?: unknown };
     const ich = req.benutzer!;

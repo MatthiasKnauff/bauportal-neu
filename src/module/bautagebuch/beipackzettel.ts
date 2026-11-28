@@ -23,7 +23,8 @@ export const tagesbericht: ObjektModell = {
     { name: 'uhrzeit', titel: 'Uhrzeit', art: 'auswahl', eigeneWerte: true, eigenerWert: { titel: 'Andere Zeit …', beispiel: 'Uhrzeit, z. B. 7:20' }, inListe: true, breite: 90, gruppe: 'Bericht',
       optionen: [{ wert: '', titel: '–' }, ...Array.from({ length: 68 }, (_, i) => { const t = `${String(5 + Math.floor(i / 4)).padStart(2, '0')}:${String((i % 4) * 15).padStart(2, '0')}`; return { wert: t, titel: t }; })] },
     { name: 'titel', titel: 'Kurzbeschreibung', art: 'text', verborgen: true },   // braucht der Tagesbericht nicht (26.11.2026) – bleibt für alte Einträge in der Datenbank
-    { name: 'bauleitung', titel: 'Bauleitung', art: 'verweis', ziel: 'benutzer', inListe: true, breite: 160, gruppe: 'Bericht' },
+    // wie bisher mehrere Personen (entschieden 28.11.2026): die Benutzer:innen vor Ort, gespeichert als „a,b“
+    { name: 'bauleitung', titel: 'Bauleitung vor Ort', art: 'mehrfach', ziel: 'benutzer', inListe: true, breite: 200, gruppe: 'Bericht' },
     { name: 'wetter', titel: 'Wetter', art: 'auswahl', inListe: true, breite: 120, gruppe: 'Wetter', optionen: [
       { wert: '', titel: 'keine Angabe' },
       { wert: 'sonnig', titel: 'Sonnig' },

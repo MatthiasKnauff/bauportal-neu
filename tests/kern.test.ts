@@ -495,7 +495,7 @@ test('Druckwerk: Seite aus dem Objekt, Einstellungen des Büros, nur was man seh
     await tun(db, leitung, { objekt: 'druckeinstellung', art: 'aendern', objektId: vorlage, werte: { wert: 'neu' } });
     s = await seiteBauen(db, register, als(leitung, 'bueroleitung'), A, b);
     assert.equal(s.name, 'Tagesbericht 7 24.11.2026 Haus -A- & Söhne.pdf');
-    for (const t of ['<h1 data-stelle="titel.text">Tagesbericht Nr. 7</h1>', '24.11.2026<', '<dt>Wetter</dt><dd>Regen</dd>', '<dd>4,5</dd>', '<dt>Bauleitung</dt><dd>leitung</dd>', '<dt>Baustelle aufgeräumt</dt><dd>Ja</dd>', '<dt>Maßkontrolle</dt><dd>Nein</dd>',
+    for (const t of ['<h1 data-stelle="titel.text">Tagesbericht Nr. 7</h1>', '24.11.2026<', '<dt>Wetter</dt><dd>Regen</dd>', '<dd>4,5</dd>', '<dt>Bauleitung vor Ort</dt><dd>leitung</dd>', '<dt>Baustelle aufgeräumt</dt><dd>Ja</dd>', '<dt>Maßkontrolle</dt><dd>Nein</dd>',
       'Haus &lt;A&gt; &amp; Söhne', '45127 Essen', '&lt;b&gt;fett?&lt;/b&gt;', 'GK3 · Tagesbericht Nr. 7 vom 24.11.2026', 'counter(pages)', '<h2>Mängel</h2>', '<h2>Anwesende</h2>', 'Rohbau Schmitz GmbH</td>', '01.12.2026', '>✓</td>']) assert.ok(s.html.includes(t), t);
     assert.ok(s.html.indexOf('Abstandhalter fehlen') < s.html.indexOf('Riss in der Sohle'), 'Einträge stehen in der Reihenfolge des Berichts');
     assert.ok(!s.html.includes('<h2>Weisungen</h2>'), 'leere Abschnitte fallen weg');
@@ -2487,5 +2487,11 @@ test('Bautagebuch: Erinnerung zur Frist wartet im Postausgang und folgt dem Eint
     const ohne = randomUUID();
     await tun(db, l.bau, { objekt: 'bericht_eintrag', art: 'anlegen', objektId: ohne, werte: { projekt: p, bericht: b, art: 'aufgabe', text: 'Plan schicken', frist: '2026-12-02' } });
     assert.equal((await db.query('select 1 from o_nachricht where quelle = $1', [`bericht_eintrag|${ohne}`])).rowCount, 0, 'ohne E-Mail-Adresse keine Erinnerung');
+    // Einstellung „an mich und die Bauleitung des Projekts“ (Mein Konto): auch die Mitglieder des Projekts
+    await tun(db, SYSTEM, { objekt: 'benutzer', art: 'aendern', objektId: l.mit.id, werte: { erinnerung: 'bauleitung' } });
+    await tun(db, SYSTEM, { objekt: 'benutzer', art: 'aendern', objektId: l.bau.id, werte: { email: 'bau@buero.de' } });
+    const zwei = randomUUID();
+    await tun(db, l.mit, { objekt: 'bericht_eintrag', art: 'anlegen', objektId: zwei, werte: { projekt: p, bericht: b, art: 'weisung', text: 'Gerüst umbauen', frist: '2026-12-04' } });
+    assert.deepEqual((await db.query("select an from o_nachricht where quelle = $1 and stand = 'wartet' order by an", [`bericht_eintrag|${zwei}`])).rows.map((z) => z.an), ['bau@buero.de', 'mit@buero.de']);
   } finally { await weg(); }
 });

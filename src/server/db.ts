@@ -224,6 +224,12 @@ export async function schemaAnlegen(db: Db, register: Modulregister): Promise<vo
         alter table o_bauteil add column aufbau uuid;
         update o_bauteil set _stand = (_stand - 'aufbau') || jsonb_build_object('material', _stand->'aufbau') where _stand ? 'aufbau';
       end if; end $u$`);
+    // Umstellung 28.11.2026: Bauleitung vor Ort sind mehrere Benutzer:innen („a,b“) statt einer
+    await c.query(`do $u$ begin
+      if exists (select 1 from information_schema.columns where table_name = 'o_tagesbericht' and column_name = 'bauleitung' and data_type = 'uuid') then
+        drop index if exists "o_tagesbericht_bauleitung_verweis";
+        alter table o_tagesbericht alter column bauleitung type text using coalesce(bauleitung::text, ''), alter column bauleitung set default '', alter column bauleitung set not null;
+      end if; end $u$`);
     // Umstellung 26.11.2026: der Fotos-Unterordner ist fest „Bautagebuch/Fotos“ – die Einstellung entfällt
     await c.query(`alter table o_ablage drop column if exists fotos_ordner; update o_ablage set _stand = _stand - 'fotos_ordner' where _stand ? 'fotos_ordner'`);
     // Umstellung 24.11.2026: Gebäudeart und Maßnahme haben die Auswahl des Assistenten bekommen – alte Werte auf die neuen

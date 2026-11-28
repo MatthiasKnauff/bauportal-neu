@@ -93,7 +93,7 @@ export async function altdatenPlanen(db: Db, register: Modulregister, wer: Benut
     const benutzer = new Map<string, string>((await c.query('select id, name from o_benutzer where not geloescht')).rows.map((b) => [String(b.name).toLowerCase(), b.id]));
     let ohneLeitung = 0;
     await abgleichen('tagesbericht', u.berichte.map((b) => {
-      const leitung = b.bauleitung.split(/[,;/]+/).map((n) => benutzer.get(n.trim().toLowerCase())).find(Boolean) ?? null;
+      const leitung = [...new Set(b.bauleitung.split(/[,;/]+/).map((n) => benutzer.get(n.trim().toLowerCase())).filter(Boolean))].join(',');
       if (b.bauleitung && !leitung) ohneLeitung++;
       return { kennung: b.kennung, werte: { ...b.werte, projekt: ort.projekt!.get(b.projekt)!, bauleitung: leitung } };
     }), alt);

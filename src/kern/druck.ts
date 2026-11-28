@@ -155,6 +155,7 @@ export function benennen(m: ObjektModell, w: Werte, verweis: (ziel: string, id: 
 export function feldtext(f: Feld, w: Wert | undefined, verweis: (ziel: string, id: string) => string): string {
   if (w === null || w === undefined) return '';
   if (f.art === 'auswahl') return f.optionen?.find((o) => o.wert === w)?.titel ?? String(w);
+  if (f.art === 'mehrfach' && f.ziel) return String(w).split(',').filter(Boolean).map((id) => verweis(f.ziel!, id)).filter(Boolean).join(', ');
   if (f.art === 'mehrfach') return f.optionen!.filter((o) => String(w).split(',').includes(o.wert)).map((o) => o.titel).join(', ');
   if (f.art === 'ja_nein') return w ? 'Ja' : '';
   if (f.art === 'datum') { const t = String(w); return t ? `${t.slice(8, 10)}.${t.slice(5, 7)}.${t.slice(0, 4)}` : ''; }

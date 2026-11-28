@@ -680,6 +680,11 @@ td.herkunft-ifc, td.herkunft-plan { box-shadow: inset 2px 0 0 color-mix(in srgb,
 .bt-wt { font-size: 11px; color: var(--text-still); padding: 2px 0; }
 .bt-tag { position: relative; min-width: 0; padding: 0; border: 0; background: transparent; border-radius: calc(8px * var(--rund)); min-height: 28px; font: inherit; font-size: 13px; color: var(--text-still); }
 .bt-tag.bericht { color: var(--text); font-weight: 700; cursor: pointer; }
+.schritt-wahl { display: flex; flex-direction: column; gap: 8px; } .schritt-wahl label { display: flex; gap: 8px; align-items: center; }
+.bt-zuordnen { display: flex; flex-direction: column; gap: 6px; } .bt-zuordnen-eintrag { display: flex; flex-direction: column; align-items: flex-start; text-align: left; } .bt-zuordnen-eintrag small { color: var(--text-still); }
+.bt-tag.markiert { background: var(--akzent-hell); } .bt-markiert { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+.bt-ring-zeile { display: flex; align-items: center; gap: 8px; margin: 6px 2px; } .bt-ring { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; flex: none; }
+.bt-ring b { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--flaeche); font-size: 11px; }
 .bt-tag.bericht::after { content: ''; position: absolute; left: 50%; bottom: 2px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--akzent); }
 .bt-tag.bericht:hover { background: var(--akzent-hell); }
 .bt-tag.heute { outline: 1px solid var(--rand-stark); }

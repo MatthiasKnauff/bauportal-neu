@@ -14,6 +14,13 @@ import { kiAnbindungen, kiOeffnen } from './ki';
 // Auswahl mit eigenen Werten (wie die Kontaktart im bisherigen Bauportal): die festen Optionen, dann die eigenen, die es
 // schon gibt, zuletzt „eigene … “ – das öffnet an derselben Stelle ein Eingabefeld (kein Systemdialog).
 const EIGEN = '\u0000eigen';
+/** Optionen einer Mehrfach-Auswahl: fest aus dem Modell oder – mit „ziel“ – die Einträge des Ziels (z. B. Benutzer:innen); Gewähltes bleibt. */
+function mehrfachOptionen(f: Feld, wert: string): { wert: string; titel: string }[] {
+  if (!f.ziel) return f.optionen!;
+  const da = new Set(wert.split(',').filter(Boolean));
+  return Object.values(sicht[f.ziel] ?? {}).filter((z) => (!z.geloescht && z.werte.gesperrt !== true) || da.has(z.id)).map((z) => ({ wert: z.id, titel: verweisname(f.ziel!, z.id) }))
+    .sort((a, b) => a.titel.localeCompare(b.titel, 'de'));
+}
 function EigeneAuswahl(p: { id: string; feld: Feld; wert: string; objekt?: string; gesperrt?: boolean; blass?: boolean; onWert: (w: Wert) => void }) {
   const [eingabe, setEingabe] = createSignal(false);
   const [angefasst, setAngefasst] = createSignal(false);   // die eigenen Werte aller Einträge erst sammeln, wenn jemand die Auswahl öffnet
@@ -167,10 +174,10 @@ export function FeldEingabe(p: {
         </Match>
         <Match when={p.feld.art === 'mehrfach'}>
           <div class="auswahl" role="group" id={id} aria-label={p.feld.titel}>
-            <For each={p.feld.optionen}>{(o) => {
+            <For each={mehrfachOptionen(p.feld, text())}>{(o) => {
               const an = () => text().split(',').includes(o.wert);
               return <button type="button" role="checkbox" aria-checked={an()} classList={{ aktiv: an() }} disabled={p.gesperrt}
-                onClick={() => p.onWert(p.feld.optionen!.filter((x) => (x.wert === o.wert) !== text().split(',').includes(x.wert)).map((x) => x.wert).join(','))}>{o.titel}</button>;
+                onClick={() => p.onWert(mehrfachOptionen(p.feld, text()).filter((x) => (x.wert === o.wert) !== text().split(',').includes(x.wert)).map((x) => x.wert).join(','))}>{o.titel}</button>;
             }}</For>
           </div>
         </Match>

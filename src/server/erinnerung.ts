@@ -17,21 +17,26 @@ export function erinnerungsregelnAnmelden(): void {
     async nach(c, b, vorher, werte) {
       if (b.art === 'aendern' && !werte) return [];
       const quelle = `bericht_eintrag|${b.objektId}`;
-      const warten = (await c.query("select id from o_nachricht where quelle = $1 and stand = 'wartet' and not geloescht", [quelle])).rows.map((z) => String(z.id));
+      const warten = (await c.query("select id, an from o_nachricht where quelle = $1 and stand = 'wartet' and not geloescht", [quelle])).rows.map((z) => ({ id: String(z.id), an: String(z.an).trim().toLowerCase() }));
       const folge = (objektId: string, art: Befehl['art'], w: Werte): Befehl => ({ id: randomUUID(), objekt: 'nachricht', art, objektId, werte: w, gesehen: b.gesehen });
-      const verwerfen = () => warten.map((id) => folge(id, 'aendern', { stand: 'verworfen' }));
-      if (b.art === 'loeschen') return verwerfen();
+      if (b.art === 'loeschen') return warten.map((x) => folge(x.id, 'aendern', { stand: 'verworfen' }));
       const e = { ...(vorher as Werte | undefined), ...werte } as Werte;
       const pr = e.projekt ? (await c.query('select nummer, name from o_projekt where id = $1', [e.projekt])).rows[0] : undefined;
       const be = e.bericht ? (await c.query('select nummer, datum from o_tagesbericht where id = $1', [e.bericht])).rows[0] : undefined;
-      const an = e.erinnern ? String((await c.query('select email from o_benutzer where id = $1 and not geloescht', [e.erinnern])).rows[0]?.email ?? '') : '';
-      const soll = an.includes('@') ? erinnerungFuer(e, [pr?.nummer, pr?.name].filter(Boolean).join(' '), { nummer: be?.nummer, datum: be?.datum }) : null;
-      if (!soll) return verwerfen();
-      const w: Werte = { an, betreff: soll.betreff, text: soll.text, faellig: soll.faellig };
-      if (warten.length) return warten.map((id) => folge(id, 'aendern', w));
+      // an wen: wer die Frist gesetzt hat – mit der Einstellung „an mich und die Bauleitung des Projekts“ auch die Mitglieder des Projekts
+      const setzer = e.erinnern ? (await c.query('select email, erinnerung from o_benutzer where id = $1 and not geloescht and not gesperrt', [e.erinnern])).rows[0] : undefined;
+      const weitere = setzer?.erinnerung === 'bauleitung' && e.projekt ? (await c.query(`select b.email from o_projekt_mitglied m join o_benutzer b on b.id = m.benutzer
+        where m.projekt = $1 and not m.geloescht and not b.geloescht and not b.gesperrt and b.id <> $2`, [e.projekt, e.erinnern])).rows.map((z) => String(z.email ?? '')) : [];
+      const an = [...new Set([String(setzer?.email ?? ''), ...weitere].map((x) => x.trim().toLowerCase()).filter((x) => x.includes('@')))];
+      const soll = an.length ? erinnerungFuer(e, [pr?.nummer, pr?.name].filter(Boolean).join(' '), { nummer: be?.nummer, datum: be?.datum }) : null;
+      if (!soll) return warten.map((x) => folge(x.id, 'aendern', { stand: 'verworfen' }));
+      const w: Werte = { betreff: soll.betreff, text: soll.text, faellig: soll.faellig };
       // neu nur, wenn die Frist (oder wer erinnert wird) gerade gesetzt wurde oder der Eintrag wieder offen ist – nicht nach jeder Textänderung
       const neu = b.art === 'anlegen' || 'frist' in (werte ?? {}) || 'erinnern' in (werte ?? {}) || (werte?.erledigt === false && vorher?.erledigt === true);
-      return neu ? [folge(randomUUID(), 'anlegen', { ...w, art: 'erinnerung', stand: 'wartet', projekt: e.projekt ?? null, quelle })] : [];
+      return [
+        ...warten.map((x) => (an.includes(x.an) ? folge(x.id, 'aendern', w) : folge(x.id, 'aendern', { stand: 'verworfen' }))),
+        ...(neu || warten.length ? an.filter((a) => !warten.some((x) => x.an === a)).map((a) => folge(randomUUID(), 'anlegen', { ...w, an: a, art: 'erinnerung', stand: 'wartet', projekt: e.projekt ?? null, quelle })) : []),
+      ];
     },
   });
 }

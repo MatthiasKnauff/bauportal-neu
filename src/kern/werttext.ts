@@ -18,6 +18,7 @@ export function wertAusText(f: Feld, text: string): Wert | undefined {
       ?? (f.name === 'din' ? f.optionen?.find((x) => x.titel.toLowerCase() === `din ${t.toLowerCase()}`) : undefined);   // „L“ → „DIN L“ wie bisher
     return o ? o.wert : f.eigeneWerte ? t : undefined;
   }
+  if (f.art === 'mehrfach' && f.ziel) return undefined;   // mehrere Verweise: nicht aus Text
   if (f.art === 'mehrfach') {
     const teile = t.toLowerCase().split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
     return (f.optionen ?? []).filter((o) => teile.some((x) => x === o.titel.toLowerCase() || x === o.wert.toLowerCase() || o.titel.toLowerCase().startsWith(x))).map((o) => o.wert).join(',');

@@ -42,6 +42,8 @@ const [eintrag, setEintrag] = createSignal<string | null>(null);
 const [bearbeiten, setBearbeiten] = createSignal(false);
 const [bearbeitenBei, setBearbeitenBei] = createSignal<string>();   // Gruppe, die direkt im Bericht offen ist (Stift am Kopf: Bericht, am Wetter: Wetter)
 const [foto, setFoto] = createSignal<string | null>(null);   // rechts groß gezeigtes Foto des Berichts
+// Im Kalender mit Umschalt+Klick markierter Zeitraum (wie bisher) – „Mehrere Berichte drucken“ nimmt ihn
+const [markiert, setMarkiert] = createSignal<{ von: string; bis: string } | null>(null);
 
 /** Die Abschnitte eines Berichts – Reihenfolge wie im alten Bautagebuch. */
 /** Projekt nach Standort (wie bisher): das nächste aktive Projekt – näher als 600 m wird es gewählt, sonst nur genannt. */
@@ -79,6 +81,16 @@ const anzahl = (bericht: string, a: (typeof ABSCHNITTE)[number]) =>
 const neuIn = new Map<string, () => void>();
 const zumAbschnitt = (id: string) => document.getElementById(`abschnitt-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+/** Wie weit der Bericht ist (wie bisher der Ring „n/m Abschnitte ausgefüllt“): Kopf, Wetter, Anwesende und Bilder brauchen etwas;
+ *  Notizen, Mängel, Aufgaben und Weisungen dürfen leer bleiben. */
+function Ausgefuellt(p: { bericht: Zeile }) {
+  const teile = () => { const w = p.bericht.werte, n = (id: string) => anzahl(p.bericht.id, ABSCHNITTE.find((a) => a.id === id)!) > 0;
+    return [true, w.temperatur != null || !!w.wetter, n('anwesend'), true, n('fotos'), true, true, true]; };
+  const fertig = () => teile().filter(Boolean).length, alle = () => teile().length, pr = () => Math.round((fertig() / alle()) * 100);
+  return <div class="bt-ring-zeile"><span class="bt-ring" style={{ background: `conic-gradient(var(--akzent) 0 ${pr()}%, var(--still-hell) 0)` }}><b>{fertig()}/{alle()}</b></span>
+    <span class="klein-text">{pr() >= 100 ? 'alle Abschnitte ausgefüllt' : 'Abschnitte ausgefüllt'}</span></div>;
+}
+
 // ---------- links: Kalender oder Liste, darunter die Abschnitte ----------
 export function BerichtLinks(p: Mitte) {
   const [form, setForm] = createSignal(hole('bp.bautagebuch.links', 'kalender'));
@@ -115,12 +127,19 @@ export function BerichtLinks(p: Mitte) {
           <div class="bt-tage" role="grid" aria-label={titelMonat()}>
             <For each={['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']}>{(t) => <span class="bt-wt">{t}</span>}</For>
             <For each={tage()}>{(d) => d ? (() => { const b = () => proTag().get(d) ?? []; return (
-              <button class="bt-tag" classList={{ bericht: b().length > 0, an: !!gewaehlt() && gewaehlt()!.werte.datum === d, heute: d === heute() }}
+              <button class="bt-tag" classList={{ bericht: b().length > 0, an: !!gewaehlt() && gewaehlt()!.werte.datum === d, heute: d === heute(), markiert: !!markiert() && d >= markiert()!.von && d <= markiert()!.bis }}
                 disabled={!b().length} aria-label={`${datumText(d)}${b().length ? `: ${b().length} Bericht${b().length > 1 ? 'e' : ''}` : ''}`}
-                onClick={() => { const z = b(); if (z.length) waehle(z[z.length - 1]!.id); }}>{Number(d.slice(8))}</button>); })() : <span />}</For>
+                title={b().length ? 'Umschalt+Klick: Zeitraum bis hier markieren (zum Drucken)' : undefined}
+                onClick={(e) => { const z = b(); if (!z.length) return;
+                  if (e.shiftKey && gewaehlt()?.werte.datum) { const a = String(gewaehlt()!.werte.datum); setMarkiert(a < d ? { von: a, bis: d } : { von: d, bis: a }); return; }
+                  setMarkiert(null); waehle(z[z.length - 1]!.id); }}>{Number(d.slice(8))}</button>); })() : <span />}</For>
           </div>
         </div>
       </Show>
+      <Show when={markiert()}>{(mk) => <p class="bt-markiert klein-text">Markiert: {datumText(mk().von)} – {datumText(mk().bis)} · {p.alle().filter((z) => String(z.werte.datum) >= mk().von && String(z.werte.datum) <= mk().bis).length} Berichte
+        <button type="button" class="knopf klein" disabled={!ausdrucke('tagesbericht').length} onClick={() => { const ids = p.alle().filter((z) => String(z.werte.datum) >= mk().von && String(z.werte.datum) <= mk().bis)
+          .sort((a, b) => String(a.werte.datum).localeCompare(String(b.werte.datum))).map((z) => z.id); if (ids.length) druckOeffnen(ausdrucke('tagesbericht')[0]!.id, ids[0]!, ids); }}>Drucken …</button> <button type="button" class="knopf klein still" aria-label="Markierung aufheben" onClick={() => setMarkiert(null)}>×</button></p>}</Show>
+      <Show when={gewaehlt()}>{(g) => <Ausgefuellt bericht={g()} />}</Show>
       <Show when={gewaehlt()}>{(g) => (
         <Seitenliste name="Abschnitte des Berichts" aktiv="" abschnitte={[{ titel: `Tagesbericht Nr. ${String(g().werte.nummer ?? '')} · ${datumText(g().werte.datum)}`,
           eintraege: [{ id: 'kopf', titel: 'Tagesbericht', zeichen: 'bericht' }, ...ABSCHNITTE.map((a) => ({ id: a.id, titel: a.titel, zeichen: a.zeichen, anzahl: anzahl(g().id, a) }))] },
@@ -280,6 +299,24 @@ const fotosZumNeuen = async (b: Zeile, id: string, d: File[]) => {
   for (let i = 0; i < 150 && wartendAnzahl() > 0; i++) await new Promise((r) => setTimeout(r, 100));
   await fotosAnEintrag({ id, geloescht: false, werte: { projekt: b.werte.projekt ?? null, bericht: b.id } }, d);
 };
+/** Foto zuordnen (wie bisher nach „Foto aufnehmen“ im ＋): nur unter „Bilder“ oder an einen Eintrag des Berichts. */
+function FotoZuordnen(p: { bericht: Zeile; dateien: File[]; onZu: () => void }) {
+  const titel = (art: string) => ABSCHNITTE.find((a) => a.art === art)?.titel ?? '';
+  const eintraege = () => lebende('bericht_eintrag').filter((e) => e.werte.bericht === p.bericht.id && e.werte.art !== 'anwesend' && String(e.werte.text ?? '').trim())
+    .sort((a, b) => ABSCHNITTE.findIndex((x) => x.art === a.werte.art) - ABSCHNITTE.findIndex((x) => x.art === b.werte.art) || Number(a.werte.reihe ?? 0) - Number(b.werte.reihe ?? 0));
+  const ablegen = (eintrag?: Zeile) => {
+    const d = p.dateien, fest = { projekt: p.bericht.werte.projekt ?? null, bericht: p.bericht.id };   // vor dem Schließen lesen – danach gibt es das Fenster nicht mehr
+    p.onZu();
+    void (eintrag ? fotosAnEintrag(eintrag, d) : fotosHochladen('/api/foto', fest, d, () => {})); };
+  return (
+    <Dialog titel="Foto zuordnen" onAbbrechen={p.onZu} knoepfe={<button class="knopf" onClick={p.onZu}>Abbrechen</button>}>
+      <div class="bt-zuordnen">
+        <button type="button" class="knopf" onClick={() => ablegen()}>Nur unter „Bilder“ ablegen</button>
+        <For each={eintraege()}>{(e) => <button type="button" class="knopf bt-zuordnen-eintrag" onClick={() => ablegen(e)}><small>{titel(String(e.werte.art))}</small>{String(e.werte.text).split('\n')[0]!.slice(0, 60)}</button>}</For>
+      </div>
+    </Dialog>
+  );
+}
 /** Fotos zu einem Eintrag (wie bisher): klein in der Zeile, groß unter „Bilder“; die Kamera nimmt eins dazu. */
 function EintragFotos(p: { eintrag: Zeile }): JSX.Element {
   const fotos = createMemo(() => lebende('foto').filter((f) => f.werte.eintrag === p.eintrag.id));
@@ -345,7 +382,10 @@ function Schritte(p: { bericht: Zeile; steuer?: (oeffnen: () => void) => void })
     ...ABSCHNITTE.map((a) => ({ titel: a.titel, inhalt: l[a.id]! })),
     { titel: 'Kontrollen', inhalt: felder('Kontrollen') },
   ];
-  return <Schrittweise knopf="Schritt für Schritt" titel="Tagesbericht" schritte={schritte} steuer={p.steuer} />;
+  // Schritte wählen (wie bisher je Benutzer:in, auf allen Geräten)
+  const wahl = { aus: () => String(sicht.benutzer?.[ich().id]?.werte.schritte_aus ?? '').split(',').filter(Boolean),
+    setzen: (aus: string[]) => void ruf('/api/konto/einstellung', { feld: 'schritte_aus', wert: aus.join(',') }).catch((e: Error) => hinweis(e.message, { art: 'fehler' })) };
+  return <Schrittweise knopf="Schritt für Schritt" titel="Tagesbericht" schritte={schritte} steuer={p.steuer} wahl={wahl} />;
 }
 
 // Werkzeuge des Berichts (Diktieren, Schritt für Schritt) stehen wie im bisherigen Bauportal in der Menüleiste;
@@ -355,7 +395,7 @@ function Kopf(p: { bericht: Zeile; werkzeuge: Werkzeuge }) {
   const m = modell('tagesbericht');
   const w = () => p.bericht.werte;
   const feld = (n: string) => m.felder.find((f) => f.name === n)!;
-  const bauleitung = () => (w().bauleitung ? String(sicht.benutzer?.[String(w().bauleitung)]?.werte.name ?? '') : '');
+  const bauleitung = () => String(w().bauleitung ?? '').split(',').filter(Boolean).map((id) => String(sicht.benutzer?.[id]?.werte.name ?? '')).filter(Boolean).join(', ');
   const zahl = (x: unknown, e: string) => (x == null || x === '' ? '' : `${Number(x).toLocaleString('de-DE')} ${e}`);
   const wetter = () => [zahl(w().temperatur, '°C'), anzeige(feld('wetter'), w().wetter as never), w().niederschlag == null ? '' : Number(w().niederschlag) ? zahl(w().niederschlag, 'mm') : 'trocken', zahl(w().wind, 'km/h'), zahl(w().luftfeuchte, '%')].filter((x) => x && x !== 'keine Angabe');
   const kontrollen = () => m.felder.filter((f) => f.gruppe === 'Kontrollen' && f.art === 'ja_nein');
@@ -428,7 +468,8 @@ function Abschnitt(p: { a: (typeof ABSCHNITTE)[number]; bericht: Zeile; inhalt: 
   const schluessel = `bp.bautagebuch.zu.${p.a.id}`;
   const [zu, setZu] = createSignal(hole(schluessel, '') === 'zu');
   let karte!: HTMLElement;
-  const neu = () => { setZu(false); merke(schluessel, ''); queueMicrotask(() => { karte.scrollIntoView({ behavior: 'smooth', block: 'start' }); karte.querySelector<HTMLElement>('.unterliste-neu, .unterliste .auswahlliste-knopf, .bilder input[type=file], .bilder button')?.focus(); }); };
+  const neu = () => { setZu(false); merke(schluessel, ''); queueMicrotask(() => { karte.scrollIntoView({ behavior: 'smooth', block: 'start' }); // das Eingabefeld für Neues – der Reihe nach gesucht (ein Sammel-Selektor fände sonst zuerst ein Feld in einem vorhandenen Eintrag)
+    (['.unterliste-neu', '[aria-label^="Firma hinzufügen"]', '.bilder input[type=file]', '.bilder button'].map((x) => karte.querySelector<HTMLElement>(x)).find(Boolean))?.focus(); }); };
   neuIn.set(p.a.id, neu); onCleanup(() => { if (neuIn.get(p.a.id) === neu) neuIn.delete(p.a.id); });
   return (
     <section class={`bt-karte bt-${p.a.id}`} id={`abschnitt-${p.a.id}`} ref={karte} aria-label={p.a.titel}>
@@ -461,6 +502,14 @@ export function Berichtsseite(p: Mitte) {
     if (id === p.gewaehlt()) { dann(); return; }
     p.onWahl(id); setTimeout(dann, 30);
   };
+  /** Neuer Bericht (wie bisher im ＋): heute, nächste Nummer – auch wenn es schon einen von heute gibt. */
+  const neuerBerichtHeute = () => {
+    if (!darf('tagesbericht', 'schreiben') || !projektId()) return;
+    const id = neueKennung();
+    ausfuehren({ objekt: 'tagesbericht', art: 'anlegen', objektId: id, werte: { projekt: projektId()!, ...neuerBericht(p.alle(), ich().id) } }, 'Tagesbericht anlegen');
+    p.onWahl(id);
+  };
+  const [zuordnen, setZuordnen] = createSignal<File[] | null>(null);
   // Ein älterer Bericht wird nur nach Rückfrage geändert (einmal je Bericht und Sitzung) – Tippen in Felder, Schalter, Knöpfe der Einträge
   const [frage, setFrage] = createSignal<{ weiter: () => void } | null>(null);
   const alt = () => { const b = bericht(); return !!b && !!b.werte.datum && String(b.werte.datum) < heute() && !altOk.has(b.id) && darf('tagesbericht', 'schreiben'); };
@@ -547,17 +596,26 @@ export function Berichtsseite(p: Mitte) {
           <Show when={hinzu()}>
             <Dialog titel="Hinzufügen" onAbbrechen={() => setHinzu(false)} knoepfe={<button class="knopf" onClick={() => setHinzu(false)}>Abbrechen</button>}>
               <div class="bt-kacheln">
-                <For each={ABSCHNITTE.filter((a) => darf(a.id === 'fotos' ? 'foto' : 'bericht_eintrag', 'schreiben'))}>{(a) => (
+                {/* wie bisher zuerst: Foto aufnehmen · aus der Mediathek – danach zuordnen (nur unter Bilder oder an einen Eintrag) */}
+                <Show when={darf('foto', 'schreiben')}>
+                  <label class="bt-kachel"><span class="bt-symbol"><Zeichen name="foto" groesse={18} /></span><b>Foto aufnehmen</b>
+                    <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; setHinzu(false); if (f.length) setZuordnen(f); }} /></label>
+                  <label class="bt-kachel"><span class="bt-symbol"><Zeichen name="foto" groesse={18} /></span><b>Foto aus Mediathek</b>
+                    <input type="file" accept="image/*,.heic,.heif" multiple hidden onChange={(e) => { const f = [...(e.currentTarget.files ?? [])]; e.currentTarget.value = ''; setHinzu(false); if (f.length) setZuordnen(f); }} /></label>
+                </Show>
+                <For each={ABSCHNITTE.filter((a) => a.id !== 'fotos' && darf('bericht_eintrag', 'schreiben'))}>{(a) => (
                   <button type="button" class={`bt-kachel bt-${a.id}`} onClick={() => { setHinzu(false); setFokus(a.id); queueMicrotask(() => neuIn.get(a.id)?.()); }}>
                     <span class="bt-symbol"><Zeichen name={a.zeichen} groesse={18} /></span><b>{a.id === 'fotos' ? 'Foto' : a.titel}</b>
                   </button>
                 )}</For>
                 <Show when={darf('bericht_eintrag', 'schreiben')}>
+                  <button type="button" class="bt-kachel" onClick={() => { setHinzu(false); neuerBerichtHeute(); }}><span class="bt-symbol"><Zeichen name="bericht" groesse={18} /></span><b>Neuer Bericht</b></button>
                   <button type="button" class="bt-kachel" onClick={() => { setHinzu(false); werkzeuge.diktat?.(); }}><span class="bt-symbol"><Zeichen name="diktieren" groesse={18} /></span><b>Diktieren</b></button>
                 </Show>
               </div>
             </Dialog>
           </Show>
+          <Show when={zuordnen()}>{(f) => <FotoZuordnen bericht={b()} dateien={f()} onZu={() => setZuordnen(null)} />}</Show>
         </>);
       }}</Show>
     </div>
@@ -580,8 +638,8 @@ function MehrereDrucken(p: { bericht: Zeile; ausdruck: string; zu: () => void })
     .sort((a, b) => String(a.werte.datum).localeCompare(String(b.werte.datum)) || Number(a.werte.nummer ?? 0) - Number(b.werte.nummer ?? 0));
   const datumFeld = (name: string, titel: string): Feld => ({ name, titel, art: 'datum' });
   const [art, setArt] = createSignal<'zeit' | 'alle'>('zeit');
-  const [von, setVon] = createSignal<Wert>(String(p.bericht.werte.datum ?? ''));
-  const [bis, setBis] = createSignal<Wert>(String(p.bericht.werte.datum ?? ''));
+  const [von, setVon] = createSignal<Wert>(markiert()?.von ?? String(p.bericht.werte.datum ?? ''));
+  const [bis, setBis] = createSignal<Wert>(markiert()?.bis ?? String(p.bericht.werte.datum ?? ''));
   const ids = () => {
     if (art() === 'alle') return alle().map((z) => z.id);
     const [a, b] = [String(von() ?? ''), String(bis() ?? '')].sort();
