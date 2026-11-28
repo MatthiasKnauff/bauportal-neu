@@ -15,9 +15,11 @@ export interface Neuigkeit {
 }
 
 export const NEUIGKEITEN: Neuigkeit[] = [
-  { id: '2026-11-28-bsp-vorlage', zeit: '2026-11-28T20:00', app: 'ava', ansicht: 'besprechungen', titel: 'Angebotsbesprechung wie dein Protokoll',
+  { id: '2026-11-28-mitglied', zeit: '2026-11-28T21:00', app: 'verwaltung', ansicht: 'projekte', titel: 'Fehler behoben: Projekt blieb nach Entfernen der Mitgliedschaft sichtbar',
+    text: 'Wurde jemandem die Mitgliedschaft entzogen, stand das Projekt bei ihr/ihm noch in der Liste, bis die Seite neu geladen war. Jetzt verschwindet es sofort.' },
+  { id: '2026-11-28-bsp-vorlage', zeit: '2026-11-28T20:00', stand: '5e603a0', app: 'ava', ansicht: 'besprechungen', titel: 'Angebotsbesprechung wie dein Protokoll',
     text: 'Das Protokoll steht wieder wie die Vorlage (Tischlerei Blank): eine Angabe je Zeile mit den Abschnitten „Angaben zur Bieter:in“, „Angaben zum Angebot“, „Termine“, „Grundlagen“, dazu „Angebotssumme nach Prüfung“ (netto zuzüglich MwSt., brutto), der Satz „Dieses Protokoll wird bei einer Auftragserteilung Bestandteil des Vertrages!“ und drei Unterschriften: Bauherr:in, Architekt:in, Bieter:in.' },
-  { id: '2026-11-28-kleinigkeiten', zeit: '2026-11-28T20:00', app: '', titel: 'Kleinigkeiten nach deinen Bildern',
+  { id: '2026-11-28-kleinigkeiten', zeit: '2026-11-28T20:00', stand: '5e603a0', app: '', titel: 'Kleinigkeiten nach deinen Bildern',
     text: 'Bauzeitenplan: „Drucken“ mit Drucker statt „PDF“, „In einem Satz“ mit eigenem Symbol. Adressen als Kacheln: der Auswahl-Haken liegt nicht mehr als Schalter über dem Namen.' },
   { id: '2026-11-28-terminplan-durch', zeit: '2026-11-28T19:30', stand: 'bf3fe95', app: 'bauzeitenplan', ansicht: 'plan', titel: 'Terminplan durch – bitte ansehen',
     text: 'Inventur aus dem alten Quelltext abgehakt, Bildvergleich gemacht. Bewusst später: 3D-Baukasten (mit dem Gebäudemodell), Teilen-Link (mit dem Bauherrenportal), Terminrüge (mit Post & Vorgänge).' },

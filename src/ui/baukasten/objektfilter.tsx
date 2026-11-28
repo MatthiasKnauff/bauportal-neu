@@ -44,7 +44,8 @@ export function objektFilter(o: { schluessel: string; modell: ObjektModell; lfs:
     return k;
   });
   const projektName = (id: string) => String(sicht.projekt?.[id]?.werte.name ?? '(Projekt nicht sichtbar)');
-  const werteVon = (id: string) => roh(sicht[m.name]![id]!).werte;
+  // ohne Abhängigkeit vom Speicher: neu gerechnet wird über „lebend“ (geaendert) – sonst liefe eine Rechnung mit Kennungen, die es nach dem Abgleich nicht mehr gibt
+  const werteVon = (id: string) => untrack(() => roh(sicht[m.name]![id]!).werte);
   const arten = createMemo((): FilterArt[] => [
     ...lfs.map((lf, nr): FilterArt => {
       if (lf.beteiligt) return { key: `l${nr}`, titel: lf.art ?? lf.titel, werte: (id) => projekteVon().get(id) ?? [], wertTitel: projektName };
